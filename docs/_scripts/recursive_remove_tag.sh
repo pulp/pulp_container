@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo "Create a task to recursively remove the same tag to the repo."
-export TASK_HREF=$(http POST $BASE_ADDR'/pulp/api/v3/docker/recursive-remove/' \
+export TASK_HREF=$(http POST $BASE_ADDR'/pulp/api/v3/container/recursive-remove/' \
   repository=$DEST_REPO_HREF \
   content_units:="[\"$TAG_HREF\"]" \
   | jq -r '.task')

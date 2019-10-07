@@ -1,5 +1,5 @@
 [tool.towncrier]
-package = "pulp_docker"
+package = "pulp_container"
 filename = "CHANGES.rst"
 directory = "CHANGES/"
 title_format = "{version} ({project_date})"

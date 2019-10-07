@@ -6,7 +6,7 @@ export DIST_NAME='testing-tagging'
 export DIST_BASE_PATH='tag'
 
 echo "Publishing the latest repository."
-export TASK_URL=$(http POST $BASE_ADDR/pulp/api/v3/distributions/docker/docker/ \
+export TASK_URL=$(http POST $BASE_ADDR/pulp/api/v3/distributions/container/container/ \
   name=$DIST_NAME base_path=$DIST_BASE_PATH repository=$REPO_HREF \
   | jq -r '.task')
 

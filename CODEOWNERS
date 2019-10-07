@@ -1,2 +1,2 @@
 # have QE own the functional tests
-/pulp_docker/tests/functional/ @pulp/qe
+/pulp_container/tests/functional/ @pulp/qe

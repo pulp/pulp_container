@@ -1,15 +1,15 @@
 .. _host:
 
-Host and Consume a Docker Repository
-====================================
+Host and Consume a Container Repository 
+=======================================
 
 This section assumes that you have a repository with content in it. To do this, see the
 :doc:`sync` documentation.
 
-Create a Docker Distribution to serve your Repository Version
--------------------------------------------------------------
+Create a Container Distribution to serve your Repository Version
+----------------------------------------------------------------
 
-Docker Distributions can be used to serve the Docker registry API
+Container Distributions can be used to serve the Container registry API
 containing the content in a repository's latest version or a specified
 repository version.
 
@@ -22,7 +22,7 @@ Response:
 
     {
         "pulp_created": "2019-09-05T14:29:51.742086Z",
-        "pulp_href": "/pulp/api/v3/distributions/docker/docker/1b461dac-0839-4049-aa8f-92f8e8f7f034/",
+        "pulp_href": "/pulp/api/v3/distributions/container/container/1b461dac-0839-4049-aa8f-92f8e8f7f034/",
         "base_path": "test",
         "content_guard": null,
         "name": "testing-hello",
@@ -33,12 +33,12 @@ Response:
 
 
 
-Reference: `Docker Distribution Usage <../restapi.html#tag/distributions>`_
+Reference: `Container Distribution Usage <../restapi.html#tag/distributions>`_
 
 Pull and run an image from Pulp
 -------------------------------
 
-Once a distribution is configured to host a repository with Docker
+Once a distribution is configured to host a repository with Container
 images in it, that content can be consumed by container clients.
 
 Podman

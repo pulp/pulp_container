@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo "Create a task to copy all manifests from source to destination repo."
-export TASK_HREF=$(http POST $BASE_ADDR'/pulp/api/v3/docker/manifests/copy/' \
+export TASK_HREF=$(http POST $BASE_ADDR'/pulp/api/v3/container/manifests/copy/' \
   source_repository=$REPO_HREF \
   destination_repository=$DEST_REPO_HREF \
   | jq -r '.task')

@@ -1,21 +1,21 @@
 .. _content-management:
 
-Manage Docker Content in a Repository
-=====================================
+Manage Container Content in a Repository
+========================================
 
-There are multiple ways that users can manage Docker content in repositories:
+There are multiple ways that users can manage Container content in repositories:
 
    1. :ref:`Tag<tagging-workflow>` or :ref:`Untag<untagging-workflow>` Manifests in a repository.
-   2. Recursively :ref:`add<recursive-add>` or :ref:`remove<recursive-remove>` Docker content.
+   2. Recursively :ref:`add<recursive-add>` or :ref:`remove<recursive-remove>` Container content.
    3. Copy :ref:`tags<tag-copy>` or :ref:`manifests <manifest-copy>` from source repository.
 
 .. warning::
 
-   Users **can but probably should not not** add and remove Docker
+   Users **can but probably should not not** add and remove Container
    content directly using the `repository version create endpoint
    <https://docs.pulpproject.org/en/3.0/nightly/restapi.html#operation/repositories_versions_create>`_.
    This endpoint should be reserved for advanced usage and is considered
-   **unsafe** for Docker content, because it is not recursive and it
+   **unsafe** for Container content, because it is not recursive and it
    allows users to create **corrupted repositories**.
 
 Each of these workflows kicks off a task, and when the task is complete,
@@ -50,7 +50,7 @@ digest, the tag associated with the old manifest is going to be
 eliminated in a new repository version. Note that a tagging of same
 images with existing names still creates a new repository version.
 
-Reference: `Docker Tagging Usage <../restapi.html#tag/docker:-tag>`_
+Reference: `Container Tagging Usage <../restapi.html#tag/container:-tag>`_
 
 .. _untagging-workflow:
 
@@ -68,19 +68,19 @@ corresponding tag. The removed tag however still persists in a database.
 When a client tries to untag an image that was already untagged, a new
 repository version is created as well.
 
-Reference: `Docker Untagging Usage <../restapi.html#tag/docker:-untag>`_
+Reference: `Container Untagging Usage <../restapi.html#tag/container:-untag>`_
 
 .. _recursive-add:
 
 Recursively Add Content to a Repository
 ---------------------------------------
 
-Any Docker content can be added to a repository version with the
+Any Container content can be added to a repository version with the
 recursive-add endpoint. Here, "recursive" means that the content will be
 added, as well as all related content.
 
 
-.. _docker-content-relations:
+.. _container-content-relations:
 
 Relations:
    - Adding a **tag**  will also add the tagged manifest and its related
@@ -119,29 +119,29 @@ New Repository Version::
        "base_version": null,
        "content_summary": {
            "added": {
-               "docker.tag": {
+               "container.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/container/tags/?repository_version_added=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                }
            },
            "present": {
-               "docker.blob": {
+               "container.blob": {
                    "count": 20,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/container/blobs/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                },
-               "docker.manifest": {
+               "container.manifest": {
                    "count": 10,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/container/manifests/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                },
-               "docker.tag": {
+               "container.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/container/tags/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                }
            },
            "removed": {
-               "docker.tag": {
+               "container.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_removed=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/container/tags/?repository_version_removed=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                }
            }
        },
@@ -153,14 +153,14 @@ New Repository Version::
    Directly adding a manifest that happens to be tagged in another repo
    will **not** include its tags.
 
-Reference: `Docker Recursive Add Usage <../restapi.html#tag/docker:-recursive-add>`_
+Reference: `Container Recursive Add Usage <../restapi.html#tag/container:-recursive-add>`_
 
 .. _recursive-remove:
 
 Recursively Remove Content from a Repository
 --------------------------------------------
 
-Any Docker content can be removed from a repository version with the
+Any Container content can be removed from a repository version with the
 recursive-remove endpoint. Recursive remove is symmetrical with
 recursive add, meaning that performing a recursive-add and a
 recursive-remove back-to-back with the same content will result in the
@@ -178,7 +178,7 @@ that will stay in the repository. For example, if a manifest is tagged,
 the manifest cannot be removed from the repository-- instead the tag
 should be removed.
 
-See :ref:`relations<docker-content-relations>`
+See :ref:`relations<container-content-relations>`
 
 Continuing from the :ref:`recursive add workflow<recursive-add>`, we can
 remove the tag and the related content that is no longer needed.
@@ -199,24 +199,24 @@ New Repository Version::
               "added": {},
               "present": {},
               "removed": {
-                  "docker.blob": {
+                  "container.blob": {
                       "count": 20,
-                      "href": "/pulp/api/v3/content/docker/blobs/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
+                      "href": "/pulp/api/v3/content/container/blobs/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
                   },
-                  "docker.manifest": {
+                  "container.manifest": {
                       "count": 10,
-                      "href": "/pulp/api/v3/content/docker/manifests/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
+                      "href": "/pulp/api/v3/content/container/manifests/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
                   },
-                  "docker.tag": {
+                  "container.tag": {
                       "count": 1,
-                      "href": "/pulp/api/v3/content/docker/tags/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
+                      "href": "/pulp/api/v3/content/container/tags/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
                   }
               }
           },
           "number": 2
       }
 
-Reference: `Docker Recursive Remove Usage <../restapi.html#tag/docker:-recursive-remove>`_
+Reference: `Container Recursive Remove Usage <../restapi.html#tag/container:-recursive-remove>`_
 
 .. _tag-copy:
 
@@ -254,31 +254,31 @@ New Repository Version::
        "base_version": null,
        "content_summary": {
            "added": {
-               "docker.blob": {
+               "container.blob": {
                    "count": 20,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/container/blobs/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
-               "docker.manifest": {
+               "container.manifest": {
                    "count": 10,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/container/manifests/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
-               "docker.tag": {
+               "container.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/container/tags/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                }
            },
            "present": {
-               "docker.blob": {
+               "container.blob": {
                    "count": 20,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/container/blobs/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
-               "docker.manifest": {
+               "container.manifest": {
                    "count": 10,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/container/manifests/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
-               "docker.tag": {
+               "container.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/container/tags/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                }
            },
            "removed": {}
@@ -286,7 +286,7 @@ New Repository Version::
        "number": 1
    }
 
-Reference: `Docker Copy Tags Usage <../restapi.html#operation/docker_tags_copy_create>`_
+Reference: `Container Copy Tags Usage <../restapi.html#operation/container_tags_copy_create>`_
 
 .. _manifest-copy:
 
@@ -314,23 +314,23 @@ New Repository Version::
        "base_version": null,
        "content_summary": {
            "added": {
-               "docker.blob": {
+               "container.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/container/blobs/?repository_version_added=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
                },
-               "docker.manifest": {
+               "container.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/container/manifests/?repository_version_added=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
                }
            },
            "present": {
-               "docker.blob": {
+               "container.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/container/blobs/?repository_version=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
                },
-               "docker.manifest": {
+               "container.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/container/manifests/?repository_version=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
                }
            },
            "removed": {}
@@ -338,4 +338,4 @@ New Repository Version::
        "number": 2
    }
 
-Reference: `Docker Copy Manifests Usage <../restapi.html#operation/docker_manifests_copy_create>`_
+Reference: `Container Copy Manifests Usage <../restapi.html#operation/container_manifests_copy_create>`_

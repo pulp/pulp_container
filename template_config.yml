@@ -24,16 +24,15 @@ exclude_deploy_to_pypi: false
 exclude_docs_test: false
 exclude_mariadb_test: false
 exclude_test_bindings: false
-plugin_app_label: docker
-plugin_camel: PulpDocker
-plugin_camel_short: Docker
-plugin_caps: PULP_DOCKER
-plugin_caps_short: DOCKER
-plugin_dash: pulp-docker
-plugin_dash_short: docker
-plugin_name: pulp_docker
-plugin_snake: pulp_docker
-plugin_snake_short: docker
+plugin_app_label: container
+plugin_camel: PulpContainer
+plugin_camel_short: Container
+plugin_caps: PULP_CONTAINER
+plugin_caps_short: CONTAINER
+plugin_dash: pulp-container
+plugin_dash_short: container
+plugin_name: pulp_container
+plugin_snake: pulp_container
 pulp_settings:
   token_server: $(hostname):24816/token
   token_signature_algorithm: ES256

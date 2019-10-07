@@ -10,7 +10,7 @@ user's privileges and current scope.
 The feature is enabled by default. However, it is required to define the following settings first:
 
     - **A fully qualified domain name of a token server**. The token server is responsible for generating
-      Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file ``pulp_docker/app/settings.py``.
+      Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file ``pulp_container/app/settings.py``.
     - **A token signature algorithm**. A particular signature algorithm can be chosen only from the list of
       `supported algorithms <https://pyjwt.readthedocs.io/en/latest/algorithms.html#digital-signature-algorithms>`_.
       Pulp uses exclusively asymmetric cryptography to sign and validate tokens. Therefore, it is possible

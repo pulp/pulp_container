@@ -1,4 +1,4 @@
-.. _pulp-docker-changes:
+.. _pulp-container-changes:
 
 .. include:: ../CHANGES.rst
 

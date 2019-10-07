@@ -5,7 +5,7 @@ User Setup
 Ansible Installer (Recommended)
 -------------------------------
 
-We recommend that you install `pulpcore` and `pulp-docker` together using the `Ansible installer
+We recommend that you install `pulpcore` and `pulp-container` together using the `Ansible installer
 <https://github.com/pulp/ansible-pulp/blob/master/README.md>`_. If you install this way, pulpcore
 installation and all the following steps will be done for you.
 
@@ -32,17 +32,17 @@ From PyPI
 
    sudo -u pulp -i
    source ~/pulpvenv/bin/activate
-   pip install pulp-docker
+   pip install pulp-container
 
 
-Install ``pulp_docker`` from source
-***********************************
+Install ``pulp_container`` from source
+**************************************
 
 .. code-block:: bash
 
    sudo -u pulp -i
    source ~/pulpvenv/bin/activate
-   cd pulp_docker
+   cd pulp_container
    pip install -e .
    django-admin runserver 24817
 
@@ -52,8 +52,8 @@ Make and Run Migrations
 .. code-block:: bash
 
    export DJANGO_SETTINGS_MODULE=pulpcore.app.settings
-   django-admin makemigrations docker
-   django-admin migrate docker
+   django-admin makemigrations container
+   django-admin migrate container
 
 Run Services
 ------------

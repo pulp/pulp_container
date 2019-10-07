@@ -14,9 +14,9 @@ with open('README.rst') as f:
     long_description = f.read()
 
 setup(
-    name='pulp-docker',
-    version='4.0.0b8.dev',
-    description='pulp-docker plugin for the Pulp Project',
+    name='pulp-container',
+    version='1.0.0b1.dev',
+    description='pulp-container plugin for the Pulp Project',
     long_description=long_description,
     license='GPLv2+',
     author='Pulp Team',
@@ -37,7 +37,7 @@ setup(
     ),
     entry_points={
         'pulpcore.plugin': [
-            'pulp_docker = pulp_docker:default_app_config',
+            'pulp_container = pulp_container:default_app_config',
         ]
     }
 )

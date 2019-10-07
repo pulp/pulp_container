@@ -1,13 +1,13 @@
 Contributing
 ============
 
-To contribute to the ``pulp_docker`` package follow this process:
+To contribute to the ``pulp_container`` package follow this process:
 
 1. Clone the GitHub repo
 2. Make a change
 3. Make sure all tests passed
 4. Add a file into CHANGES folder (Changelog update).
-5. Commit changes to own ``pulp_docker`` clone
+5. Commit changes to own ``pulp_container`` clone
 6. Make pull request from github page for your clone against master branch
 
 

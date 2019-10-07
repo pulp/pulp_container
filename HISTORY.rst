@@ -6,7 +6,7 @@
 - Enable whitelist tags specification when syncing
 - Compatibility with pulpcore-plugin-0.1.0rc2
 
-`Comprehensive list of changes and bugfixes for beta 4 <https://github.com/pulp/pulp_docker/compare/4.0.0b3...4.0.0b4>`_.
+`Comprehensive list of changes and bugfixes for beta 4 <https://github.com/pulp/pulp_container/compare/4.0.0b3...4.0.0b4>`_.
 
 4.0.0b3
 ^^^^^^^
@@ -16,7 +16,7 @@
 - Enable support to manage a docker image that has manifest schema v2s1
 - Enable docker distribution to serve directly latest repository version
 
-`Comprehensive list of changes and bugfixes for beta 3 <https://github.com/pulp/pulp_docker/compare/4.0.0b2...4.0.0b3>`_.
+`Comprehensive list of changes and bugfixes for beta 3 <https://github.com/pulp/pulp_container/compare/4.0.0b2...4.0.0b3>`_.
 
 4.0.0b2
 ^^^^^^^

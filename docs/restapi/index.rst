@@ -3,7 +3,7 @@ REST API
 
 Pulpcore Reference: `pulpcore REST documentation <https://docs.pulpproject.org/en/3.0/nightly/restapi.html>`_.
 
-Pulp Docker Endpoints
----------------------
+Pulp Container Endpoints
+------------------------
 
-REST API Reference `docker REST documentation <../restapi.html>`_
+REST API Reference `container REST documentation <../restapi.html>`_

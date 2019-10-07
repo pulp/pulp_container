@@ -32,8 +32,15 @@ Create a Remote
 ---------------
 
 Creating a remote object informs Pulp about an external content source. In this case, we will be
-using Docker Hub, but ``pulp-docker`` remotes can be anything that implements the registry API,
+using Docker Hub, but ``pulp-container`` remotes can be anything that implements the registry API,
 including `quay`, `google container registry`, or even another instance of Pulp.
+
+.. note::
+   Container plugin supports for now only Docker media types complaint with:
+   https://docs.docker.com/registry/spec/manifest-v2-2/
+   https://docs.docker.com/registry/spec/manifest-v2-1/.
+   If the registry Pulp is syncing from has both docker and oci format, Pulp will mirror only docker
+   format.
 
 .. literalinclude:: ../_scripts/remote.sh
    :language: bash
@@ -42,7 +49,7 @@ Remote GET Response::
 
    {
        "pulp_created": "2019-09-05T14:29:44.267406Z",
-       "pulp_href": "/pulp/api/v3/remotes/docker/docker/1cc699b7-24fd-4944-bde7-86aed8ac12fa/",
+       "pulp_href": "/pulp/api/v3/remotes/container/container/1cc699b7-24fd-4944-bde7-86aed8ac12fa/",
        "pulp_last_updated": "2019-09-05T14:29:44.267428Z",
        "download_concurrency": 20,
        "name": "my-hello-repo",
@@ -58,7 +65,7 @@ Remote GET Response::
    }
 
 
-Reference: `Docker Remote Usage <../restapi.html#tag/remotes>`_
+Reference: `Container Remote Usage <../restapi.html#tag/remotes>`_
 
 Sync repository using a Remote
 ------------------------------
@@ -69,7 +76,7 @@ sync with. You are telling pulp to fetch content from the remote and add to the 
 .. literalinclude:: ../_scripts/sync.sh
    :language: bash
 
-Reference: `Docker Sync Usage <../restapi.html#operation/remotes_docker_docker_sync>`_
+Reference: `Container Sync Usage <../restapi.html#operation/remotes_container_container_sync>`_
 
 
 .. _versioned-repo-created:
@@ -84,31 +91,31 @@ Repository Version GET Response (when complete):
        "base_version": null,
        "content_summary": {
            "added": {
-               "docker.blob": {
+               "container.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/container/blobs/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
-               "docker.manifest": {
+               "container.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/container/manifests/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
-               "docker.tag": {
+               "container.tag": {
                    "count": 8,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/container/tags/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                }
            },
            "present": {
-               "docker.blob": {
+               "container.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/container/blobs/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
-               "docker.manifest": {
+               "container.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/container/manifests/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
-               "docker.tag": {
+               "container.tag": {
                    "count": 8,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/container/tags/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                }
            },
            "removed": {}

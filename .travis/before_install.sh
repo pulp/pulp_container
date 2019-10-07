@@ -106,7 +106,7 @@ fi
 
 pip install ansible
 
-cd pulp_docker
+cd pulp_container
 
 if [ -f $POST_BEFORE_INSTALL ]; then
     $POST_BEFORE_INSTALL

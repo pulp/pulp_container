@@ -20,6 +20,8 @@ export FUNC_TEST_SCRIPT=$TRAVIS_BUILD_DIR/.travis/func_test_script.sh
 export DJANGO_SETTINGS_MODULE=pulpcore.app.settings
 
 if [ "$TEST" = 'docs' ]; then
+  
+
   cd docs
   make html
   cd ..
@@ -45,8 +47,8 @@ if [ "$TEST" = 'bindings' ]; then
 
   ./generate.sh pulpcore python
   pip install ./pulpcore-client
-  ./generate.sh pulp_docker python
-  pip install ./pulp_docker-client
+  ./generate.sh pulp_container python
+  pip install ./pulp_container-client
 
   python $TRAVIS_BUILD_DIR/.travis/test_bindings.py
 
@@ -63,13 +65,13 @@ if [ "$TEST" = 'bindings' ]; then
   gem install --both ./pulpcore_client-0.gem
   cd ..
 
-  rm -rf ./pulp_docker-client
+  rm -rf ./pulp_container-client
 
-  ./generate.sh pulp_docker ruby
+  ./generate.sh pulp_container ruby
 
-  cd pulp_docker-client
-  gem build pulp_docker_client
-  gem install --both ./pulp_docker_client-0.gem
+  cd pulp_container-client
+  gem build pulp_container_client
+  gem install --both ./pulp_container_client-0.gem
   cd ..
 
   ruby $TRAVIS_BUILD_DIR/.travis/test_bindings.rb
@@ -89,7 +91,7 @@ cat unittest_requirements.txt | $CMD_STDIN_PREFIX bash -c "cat > /tmp/test_requi
 $CMD_PREFIX pip3 install -r /tmp/test_requirements.txt
 
 # Run unit tests.
-$CMD_PREFIX bash -c "PULP_DATABASES__default__USER=postgres django-admin test --noinput /usr/local/lib/python${TRAVIS_PYTHON_VERSION}/site-packages/pulp_docker/tests/unit/"
+$CMD_PREFIX bash -c "PULP_DATABASES__default__USER=postgres django-admin test --noinput /usr/local/lib/python${TRAVIS_PYTHON_VERSION}/site-packages/pulp_container/tests/unit/"
 
 # Note: This function is in the process of being merged into after_failure
 show_logs_and_return_non_zero() {
@@ -107,14 +109,14 @@ set -u
 
 if [[ "$TEST" == "performance" ]]; then
   echo "--- Performance Tests ---"
-  pytest -vv -r sx --color=yes --pyargs --capture=no --durations=0 pulp_docker.tests.performance || show_logs_and_return_non_zero
+  pytest -vv -r sx --color=yes --pyargs --capture=no --durations=0 pulp_container.tests.performance || show_logs_and_return_non_zero
   exit
 fi
 
 if [ -f $FUNC_TEST_SCRIPT ]; then
     $FUNC_TEST_SCRIPT
 else
-    pytest -v -r sx --color=yes --pyargs pulp_docker.tests.functional || show_logs_and_return_non_zero
+    pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional || show_logs_and_return_non_zero
 fi
 
 if [ -f $POST_SCRIPT ]; then

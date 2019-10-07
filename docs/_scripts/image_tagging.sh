@@ -4,7 +4,7 @@ export TAG_NAME='custom_tag'
 export MANIFEST_DIGEST='sha256:21e3caae28758329318c8a868a80daa37ad8851705155fc28767852c73d36af5'
 
 echo "Tagging the manifest."
-export TASK_URL=$(http POST $BASE_ADDR'/pulp/api/v3/docker/tag/' \
+export TASK_URL=$(http POST $BASE_ADDR'/pulp/api/v3/container/tag/' \
   repository=$REPO_HREF tag=$TAG_NAME digest=$MANIFEST_DIGEST \
   | jq -r '.task')
 
