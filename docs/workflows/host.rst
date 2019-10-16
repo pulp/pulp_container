@@ -44,7 +44,7 @@ images in it, that content can be consumed by container clients.
 Podman
 ^^^^^^
 
-``$ podman pull localhost:24816/foo``
+``$ podman pull localhost:24816/test:<tag_name>``
 
 If SSL has not been setup for your Pulp, configure podman to work with the insecure registry:
 

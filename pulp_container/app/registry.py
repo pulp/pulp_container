@@ -2,6 +2,7 @@ import logging
 import os
 
 from aiohttp import web
+from aiohttp.web_exceptions import HTTPFound
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from multidict import MultiDict
@@ -81,18 +82,22 @@ class Registry(Handler):
         return [path]
 
     @staticmethod
-    async def _dispatch(path, headers):
+    async def _dispatch(file, headers):
         """
         Stream a file back to the client.
 
         Stream the bits.
 
         Args:
-            path (str): The fully qualified path to the file to be served.
-            headers (dict):
+            file (:class:`django.db.models.fields.files.FieldFile`): File to respond with
+            headers (dict): A dictionary of response headers.
+
+        Raises:
+            :class:`aiohttp.web_exceptions.HTTPFound`: When we need to redirect to the file
+            NotImplementedError: If file is stored in a file storage we can't handle
 
         Returns:
-            StreamingHttpResponse: Stream the requested content.
+            The :class:`aiohttp.web.FileResponse` for the file.
 
         """
         full_headers = MultiDict()
@@ -100,11 +105,25 @@ class Registry(Handler):
         full_headers['Content-Type'] = headers['Content-Type']
         full_headers['Docker-Content-Digest'] = headers['Docker-Content-Digest']
         full_headers['Docker-Distribution-API-Version'] = 'registry/2.0'
-        full_headers['Content-Length'] = os.path.getsize(path)
+        full_headers['Content-Length'] = str(file.size)
         full_headers['Content-Disposition'] = 'attachment; filename={n}'.format(
-            n=os.path.basename(path))
-        file_response = web.FileResponse(path, headers=full_headers)
-        return file_response
+            n=os.path.basename(file.name))
+
+        if settings.DEFAULT_FILE_STORAGE == 'pulpcore.app.models.storage.FileSystem':
+            path = os.path.join(settings.MEDIA_ROOT, file.name)
+            file_response = web.FileResponse(path, headers=full_headers)
+            return file_response
+        elif settings.DEFAULT_FILE_STORAGE == 'storages.backends.s3boto3.S3Boto3Storage':
+            content_url = file.storage.url(
+                file.name,
+                parameters={
+                    "ResponseContentType": full_headers["Content-Type"],
+                    "ResponseContentDisposition": full_headers["Content-Disposition"],
+                },
+            )
+            raise HTTPFound(content_url)
+        else:
+            raise NotImplementedError()
 
     async def serve_v2(self, request):
         """
@@ -226,8 +245,7 @@ class Registry(Handler):
         except ObjectDoesNotExist:
             raise ArtifactNotFound(tag.name)
         else:
-            return await Registry._dispatch(os.path.join(settings.MEDIA_ROOT, artifact.file.name),
-                                            response_headers)
+            return await Registry._dispatch(artifact.file, response_headers)
 
     @staticmethod
     async def dispatch_converted_schema(tag, accepted_media_types, path):
@@ -284,8 +302,6 @@ class Registry(Handler):
         else:
             artifact = ca.artifact
             if artifact:
-                return await Registry._dispatch(os.path.join(settings.MEDIA_ROOT,
-                                                             artifact.file.name),
-                                                headers)
+                return await Registry._dispatch(artifact.file, headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
