@@ -20,6 +20,7 @@ from pulpcore.plugin.viewsets import (
     NamedModelViewSet,
     ReadOnlyContentViewSet,
     RemoteViewSet,
+    RepositoryViewSet,
     OperationPostponedResponse,
 )
 from rest_framework import viewsets as drf_viewsets
@@ -120,6 +121,16 @@ class DockerRemoteViewSet(RemoteViewSet):
     queryset = models.DockerRemote.objects.all()
     serializer_class = serializers.DockerRemoteSerializer
 
+
+class DockerRepositoryViewSet(RepositoryViewSet):
+    """
+    ViewSet for docker repo.
+    """
+
+    endpoint_name = 'docker'
+    queryset = models.DockerRepository.objects.all()
+    serializer_class = serializers.DockerRepositorySerializer
+
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.
     @swagger_auto_schema(
@@ -131,12 +142,12 @@ class DockerRemoteViewSet(RemoteViewSet):
         """
         Synchronizes a repository. The ``repository`` field has to be provided.
         """
-        remote = self.get_object()
+        repository = self.get_object()
         serializer = RepositorySyncURLSerializer(data=request.data, context={'request': request})
 
         # Validate synchronously to return 400 errors.
         serializer.is_valid(raise_exception=True)
-        repository = serializer.validated_data.get('repository')
+        remote = serializer.validated_data.get('remote')
         result = enqueue_with_reservation(
             tasks.synchronize,
             [repository, remote],

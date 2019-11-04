@@ -3,12 +3,13 @@
 import unittest
 
 from pulp_smash import api, cli, config, exceptions
-from pulp_smash.pulp3.constants import MEDIA_PATH, REPO_PATH
+from pulp_smash.pulp3.constants import MEDIA_PATH
 from pulp_smash.pulp3.utils import delete_orphans, gen_repo, sync
 
 from pulp_docker.tests.functional.constants import (
     DOCKER_TAG_PATH,
     DOCKER_REMOTE_PATH,
+    DOCKER_REPO_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
 )
 from pulp_docker.tests.functional.utils import gen_docker_remote
@@ -42,7 +43,7 @@ class BasicSyncTestCase(unittest.TestCase):
         5. Sync the remote one more time.
         6. Assert that repository version is different from the previous one.
         """
-        repo = self.client.post(REPO_PATH, gen_repo())
+        repo = self.client.post(DOCKER_REPO_PATH, gen_repo())
         self.addCleanup(self.client.delete, repo['pulp_href'])
 
         remote = self.client.post(DOCKER_REMOTE_PATH, gen_docker_remote())
@@ -79,7 +80,7 @@ class BasicSyncTestCase(unittest.TestCase):
         if cli_client.run(('which', 'lsof')).returncode != 0:
             raise unittest.SkipTest('lsof package is not present')
 
-        repo = self.client.post(REPO_PATH, gen_repo())
+        repo = self.client.post(DOCKER_REPO_PATH, gen_repo())
         self.addCleanup(self.client.delete, repo['pulp_href'])
 
         remote = self.client.post(DOCKER_REMOTE_PATH, gen_docker_remote())
@@ -105,7 +106,7 @@ class SyncInvalidURLTestCase(unittest.TestCase):
         cfg = config.get_config()
         client = api.Client(cfg, api.json_handler)
 
-        repo = client.post(REPO_PATH, gen_repo())
+        repo = client.post(DOCKER_REPO_PATH, gen_repo())
         self.addCleanup(client.delete, repo['pulp_href'])
 
         remote = client.post(
@@ -126,7 +127,7 @@ class TestRepeatedSync(unittest.TestCase):
         """Create class-wide variables."""
         cls.cfg = config.get_config()
         cls.client = api.Client(cls.cfg, api.json_handler)
-        cls.from_repo = cls.client.post(REPO_PATH, gen_repo())
+        cls.from_repo = cls.client.post(DOCKER_REPO_PATH, gen_repo())
         remote_data = gen_docker_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         cls.remote = cls.client.post(DOCKER_REMOTE_PATH, remote_data)
         delete_orphans(cls.cfg)

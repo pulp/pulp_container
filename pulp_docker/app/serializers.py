@@ -6,13 +6,13 @@ from rest_framework import serializers
 
 from pulpcore.plugin.models import (
     Remote,
-    Repository,
     RepositoryVersion,
 )
 from pulpcore.plugin.serializers import (
     DetailRelatedField,
     NestedRelatedField,
     RemoteSerializer,
+    RepositorySerializer,
     RepositoryVersionDistributionSerializer,
     SingleArtifactContentSerializer,
     RelatedField,
@@ -114,6 +114,16 @@ class RegistryPathField(serializers.CharField):
         return ''.join([host, '/', value])
 
 
+class DockerRepositorySerializer(RepositorySerializer):
+    """
+    Serializer for Docker Repositories.
+    """
+
+    class Meta:
+        fields = RepositorySerializer.Meta.fields
+        model = models.DockerRepository
+
+
 class DockerRemoteSerializer(RemoteSerializer):
     """
     A Serializer for DockerRemote.
@@ -171,8 +181,8 @@ class TagOperationSerializer(serializers.Serializer):
 
     repository = RelatedField(
         required=True,
-        view_name='repositories-detail',
-        queryset=Repository.objects.all(),
+        view_name='repositories-docker/docker-detail',
+        queryset=models.DockerRepository.objects.all(),
         help_text='A URI of the repository.'
     )
     tag = serializers.CharField(
@@ -191,7 +201,7 @@ class TagOperationSerializer(serializers.Serializer):
         new_data = {}
         new_data.update(data)
 
-        latest_version = RepositoryVersion.latest(data['repository'])
+        latest_version = data['repository'].latest_version()
         if not latest_version:
             raise serializers.ValidationError(
                 _("The latest repository version of '{}' was not found"
@@ -273,8 +283,8 @@ class RecursiveManageSerializer(serializers.Serializer):
     repository = serializers.HyperlinkedRelatedField(
         required=True,
         help_text=_('A URI of the repository to add content.'),
-        queryset=Repository.objects.all(),
-        view_name='repositories-detail',
+        queryset=models.DockerRepository.objects.all(),
+        view_name='repositories-docker/docker-detail',
         label=_('Repository'),
         error_messages={
             'required': _('The repository URI must be specified.')
@@ -294,8 +304,8 @@ class CopySerializer(serializers.Serializer):
 
     source_repository = serializers.HyperlinkedRelatedField(
         help_text=_('A URI of the repository to copy content from.'),
-        queryset=Repository.objects.all(),
-        view_name='repositories-detail',
+        queryset=models.DockerRepository.objects.all(),
+        view_name='repositories-docker/docker-detail',
         label=_('Repository'),
         write_only=True,
         required=False,
@@ -305,15 +315,15 @@ class CopySerializer(serializers.Serializer):
         view_name='versions-detail',
         lookup_field='number',
         parent_lookup_kwargs={'repository_pk': 'repository__pk'},
-        queryset=models.RepositoryVersion.objects.all(),
+        queryset=RepositoryVersion.objects.all(),
         write_only=True,
         required=False,
     )
     destination_repository = serializers.HyperlinkedRelatedField(
         required=True,
         help_text=_('A URI of the repository to copy content to.'),
-        queryset=Repository.objects.all(),
-        view_name='repositories-detail',
+        queryset=models.DockerRepository.objects.all(),
+        view_name='repositories-docker/docker-detail',
         label=_('Repository'),
         error_messages={
             'required': _('Destination repository URI must be specified.')
@@ -333,7 +343,7 @@ class CopySerializer(serializers.Serializer):
         elif not repository and repository_version:
             return data
         elif repository and not repository_version:
-            version = models.RepositoryVersion.latest(repository)
+            version = repository.latest_version()
             if version:
                 new_data = {'source_repository_version': version}
                 new_data.update(data)

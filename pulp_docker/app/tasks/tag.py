@@ -1,5 +1,5 @@
-from pulpcore.plugin.models import Repository, RepositoryVersion, ContentArtifact, CreatedResource
-from pulp_docker.app.models import Manifest, Tag
+from pulpcore.plugin.models import ContentArtifact, CreatedResource
+from pulp_docker.app.models import DockerRepository, Manifest, Tag
 
 
 def tag_image(manifest_pk, tag, repository_pk):
@@ -15,8 +15,8 @@ def tag_image(manifest_pk, tag, repository_pk):
     manifest = Manifest.objects.get(pk=manifest_pk)
     artifact = manifest._artifacts.all()[0]
 
-    repository = Repository.objects.get(pk=repository_pk)
-    latest_version = RepositoryVersion.latest(repository)
+    repository = DockerRepository.objects.get(pk=repository_pk)
+    latest_version = repository.latest_version()
 
     tags_to_remove = Tag.objects.filter(
         pk__in=latest_version.content.all(),
@@ -46,6 +46,6 @@ def tag_image(manifest_pk, tag, repository_pk):
         pk__in=latest_version.content.all()
     )
 
-    with RepositoryVersion.create(repository) as repository_version:
+    with repository.new_version() as repository_version:
         repository_version.remove_content(tags_to_remove)
         repository_version.add_content(tags_to_add)

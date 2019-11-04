@@ -1,6 +1,4 @@
-from pulpcore.plugin.models import Repository, RepositoryVersion
-
-from pulp_docker.app.models import Blob, Manifest, MEDIA_TYPE, Tag
+from pulp_docker.app.models import Blob, DockerRepository, Manifest, MEDIA_TYPE, Tag
 
 
 def recursive_add_content(repository_pk, content_units):
@@ -17,7 +15,7 @@ def recursive_add_content(repository_pk, content_units):
         content_units (list): List of PKs for :class:`~pulpcore.app.models.Content` that
             should be added to the previous Repository Version for this Repository.
     """
-    repository = Repository.objects.get(pk=repository_pk)
+    repository = DockerRepository.objects.get(pk=repository_pk)
 
     tags_to_add = Tag.objects.filter(
         pk__in=content_units,
@@ -52,7 +50,7 @@ def recursive_add_content(repository_pk, content_units):
         pk__in=manifests_to_add.values_list('config_blob', flat=True)
     )
 
-    latest_version = RepositoryVersion.latest(repository)
+    latest_version = repository.latest_version()
     if latest_version:
         tags_in_repo = latest_version.content.filter(
             pulp_type="docker.tag"
@@ -64,7 +62,7 @@ def recursive_add_content(repository_pk, content_units):
     else:
         tags_to_replace = []
 
-    with RepositoryVersion.create(repository) as new_version:
+    with repository.new_version() as new_version:
         new_version.remove_content(tags_to_replace)
         new_version.add_content(tags_to_add)
         new_version.add_content(manifest_lists_to_add)

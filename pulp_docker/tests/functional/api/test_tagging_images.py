@@ -4,7 +4,6 @@ import unittest
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.utils import gen_repo, sync
-from pulp_smash.pulp3.constants import REPO_PATH
 
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 from pulp_docker.tests.functional.utils import gen_docker_remote
@@ -13,6 +12,7 @@ from pulp_docker.tests.functional.constants import (
     DOCKER_TAG_PATH,
     DOCKER_TAGGING_PATH,
     DOCKER_REMOTE_PATH,
+    DOCKER_REPO_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
     DOCKER_UNTAGGING_PATH
 )
@@ -28,7 +28,7 @@ class TaggingTestCase(unittest.TestCase):
         cls.cfg = config.get_config()
         cls.client = api.Client(cls.cfg, api.json_handler)
 
-        cls.repository = cls.client.post(REPO_PATH, gen_repo())
+        cls.repository = cls.client.post(DOCKER_REPO_PATH, gen_repo())
         remote_data = gen_docker_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         cls.remote = cls.client.post(DOCKER_REMOTE_PATH, remote_data)
         sync(cls.cfg, cls.remote, cls.repository)

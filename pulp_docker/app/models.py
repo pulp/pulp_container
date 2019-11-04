@@ -6,7 +6,12 @@ from django.db import models
 from django.contrib.postgres import fields
 
 from pulpcore.plugin.download import DownloaderFactory
-from pulpcore.plugin.models import Content, Remote, RepositoryVersion, RepositoryVersionDistribution
+from pulpcore.plugin.models import (
+    Content,
+    Remote,
+    Repository,
+    RepositoryVersionDistribution
+)
 
 from . import downloaders
 from pulp_docker.constants import MEDIA_TYPE
@@ -168,6 +173,17 @@ class Tag(Content):
         )
 
 
+class DockerRepository(Repository):
+    """
+    Repository for "docker" content.
+    """
+
+    TYPE = "docker"
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+
+
 class DockerRemote(Remote):
     """
     A Remote for DockerContent.
@@ -270,7 +286,7 @@ class DockerDistribution(RepositoryVersionDistribution):
         Returns the repository version that is supposed to be served by this DockerDistribution.
         """
         if self.repository:
-            return RepositoryVersion.latest(self.repository)
+            return self.repository.latest_version()
         elif self.repository_version:
             return self.repository_version
         else:

@@ -16,9 +16,9 @@ Repository GET Response::
 
    {
        "pulp_created": "2019-09-05T14:29:43.424822Z",
-       "pulp_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
+       "pulp_href": "/pulp/api/v3/repositories/docker/docker/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
        "latest_version_href": null,
-       "versions_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/",
+       "versions_href": "/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/",
        "description": null,
        "name": "codzo"
    }
@@ -80,35 +80,35 @@ Repository Version GET Response (when complete):
 
    {
        "pulp_created": "2019-09-05T14:29:45.563089Z",
-       "pulp_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/",
+       "pulp_href": "/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/",
        "base_version": null,
        "content_summary": {
            "added": {
                "docker.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
                "docker.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
                "docker.tag": {
                    "count": 8,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                }
            },
            "present": {
                "docker.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
                "docker.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                },
                "docker.tag": {
                    "count": 8,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/docker/docker/ffcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/"
                }
            },
            "removed": {}

@@ -1,13 +1,12 @@
-from pulpcore.plugin.models import Repository, RepositoryVersion
-from pulp_docker.app.models import Tag
+from pulp_docker.app.models import DockerRepository, Tag
 
 
 def untag_image(tag, repository_pk):
     """
     Create a new repository version without a specified manifest's tag name.
     """
-    repository = Repository.objects.get(pk=repository_pk)
-    latest_version = RepositoryVersion.latest(repository)
+    repository = DockerRepository.objects.get(pk=repository_pk)
+    latest_version = repository.latest_version()
 
     tags_in_latest_repository = latest_version.content.filter(
         pulp_type="docker.tag"
@@ -18,5 +17,5 @@ def untag_image(tag, repository_pk):
         name=tag
     )
 
-    with RepositoryVersion.create(repository) as repository_version:
+    with repository.new_version() as repository_version:
         repository_version.remove_content(tags_to_remove)

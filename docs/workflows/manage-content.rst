@@ -115,33 +115,33 @@ New Repository Version::
 
    {
        "pulp_created": "2019-09-05T19:04:06.152589Z",
-       "pulp_href": "/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/",
+       "pulp_href": "/pulp/api/v3/repositories/docker/docker/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/",
        "base_version": null,
        "content_summary": {
            "added": {
                "docker.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/docker/docker/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                }
            },
            "present": {
                "docker.blob": {
                    "count": 20,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/docker/docker/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                },
                "docker.manifest": {
                    "count": 10,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/docker/docker/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                },
                "docker.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/docker/docker/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                }
            },
            "removed": {
                "docker.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_removed=/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
+                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_removed=/pulp/api/v3/repositories/docker/docker/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/"
                }
            }
        },
@@ -193,7 +193,7 @@ New Repository Version::
 
       {
           "pulp_created": "2019-09-10T13:25:44.078017Z",
-          "pulp_href": "/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/",
+          "pulp_href": "/pulp/api/v3/repositories/docker/docker/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/",
           "base_version": null,
           "content_summary": {
               "added": {},
@@ -201,15 +201,15 @@ New Repository Version::
               "removed": {
                   "docker.blob": {
                       "count": 20,
-                      "href": "/pulp/api/v3/content/docker/blobs/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
+                      "href": "/pulp/api/v3/content/docker/blobs/?repository_version_removed=/pulp/api/v3/repositories/docker/docker/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
                   },
                   "docker.manifest": {
                       "count": 10,
-                      "href": "/pulp/api/v3/content/docker/manifests/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
+                      "href": "/pulp/api/v3/content/docker/manifests/?repository_version_removed=/pulp/api/v3/repositories/docker/docker/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
                   },
                   "docker.tag": {
                       "count": 1,
-                      "href": "/pulp/api/v3/content/docker/tags/?repository_version_removed=/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
+                      "href": "/pulp/api/v3/content/docker/tags/?repository_version_removed=/pulp/api/v3/repositories/docker/docker/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/"
                   }
               }
           },
@@ -250,35 +250,35 @@ New Repository Version::
 
    {
        "pulp_created": "2019-09-10T13:42:12.572859Z",
-       "pulp_href": "/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/",
+       "pulp_href": "/pulp/api/v3/repositories/docker/docker/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/",
        "base_version": null,
        "content_summary": {
            "added": {
                "docker.blob": {
                    "count": 20,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/docker/docker/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
                "docker.manifest": {
                    "count": 10,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/docker/docker/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
                "docker.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/tags/?repository_version_added=/pulp/api/v3/repositories/docker/docker/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                }
            },
            "present": {
                "docker.blob": {
                    "count": 20,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/docker/docker/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
                "docker.manifest": {
                    "count": 10,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/docker/docker/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                },
                "docker.tag": {
                    "count": 1,
-                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
+                   "href": "/pulp/api/v3/content/docker/tags/?repository_version=/pulp/api/v3/repositories/docker/docker/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/"
                }
            },
            "removed": {}
@@ -310,27 +310,27 @@ New Repository Version::
 
    {
        "pulp_created": "2019-09-20T13:53:04.907351Z",
-       "pulp_href": "/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/",
+       "pulp_href": "/pulp/api/v3/repositories/docker/docker/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/",
        "base_version": null,
        "content_summary": {
            "added": {
                "docker.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version_added=/pulp/api/v3/repositories/docker/docker/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
                },
                "docker.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version_added=/pulp/api/v3/repositories/docker/docker/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
                }
            },
            "present": {
                "docker.blob": {
                    "count": 31,
-                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/docker/blobs/?repository_version=/pulp/api/v3/repositories/docker/docker/4061-84e3-97eb71cf9414/versions/2/"
                },
                "docker.manifest": {
                    "count": 21,
-                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/"
+                   "href": "/pulp/api/v3/content/docker/manifests/?repository_version=/pulp/api/v3/repositories/docker/docker/4061-84e3-97eb71cf9414/versions/2/"
                }
            },
            "removed": {}

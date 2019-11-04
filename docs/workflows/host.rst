@@ -27,7 +27,7 @@ Response:
         "content_guard": null,
         "name": "testing-hello",
         "registry_path": "localhost:24816/test",
-        "repository": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
+        "repository": "/pulp/api/v3/repositories/docker/docker/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
         "repository_version": null
     }
 

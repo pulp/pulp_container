@@ -1,7 +1,7 @@
 from django.db.models import Q
-from pulpcore.plugin.models import Content, Repository, RepositoryVersion
+from pulpcore.plugin.models import Content
 
-from pulp_docker.app.models import Blob, Manifest, MEDIA_TYPE, Tag
+from pulp_docker.app.models import Blob, DockerRepository, Manifest, MEDIA_TYPE, Tag
 
 
 def recursive_remove_content(repository_pk, content_units):
@@ -28,8 +28,8 @@ def recursive_remove_content(repository_pk, content_units):
         content_units (list): List of PKs for :class:`~pulpcore.app.models.Content` that
             should be removed from the Repository.
     """
-    repository = Repository.objects.get(pk=repository_pk)
-    latest_version = RepositoryVersion.latest(repository)
+    repository = DockerRepository.objects.get(pk=repository_pk)
+    latest_version = repository.latest_version()
     latest_content = latest_version.content.all() if latest_version else Content.objects.none()
 
     tags_in_repo = Q(pk__in=latest_content.filter(pulp_type='docker.tag'))
@@ -89,7 +89,7 @@ def recursive_remove_content(repository_pk, content_units):
         user_provided_content | listed_blobs_to_remove
     ).filter(blobs_in_repo).exclude(listed_blobs_must_remain)
 
-    with RepositoryVersion.create(repository) as new_version:
+    with repository.new_version() as new_version:
         new_version.remove_content(tags_to_remove)
         new_version.remove_content(manifest_lists_to_remove)
         new_version.remove_content(manifests_to_remove)
