@@ -3,13 +3,13 @@
 import unittest
 
 from pulp_smash import api, config
-from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import gen_repo, sync
 from requests.exceptions import HTTPError
 
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
     CONTAINER_REMOTE_PATH,
+    CONTAINER_REPO_PATH,
     CONTAINER_RECURSIVE_ADD_PATH,
     CONTAINER_RECURSIVE_REMOVE_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
@@ -30,7 +30,7 @@ class TestRecursiveRemove(unittest.TestCase):
         """Sync pulp/test-fixture-1 so we can copy content from it."""
         cls.cfg = config.get_config()
         cls.client = api.Client(cls.cfg, api.json_handler)
-        cls.from_repo = cls.client.post(REPO_PATH, gen_repo())
+        cls.from_repo = cls.client.post(CONTAINER_REPO_PATH, gen_repo())
         remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         cls.remote = cls.client.post(CONTAINER_REMOTE_PATH, remote_data)
         sync(cls.cfg, cls.remote, cls.from_repo)
@@ -39,7 +39,7 @@ class TestRecursiveRemove(unittest.TestCase):
 
     def setUp(self):
         """Create an empty repository to copy into."""
-        self.to_repo = self.client.post(REPO_PATH, gen_repo())
+        self.to_repo = self.client.post(CONTAINER_REPO_PATH, gen_repo())
         self.addCleanup(self.client.delete, self.to_repo['pulp_href'])
 
     @classmethod

@@ -5,9 +5,6 @@ from functools import partial
 from unittest import SkipTest
 
 from pulp_smash import api, selectors
-from pulp_smash.pulp3.constants import (
-    REPO_PATH
-)
 from pulp_smash.pulp3.utils import (
     gen_remote,
     gen_repo,
@@ -21,6 +18,7 @@ from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
     CONTAINER_CONTENT_PATH,
     CONTAINER_REMOTE_PATH,
+    CONTAINER_REPO_PATH,
     REPO_UPSTREAM_NAME,
     REGISTRY_V2_FEED_URL,
 )
@@ -106,7 +104,7 @@ def populate_pulp(cfg, url=REGISTRY_V2_FEED_URL):
 
             )
         )
-        repo.update(client.post(REPO_PATH, gen_repo()))
+        repo.update(client.post(CONTAINER_REPO_PATH, gen_repo()))
         sync(cfg, remote, repo)
     finally:
         if remote:

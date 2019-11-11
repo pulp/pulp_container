@@ -5,7 +5,7 @@ import unittest
 from urllib.parse import urljoin
 
 from pulp_smash import api, cli, config, exceptions
-from pulp_smash.pulp3.constants import ARTIFACTS_PATH, REPO_PATH
+from pulp_smash.pulp3.constants import ARTIFACTS_PATH
 from pulp_smash.pulp3.utils import (
     delete_orphans,
     get_content,
@@ -23,6 +23,7 @@ from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
     CONTAINER_DISTRIBUTION_PATH,
     CONTAINER_REMOTE_PATH,
+    CONTAINER_REPO_PATH,
     REPO_UPSTREAM_NAME,
     REPO_UPSTREAM_TAG,
 )
@@ -63,7 +64,7 @@ class PullContentTestCase(unittest.TestCase):
             stack.callback(cls.tearDownClass)
 
             # Step 1
-            _repo = cls.client.post(REPO_PATH, gen_repo())
+            _repo = cls.client.post(CONTAINER_REPO_PATH, gen_repo())
             cls.teardown_cleanups.append((cls.client.delete, _repo['pulp_href']))
 
             # Step 2
@@ -287,7 +288,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
             stack.callback(cls.tearDownClass)
 
             # Step 1
-            _repo = cls.client.post(REPO_PATH, gen_repo())
+            _repo = cls.client.post(CONTAINER_REPO_PATH, gen_repo())
             cls.teardown_cleanups.append((cls.client.delete, _repo['pulp_href']))
 
             # Step 2

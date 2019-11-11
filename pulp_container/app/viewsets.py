@@ -20,6 +20,8 @@ from pulpcore.plugin.viewsets import (
     NamedModelViewSet,
     ReadOnlyContentViewSet,
     RemoteViewSet,
+    RepositoryViewSet,
+    RepositoryVersionViewSet,
     OperationPostponedResponse,
 )
 from rest_framework import viewsets as drf_viewsets
@@ -120,6 +122,16 @@ class ContainerRemoteViewSet(RemoteViewSet):
     queryset = models.ContainerRemote.objects.all()
     serializer_class = serializers.ContainerRemoteSerializer
 
+
+class ContainerRepositoryViewSet(RepositoryViewSet):
+    """
+    ViewSet for container repo.
+    """
+
+    endpoint_name = 'container'
+    queryset = models.ContainerRepository.objects.all()
+    serializer_class = serializers.ContainerRepositorySerializer
+
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.
     @swagger_auto_schema(
@@ -131,12 +143,12 @@ class ContainerRemoteViewSet(RemoteViewSet):
         """
         Synchronizes a repository. The ``repository`` field has to be provided.
         """
-        remote = self.get_object()
+        repository = self.get_object()
         serializer = RepositorySyncURLSerializer(data=request.data, context={'request': request})
 
         # Validate synchronously to return 400 errors.
         serializer.is_valid(raise_exception=True)
-        repository = serializer.validated_data.get('repository')
+        remote = serializer.validated_data.get('remote')
         result = enqueue_with_reservation(
             tasks.synchronize,
             [repository, remote],
@@ -146,6 +158,14 @@ class ContainerRemoteViewSet(RemoteViewSet):
             }
         )
         return OperationPostponedResponse(result, request)
+
+
+class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
+    """
+    ContainerRepositoryVersion represents a single container repository version.
+    """
+
+    parent_viewset = ContainerRepositoryViewSet
 
 
 class ContainerDistributionViewSet(BaseDistributionViewSet):
