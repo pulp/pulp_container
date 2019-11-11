@@ -1,7 +1,6 @@
 from gettext import gettext as _
 import logging
 
-from pulpcore.plugin.models import Repository
 from pulpcore.plugin.stages import (
     ArtifactDownloader,
     ArtifactSaver,
@@ -15,7 +14,7 @@ from pulpcore.plugin.stages import (
 )
 
 from .sync_stages import InterrelateContent, ContainerFirstStage
-from pulp_container.app.models import ContainerRemote, Tag
+from pulp_container.app.models import ContainerRemote, ContainerRepository, Tag
 
 
 log = logging.getLogger(__name__)
@@ -36,7 +35,7 @@ def synchronize(remote_pk, repository_pk):
 
     """
     remote = ContainerRemote.objects.get(pk=remote_pk)
-    repository = Repository.objects.get(pk=repository_pk)
+    repository = ContainerRepository.objects.get(pk=repository_pk)
     if not remote.url:
         raise ValueError(_('A remote must have a url specified to synchronize.'))
     remove_duplicate_tags = [{'model': Tag, 'field_names': ['name']}]

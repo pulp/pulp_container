@@ -6,16 +6,17 @@ from pulp_smash.pulp3.constants import (
     BASE_PATH,
     BASE_DISTRIBUTION_PATH,
     BASE_REMOTE_PATH,
-    CONTENT_PATH
+    BASE_REPO_PATH,
+    BASE_CONTENT_PATH
 )
 
-CONTAINER_MANIFEST_PATH = urljoin(CONTENT_PATH, 'container/manifests/')
+CONTAINER_MANIFEST_PATH = urljoin(BASE_CONTENT_PATH, 'container/manifests/')
 
-CONTAINER_TAG_PATH = urljoin(CONTENT_PATH, 'container/tags/')
+CONTAINER_TAG_PATH = urljoin(BASE_CONTENT_PATH, 'container/tags/')
 
-CONTAINER_BLOB_PATH = urljoin(CONTENT_PATH, 'container/blobs/')
+CONTAINER_BLOB_PATH = urljoin(BASE_CONTENT_PATH, 'container/blobs/')
 
-CONTAINER_CONTENT_PATH = urljoin(CONTENT_PATH, 'container/unit/')
+CONTAINER_CONTENT_PATH = urljoin(BASE_CONTENT_PATH, 'container/unit/')
 
 CONTAINER_TAGGING_PATH = urljoin(BASE_PATH, 'container/tag/')
 
@@ -28,6 +29,8 @@ CONTAINER_MANIFEST_COPY_PATH = urljoin(BASE_PATH, 'container/manifests/copy/')
 CONTAINER_CONTENT_NAME = 'container.blob'
 
 CONTAINER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'container/container/')
+
+CONTAINER_REPO_PATH = urljoin(BASE_REPO_PATH, 'container/container/')
 
 CONTAINER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'container/container/')
 
