@@ -3,7 +3,6 @@ from urllib.parse import urljoin
 
 from pulp_smash.constants import PULP_FIXTURES_BASE_URL
 from pulp_smash.pulp3.constants import (
-    BASE_PATH,
     BASE_DISTRIBUTION_PATH,
     BASE_REMOTE_PATH,
     BASE_REPO_PATH,
@@ -18,14 +17,6 @@ CONTAINER_BLOB_PATH = urljoin(BASE_CONTENT_PATH, 'container/blobs/')
 
 CONTAINER_CONTENT_PATH = urljoin(BASE_CONTENT_PATH, 'container/unit/')
 
-CONTAINER_TAGGING_PATH = urljoin(BASE_PATH, 'container/tag/')
-
-CONTAINER_UNTAGGING_PATH = urljoin(BASE_PATH, 'container/untag/')
-
-CONTAINER_TAG_COPY_PATH = urljoin(BASE_PATH, 'container/tags/copy/')
-
-CONTAINER_MANIFEST_COPY_PATH = urljoin(BASE_PATH, 'container/manifests/copy/')
-
 CONTAINER_CONTENT_NAME = 'container.blob'
 
 CONTAINER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'container/container/')
@@ -33,10 +24,6 @@ CONTAINER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'container/contain
 CONTAINER_REPO_PATH = urljoin(BASE_REPO_PATH, 'container/container/')
 
 CONTAINER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'container/container/')
-
-CONTAINER_RECURSIVE_ADD_PATH = urljoin(BASE_PATH, 'container/recursive-add/')
-
-CONTAINER_RECURSIVE_REMOVE_PATH = urljoin(BASE_PATH, 'container/recursive-remove/')
 
 CONTAINER_IMAGE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'container/busybox:latest.tar')
 """The URL to a Container image as created by ``docker save``."""

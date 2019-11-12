@@ -10,11 +10,9 @@ from pulp_container.tests.functional.utils import gen_container_remote
 
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
-    CONTAINER_TAGGING_PATH,
     CONTAINER_REMOTE_PATH,
     CONTAINER_REPO_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
-    CONTAINER_UNTAGGING_PATH
 )
 from requests import HTTPError
 
@@ -184,15 +182,13 @@ class TaggingTestCase(unittest.TestCase):
         """Perform a tagging operation."""
         params = {
             'tag': tag_name,
-            'repository': self.repository['pulp_href'],
             'digest': manifest['digest']
         }
-        self.client.post(CONTAINER_TAGGING_PATH, params)
+        self.client.post(f'{self.repository["pulp_href"]}tag/', params)
 
     def untag_image(self, tag_name):
         """Perform an untagging operation."""
         params = {
             'tag': tag_name,
-            'repository': self.repository['pulp_href']
         }
-        self.client.post(CONTAINER_UNTAGGING_PATH, params)
+        self.client.post(f'{self.repository["pulp_href"]}untag/', params)

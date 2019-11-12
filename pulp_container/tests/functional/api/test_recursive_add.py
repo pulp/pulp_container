@@ -7,13 +7,9 @@ from pulp_smash.pulp3.utils import gen_repo, sync
 from requests.exceptions import HTTPError
 
 from pulp_container.tests.functional.constants import (
-    CONTAINER_MANIFEST_COPY_PATH,
     CONTAINER_TAG_PATH,
-    CONTAINER_TAG_COPY_PATH,
-    CONTAINER_TAGGING_PATH,
     CONTAINER_REMOTE_PATH,
     CONTAINER_REPO_PATH,
-    CONTAINER_RECURSIVE_ADD_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
 )
 from pulp_container.tests.functional.utils import gen_container_remote
@@ -43,6 +39,7 @@ class TestManifestCopy(unittest.TestCase):
     def setUp(self):
         """Create an empty repository to copy into."""
         self.to_repo = self.client.post(CONTAINER_REPO_PATH, gen_repo())
+        self.CONTAINER_MANIFEST_COPY_PATH = f'{self.to_repo["pulp_href"]}copy_manifests/'
         self.addCleanup(self.client.delete, self.to_repo['pulp_href'])
 
     @classmethod
@@ -54,39 +51,17 @@ class TestManifestCopy(unittest.TestCase):
     def test_missing_repository_argument(self):
         """Ensure source_repository or source_repository_version is required."""
         with self.assertRaises(HTTPError) as context:
-            self.client.post(CONTAINER_MANIFEST_COPY_PATH)
-        self.assertEqual(context.exception.response.status_code, 400)
-
-        with self.assertRaises(HTTPError) as context:
-            self.client.post(
-                CONTAINER_MANIFEST_COPY_PATH,
-                {'source_repository': self.from_repo['pulp_href']}
-            )
-        self.assertEqual(context.exception.response.status_code, 400)
-
-        with self.assertRaises(HTTPError) as context:
-            self.client.post(
-                CONTAINER_MANIFEST_COPY_PATH,
-                {'source_repository_version': self.from_repo['latest_version_href']}
-            )
-        self.assertEqual(context.exception.response.status_code, 400)
-
-        with self.assertRaises(HTTPError) as context:
-            self.client.post(
-                CONTAINER_RECURSIVE_ADD_PATH,
-                {'destination_repository': self.to_repo['pulp_href']}
-            )
+            self.client.post(self.CONTAINER_MANIFEST_COPY_PATH)
         self.assertEqual(context.exception.response.status_code, 400)
 
     def test_empty_source_repository(self):
         """Ensure exception is raised when source_repository does not have latest version."""
         with self.assertRaises(HTTPError) as context:
             self.client.post(
-                CONTAINER_MANIFEST_COPY_PATH,
+                self.CONTAINER_MANIFEST_COPY_PATH,
                 {
                     # to_repo has no versions, use it as source
                     'source_repository': self.to_repo['pulp_href'],
-                    'destination_repository': self.from_repo['pulp_href'],
                 }
             )
         self.assertEqual(context.exception.response.status_code, 400)
@@ -95,22 +70,20 @@ class TestManifestCopy(unittest.TestCase):
         """Passing source_repository_version and repository returns a 400."""
         with self.assertRaises(HTTPError) as context:
             self.client.post(
-                CONTAINER_TAG_COPY_PATH,
+                self.CONTAINER_MANIFEST_COPY_PATH,
                 {
                     'source_repository': self.from_repo['pulp_href'],
                     'source_repository_version': self.from_repo['latest_version_href'],
-                    'destination_repository': self.to_repo['pulp_href']
                 }
             )
         self.assertEqual(context.exception.response.status_code, 400)
 
     def test_copy_all_manifests(self):
-        """Passing only source and destination repositories copies all manifests."""
+        """Passing only source repository copies all manifests."""
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href']
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
@@ -126,13 +99,12 @@ class TestManifestCopy(unittest.TestCase):
         self.assertFalse('container.tag' in to_repo_content)
 
     def test_copy_all_manifests_from_version(self):
-        """Passing only source version and destination repositories copies all manifests."""
+        """Passing only source version copies all manifests."""
         latest_from_repo_href = self.client.get(self.from_repo['pulp_href'])['latest_version_href']
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository_version': latest_from_repo_href,
-                'destination_repository': self.to_repo['pulp_href']
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
@@ -153,10 +125,9 @@ class TestManifestCopy(unittest.TestCase):
         ))['results'][0]['tagged_manifest']
         manifest_a_digest = self.client.get(manifest_a_href)['digest']
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'digests': [manifest_a_digest]
             }
         )
@@ -175,10 +146,9 @@ class TestManifestCopy(unittest.TestCase):
         ))['results'][0]['tagged_manifest']
         manifest_a_digest = self.client.get(manifest_a_href)['digest']
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'digests': [manifest_a_digest],
                 'media_types': [MEDIA_TYPE.MANIFEST_V2]
             }
@@ -193,10 +163,9 @@ class TestManifestCopy(unittest.TestCase):
     def test_copy_all_manifest_lists_by_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'media_types': [MEDIA_TYPE.MANIFEST_LIST]
             }
         )
@@ -211,10 +180,9 @@ class TestManifestCopy(unittest.TestCase):
     def test_copy_all_manifests_by_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'media_types': [MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V2]
             }
         )
@@ -230,10 +198,9 @@ class TestManifestCopy(unittest.TestCase):
         """Specify the media_type, to copy all manifest lists."""
         with self.assertRaises(HTTPError) as context:
             self.client.post(
-                CONTAINER_MANIFEST_COPY_PATH,
+                self.CONTAINER_MANIFEST_COPY_PATH,
                 {
                     'source_repository': self.from_repo['pulp_href'],
-                    'destination_repository': self.to_repo['pulp_href'],
                     'media_types': ['wrongwrongwrong']
                 }
             )
@@ -247,10 +214,9 @@ class TestManifestCopy(unittest.TestCase):
         ))['results'][0]['tagged_manifest']
         ml_i_digest = self.client.get(ml_i_href)['digest']
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'digests': [ml_i_digest],
                 'media_types': [MEDIA_TYPE.MANIFEST_V2]
             }
@@ -274,10 +240,9 @@ class TestManifestCopy(unittest.TestCase):
         ))['results'][0]['tagged_manifest']
         ml_ii_digest = self.client.get(ml_ii_href)['digest']
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'digests': [ml_i_digest, ml_ii_digest]
             }
         )
@@ -292,10 +257,9 @@ class TestManifestCopy(unittest.TestCase):
     def test_copy_manifests_by_digest_empty_list(self):
         """Passing an empty list copies no manifests."""
         self.client.post(
-            CONTAINER_MANIFEST_COPY_PATH,
+            self.CONTAINER_MANIFEST_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'digests': []
             }
         )
@@ -327,6 +291,7 @@ class TestTagCopy(unittest.TestCase):
     def setUp(self):
         """Create an empty repository to copy into."""
         self.to_repo = self.client.post(CONTAINER_REPO_PATH, gen_repo())
+        self.CONTAINER_TAG_COPY_PATH = f'{self.to_repo["pulp_href"]}copy_tags/'
         self.addCleanup(self.client.delete, self.to_repo['pulp_href'])
 
     @classmethod
@@ -338,35 +303,16 @@ class TestTagCopy(unittest.TestCase):
     def test_missing_repository_argument(self):
         """Ensure source_repository or source_repository_version is required."""
         with self.assertRaises(HTTPError):
-            self.client.post(CONTAINER_RECURSIVE_ADD_PATH)
-
-        with self.assertRaises(HTTPError):
-            self.client.post(
-                CONTAINER_TAG_COPY_PATH,
-                {'source_repository': self.from_repo['pulp_href']}
-            )
-
-        with self.assertRaises(HTTPError):
-            self.client.post(
-                CONTAINER_TAG_COPY_PATH,
-                {'source_repository_version': self.from_repo['latest_version_href']}
-            )
-
-        with self.assertRaises(HTTPError):
-            self.client.post(
-                CONTAINER_TAG_COPY_PATH,
-                {'destination_repository': self.to_repo['pulp_href']}
-            )
+            self.client.post(self.CONTAINER_TAG_COPY_PATH)
 
     def test_empty_source_repository(self):
         """Ensure exception is raised when source_repository does not have latest version."""
         with self.assertRaises(HTTPError):
             self.client.post(
-                CONTAINER_TAG_COPY_PATH,
+                self.CONTAINER_TAG_COPY_PATH,
                 {
                     # to_repo has no versions, use it as source
                     'source_repository': self.to_repo['pulp_href'],
-                    'destination_repository': self.from_repo['pulp_href'],
                 }
             )
 
@@ -374,11 +320,10 @@ class TestTagCopy(unittest.TestCase):
         """Passing both source_repository_version and source_repository returns a 400."""
         with self.assertRaises(HTTPError) as context:
             self.client.post(
-                CONTAINER_TAG_COPY_PATH,
+                self.CONTAINER_TAG_COPY_PATH,
                 {
                     'source_repository': self.from_repo['pulp_href'],
                     'source_repository_version': self.from_repo['latest_version_href'],
-                    'destination_repository': self.to_repo['pulp_href']
                 }
             )
         self.assertEqual(context.exception.response.status_code, 400)
@@ -386,10 +331,9 @@ class TestTagCopy(unittest.TestCase):
     def test_copy_all_tags(self):
         """Passing only source and destination repositories copies all tags."""
         self.client.post(
-            CONTAINER_TAG_COPY_PATH,
+            self.CONTAINER_TAG_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href']
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
@@ -407,10 +351,9 @@ class TestTagCopy(unittest.TestCase):
         """Passing only source version and destination repositories copies all tags."""
         latest_from_repo_href = self.client.get(self.from_repo['pulp_href'])['latest_version_href']
         self.client.post(
-            CONTAINER_TAG_COPY_PATH,
+            self.CONTAINER_TAG_COPY_PATH,
             {
                 'source_repository_version': latest_from_repo_href,
-                'destination_repository': self.to_repo['pulp_href']
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
@@ -426,10 +369,9 @@ class TestTagCopy(unittest.TestCase):
     def test_copy_tags_by_name(self):
         """Copy tags in destination repo that match name."""
         self.client.post(
-            CONTAINER_TAG_COPY_PATH,
+            self.CONTAINER_TAG_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'names': ['ml_i', 'manifest_c']
             }
         )
@@ -444,10 +386,9 @@ class TestTagCopy(unittest.TestCase):
     def test_copy_tags_by_name_empty_list(self):
         """Passing an empty list of names copies nothing."""
         self.client.post(
-            CONTAINER_TAG_COPY_PATH,
+            self.CONTAINER_TAG_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href'],
                 'names': []
             }
         )
@@ -463,18 +404,16 @@ class TestTagCopy(unittest.TestCase):
     def test_copy_tags_with_conflicting_names(self):
         """If tag names are already present in a repository, the conflicting tags are removed."""
         self.client.post(
-            CONTAINER_TAG_COPY_PATH,
+            self.CONTAINER_TAG_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href']
             }
         )
         # Same call
         self.client.post(
-            CONTAINER_TAG_COPY_PATH,
+            self.CONTAINER_TAG_COPY_PATH,
             {
                 'source_repository': self.from_repo['pulp_href'],
-                'destination_repository': self.to_repo['pulp_href']
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
@@ -515,6 +454,7 @@ class TestRecursiveAdd(unittest.TestCase):
     def setUp(self):
         """Create an empty repository to copy into."""
         self.to_repo = self.client.post(CONTAINER_REPO_PATH, gen_repo())
+        self.CONTAINER_RECURSIVE_ADD_PATH = f'{self.to_repo["pulp_href"]}add/'
         self.addCleanup(self.client.delete, self.to_repo['pulp_href'])
 
     @classmethod
@@ -523,14 +463,9 @@ class TestRecursiveAdd(unittest.TestCase):
         cls.client.delete(cls.from_repo['pulp_href'])
         cls.client.delete(cls.remote['pulp_href'])
 
-    def test_missing_repository_argument(self):
-        """Ensure Repository argument is required."""
-        with self.assertRaises(HTTPError):
-            self.client.post(CONTAINER_RECURSIVE_ADD_PATH)
-
     def test_repository_only(self):
         """Passing only a repository creates a new version."""
-        self.client.post(CONTAINER_RECURSIVE_ADD_PATH, {'repository': self.to_repo['pulp_href']})
+        self.client.post(self.CONTAINER_RECURSIVE_ADD_PATH)
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         self.assertNotEqual(latest_version_href, self.to_repo['latest_version_href'])
 
@@ -541,8 +476,8 @@ class TestRecursiveAdd(unittest.TestCase):
             filters="name=manifest_a&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['tagged_manifest']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_a]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -560,8 +495,8 @@ class TestRecursiveAdd(unittest.TestCase):
             filters="name=ml_i&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['tagged_manifest']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [ml_i]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -577,8 +512,8 @@ class TestRecursiveAdd(unittest.TestCase):
             filters="name=ml_i&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['pulp_href']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i_tag]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [ml_i_tag]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertEqual(latest['content_summary']['added']['container.tag']['count'], 1)
@@ -593,8 +528,8 @@ class TestRecursiveAdd(unittest.TestCase):
             filters="name=manifest_a&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['pulp_href']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a_tag]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_a_tag]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -616,21 +551,20 @@ class TestRecursiveAdd(unittest.TestCase):
         ))['results'][0]['tagged_manifest']
         manifest_b_digest = self.client.get(manifest_b)['digest']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_b]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_b]})
         # Tag manifest_b as `manifest_a`
         params = {
             'tag': "manifest_a",
-            'repository': self.to_repo['pulp_href'],
             'digest': manifest_b_digest
         }
-        self.client.post(CONTAINER_TAGGING_PATH, params)
+        self.client.post(f'{self.to_repo["pulp_href"]}tag/', params)
 
         # Now add original manifest_a tag to the repo, which should remove the
         # new manifest_a tag, but leave the tagged manifest (manifest_b)
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a_tag]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_a_tag]})
 
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
@@ -658,9 +592,8 @@ class TestRecursiveAdd(unittest.TestCase):
             filters="name=ml_iv&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['pulp_href']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
+            self.CONTAINER_RECURSIVE_ADD_PATH,
             {
-                'repository': self.to_repo['pulp_href'],
                 'content_units': [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]
             }
         )

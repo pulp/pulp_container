@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
 echo "Create a task to copy a tag to the repo."
-export TASK_HREF=$(http POST $BASE_ADDR'/pulp/api/v3/container/tags/copy/' \
+export TASK_HREF=$(http POST $BASE_ADDR$REPO_HREF'copy_tags/' \
   source_repository=$REPO_HREF \
-  destination_repository=$DEST_REPO_HREF \
   names:="[\"manifest_a\"]" \
   | jq -r '.task')
 

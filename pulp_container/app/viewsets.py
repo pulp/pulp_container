@@ -24,7 +24,6 @@ from pulpcore.plugin.viewsets import (
     RepositoryVersionViewSet,
     OperationPostponedResponse,
 )
-from rest_framework import viewsets as drf_viewsets
 from rest_framework.decorators import action
 
 from . import models, serializers, tasks
@@ -144,7 +143,10 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         Synchronizes a repository. The ``repository`` field has to be provided.
         """
         repository = self.get_object()
-        serializer = RepositorySyncURLSerializer(data=request.data, context={'request': request})
+        serializer = RepositorySyncURLSerializer(
+            data=request.data,
+            context={'request': request}
+        )
 
         # Validate synchronously to return 400 errors.
         serializer.is_valid(raise_exception=True)
@@ -155,6 +157,200 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
             kwargs={
                 'remote_pk': remote.pk,
                 'repository_pk': repository.pk
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to tag an image in the repository",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.TagImageSerializer,
+    )
+    @action(detail=True, methods=['post'], serializer_class=serializers.TagImageSerializer)
+    def tag(self, request, pk):
+        """
+        Create a task which is responsible for creating a new tag.
+        """
+        repository = self.get_object()
+        request.data['repository'] = repository
+
+        serializer = serializers.TagImageSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        manifest = serializer.validated_data['manifest']
+        tag = serializer.validated_data['tag']
+
+        result = enqueue_with_reservation(
+            tasks.tag_image,
+            [repository, manifest],
+            kwargs={
+                'manifest_pk': manifest.pk,
+                'tag': tag,
+                'repository_pk': repository.pk
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to untag an image in the repository",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.UnTagImageSerializer,
+    )
+    @action(detail=True, methods=['post'], serializer_class=serializers.UnTagImageSerializer)
+    def untag(self, request, pk):
+        """
+        Create a task which is responsible for untagging an image.
+        """
+        repository = self.get_object()
+        request.data['repository'] = repository
+
+        serializer = serializers.UnTagImageSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        tag = serializer.validated_data['tag']
+
+        result = enqueue_with_reservation(
+            tasks.untag_image,
+            [repository],
+            kwargs={
+                'tag': tag,
+                'repository_pk': repository.pk
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to recursively add container content.",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.RecursiveManageSerializer,
+    )
+    @action(detail=True, methods=['post'], serializer_class=serializers.RecursiveManageSerializer)
+    def add(self, request, pk):
+        """
+        Queues a task that creates a new RepositoryVersion by adding content units.
+        """
+        add_content_units = []
+        repository = self.get_object()
+        serializer = serializers.RecursiveManageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if 'content_units' in request.data:
+            for url in request.data['content_units']:
+                content = NamedModelViewSet.get_resource(url, Content)
+                add_content_units.append(content.pk)
+
+        result = enqueue_with_reservation(
+            tasks.recursive_add_content, [repository],
+            kwargs={
+                'repository_pk': repository.pk,
+                'content_units': add_content_units,
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+    @swagger_auto_schema(
+        operation_description="Trigger an async task to recursively remove container content.",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.RecursiveManageSerializer,
+    )
+    @action(detail=True, methods=['post'], serializer_class=serializers.RecursiveManageSerializer)
+    def remove(self, request, pk):
+        """
+        Queues a task that creates a new RepositoryVersion by removing content units.
+        """
+        remove_content_units = []
+        repository = self.get_object()
+        serializer = serializers.RecursiveManageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if 'content_units' in request.data:
+            for url in request.data['content_units']:
+                content = NamedModelViewSet.get_resource(url, Content)
+                remove_content_units.append(content.pk)
+
+        result = enqueue_with_reservation(
+            tasks.recursive_remove_content, [repository],
+            kwargs={
+                'repository_pk': repository.pk,
+                'content_units': remove_content_units,
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to copy tags",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.TagCopySerializer,
+    )
+    @action(detail=True, methods=['post'], serializer_class=serializers.TagCopySerializer)
+    def copy_tags(self, request, pk):
+        """
+        Queues a task that creates a new RepositoryVersion by adding Tags.
+        """
+        names = request.data.get("names")
+        serializer = serializers.TagCopySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        repository = self.get_object()
+        source_latest = serializer.validated_data['source_repository_version']
+        content_tags_in_repo = source_latest.content.filter(
+            pulp_type="container.tag"
+        )
+        tags_in_repo = models.Tag.objects.filter(
+            pk__in=content_tags_in_repo,
+        )
+        if names is None:
+            tags_to_add = tags_in_repo
+        else:
+            tags_to_add = tags_in_repo.filter(name__in=names)
+
+        result = enqueue_with_reservation(
+            tasks.recursive_add_content, [repository],
+            kwargs={
+                'repository_pk': repository.pk,
+                'content_units': tags_to_add.values_list('pk', flat=True),
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to copy manifests",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.ManifestCopySerializer,
+    )
+    @action(detail=True, methods=['post'], serializer_class=serializers.ManifestCopySerializer)
+    def copy_manifests(self, request, pk):
+        """
+        Queues a task that creates a new RepositoryVersion by adding Manifests.
+        """
+        serializer = serializers.ManifestCopySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        repository = self.get_object()
+        source_latest = serializer.validated_data['source_repository_version']
+        content_manifests_in_repo = source_latest.content.filter(
+            pulp_type="container.manifest"
+        )
+        manifests_in_repo = models.Manifest.objects.filter(
+            pk__in=content_manifests_in_repo,
+        )
+        digests = request.data.get("digests")
+        media_types = request.data.get("media_types")
+        filters = {}
+        if digests is not None:
+            filters['digest__in'] = digests
+        if media_types is not None:
+            filters['media_type__in'] = media_types
+        manifests_to_add = manifests_in_repo.filter(**filters)
+        result = enqueue_with_reservation(
+            tasks.recursive_add_content, [repository],
+            kwargs={
+                'repository_pk': repository.pk,
+                'content_units': manifests_to_add,
             }
         )
         return OperationPostponedResponse(result, request)
@@ -180,235 +376,3 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     endpoint_name = 'container'
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
-
-
-class TagImageViewSet(drf_viewsets.ViewSet):
-    """
-    ViewSet used for tagging manifests. This endpoint supports only HTTP POST requests.
-    """
-
-    endpoint_name = 'tag'
-
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to create a new repository",
-        responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.TagImageSerializer,
-    )
-    def create(self, request):
-        """
-        Create a task which is responsible for initializing a new repository version.
-        """
-        serializer = serializers.TagImageSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-
-        manifest = serializer.validated_data['manifest']
-        tag = serializer.validated_data['tag']
-        repository = serializer.validated_data['repository']
-
-        result = enqueue_with_reservation(
-            tasks.tag_image,
-            [repository, manifest],
-            kwargs={
-                'manifest_pk': manifest.pk,
-                'tag': tag,
-                'repository_pk': repository.pk
-            }
-        )
-        return OperationPostponedResponse(result, request)
-
-
-class UnTagImageViewSet(drf_viewsets.ViewSet):
-    """
-    ViewSet used for untagging manifests. This endpoint supports only HTTP POST requests.
-    """
-
-    endpoint_name = 'untag'
-
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to create a new repository",
-        responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.UnTagImageSerializer,
-    )
-    def create(self, request):
-        """
-        Create a task which is responsible for creating a new tag.
-        """
-        serializer = serializers.UnTagImageSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-
-        tag = serializer.validated_data['tag']
-        repository = serializer.validated_data['repository']
-
-        result = enqueue_with_reservation(
-            tasks.untag_image,
-            [repository],
-            kwargs={
-                'tag': tag,
-                'repository_pk': repository.pk
-            }
-        )
-        return OperationPostponedResponse(result, request)
-
-
-class RecursiveAdd(drf_viewsets.ViewSet):
-    """
-    ViewSet for recursively adding Container content.
-    """
-
-    serializer_class = serializers.RecursiveManageSerializer
-
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to recursively add container content.",
-        responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.RecursiveManageSerializer,
-    )
-    def create(self, request):
-        """
-        Queues a task that creates a new RepositoryVersion by adding content units.
-        """
-        add_content_units = []
-        serializer = serializers.RecursiveManageSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        repository = serializer.validated_data['repository']
-
-        if 'content_units' in request.data:
-            for url in request.data['content_units']:
-                content = NamedModelViewSet.get_resource(url, Content)
-                add_content_units.append(content.pk)
-
-        result = enqueue_with_reservation(
-            tasks.recursive_add_content, [repository],
-            kwargs={
-                'repository_pk': repository.pk,
-                'content_units': add_content_units,
-            }
-        )
-        return OperationPostponedResponse(result, request)
-
-
-class TagCopyViewSet(drf_viewsets.ViewSet):
-    """
-    ViewSet for copying tags recursively.
-    """
-
-    serializer_class = serializers.TagCopySerializer
-
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to copy tags",
-        responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.TagCopySerializer,
-    )
-    def create(self, request):
-        """
-        Queues a task that creates a new RepositoryVersion by adding content units.
-        """
-        names = request.data.get("names")
-        serializer = serializers.TagCopySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        source_latest = serializer.validated_data['source_repository_version']
-        destination = serializer.validated_data['destination_repository']
-        content_tags_in_repo = source_latest.content.filter(
-            pulp_type="container.tag"
-        )
-        tags_in_repo = models.Tag.objects.filter(
-            pk__in=content_tags_in_repo,
-        )
-        if names is None:
-            tags_to_add = tags_in_repo
-        else:
-            tags_to_add = tags_in_repo.filter(name__in=names)
-
-        result = enqueue_with_reservation(
-            tasks.recursive_add_content, [destination],
-            kwargs={
-                'repository_pk': destination.pk,
-                'content_units': tags_to_add.values_list('pk', flat=True),
-            }
-        )
-        return OperationPostponedResponse(result, request)
-
-
-class ManifestCopyViewSet(drf_viewsets.ViewSet):
-    """
-    ViewSet for copying manifests recursively.
-    """
-
-    serializer_class = serializers.ManifestCopySerializer
-
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to copy manifests",
-        responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.ManifestCopySerializer,
-    )
-    def create(self, request):
-        """
-        Queues a task that creates a new RepositoryVersion by adding content units.
-        """
-        serializer = serializers.ManifestCopySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        source_latest = serializer.validated_data['source_repository_version']
-        destination = serializer.validated_data['destination_repository']
-        content_manifests_in_repo = source_latest.content.filter(
-            pulp_type="container.manifest"
-        )
-        manifests_in_repo = models.Manifest.objects.filter(
-            pk__in=content_manifests_in_repo,
-        )
-        digests = request.data.get("digests")
-        media_types = request.data.get("media_types")
-        filters = {}
-        if digests is not None:
-            filters['digest__in'] = digests
-        if media_types is not None:
-            filters['media_type__in'] = media_types
-        manifests_to_add = manifests_in_repo.filter(**filters)
-        result = enqueue_with_reservation(
-            tasks.recursive_add_content, [destination],
-            kwargs={
-                'repository_pk': destination.pk,
-                'content_units': manifests_to_add,
-            }
-        )
-        return OperationPostponedResponse(result, request)
-
-
-class RecursiveRemove(drf_viewsets.ViewSet):
-    """
-    ViewSet for recursively removing Container content.
-    """
-
-    serializer_class = serializers.RecursiveManageSerializer
-
-    @swagger_auto_schema(
-        operation_description="Trigger an async task to recursively remove container content.",
-        responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.RecursiveManageSerializer,
-    )
-    def create(self, request):
-        """
-        Queues a task that creates a new RepositoryVersion by removing content units.
-        """
-        remove_content_units = []
-        serializer = serializers.RecursiveManageSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        repository = serializer.validated_data['repository']
-
-        if 'content_units' in request.data:
-            for url in request.data['content_units']:
-                content = NamedModelViewSet.get_resource(url, Content)
-                remove_content_units.append(content.pk)
-
-        result = enqueue_with_reservation(
-            tasks.recursive_remove_content, [repository],
-            kwargs={
-                'repository_pk': repository.pk,
-                'content_units': remove_content_units,
-            }
-        )
-        return OperationPostponedResponse(result, request)
