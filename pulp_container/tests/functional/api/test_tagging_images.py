@@ -73,21 +73,18 @@ class TaggingTestCase(unittest.TestCase):
 
         This test checks if a new repository version was created with no content added.
         """
+        latest_version_before = self.client.get(
+            self.repository['pulp_href']
+        )['latest_version_href']
+
         manifest_a = self.get_manifest_by_tag('manifest_a')
         self.tag_image(manifest_a, 'new_tag')
 
-        new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
-            repository_href=self.repository['pulp_href'],
-            new_version='3'
-        )
+        latest_version_after = self.client.get(
+            self.repository['pulp_href']
+        )['latest_version_href']
 
-        repository_version = self.client.get(new_repository_version_href)
-
-        added_content = repository_version['content_summary']['added']
-        self.assertEqual(added_content, {}, added_content)
-
-        removed_content = repository_version['content_summary']['removed']
-        self.assertEqual(removed_content, {}, removed_content)
+        self.assertEquals(latest_version_before, latest_version_after)
 
     def test_03_tag_second_image_with_same_tag(self):
         """
@@ -102,7 +99,7 @@ class TaggingTestCase(unittest.TestCase):
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
             repository_href=self.repository['pulp_href'],
-            new_version='4'
+            new_version='3'
         )
 
         added_tags_href = '{unit_path}?{filters}'.format(
@@ -141,7 +138,7 @@ class TaggingTestCase(unittest.TestCase):
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
             repository_href=self.repository['pulp_href'],
-            new_version='5'
+            new_version='4'
         )
 
         removed_tags_href = '{unit_path}?{filters}'.format(

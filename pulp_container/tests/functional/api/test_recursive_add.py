@@ -222,10 +222,8 @@ class TestManifestCopy(unittest.TestCase):
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
-        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']['present']
-        # No content added
-        for container_type in ['container.tag', 'container.manifest', 'container.blob']:
-            self.assertFalse(container_type in to_repo_content, msg=container_type)
+        # Assert no version created
+        self.assertIsNone(latest_to_repo_href)
 
     def test_copy_multiple_manifests_by_digest(self):
         """Specify digests to copy."""
@@ -264,13 +262,8 @@ class TestManifestCopy(unittest.TestCase):
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
-        # A new version was created
-        self.assertNotEqual(latest_to_repo_href, self.to_repo['latest_version_href'])
-
-        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']['present']
-        # No content added
-        for container_type in ['container.tag', 'container.manifest', 'container.blob']:
-            self.assertFalse(container_type in to_repo_content)
+        # Assert a new version was not created
+        self.assertIsNone(latest_to_repo_href)
 
 
 class TestTagCopy(unittest.TestCase):
@@ -393,13 +386,8 @@ class TestTagCopy(unittest.TestCase):
             }
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
-        # A new version was created
-        self.assertNotEqual(latest_to_repo_href, self.to_repo['latest_version_href'])
-
-        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']['present']
-        # No content added
-        for container_type in ['container.tag', 'container.manifest', 'container.blob']:
-            self.assertFalse(container_type in to_repo_content)
+        # Assert a new version was not created
+        self.assertIsNone(latest_to_repo_href)
 
     def test_copy_tags_with_conflicting_names(self):
         """If tag names are already present in a repository, the conflicting tags are removed."""
@@ -464,10 +452,10 @@ class TestRecursiveAdd(unittest.TestCase):
         cls.client.delete(cls.remote['pulp_href'])
 
     def test_repository_only(self):
-        """Passing only a repository creates a new version."""
+        """Passing only a repository does not create a new version."""
         self.client.post(self.CONTAINER_RECURSIVE_ADD_PATH)
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
-        self.assertNotEqual(latest_version_href, self.to_repo['latest_version_href'])
+        self.assertEqual(latest_version_href, self.to_repo['latest_version_href'])
 
     def test_manifest_recursion(self):
         """Add a manifest and its related blobs."""
