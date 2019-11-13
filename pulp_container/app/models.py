@@ -12,6 +12,7 @@ from pulpcore.plugin.models import (
     Repository,
     RepositoryVersionDistribution
 )
+from pulpcore.plugin.repo_version_utils import remove_duplicates
 
 from . import downloaders
 from pulp_container.constants import MEDIA_TYPE
@@ -160,6 +161,7 @@ class Tag(Content):
     """
 
     TYPE = 'tag'
+    repo_key_fields = ('name',)
 
     name = models.CharField(max_length=255, db_index=True)
 
@@ -182,6 +184,15 @@ class ContainerRepository(Repository):
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+
+    def finalize_new_version(self, new_version):
+        """
+        Ensure no added content Tags contain the same `name`.
+        Args:
+            new_version (pulpcore.app.models.RepositoryVersion): The incomplete RepositoryVersion to
+                finalize.
+        """
+        remove_duplicates(new_version)
 
 
 class ContainerRemote(Remote):
