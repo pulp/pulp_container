@@ -7,14 +7,13 @@ from pulpcore.plugin.stages import (
     ContentSaver,
     DeclarativeVersion,
     RemoteArtifactSaver,
-    RemoveDuplicates,
     ResolveContentFutures,
     QueryExistingArtifacts,
     QueryExistingContents,
 )
 
 from .sync_stages import InterrelateContent, ContainerFirstStage
-from pulp_container.app.models import ContainerRemote, ContainerRepository, Tag
+from pulp_container.app.models import ContainerRemote, ContainerRepository
 
 
 log = logging.getLogger(__name__)
@@ -38,13 +37,10 @@ def synchronize(remote_pk, repository_pk):
     repository = ContainerRepository.objects.get(pk=repository_pk)
     if not remote.url:
         raise ValueError(_('A remote must have a url specified to synchronize.'))
-    remove_duplicate_tags = [{'model': Tag, 'field_names': ['name']}]
     log.info(_('Synchronizing: repository={r} remote={p}').format(
         r=repository.name, p=remote.name))
     first_stage = ContainerFirstStage(remote)
-    dv = ContainerDeclarativeVersion(first_stage,
-                                     repository,
-                                     remove_duplicates=remove_duplicate_tags)
+    dv = ContainerDeclarativeVersion(first_stage, repository)
     dv.create()
 
 
@@ -78,7 +74,5 @@ class ContainerDeclarativeVersion(DeclarativeVersion):
             ResolveContentFutures(),
             InterrelateContent(),
         ]
-        for dupe_query_dict in self.remove_duplicates:
-            pipeline.append(RemoveDuplicates(new_version, **dupe_query_dict))
 
         return pipeline
