@@ -47,29 +47,11 @@ class TestRecursiveRemove(unittest.TestCase):
         cls.client.delete(cls.from_repo['pulp_href'])
         cls.client.delete(cls.remote['pulp_href'])
 
-    def test_repository_only(self):
-        """Passing only a repository creates a new version."""
-        # Create a new version, repository must have latest version to be valid.
-        self.client.post(self.CONTAINER_RECURSIVE_ADD_PATH)
-        after_add_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
-
-        # Actual test
-        self.client.post(self.CONTAINER_RECURSIVE_REMOVE_PATH)
-        after_remove_version_href = self.client.get(
-            self.to_repo['pulp_href'])['latest_version_href']
-        self.assertNotEqual(after_add_version_href, after_remove_version_href)
-        latest = self.client.get(after_remove_version_href)
-        for content_type in ['container.tag', 'container.manifest', 'container.blob']:
-            self.assertFalse(content_type in latest['content_summary']['removed'], msg=content_type)
-
     def test_repository_only_no_latest_version(self):
-        """Create a new version, even when there is nothing to remove."""
+        """Do not create a new version, when there is nothing to remove."""
         self.client.post(self.CONTAINER_RECURSIVE_REMOVE_PATH)
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
-        self.assertIsNotNone(latest_version_href)
-        latest = self.client.get(latest_version_href)
-        for content_type in ['container.tag', 'container.manifest', 'container.blob']:
-            self.assertFalse(content_type in latest['content_summary']['removed'], msg=content_type)
+        self.assertIsNone(latest_version_href)
 
     def test_manifest_recursion(self):
         """Add a manifest and its related blobs."""
