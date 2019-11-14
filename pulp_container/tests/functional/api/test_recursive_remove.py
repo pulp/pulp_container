@@ -4,14 +4,11 @@ import unittest
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.utils import gen_repo, sync
-from requests.exceptions import HTTPError
 
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
     CONTAINER_REMOTE_PATH,
     CONTAINER_REPO_PATH,
-    CONTAINER_RECURSIVE_ADD_PATH,
-    CONTAINER_RECURSIVE_REMOVE_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
 )
 from pulp_container.tests.functional.utils import gen_container_remote
@@ -40,6 +37,8 @@ class TestRecursiveRemove(unittest.TestCase):
     def setUp(self):
         """Create an empty repository to copy into."""
         self.to_repo = self.client.post(CONTAINER_REPO_PATH, gen_repo())
+        self.CONTAINER_RECURSIVE_REMOVE_PATH = f'{self.to_repo["pulp_href"]}remove/'
+        self.CONTAINER_RECURSIVE_ADD_PATH = f'{self.to_repo["pulp_href"]}add/'
         self.addCleanup(self.client.delete, self.to_repo['pulp_href'])
 
     @classmethod
@@ -48,20 +47,14 @@ class TestRecursiveRemove(unittest.TestCase):
         cls.client.delete(cls.from_repo['pulp_href'])
         cls.client.delete(cls.remote['pulp_href'])
 
-    def test_missing_repository_argument(self):
-        """Ensure Repository argument is required."""
-        with self.assertRaises(HTTPError) as context:
-            self.client.post(CONTAINER_RECURSIVE_ADD_PATH)
-        self.assertEqual(context.exception.response.status_code, 400)
-
     def test_repository_only(self):
         """Passing only a repository creates a new version."""
         # Create a new version, repository must have latest version to be valid.
-        self.client.post(CONTAINER_RECURSIVE_ADD_PATH, {'repository': self.to_repo['pulp_href']})
+        self.client.post(self.CONTAINER_RECURSIVE_ADD_PATH)
         after_add_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
 
         # Actual test
-        self.client.post(CONTAINER_RECURSIVE_REMOVE_PATH, {'repository': self.to_repo['pulp_href']})
+        self.client.post(self.CONTAINER_RECURSIVE_REMOVE_PATH)
         after_remove_version_href = self.client.get(
             self.to_repo['pulp_href'])['latest_version_href']
         self.assertNotEqual(after_add_version_href, after_remove_version_href)
@@ -71,7 +64,7 @@ class TestRecursiveRemove(unittest.TestCase):
 
     def test_repository_only_no_latest_version(self):
         """Create a new version, even when there is nothing to remove."""
-        self.client.post(CONTAINER_RECURSIVE_REMOVE_PATH, {'repository': self.to_repo['pulp_href']})
+        self.client.post(self.CONTAINER_RECURSIVE_REMOVE_PATH)
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         self.assertIsNotNone(latest_version_href)
         latest = self.client.get(latest_version_href)
@@ -85,8 +78,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=manifest_a&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['tagged_manifest']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_a]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -97,8 +90,8 @@ class TestRecursiveRemove(unittest.TestCase):
 
         # Actual test
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a]})
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
+            {'content_units': [manifest_a]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('container.tag' in latest['content_summary']['removed'])
@@ -112,8 +105,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=ml_i&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['tagged_manifest']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [ml_i]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -124,8 +117,8 @@ class TestRecursiveRemove(unittest.TestCase):
 
         # Actual test
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i]})
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
+            {'content_units': [ml_i]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('container.tag' in latest['content_summary']['removed'])
@@ -139,8 +132,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=ml_i&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['pulp_href']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i_tag]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [ml_i_tag]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -151,8 +144,8 @@ class TestRecursiveRemove(unittest.TestCase):
 
         # Actual test
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i_tag]})
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
+            {'content_units': [ml_i_tag]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertEqual(latest['content_summary']['removed']['container.tag']['count'], 1)
@@ -166,8 +159,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=manifest_a&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['pulp_href']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a_tag]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_a_tag]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -178,8 +171,8 @@ class TestRecursiveRemove(unittest.TestCase):
 
         # Actual test
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a_tag]})
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
+            {'content_units': [manifest_a_tag]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
@@ -198,8 +191,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=manifest_e&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['tagged_manifest']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a, manifest_e]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_a, manifest_e]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         # Ensure valid starting state
@@ -211,8 +204,8 @@ class TestRecursiveRemove(unittest.TestCase):
 
         # Actual test
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_e]})
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
+            {'content_units': [manifest_e]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('container.tag' in latest['content_summary']['removed'])
@@ -232,8 +225,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=ml_iii&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['tagged_manifest']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i, ml_iii]})
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [ml_i, ml_iii]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         # Ensure valid starting state
@@ -244,8 +237,8 @@ class TestRecursiveRemove(unittest.TestCase):
 
         # Actual test
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
-            {'repository': self.to_repo['pulp_href'], 'content_units': [ml_iii]})
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
+            {'content_units': [ml_iii]})
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('container.tag' in latest['content_summary']['removed'])
@@ -272,9 +265,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=ml_iv&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]['pulp_href']
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
+            self.CONTAINER_RECURSIVE_ADD_PATH,
             {
-                'repository': self.to_repo['pulp_href'],
                 'content_units': [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]
             }
         )
@@ -286,9 +278,8 @@ class TestRecursiveRemove(unittest.TestCase):
         self.assertEqual(latest['content_summary']['added']['container.blob']['count'], 10)
 
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
             {
-                'repository': self.to_repo['pulp_href'],
                 'content_units': [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]
             }
         )
@@ -308,9 +299,8 @@ class TestRecursiveRemove(unittest.TestCase):
             filters="name=manifest_a&{v_filter}".format(v_filter=self.latest_from_version),
         ))['results'][0]
         self.client.post(
-            CONTAINER_RECURSIVE_ADD_PATH,
+            self.CONTAINER_RECURSIVE_ADD_PATH,
             {
-                'repository': self.to_repo['pulp_href'],
                 'content_units': [manifest_a_tag['pulp_href']]
             }
         )
@@ -321,9 +311,8 @@ class TestRecursiveRemove(unittest.TestCase):
         self.assertEqual(latest['content_summary']['added']['container.blob']['count'], 2)
 
         self.client.post(
-            CONTAINER_RECURSIVE_REMOVE_PATH,
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
             {
-                'repository': self.to_repo['pulp_href'],
                 'content_units': [manifest_a_tag['tagged_manifest']]
             }
         )

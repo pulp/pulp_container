@@ -3,7 +3,7 @@
 export TAG_NAME='custom_tag'
 
 echo "Untagging a manifest which is labeled with ${TAG_NAME}"
-export TASK_URL=$(http POST $BASE_ADDR'/pulp/api/v3/container/untag/' \
+export TASK_URL=$(http POST $BASE_ADDR$REPO_HREF'untag/' \
   repository=$REPO_HREF tag=$TAG_NAME \
   | jq -r '.task')
 

@@ -15,7 +15,6 @@ from pulpcore.plugin.serializers import (
     RepositorySerializer,
     RepositoryVersionDistributionSerializer,
     SingleArtifactContentSerializer,
-    RelatedField,
     validate_unknown_fields,
 )
 
@@ -176,12 +175,6 @@ class TagOperationSerializer(serializers.Serializer):
     A base serializer for tagging and untagging manifests.
     """
 
-    repository = RelatedField(
-        required=True,
-        view_name='repositories-container/container-detail',
-        queryset=models.ContainerRepository.objects.all(),
-        help_text='A URI of the repository.'
-    )
     tag = serializers.CharField(
         required=True,
         help_text='A tag name'
@@ -196,9 +189,9 @@ class TagOperationSerializer(serializers.Serializer):
         repository version.
         """
         new_data = {}
-        new_data.update(data)
+        new_data.update(self.initial_data)
 
-        latest_version = data['repository'].latest_version()
+        latest_version = new_data['repository'].latest_version()
         if not latest_version:
             raise serializers.ValidationError(
                 _("The latest repository version of '{}' was not found"
@@ -277,16 +270,6 @@ class RecursiveManageSerializer(serializers.Serializer):
     Serializer for adding and removing content to/from a Container repository.
     """
 
-    repository = serializers.HyperlinkedRelatedField(
-        required=True,
-        help_text=_('A URI of the repository to add content.'),
-        queryset=models.ContainerRepository.objects.all(),
-        view_name='repositories-container/container-detail',
-        label=_('Repository'),
-        error_messages={
-            'required': _('The repository URI must be specified.')
-        }
-    )
     content_units = serializers.ListField(
         help_text=_('A list of content units to operate on.'),
         write_only=True,
@@ -315,16 +298,6 @@ class CopySerializer(serializers.Serializer):
         queryset=RepositoryVersion.objects.all(),
         write_only=True,
         required=False,
-    )
-    destination_repository = serializers.HyperlinkedRelatedField(
-        required=True,
-        help_text=_('A URI of the repository to copy content to.'),
-        queryset=models.ContainerRepository.objects.all(),
-        view_name='repositories-container/container-detail',
-        label=_('Repository'),
-        error_messages={
-            'required': _('Destination repository URI must be specified.')
-        }
     )
 
     def validate(self, data):
