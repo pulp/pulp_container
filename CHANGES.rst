@@ -13,6 +13,68 @@ Changelog
 
 .. towncrier release notes start
 
+1.0.0rc1 (2019-11-18)
+=====================
+
+
+Features
+--------
+
+- No duplicated content can be present in a repository version.
+  `#3541 <https://pulp.plan.io/issues/3541>`_
+- Convert manifests of the format schema 2 to schema 1
+  `#4244 <https://pulp.plan.io/issues/4244>`_
+- Add support for pulling content using token authentication
+  `#4938 <https://pulp.plan.io/issues/4938>`_
+- Store whitelisted tags in a list instead of CSV string
+  `#5515 <https://pulp.plan.io/issues/5515>`_
+- Make repositories "typed". Repositories now live at a detail endpoint. Sync is performed by POSTing to {repo_href}/sync/ remote={remote_href}.
+  `#5625 <https://pulp.plan.io/issues/5625>`_
+- Added v2s2 to v2s1 converter.
+  `#5635 <https://pulp.plan.io/issues/5635>`_
+
+
+Bugfixes
+--------
+
+- Fix using specified proxy for downloads.
+  `#5637 <https://pulp.plan.io/issues/5637>`_
+
+
+Improved Documentation
+----------------------
+
+- Change the prefix of Pulp services from pulp-* to pulpcore-*
+  `#4554 <https://pulp.plan.io/issues/4554>`_
+
+
+Deprecations and Removals
+-------------------------
+
+- Change `_type` to `pulp_type`
+  `#5454 <https://pulp.plan.io/issues/5454>`_
+- Change `_id`, `_created`, `_last_updated`, `_href` to `pulp_id`, `pulp_created`, `pulp_last_updated`, `pulp_href`
+  `#5457 <https://pulp.plan.io/issues/5457>`_
+- Remove "_" from `_versions_href`, `_latest_version_href`
+  `#5548 <https://pulp.plan.io/issues/5548>`_
+- Removing base field: `_type` .
+  `#5550 <https://pulp.plan.io/issues/5550>`_
+- Sync is no longer available at the {remote_href}/sync/ repository={repo_href} endpoint. Instead, use POST {repo_href}/sync/ remote={remote_href}.
+
+  Creating / listing / editing / deleting Container repositories is now performed on /pulp/api/v3/repositories/container/container/ instead of /pulp/api/v3/repositories/.
+  Only Container content can be present in a Container repository, and only a Container repository can hold Container content.
+  `#5625 <https://pulp.plan.io/issues/5625>`_
+
+
+Misc
+----
+
+- `#3308 <https://pulp.plan.io/issues/3308>`_, `#5580 <https://pulp.plan.io/issues/5580>`_, `#5690 <https://pulp.plan.io/issues/5690>`_
+
+
+----
+
+
 4.0.0b7 (2019-10-02)
 ====================
 
