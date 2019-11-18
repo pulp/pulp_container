@@ -1,5 +1,5 @@
 ``pulp_container`` Plugin
-======================
+=========================
 
 .. image:: https://travis-ci.org/pulp/pulp_container.svg?branch=master
     :target: https://travis-ci.org/pulp/pulp_container
