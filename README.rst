@@ -1,8 +1,8 @@
 ``pulp_container`` Plugin
 =========================
 
-.. image:: https://travis-ci.org/pulp/pulp_container.svg?branch=master
-    :target: https://travis-ci.org/pulp/pulp_container
+.. image:: https://travis-ci.com/pulp/pulp_container.svg?branch=master
+    :target: https://travis-ci.com/pulp/pulp_container
 
 This is the ``pulp_container`` Plugin for `Pulp Project
 3.0+ <https://pypi.python.org/pypi/pulpcore/>`__. This plugin provides Pulp with support for container
