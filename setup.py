@@ -20,7 +20,7 @@ setup(
     license='GPLv2+',
     author='Pulp Team',
     author_email='pulp-list@redhat.com',
-    url='http://pulpproject.org/',
+    url='https://pulpproject.org/',
     python_requires='>=3.6',
     install_requires=requirements,
     include_package_data=True,
