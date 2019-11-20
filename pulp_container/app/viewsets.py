@@ -271,6 +271,10 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
         if 'content_units' in request.data:
             for url in request.data['content_units']:
+                if url == '*':
+                    remove_content_units = [url]
+                    break
+
                 content = NamedModelViewSet.get_resource(url, Content)
                 remove_content_units.append(content.pk)
 
