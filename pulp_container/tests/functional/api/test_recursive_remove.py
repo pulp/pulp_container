@@ -4,6 +4,7 @@ import unittest
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.utils import gen_repo, sync
+from requests.exceptions import HTTPError
 
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
@@ -52,6 +53,42 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(self.CONTAINER_RECURSIVE_REMOVE_PATH)
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         self.assertIsNone(latest_version_href)
+
+    def test_remove_everything(self):
+        """Add a manifest and its related blobs."""
+        manifest_a = self.client.get("{unit_path}?{filters}".format(
+            unit_path=CONTAINER_TAG_PATH,
+            filters="name=manifest_a&{v_filter}".format(v_filter=self.latest_from_version),
+        ))['results'][0]['tagged_manifest']
+        self.client.post(
+            self.CONTAINER_RECURSIVE_ADD_PATH,
+            {'content_units': [manifest_a]})
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
+        latest = self.client.get(latest_version_href)
+
+        # Ensure test begins in the correct state
+        self.assertFalse('container.tag' in latest['content_summary']['added'])
+        self.assertEqual(latest['content_summary']['added']['container.manifest']['count'], 1)
+        self.assertEqual(latest['content_summary']['added']['container.blob']['count'], 2)
+
+        # Actual test
+        self.client.post(
+            self.CONTAINER_RECURSIVE_REMOVE_PATH,
+            {'content_units': ["*"]})
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
+        latest = self.client.get(latest_version_href)
+        self.assertEqual(latest['content_summary']['present'], {})
+        self.assertEqual(latest['content_summary']['removed']['container.blob']['count'], 2)
+        self.assertEqual(latest['content_summary']['removed']['container.manifest']['count'], 1)
+
+    def test_remove_invalid_content_units(self):
+        """Ensure exception is raised when '*' is not the only item in the content_units."""
+        with self.assertRaises(HTTPError) as context:
+            self.client.post(
+                self.CONTAINER_RECURSIVE_REMOVE_PATH,
+                {'content_units': ["*", "some_href"]}
+            )
+        self.assertEqual(context.exception.response.status_code, 400)
 
     def test_manifest_recursion(self):
         """Add a manifest and its related blobs."""
