@@ -216,6 +216,10 @@ New Repository Version::
           "number": 2
       }
 
+.. note::
+
+   Users can remove all content from the repo by specifying '*' in the content_units
+
 Reference: `Container Recursive Remove Usage <../restapi.html#tag/container:-recursive-remove>`_
 
 .. _tag-copy:

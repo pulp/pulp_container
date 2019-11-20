@@ -276,6 +276,19 @@ class RecursiveManageSerializer(serializers.Serializer):
         required=False
     )
 
+    def validate(self, data):
+        """
+        Validate data passed through a request call.
+        """
+        content_units = data.get('content_units', None)
+        if content_units:
+            if '*' in content_units and len(content_units) > 1:
+                raise serializers.ValidationError(
+                    _("'*' should be the only item present in the {}"
+                      .format(content_units))
+                )
+        return data
+
 
 class CopySerializer(serializers.Serializer):
     """
