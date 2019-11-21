@@ -52,7 +52,7 @@ class TestRecursiveRemove(unittest.TestCase):
         """Do not create a new version, when there is nothing to remove."""
         self.client.post(self.CONTAINER_RECURSIVE_REMOVE_PATH)
         latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
-        self.assertIsNone(latest_version_href)
+        self.assertEqual(latest_version_href, f"{self.to_repo['pulp_href']}versions/0/")
 
     def test_remove_everything(self):
         """Add a manifest and its related blobs."""

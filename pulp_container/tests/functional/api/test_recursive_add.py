@@ -56,6 +56,7 @@ class TestManifestCopy(unittest.TestCase):
 
     def test_empty_source_repository(self):
         """Ensure exception is raised when source_repository does not have latest version."""
+        self.client.delete(self.to_repo['latest_version_href'])
         with self.assertRaises(HTTPError) as context:
             self.client.post(
                 self.CONTAINER_MANIFEST_COPY_PATH,
@@ -223,7 +224,7 @@ class TestManifestCopy(unittest.TestCase):
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         # Assert no version created
-        self.assertIsNone(latest_to_repo_href)
+        self.assertEqual(latest_to_repo_href, f"{self.to_repo['pulp_href']}versions/0/")
 
     def test_copy_multiple_manifests_by_digest(self):
         """Specify digests to copy."""
@@ -263,7 +264,7 @@ class TestManifestCopy(unittest.TestCase):
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         # Assert a new version was not created
-        self.assertIsNone(latest_to_repo_href)
+        self.assertEqual(latest_to_repo_href, f"{self.to_repo['pulp_href']}versions/0/")
 
 
 class TestTagCopy(unittest.TestCase):
@@ -300,6 +301,7 @@ class TestTagCopy(unittest.TestCase):
 
     def test_empty_source_repository(self):
         """Ensure exception is raised when source_repository does not have latest version."""
+        self.client.delete(self.to_repo['latest_version_href'])
         with self.assertRaises(HTTPError):
             self.client.post(
                 self.CONTAINER_TAG_COPY_PATH,
@@ -387,7 +389,7 @@ class TestTagCopy(unittest.TestCase):
         )
         latest_to_repo_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         # Assert a new version was not created
-        self.assertIsNone(latest_to_repo_href)
+        self.assertEqual(latest_to_repo_href, f"{self.to_repo['pulp_href']}versions/0/")
 
     def test_copy_tags_with_conflicting_names(self):
         """If tag names are already present in a repository, the conflicting tags are removed."""
