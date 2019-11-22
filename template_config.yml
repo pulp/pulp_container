@@ -34,8 +34,11 @@ plugin_dash_short: container
 plugin_name: pulp_container
 plugin_snake: pulp_container
 pulp_settings:
+  private_key_path: /var/lib/pulp/tmp/private.pem
+  public_key_path: /var/lib/pulp/tmp/public.pem
   token_server: $(hostname):24816/token
   token_signature_algorithm: ES256
+pulpcore_branch: 3.0
 pydocstyle: true
 pypi_username: pulp
 test: false
