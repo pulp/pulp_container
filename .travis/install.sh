@@ -10,9 +10,7 @@
 set -euv
 
 if [ "$TEST" = 'docs' ]; then
-
   pip install -r ../pulpcore/doc_requirements.txt
-
   pip install -r doc_requirements.txt
 fi
 
@@ -48,31 +46,27 @@ else
 fi
 
 
-PLUGIN=pulp_container
-
-
-# For pulpcore, and any other repo that might check out some plugin PR
 if [ -n "$TRAVIS_TAG" ]; then
   # Install the plugin only and use published PyPI packages for the rest
   cat > vars/vars.yaml << VARSYAML
 ---
 images:
-  - ${PLUGIN}-${TAG}:
-      image_name: $PLUGIN
+  - pulp_container-${TAG}:
+      image_name: pulp_container
       tag: $TAG
       plugins:
-        - ./$PLUGIN
+        - ./pulp_container
 VARSYAML
 else
   cat > vars/vars.yaml << VARSYAML
 ---
 images:
-  - ${PLUGIN}-${TAG}:
-      image_name: $PLUGIN
+  - pulp_container-${TAG}:
+      image_name: pulp_container
       tag: $TAG
       pulpcore: ./pulpcore
       plugins:
-        - ./$PLUGIN
+        - ./pulp_container
 VARSYAML
 fi
 ansible-playbook -v build.yaml
@@ -90,7 +84,7 @@ spec:
     access_mode: "ReadWriteOnce"
     # We have a little over 40GB free on Travis VMs/instances
     size: "40Gi"
-  image: $PLUGIN
+  image: pulp_container
   tag: $TAG
   database_connection:
     username: pulp
