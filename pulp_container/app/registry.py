@@ -153,18 +153,32 @@ class Registry(Handler):
         except ObjectDoesNotExist:
             raise PathNotResolved(tag_name)
 
+        # we do not convert OCI to docker
+        oci_mediatypes = [MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI]
+        if tag.tagged_manifest.media_type in oci_mediatypes and \
+                tag.tagged_manifest.media_type not in accepted_media_types:
+            log.warn(
+                "OCI format found, but the client only accepts {accepted_media_types}.".format(
+                    accepted_media_types=accepted_media_types
+                )
+            )
+            raise PathNotResolved(tag_name)
+
+        # return schema1 (even in case only oci is requested)
         if tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V1:
             return_media_type = MEDIA_TYPE.MANIFEST_V1_SIGNED
             response_headers = {'Content-Type': return_media_type,
                                 'Docker-Content-Digest': tag.tagged_manifest.digest}
             return await Registry.dispatch_tag(tag, response_headers)
 
+        # return what was found in case media_type is accepted header ( docker, oci)
         if tag.tagged_manifest.media_type in accepted_media_types:
             return_media_type = tag.tagged_manifest.media_type
             response_headers = {'Content-Type': return_media_type,
                                 'Docker-Content-Digest': tag.tagged_manifest.digest}
             return await Registry.dispatch_tag(tag, response_headers)
 
+        # convert if necessary
         return await Registry.dispatch_converted_schema(tag, accepted_media_types, path)
 
     @staticmethod
