@@ -41,6 +41,9 @@ class Blob(Content):
         (MEDIA_TYPE.CONFIG_BLOB, MEDIA_TYPE.CONFIG_BLOB),
         (MEDIA_TYPE.REGULAR_BLOB, MEDIA_TYPE.REGULAR_BLOB),
         (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB),
+        (MEDIA_TYPE.CONFIG_BLOB_OCI, MEDIA_TYPE.CONFIG_BLOB_OCI),
+        (MEDIA_TYPE.REGULAR_BLOB_OCI, MEDIA_TYPE.REGULAR_BLOB_OCI),
+        (MEDIA_TYPE.FOREIGN_BLOB_OCI, MEDIA_TYPE.FOREIGN_BLOB_OCI),
     )
     digest = models.CharField(max_length=255, db_index=True)
     media_type = models.CharField(
@@ -77,6 +80,8 @@ class Manifest(Content):
         (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1),
         (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V2),
         (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.MANIFEST_LIST),
+        (MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.MANIFEST_OCI),
+        (MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.INDEX_OCI),
     )
     digest = models.CharField(max_length=255, db_index=True)
     schema_version = models.IntegerField()
