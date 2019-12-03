@@ -1,7 +1,10 @@
+import re
 import jwt
 
 from aiohttp import web
 from django.conf import settings
+
+CONTENT_HOST = re.sub(r'(http://|https://)', '', settings.CONTENT_ORIGIN, count=1)
 
 
 class TokenVerifier:
@@ -94,11 +97,11 @@ class TokenVerifier:
         """
         Build a formatted authenticate string.
 
-        For example, A created string is the following format:
-        realm="https://token",service="docker.io",scope="repository:my-app:push".
+        For example, a created string will be the in following format:
+        realm="http://localhost:123/token",service="docker.io",scope="repository:app:push".
         """
-        realm = f'{self.request.scheme}://{settings.TOKEN_SERVER}'
-        authenticate_string = f'Bearer realm="{realm}",service="{settings.CONTENT_ORIGIN}"'
+        realm = settings.TOKEN_SERVER
+        authenticate_string = f'Bearer realm="{realm}",service="{CONTENT_HOST}"'
 
         if not self._is_verifying_root_endpoint():
             scope = f'repository:{source_path}:pull'
@@ -132,7 +135,7 @@ class TokenVerifier:
         return {
             'algorithms': [settings.TOKEN_SIGNATURE_ALGORITHM],
             'issuer': settings.TOKEN_SERVER,
-            'audience': settings.CONTENT_ORIGIN
+            'audience': CONTENT_HOST
         }
 
     def contains_accessible_actions(self, decoded_token):
