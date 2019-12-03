@@ -93,7 +93,7 @@ spec:
   pulp_settings:
      private_key_path: /var/lib/pulp/tmp/private.pem
      public_key_path: /var/lib/pulp/tmp/public.pem
-     token_server: $(hostname):24816/token
+     token_server: http://$(hostname):24816/token
      token_signature_algorithm: ES256
     
 CRYAML
