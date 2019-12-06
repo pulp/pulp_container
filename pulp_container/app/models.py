@@ -186,6 +186,7 @@ class ContainerRepository(Repository):
     """
 
     TYPE = "container"
+    CONTENT_TYPES = [Blob, Manifest, Tag]
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
