@@ -175,3 +175,9 @@ class TokenVerifier:
     def _is_verifying_root_endpoint(self):
         """If the root endpoint is queried, no matching info is present."""
         return not bool(self.request.match_info)
+
+    @classmethod
+    def verify_from(cls, request, access_action):
+        """Verify Bearer token and initialize the verifier from the request and the access."""
+        token_verifier = cls(request, access_action)
+        token_verifier.verify()
