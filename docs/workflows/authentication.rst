@@ -25,9 +25,22 @@ The feature is enabled by default. However, it is required to define the followi
 
               $ openssl ecparam -genkey -name prime256v1 -noout -out /tmp/private_key.pem
 
-          2. Generate a public key out of the private key::
+          2. Check if the generated private key has the proposed permissions:
+
+              * mode: 600
+              * owner: pulp (the account that pulp runs under)
+              * group: pulp (the group of the account that pulp runs under)
+
+          3. Generate a public key out of the private key::
 
               $ openssl ec -in /tmp/private_key.pem -pubout -out /tmp/public_key.pem
+
+          4. Check if the generated public key has the proposed permissions:
+
+              * mode: 644
+              * owner: pulp (the account that pulp runs under)
+              * group: pulp (the group of the account that pulp runs under)
+
 
 Below is provided and example of the settings file:
 
