@@ -12,8 +12,9 @@ The feature is enabled by default. However, it is possible to disable it from th
 
 The token authentication requires users also to define the following settings:
 
-    - **A fully qualified domain name of a token server**. The token server is responsible for generating
-      Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file ``pulp_container/app/settings.py``.
+    - **A fully qualified domain name of a token server with an associated port number**. The token server is
+      responsible for generating Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file
+      ``pulp_container/app/settings.py``.
     - **A token signature algorithm**. A particular signature algorithm can be chosen only from the list of
       `supported algorithms <https://pyjwt.readthedocs.io/en/latest/algorithms.html#digital-signature-algorithms>`_.
       Pulp uses exclusively asymmetric cryptography to sign and validate tokens. Therefore, it is possible
@@ -49,7 +50,7 @@ Below is provided and example of the settings file:
 
 .. code-block:: python
 
-    TOKEN_SERVER = "localhost:24816/token"
+    TOKEN_SERVER = "http://localhost:24816/token"
     TOKEN_SIGNATURE_ALGORITHM = 'ES256'
     PUBLIC_KEY_PATH = '/tmp/public_key.pem'
     PRIVATE_KEY_PATH = '/tmp/private_key.pem'
