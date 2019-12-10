@@ -7,7 +7,10 @@ Pulp registry supports the `token authentication <https://docs.docker.com/regist
 This enables users to pull content with an authorized access. A token server grants access based on the
 user's privileges and current scope.
 
-The feature is enabled by default. However, it is required to define the following settings first:
+The feature is enabled by default. However, it is possible to disable it from the settings by declaring
+``TOKEN_AUTH_DISABLED=True``.
+
+The token authentication requires users also to define the following settings:
 
     - **A fully qualified domain name of a token server**. The token server is responsible for generating
       Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file ``pulp_container/app/settings.py``.
