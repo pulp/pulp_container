@@ -55,6 +55,12 @@ Make and Run Migrations
    django-admin makemigrations container
    django-admin migrate container
 
+Configure Required Settings
+---------------------------
+
+The plugin expects to have defined additional settings. These settings are required if a user wants
+to use the token authentication while serving content, see :ref:`authentication`.
+
 Run Services
 ------------
 
