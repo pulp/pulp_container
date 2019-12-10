@@ -7,6 +7,7 @@ from pulp_container.app.registry import Registry
 registry = Registry()
 
 app.add_routes([web.get('/v2/', registry.serve_v2)])
+app.add_routes([web.get('/v2/_catalog', registry.list_repositories)])
 app.add_routes([web.get(r'/v2/{path:.+}/blobs/sha256:{digest:.+}', registry.get_by_digest)])
 app.add_routes([web.get(r'/v2/{path:.+}/manifests/sha256:{digest:.+}', registry.get_by_digest)])
 app.add_routes([web.get(r'/v2/{path:.+}/manifests/{tag_name}', registry.get_tag)])

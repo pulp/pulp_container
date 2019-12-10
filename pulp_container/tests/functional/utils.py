@@ -1,6 +1,8 @@
 # coding=utf-8
 """Utilities for tests for the container plugin."""
 import requests
+
+from requests.auth import AuthBase
 from functools import partial
 from unittest import SkipTest
 
@@ -112,6 +114,19 @@ def populate_pulp(cfg, url=REGISTRY_V2_FEED_URL):
         if repo:
             client.delete(repo['pulp_href'])
     return client.get(CONTAINER_CONTENT_PATH)['results']
+
+
+class BearerTokenAuth(AuthBase):
+    """A subclass for building a JWT Authorization header out of a provided token."""
+
+    def __init__(self, token):
+        """Store a Bearer token that is going to be used in the request object."""
+        self.token = token
+
+    def __call__(self, r):
+        """Attaches a Bearer token authentication to the given request object."""
+        r.headers['Authorization'] = 'Bearer {}'.format(self.token)
+        return r
 
 
 skip_if = partial(selectors.skip_if, exc=SkipTest)
