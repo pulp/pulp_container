@@ -25,7 +25,7 @@ setup(
     install_requires=requirements,
     include_package_data=True,
     packages=find_packages(exclude=['tests', 'tests.*']),
-    classifiers=(
+    classifiers=[
         'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
         'Operating System :: POSIX :: Linux',
         'Framework :: Django',
@@ -33,7 +33,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
-    ),
+    ],
     entry_points={
         'pulpcore.plugin': [
             'pulp_container = pulp_container:default_app_config',

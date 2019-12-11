@@ -9,15 +9,6 @@ There are multiple ways that users can manage Container content in repositories:
    2. Recursively :ref:`add<recursive-add>` or :ref:`remove<recursive-remove>` Container content.
    3. Copy :ref:`tags<tag-copy>` or :ref:`manifests <manifest-copy>` from source repository.
 
-.. warning::
-
-   Users **can but probably should not not** add and remove Container
-   content directly using the `repository version create endpoint
-   <https://docs.pulpproject.org/en/3.0/nightly/restapi.html#operation/repositories_versions_create>`_.
-   This endpoint should be reserved for advanced usage and is considered
-   **unsafe** for Container content, because it is not recursive and it
-   allows users to create **corrupted repositories**.
-
 Each of these workflows kicks off a task, and when the task is complete,
 a new repository version will have been created.
 
@@ -47,8 +38,7 @@ allows clients to pull the image with the applied tag.
 Each tag has to be unique within a repository to prevent ambiguity. When
 a user is trying to tag an image with a same name but with a different
 digest, the tag associated with the old manifest is going to be
-eliminated in a new repository version. Note that a tagging of same
-images with existing names still creates a new repository version.
+eliminated in a new repository version.
 
 Reference: `Container Tagging Usage <../restapi.html#tag/container:-tag>`_
 

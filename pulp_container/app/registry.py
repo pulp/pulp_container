@@ -34,6 +34,19 @@ class Registry(Handler):
 
     distribution_model = ContainerDistribution
 
+    def __init__(self):
+        """
+        Initialize the token verifier according to user defined settings.
+
+        The token authentication is enabled by default. If a user declares the setting
+        "TOKEN_AUTH_DISABLED = True", the registry shall not request clients to authenticate
+        themselves leveraging Bearer token.
+        """
+        if settings.get('TOKEN_AUTH_DISABLED', False):
+            self.verify_token = lambda *args, **kwargs: None
+        else:
+            self.verify_token = TokenVerifier.verify_from
+
     @staticmethod
     async def get_accepted_media_types(request):
         """
@@ -93,14 +106,13 @@ class Registry(Handler):
         file_response = web.FileResponse(path, headers=full_headers)
         return file_response
 
-    @staticmethod
-    async def serve_v2(request):
+    async def serve_v2(self, request):
         """
         Handler for Container Registry v2 root.
 
         The docker client uses this endpoint to discover that the V2 API is available.
         """
-        Registry.verify_token(request, 'pull')
+        self.verify_token(request, 'pull')
 
         return web.json_response({}, headers=v2_headers)
 
@@ -108,7 +120,7 @@ class Registry(Handler):
         """
         Handler for Container Registry v2 tags/list API.
         """
-        Registry.verify_token(request, 'pull')
+        self.verify_token(request, 'pull')
 
         path = request.match_info['path']
         distribution = self._match_distribution(path)
@@ -137,7 +149,7 @@ class Registry(Handler):
                 streamed back to the client.
 
         """
-        Registry.verify_token(request, 'pull')
+        self.verify_token(request, 'pull')
 
         path = request.match_info['path']
         tag_name = request.match_info['tag_name']
@@ -153,18 +165,32 @@ class Registry(Handler):
         except ObjectDoesNotExist:
             raise PathNotResolved(tag_name)
 
+        # we do not convert OCI to docker
+        oci_mediatypes = [MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI]
+        if tag.tagged_manifest.media_type in oci_mediatypes and \
+                tag.tagged_manifest.media_type not in accepted_media_types:
+            log.warn(
+                "OCI format found, but the client only accepts {accepted_media_types}.".format(
+                    accepted_media_types=accepted_media_types
+                )
+            )
+            raise PathNotResolved(tag_name)
+
+        # return schema1 (even in case only oci is requested)
         if tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V1:
             return_media_type = MEDIA_TYPE.MANIFEST_V1_SIGNED
             response_headers = {'Content-Type': return_media_type,
                                 'Docker-Content-Digest': tag.tagged_manifest.digest}
             return await Registry.dispatch_tag(tag, response_headers)
 
+        # return what was found in case media_type is accepted header ( docker, oci)
         if tag.tagged_manifest.media_type in accepted_media_types:
             return_media_type = tag.tagged_manifest.media_type
             response_headers = {'Content-Type': return_media_type,
                                 'Docker-Content-Digest': tag.tagged_manifest.digest}
             return await Registry.dispatch_tag(tag, response_headers)
 
+        # convert if necessary
         return await Registry.dispatch_converted_schema(tag, accepted_media_types, path)
 
     @staticmethod
@@ -228,7 +254,7 @@ class Registry(Handler):
         """
         Return a response to the "GET" action.
         """
-        Registry.verify_token(request, 'pull')
+        self.verify_token(request, 'pull')
 
         path = request.match_info['path']
         digest = "sha256:{digest}".format(digest=request.match_info['digest'])
@@ -250,9 +276,3 @@ class Registry(Handler):
                                                 headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
-
-    @staticmethod
-    def verify_token(request, access_action):
-        """Verify a Bearer token."""
-        token_verifier = TokenVerifier(request, access_action)
-        token_verifier.verify()

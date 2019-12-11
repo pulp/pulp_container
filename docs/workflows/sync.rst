@@ -36,11 +36,10 @@ using Docker Hub, but ``pulp-container`` remotes can be anything that implements
 including `quay`, `google container registry`, or even another instance of Pulp.
 
 .. note::
-   Container plugin supports for now only Docker media types complaint with:
-   https://docs.docker.com/registry/spec/manifest-v2-2/
-   https://docs.docker.com/registry/spec/manifest-v2-1/.
-   If the registry Pulp is syncing from has both docker and oci format, Pulp will mirror only docker
-   format.
+   Container plugin supports both Docker and OCI media types.
+
+.. note::
+   Use whitelist_tags when a specific set of tags are needed to be mirrored instead of the whole repo.
 
 .. literalinclude:: ../_scripts/remote.sh
    :language: bash

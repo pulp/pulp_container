@@ -1,3 +1,4 @@
+import re
 import base64
 import hashlib
 import random
@@ -16,7 +17,7 @@ from pulpcore.plugin.content import Handler
 
 TOKEN_EXPIRATION_TIME = 300
 
-KNOWN_SERVICES = [settings.CONTENT_ORIGIN]
+KNOWN_SERVICES = [re.sub(r'(http://|https://)', '', settings.CONTENT_ORIGIN, count=1)]
 ANONYMOUS_USER = ''
 EMPTY_ACCESS_SCOPE = '::'
 

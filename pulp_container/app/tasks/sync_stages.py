@@ -20,7 +20,8 @@ log = logging.getLogger(__name__)
 
 
 V2_ACCEPT_HEADERS = {
-    'Accept': ','.join([MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_LIST])
+    'Accept': ','.join([MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_LIST,
+                        MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.MANIFEST_OCI])
 }
 
 
@@ -100,7 +101,7 @@ class ContainerFirstStage(Stage):
                 saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
             tag_dc = self.create_tag(saved_artifact, tag.url)
 
-            if media_type == MEDIA_TYPE.MANIFEST_LIST:
+            if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
                 list_dc = self.create_tagged_manifest_list(
                     tag_dc, content_data)
                 await self.put(list_dc)
@@ -235,7 +236,7 @@ class ContainerFirstStage(Stage):
 
         """
         media_type = manifest_data.get('mediaType', MEDIA_TYPE.MANIFEST_V1)
-        if media_type == MEDIA_TYPE.MANIFEST_V2:
+        if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
             digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
         else:
 
@@ -284,7 +285,8 @@ class ContainerFirstStage(Stage):
         )
         manifest = Manifest(
             digest=manifest_data['digest'],
-            schema_version=2 if manifest_data['mediaType'] == MEDIA_TYPE.MANIFEST_V2 else 1,
+            schema_version=2 if manifest_data['mediaType'] in
+                           (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI) else 1,
             media_type=manifest_data['mediaType'],
         )
         platform = {}
@@ -350,7 +352,8 @@ class ContainerFirstStage(Stage):
 
         """
         foreign_excluded = (not self.remote.include_foreign_layers)
-        is_foreign = (layer.get('mediaType', MEDIA_TYPE.REGULAR_BLOB) == MEDIA_TYPE.FOREIGN_BLOB)
+        layer_type = layer.get('mediaType', MEDIA_TYPE.REGULAR_BLOB)
+        is_foreign = layer_type in (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB_OCI)
         if is_foreign and foreign_excluded:
             log.debug(_('Foreign Layer: %(d)s EXCLUDED'), dict(d=layer))
             return False

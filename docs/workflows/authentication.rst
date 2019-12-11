@@ -7,10 +7,14 @@ Pulp registry supports the `token authentication <https://docs.docker.com/regist
 This enables users to pull content with an authorized access. A token server grants access based on the
 user's privileges and current scope.
 
-The feature is enabled by default. However, it is required to define the following settings first:
+The feature is enabled by default. However, it is possible to disable it from the settings by declaring
+``TOKEN_AUTH_DISABLED=True``.
 
-    - **A fully qualified domain name of a token server**. The token server is responsible for generating
-      Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file ``pulp_container/app/settings.py``.
+The token authentication requires users also to define the following settings:
+
+    - **A fully qualified domain name of a token server with an associated port number**. The token server is
+      responsible for generating Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file
+      ``pulp_container/app/settings.py``.
     - **A token signature algorithm**. A particular signature algorithm can be chosen only from the list of
       `supported algorithms <https://pyjwt.readthedocs.io/en/latest/algorithms.html#digital-signature-algorithms>`_.
       Pulp uses exclusively asymmetric cryptography to sign and validate tokens. Therefore, it is possible
@@ -25,15 +29,28 @@ The feature is enabled by default. However, it is required to define the followi
 
               $ openssl ecparam -genkey -name prime256v1 -noout -out /tmp/private_key.pem
 
-          2. Generate a public key out of the private key::
+          2. Check if the generated private key has the proposed permissions:
+
+              * mode: 600
+              * owner: pulp (the account that pulp runs under)
+              * group: pulp (the group of the account that pulp runs under)
+
+          3. Generate a public key out of the private key::
 
               $ openssl ec -in /tmp/private_key.pem -pubout -out /tmp/public_key.pem
+
+          4. Check if the generated public key has the proposed permissions:
+
+              * mode: 644
+              * owner: pulp (the account that pulp runs under)
+              * group: pulp (the group of the account that pulp runs under)
+
 
 Below is provided and example of the settings file:
 
 .. code-block:: python
 
-    TOKEN_SERVER = "localhost:24816/token"
+    TOKEN_SERVER = "http://localhost:24816/token"
     TOKEN_SIGNATURE_ALGORITHM = 'ES256'
     PUBLIC_KEY_PATH = '/tmp/public_key.pem'
     PRIVATE_KEY_PATH = '/tmp/private_key.pem'

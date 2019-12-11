@@ -44,23 +44,26 @@ Install ``pulp_container`` from source
    source ~/pulpvenv/bin/activate
    cd pulp_container
    pip install -e .
-   django-admin runserver 24817
 
 Make and Run Migrations
 -----------------------
 
 .. code-block:: bash
 
-   export DJANGO_SETTINGS_MODULE=pulpcore.app.settings
-   django-admin makemigrations container
    django-admin migrate container
+
+Configure Required Settings
+---------------------------
+
+The plugin expects to have defined additional settings. These settings are required if a user wants
+to use the token authentication while serving content, see :ref:`authentication`.
 
 Run Services
 ------------
 
 .. code-block:: bash
 
-   pulp-manager runserver
+   django-admin runserver 24817
    gunicorn pulpcore.content:server --bind 'localhost:24816' --worker-class 'aiohttp.GunicornWebWorker' -w 2
    sudo systemctl restart pulpcore-resource-manager
    sudo systemctl restart pulpcore-worker@1

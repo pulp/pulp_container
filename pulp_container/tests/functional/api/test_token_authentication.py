@@ -103,7 +103,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         )
         self.compare_config_blob_digests(content_response['config']['digest'])
 
-    def test_pull_image_with_real_docker_client(self):
+    def test_pull_image_with_real_container_client(self):
         """
         Test if a CLI client is able to pull an image from an authenticated registry.
 
@@ -121,7 +121,14 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         registry.pull(image_with_tag)
 
         image = registry.inspect(image_with_tag)
-        self.compare_config_blob_digests(image[0]['Id'])
+
+        # The docker client returns a different Id compared to an Id returned by the podman client.
+        # 'Id': 'sha256:d21d863f69b5de1a973a41344488f2ec89a625f2624195f51b4e2d54a97fc53b' (docker)
+        # 'Id': 'd21d863f69b5de1a973a41344488f2ec89a625f2624195f51b4e2d54a97fc53b' (podman)
+        # As long as the output differs in this manner, it is necessary to prepend the string
+        # 'sha256:' to the fetched digest.
+        image_digest = 'sha256:' + image[0]['Id'].lstrip('sha256:')
+        self.compare_config_blob_digests(image_digest)
 
     def compare_config_blob_digests(self, pulled_manifest_digest):
         """Check if a valid config was pulled from a registry."""
