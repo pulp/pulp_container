@@ -38,6 +38,9 @@ including `quay`, `google container registry`, or even another instance of Pulp.
 .. note::
    Container plugin supports both Docker and OCI media types.
 
+.. note::
+   Use whitelist_tags when a specific set of tags are needed to be mirrored instead of the whole repo.
+
 .. literalinclude:: ../_scripts/remote.sh
    :language: bash
 
