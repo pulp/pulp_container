@@ -10,13 +10,14 @@ workflows<workflows/index>`.
 Features
 --------
 
-* :ref:`Synchronize <sync-workflow>` from a Container registry that has basic or token auth
+* :ref: `Mirror <sync-workflow>` container image repositories hosted on Docker-hub, Google Container Registry, Quay.io, etc
 * :ref:`Create Versioned Repositories <versioned-repo-created>` so every operation is a restorable snapshot
 * :ref:`Download content on-demand <create-remote>` when requested by clients to reduce disk space
 * :ref:`Perform docker/podman pull <host>` from a container distribution served by Pulp
+* Curate container images by :ref: `whitelisting <create-remote>` what is mirrored from an external repository.
+* Curate container images by creating repository versions with :ref: `a specific set <recursive-add>` of images.
 * De-duplication of all saved content
-* Host content either `locally or on S3 <https://docs.pulpproject.org/en/3.0/nightly/installation/
-  storage.html>`_
+
 
 
 How to use these docs
@@ -53,4 +54,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
