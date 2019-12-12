@@ -13,6 +13,44 @@ Changelog
 
 .. towncrier release notes start
 
+1.0.0 (2019-12-12)
+==================
+
+
+Features
+--------
+
+- As a user, I can remove all repository container content with ["*"]
+  `#5756 <https://pulp.plan.io/issues/5756>`_
+- Enable users to disable the token authentication from the settings
+  `#5796 <https://pulp.plan.io/issues/5796>`_
+- As a user I can manage images in OCI format.
+  `#5816 <https://pulp.plan.io/issues/5816>`_
+
+
+Bugfixes
+--------
+
+- Allow users to provide fully qualified domain name of a token server with an associated port number
+  `#5779 <https://pulp.plan.io/issues/5779>`_
+
+
+Improved Documentation
+----------------------
+
+- Add note about access permissions for private and public keys
+  `#5778 <https://pulp.plan.io/issues/5778>`_
+
+
+Misc
+----
+
+- `#4592 <https://pulp.plan.io/issues/4592>`_, `#5701 <https://pulp.plan.io/issues/5701>`_, `#5757 <https://pulp.plan.io/issues/5757>`_, `#5780 <https://pulp.plan.io/issues/5780>`_, `#5830 <https://pulp.plan.io/issues/5830>`_
+
+
+----
+
+
 1.0.0rc1 (2019-11-18)
 =====================
 
