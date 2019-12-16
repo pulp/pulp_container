@@ -108,7 +108,7 @@ class ContainerFirstStage(Stage):
                 tag_dc.extra_data['man_relation'] = list_dc
                 for manifest_data in content_data.get('manifests'):
                     man_dc = self.create_manifest(list_dc, manifest_data)
-                    future_manifests.append(man_dc.get_or_create_future())
+                    future_manifests.append(man_dc)
                     man_dcs[man_dc.content.digest] = man_dc
                     await self.put(man_dc)
             else:
@@ -122,8 +122,8 @@ class ContainerFirstStage(Stage):
         pb_parsed_tags.state = 'completed'
         pb_parsed_tags.save()
 
-        for manifest_future in asyncio.as_completed(future_manifests):
-            man = await manifest_future
+        for manifest_future in future_manifests:
+            man = await manifest_future.resolution()
             with man._artifacts.get().file.open() as content_file:
                 raw = content_file.read()
             content_data = json.loads(raw)
@@ -301,7 +301,6 @@ class ContainerFirstStage(Stage):
             content=manifest,
             d_artifacts=[da],
             extra_data={'relation': list_dc, 'platform': platform},
-            does_batch=False,
         )
         return man_dc
 
