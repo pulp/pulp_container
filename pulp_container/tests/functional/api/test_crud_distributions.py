@@ -40,7 +40,7 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
         """Try to create a second distribution with an identical name.
 
         See: `Pulp Smash #1055
-        <https://github.com/PulpQE/pulp-smash/issues/1055>`_.
+        <https://github.com/pulp/pulp-smash/issues/1055>`_.
         """
         body = gen_distribution()
         body['name'] = self.distribution['name']
@@ -153,8 +153,8 @@ class DistributionBasePathTestCase(unittest.TestCase):
 
     * `Pulp #2987 <https://pulp.plan.io/issues/2987>`_
     * `Pulp #3412 <https://pulp.plan.io/issues/3412>`_
-    * `Pulp Smash #906 <https://github.com/PulpQE/pulp-smash/issues/906>`_
-    * `Pulp Smash #956 <https://github.com/PulpQE/pulp-smash/issues/956>`_
+    * `Pulp Smash #906 <https://github.com/pulp/pulp-smash/issues/906>`_
+    * `Pulp Smash #956 <https://github.com/pulp/pulp-smash/issues/956>`_
     """
 
     @classmethod
