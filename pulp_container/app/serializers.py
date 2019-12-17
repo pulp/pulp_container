@@ -1,16 +1,19 @@
 from gettext import gettext as _
+import os
 
 from django.conf import settings
 
 from rest_framework import serializers
 
 from pulpcore.plugin.models import (
+    Artifact,
     Remote,
     RepositoryVersion,
 )
 from pulpcore.plugin.serializers import (
     DetailRelatedField,
     NestedRelatedField,
+    RelatedField,
     RemoteSerializer,
     RepositorySerializer,
     RepositoryVersionDistributionSerializer,
@@ -367,3 +370,78 @@ class ManifestCopySerializer(CopySerializer):
         required=False,
         help_text="A list of media_types to copy."
     )
+
+
+class OCIBuildImageSerializer(serializers.Serializer):
+    """
+    Serializer for building an OCI container image from a Containerfile.
+
+    The Containerfile can either be specified via an artifact url, or a new file can be uploaded.
+    A repository must be specified, to which the container image content will be added.
+    """
+
+    containerfile_artifact = RelatedField(
+        many=False,
+        lookup_field='pk',
+        view_name='artifacts-detail',
+        queryset=Artifact.objects.all(),
+        help_text=_("Artifact representing the Containerfile that should be used to run buildah.")
+    )
+    containerfile = serializers.FileField(
+        help_text=_(
+            "An uploaded Containerfile that should be used to run buildah."
+        ),
+        required=False,
+        write_only=True,
+    )
+    tag = serializers.CharField(
+        required=False,
+        default="latest",
+        help_text='A tag name for the new image being built.'
+    )
+    artifacts = serializers.JSONField(
+        required=False,
+        help_text="A JSON string where each key is an artifact href and the value is it's "
+                  "relative path (name) inside the /pulp_working_directory of the build container "
+                  "executing the Containerfile.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        """Initializer for OCIBuildImageSerializer."""
+        super().__init__(*args, **kwargs)
+        self.fields["containerfile_artifact"].required = False
+
+    def validate(self, data):
+        """Validates that all the fields make sense."""
+        data = super().validate(data)
+
+        if "containerfile" in data:
+            if "containerfile_artifact" in data:
+                raise serializers.ValidationError(
+                    _("Only one of 'containerfile' and 'containerfile_artifact' may be specified.")
+                )
+            data["containerfile_artifact"] = Artifact.init_and_validate(data.pop("containerfile"))
+        elif "containerfile_artifact" not in data:
+            raise serializers.ValidationError(_("'containerfile' or 'containerfile_artifact' must "
+                                                "be specified."))
+        artifacts = {}
+        if 'artifacts' in data:
+            for url, relative_path in data['artifacts'].items():
+                if os.path.isabs(relative_path):
+                    raise serializers.ValidationError(_("Relative path cannot start with '/'. "
+                                                        "{0}").format(relative_path))
+                artifactfield = RelatedField(view_name='artifacts-detail',
+                                             queryset=Artifact.objects.all(),
+                                             source='*', initial=url)
+                try:
+                    artifact = artifactfield.run_validation(data=url)
+                    artifacts[artifact.pk] = relative_path
+                except serializers.ValidationError as e:
+                    # Append the URL of missing Artifact to the error message
+                    e.detail[0] = "%s %s" % (e.detail[0], url)
+                    raise e
+        data['artifacts'] = artifacts
+        return data
+
+    class Meta:
+        fields = ("containerfile_artifact", "containerfile", "repository", "tag", "artifacts")
