@@ -399,7 +399,21 @@ class TestTagCopy(unittest.TestCase):
                 'source_repository': self.from_repo['pulp_href'],
             }
         )
-        # Same call
+        # Tag the 'manifest_b' manifest as 'manifest_a'
+        latest_version = self.client.get(
+            self.to_repo['pulp_href']
+        )['latest_version_href']
+        manifest_b_href = self.client.get('{unit_path}?{filters}'.format(
+            unit_path=CONTAINER_TAG_PATH,
+            filters=f'name=manifest_b&repository_version={latest_version}'
+        ))['results'][0]['tagged_manifest']
+        manifest_b = self.client.get(manifest_b_href)
+        params = {
+            'tag': 'manifest_a',
+            'digest': manifest_b['digest']
+        }
+        self.client.post(f'{self.to_repo["pulp_href"]}tag/', params)
+        # Copy tags again from the original repo
         self.client.post(
             self.CONTAINER_TAG_COPY_PATH,
             {
@@ -418,11 +432,11 @@ class TestTagCopy(unittest.TestCase):
 
         self.assertEqual(
             to_repo_content['added']['container.tag']['count'],
-            from_repo_content['present']['container.tag']['count']
+            1
         )
         self.assertEqual(
             to_repo_content['removed']['container.tag']['count'],
-            from_repo_content['present']['container.tag']['count']
+            1
         )
 
 
