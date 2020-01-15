@@ -5,13 +5,14 @@ Check `Plugin Writer's Guide`_ for more details.
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
 
+from django.db.utils import IntegrityError
 from django_filters import MultipleChoiceFilter
 from drf_yasg.utils import swagger_auto_schema
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositorySyncURLSerializer,
 )
-from pulpcore.plugin.models import Content
+from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
@@ -355,6 +356,50 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
             kwargs={
                 'repository_pk': repository.pk,
                 'content_units': manifests_to_add,
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to build an OCI image from a "
+                              "Containerfile. A new repository version is created with the new "
+                              "image and tag. This API is tech preview in Pulp Container 1.1. "
+                              "Backwards compatibility when upgrading is not guaranteed.",
+        operation_summary="Build an Image",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.OCIBuildImageSerializer,
+    )
+    @action(detail=True, methods=['post'], serializer_class=serializers.TagImageSerializer)
+    def build_image(self, request, pk):
+        """
+        Create a task which is responsible for creating a new image and tag.
+        """
+        repository = self.get_object()
+
+        serializer = serializers.OCIBuildImageSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        containerfile = serializer.validated_data['containerfile_artifact']
+        try:
+            containerfile.save()
+        except IntegrityError:
+            containerfile = Artifact.objects.get(sha256=containerfile.sha256)
+        tag = serializer.validated_data['tag']
+
+        artifacts = serializer.validated_data['artifacts']
+
+        result = enqueue_with_reservation(
+            tasks.build_image_from_containerfile,
+            [repository],
+            kwargs={
+                'containerfile_pk': containerfile.pk,
+                'tag': tag,
+                'repository_pk': repository.pk,
+                'artifacts': artifacts
             }
         )
         return OperationPostponedResponse(result, request)

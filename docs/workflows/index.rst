@@ -55,4 +55,5 @@ Container Workflows
    sync
    host
    manage-content
+   build-containerfile
    authentication

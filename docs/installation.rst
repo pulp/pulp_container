@@ -68,3 +68,13 @@ Run Services
    sudo systemctl restart pulpcore-resource-manager
    sudo systemctl restart pulpcore-worker@1
    sudo systemctl restart pulpcore-worker@2
+
+Enable OCI Container Image building
+-----------------------------------
+
+Pulp container plugin can be used to build an OCI format image from a Containerfile. The plugin uses
+`buildah <https://github.com/containers/buildah/>`_ to build the container image. Buildah 1.11+
+must be installed on the same machine that is running pulpcore-worker processes.
+
+The systemd unit file for pulpcore-worker processes needs to add `/usr/bin/` to the `PATH`.
+The user which pulpcore-worker runs as needs to be able to sudo without a password.
