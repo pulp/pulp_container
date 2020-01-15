@@ -136,6 +136,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
     # the id and href of the sync task.
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to sync content.",
+        operation_summary="Sync from a remote",
         responses={202: AsyncOperationResponseSerializer}
     )
     @action(detail=True, methods=['post'], serializer_class=RepositorySyncURLSerializer)
@@ -164,6 +165,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to tag an image in the repository",
+        operation_summary="Create a Tag",
         responses={202: AsyncOperationResponseSerializer},
         request_body=serializers.TagImageSerializer,
     )
@@ -197,6 +199,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to untag an image in the repository",
+        operation_summary="Delete a tag",
         responses={202: AsyncOperationResponseSerializer},
         request_body=serializers.UnTagImageSerializer,
     )
@@ -228,6 +231,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to recursively add container content.",
+        operation_summary="Add content",
         responses={202: AsyncOperationResponseSerializer},
         request_body=serializers.RecursiveManageSerializer,
     )
@@ -257,6 +261,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an async task to recursively remove container content.",
+        operation_summary="Remove content",
         responses={202: AsyncOperationResponseSerializer},
         request_body=serializers.RecursiveManageSerializer,
     )
@@ -290,6 +295,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to copy tags",
+        operation_summary="Copy tags",
         responses={202: AsyncOperationResponseSerializer},
         request_body=serializers.TagCopySerializer,
     )
@@ -325,6 +331,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to copy manifests",
+        operation_summary="Copy manifests",
         responses={202: AsyncOperationResponseSerializer},
         request_body=serializers.ManifestCopySerializer,
     )
