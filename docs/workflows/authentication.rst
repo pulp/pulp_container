@@ -46,7 +46,7 @@ The token authentication requires users also to define the following settings:
               * group: pulp (the group of the account that pulp runs under)
 
 
-Below is provided and example of the settings file:
+Below is provided an example of the settings file:
 
 .. code-block:: python
 
