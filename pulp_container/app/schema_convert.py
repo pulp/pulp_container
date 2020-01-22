@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 FS_Layer = namedtuple("FS_Layer", "layer_id uncompressed_digest history")
 
 
-class Schema1ConverterWrapper:
+class Schema2toSchema1ConverterWrapper:
     """An abstraction around creating new manifests of the format schema 1."""
 
     def __init__(self, tag, accepted_media_types, path):
@@ -50,12 +50,15 @@ class Schema1ConverterWrapper:
         config_dict = _get_config_dict(manifest)
         manifest_dict = _get_manifest_dict(manifest)
 
-        converter = ConverterS2toS1(
-            manifest_dict,
-            config_dict,
-            name=self.name,
-            tag=self.tag.name
-        )
+        try:
+            converter = Schema2toSchema1Converter(
+                manifest_dict,
+                config_dict,
+                name=self.name,
+                tag=self.tag.name
+            )
+        except ValueError:
+            raise RuntimeError()
         return converter.convert()
 
     def _get_legacy_manifest(self):
@@ -68,7 +71,7 @@ class Schema1ConverterWrapper:
         raise RuntimeError()
 
 
-class ConverterS2toS1:
+class Schema2toSchema1Converter:
     """
     Converter class from schema 2 to schema 1.
 
@@ -88,6 +91,13 @@ class ConverterS2toS1:
         self.config_layer = config_layer
         self.fs_layers = []
         self.history = []
+
+        self._assert_foreign_layers()
+
+    def _assert_foreign_layers(self):
+        for layer in self.manifest['layers']:
+            if layer.get('mediaType') == MEDIA_TYPE.FOREIGN_BLOB:
+                raise ValueError('The conversion cannot be applied for foreign layers.')
 
     def convert(self):
         """

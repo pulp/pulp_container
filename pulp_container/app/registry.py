@@ -9,7 +9,7 @@ from multidict import MultiDict
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
 from pulp_container.app.models import ContainerDistribution, Tag
-from pulp_container.app.docker_convert import Schema1ConverterWrapper
+from pulp_container.app.schema_convert import Schema2toSchema1ConverterWrapper
 from pulp_container.app.token_verification import TokenVerifier
 from pulp_container.constants import MEDIA_TYPE
 
@@ -196,7 +196,7 @@ class Registry(Handler):
                                 'Docker-Content-Digest': tag.tagged_manifest.digest}
             return await Registry.dispatch_tag(tag, response_headers)
 
-        # return what was found in case media_type is accepted header ( docker, oci)
+        # return what was found in case media_type is accepted header (docker, oci)
         if tag.tagged_manifest.media_type in accepted_media_types:
             return_media_type = tag.tagged_manifest.media_type
             response_headers = {'Content-Type': return_media_type,
@@ -250,7 +250,7 @@ class Registry(Handler):
                 streamed back to the client.
 
         """
-        schema1_converter = Schema1ConverterWrapper(tag, accepted_media_types, path)
+        schema1_converter = Schema2toSchema1ConverterWrapper(tag, accepted_media_types, path)
         try:
             schema, converted, digest = schema1_converter.convert()
         except RuntimeError:

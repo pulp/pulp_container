@@ -2,15 +2,17 @@ import base64
 
 from jwkest import jws
 
-from pulp_container.app import docker_convert
+from pulp_container.app import schema_convert
 
 
 class Test:
-    """Converter_s2_to_s1 test class"""
+    """Schema2toSchema1Converter test class"""
 
     def test_convert(self):
         """Test schema converter on a known manifest"""
-        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag')
+        cnv = schema_convert.Schema2toSchema1Converter(
+            MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag'
+        )
         signed_mf = cnv.convert()
         validate_signature(signed_mf)
 
@@ -18,9 +20,22 @@ class Test:
         assert [dict(blobSum="sha256:layer1"), empty, empty, empty,
                 dict(blobSum="sha256:base")] == cnv.fs_layers
 
+    def test_manifest_with_foreign_layers_conversion(self):
+        """Test if the conversion of a manifest with foreign layers fails gracefully"""
+        try:
+            schema_convert.Schema2toSchema1Converter(
+                MANIFEST_WITH_FOREIGN_LAYERS, CONFIG_LAYER, 'test-repo', 'tes-tag'
+            )
+        except ValueError:
+            pass
+        else:
+            assert False
+
     def test_compute_layers(self):
         """Test that computing the layers produces the expected data"""
-        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag')
+        cnv = schema_convert.Schema2toSchema1Converter(
+            MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag'
+        )
         cnv.compute_layers()
         empty = dict(blobSum=cnv.EMPTY_LAYER)
         assert [dict(blobSum="sha256:layer1"), empty, empty, empty,
@@ -62,6 +77,14 @@ def validate_signature(signed_mf):
 
 MANIFEST = dict(schemaVersion=2, layers=[
     dict(digest="sha256:base"),
+    dict(digest="sha256:layer1"),
+])
+
+MANIFEST_WITH_FOREIGN_LAYERS = dict(schemaVersion=2, layers=[
+    dict(
+        digest="sha256:base",
+        mediaType="application/vnd.docker.image.rootfs.foreign.diff.tar.gzip"
+    ),
     dict(digest="sha256:layer1"),
 ])
 
