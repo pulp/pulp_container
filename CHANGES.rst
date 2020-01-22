@@ -13,6 +13,37 @@ Changelog
 
 .. towncrier release notes start
 
+1.1.0 (2020-01-22)
+==================
+
+
+Features
+--------
+
+- Let users fetch the list of all distributed repositories via the _catalog endpoint
+  `#5772 <https://pulp.plan.io/issues/5772>`_
+- Adds ability to build OCI images from Containerfiles.
+  `#5785 <https://pulp.plan.io/issues/5785>`_
+
+
+Bugfixes
+--------
+
+- The schema conversion cannot be applied for manifests with foreign layers
+  `#5646 <https://pulp.plan.io/issues/5646>`_
+- Adds operation_summaries for ContainerRepository operations
+  `#5956 <https://pulp.plan.io/issues/5956>`_
+
+
+Misc
+----
+
+- `#5867 <https://pulp.plan.io/issues/5867>`_, `#5907 <https://pulp.plan.io/issues/5907>`_
+
+
+----
+
+
 1.0.0 (2019-12-12)
 ==================
 
