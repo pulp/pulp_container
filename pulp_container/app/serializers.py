@@ -163,7 +163,7 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
 
     registry_path = RegistryPathField(
         source='base_path', read_only=True,
-        help_text=_('The Registry hostame:port/name/ to use with docker pull command defined by '
+        help_text=_('The Registry hostame/name/ to use with docker pull command defined by '
                     'this distribution.')
     )
 

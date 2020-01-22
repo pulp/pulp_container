@@ -4,13 +4,12 @@ import unittest
 
 from urllib.parse import urljoin
 from requests.exceptions import HTTPError
-from requests.auth import AuthBase
 
 from pulp_smash import api, config, cli
 from pulp_smash.pulp3.utils import gen_repo, sync, gen_distribution
 
 from pulp_container.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
-from pulp_container.tests.functional.utils import gen_container_remote
+from pulp_container.tests.functional.utils import gen_container_remote, BearerTokenAuth
 
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
@@ -154,16 +153,3 @@ class AuthenticationHeaderQueries:
         self.service = service[8:][1:-1]
         # scope="scp" -> scp
         self.scope = scope[6:][1:-1]
-
-
-class BearerTokenAuth(AuthBase):
-    """A subclass for building a JWT Authorization header out of a provided token."""
-
-    def __init__(self, token):
-        """Store a Bearer token that is going to be used in the request object."""
-        self.token = token
-
-    def __call__(self, r):
-        """Attaches a Bearer token authentication to the given request object."""
-        r.headers['Authorization'] = 'Bearer {}'.format(self.token)
-        return r

@@ -54,6 +54,7 @@ Container Workflows
 
    sync
    host
+   listing-repositories
    manage-content
    build-containerfile
    authentication
