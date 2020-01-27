@@ -19,7 +19,7 @@ from pulp_container.app.models import ContainerRemote, ContainerRepository
 log = logging.getLogger(__name__)
 
 
-def synchronize(remote_pk, repository_pk):
+def synchronize(remote_pk, repository_pk, mirror):
     """
     Sync content from the remote repository.
 
@@ -28,6 +28,7 @@ def synchronize(remote_pk, repository_pk):
     Args:
         remote_pk (str): The remote PK.
         repository_pk (str): The repository PK.
+        mirror (boolean): A boolean indicating enabled or disabled mirror mode.
 
     Raises:
         ValueError: If the remote does not specify a URL to sync
@@ -40,7 +41,7 @@ def synchronize(remote_pk, repository_pk):
     log.info(_('Synchronizing: repository={r} remote={p}').format(
         r=repository.name, p=remote.name))
     first_stage = ContainerFirstStage(remote)
-    dv = ContainerDeclarativeVersion(first_stage, repository)
+    dv = ContainerDeclarativeVersion(first_stage, repository, mirror)
     dv.create()
 
 

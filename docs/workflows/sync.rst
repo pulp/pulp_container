@@ -75,6 +75,11 @@ sync with. You are telling pulp to fetch content from the remote and add to the 
 .. literalinclude:: ../_scripts/sync.sh
    :language: bash
 
+.. note::
+    In the above example, the payload contains the field ``mirror=False``. This means that the
+    sync will be run in the additive mode only. Set ``mirror`` to ``True`` and Pulp will pull
+    in new content and remove content which was also removed from upstream.
+
 Reference: `Container Sync Usage <../restapi.html#operation/remotes_container_container_sync>`_
 
 
