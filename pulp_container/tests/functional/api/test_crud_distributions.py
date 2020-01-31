@@ -1,16 +1,20 @@
 # coding=utf-8
 """Tests that CRUD distributions."""
+import json
 import unittest
 
 from itertools import permutations
-from requests.exceptions import HTTPError
 
-from pulp_smash import api, config, selectors, utils
+from pulp_smash import utils
 from pulp_smash.pulp3.utils import gen_distribution
 
-from pulp_container.tests.functional.constants import CONTAINER_DISTRIBUTION_PATH
-from pulp_container.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
-from pulp_container.tests.functional.utils import skip_if
+from pulp_container.tests.functional.utils import skip_if, gen_container_client, monitor_task
+
+from pulpcore.client.pulp_container import (
+    ApiException,
+    ContainerContainerDistribution,
+    DistributionsContainerApi,
+)
 
 
 class CRUDContainerDistributionsTestCase(unittest.TestCase):
@@ -19,23 +23,24 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Create class wide-variables."""
-        cls.cfg = config.get_config()
-        cls.client = api.Client(cls.cfg, api.json_handler)
+        client_api = gen_container_client()
+        cls.distribution_api = DistributionsContainerApi(client_api)
         cls.distribution = {}
 
     def test_01_create_distribution(self):
         """Create a distribution."""
         body = gen_distribution()
-        response_dict = self.client.post(
-            CONTAINER_DISTRIBUTION_PATH, body
-        )
-        dist_task = self.client.get(response_dict['task'])
-        distribution_href = dist_task['created_resources'][0]
-        type(self).distribution = self.client.get(distribution_href)
+        distribution_data = ContainerContainerDistribution(**body)
+        distribution_response = self.distribution_api.create(distribution_data)
+        created_resources = monitor_task(distribution_response.task)
+
+        distribution_obj = self.distribution_api.read(created_resources[0])
+        self.distribution.update(distribution_obj.to_dict())
         for key, val in body.items():
             with self.subTest(key=key):
                 self.assertEqual(self.distribution[key], val)
 
+    @skip_if(bool, "distribution", False)
     def test_02_create_same_name(self):
         """Try to create a second distribution with an identical name.
 
@@ -43,107 +48,123 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
         <https://github.com/pulp/pulp-smash/issues/1055>`_.
         """
         body = gen_distribution()
-        body['name'] = self.distribution['name']
-        with self.assertRaises(HTTPError):
-            self.client.post(CONTAINER_DISTRIBUTION_PATH, body)
+        body["name"] = self.distribution["name"]
+        distribution_data = ContainerContainerDistribution(**body)
+        with self.assertRaises(ApiException):
+            self.distribution_api.create(distribution_data)
 
-    @skip_if(bool, 'distribution', False)
+    @skip_if(bool, "distribution", False)
     def test_02_read_distribution(self):
         """Read a distribution by its pulp_href."""
-        distribution = self.client.get(self.distribution['pulp_href'])
+        distribution_obj = self.distribution_api.read(self.distribution["pulp_href"])
         for key, val in self.distribution.items():
             with self.subTest(key=key):
-                self.assertEqual(distribution[key], val)
+                self.assertEqual(getattr(distribution_obj, key), val)
 
-    @skip_if(bool, 'distribution', False)
+    @skip_if(bool, "distribution", False)
     def test_02_read_distribution_with_specific_fields(self):
         """Read a distribution by its href providing specific field list.
 
         Permutate field list to ensure different combinations on result.
         """
-        if not selectors.bug_is_fixed(4599, self.cfg.pulp_version):
-            raise unittest.SkipTest('Issue 4599 is not resolved')
-        fields = ('base_path', 'name')
-        for field_pair in permutations(fields, 2):
-            # ex: field_pair = ('pulp_href', 'base_url)
+        for field_pair in permutations(("base_path", "name")):
             with self.subTest(field_pair=field_pair):
-                distribution = self.client.get(
-                    self.distribution['pulp_href'],
-                    params={'fields': ','.join(field_pair)}
-                )
-                self.assertEqual(
-                    sorted(field_pair), sorted(distribution.keys())
-                )
+                distribution = self.distribution_api.read(
+                    self.distribution["pulp_href"], fields=",".join(field_pair)
+                ).to_dict()
+                # a distribution object contains always all fields; due to that, it is
+                # necessary to filter out only the keys which do not have the None value
+                filtered_keys = filter(lambda x: bool(distribution[x]), distribution)
+                self.assertEqual(sorted(field_pair), sorted(filtered_keys))
 
-    @skip_if(bool, 'distribution', False)
+    @skip_if(bool, "distribution", False)
     def test_02_read_distribution_without_specific_fields(self):
         """Read a distribution by its href excluding specific fields."""
-        if not selectors.bug_is_fixed(4599, self.cfg.pulp_version):
-            raise unittest.SkipTest('Issue 4599 is not resolved')
-        # requests doesn't allow the use of != in parameters.
-        url = '{}?exclude_fields=base_path,name'.format(
-            self.distribution['pulp_href']
-        )
-        distribution = self.client.get(url)
-        response_fields = distribution.keys()
-        self.assertNotIn('base_path', response_fields)
-        self.assertNotIn('name', response_fields)
+        for field_pair in permutations(("pulp_href", "registry_path")):
+            with self.subTest(field_pair=field_pair):
+                # FIXME: an API object returns an object of type 'ContainerContainerDistribution'
+                #  and during its initialization, there is an explicit check for the required
+                #  fields 'base_path' and 'name'; these two fields have to be present at the time
+                #  of the instantiation
+                distribution = self.distribution_api.read(
+                    self.distribution["pulp_href"], exclude_fields=",".join(field_pair)
+                ).to_dict()
+                filtered_keys = list(filter(lambda x: bool(distribution[x]), distribution))
+                self.assertNotIn("pulp_href", filtered_keys)
+                self.assertNotIn("registry_path", filtered_keys)
 
-    @skip_if(bool, 'distribution', False)
+    @skip_if(bool, "distribution", False)
     def test_02_read_distributions(self):
         """Read a distribution using query parameters.
 
         See: `Pulp #3082 <https://pulp.plan.io/issues/3082>`_
         """
         unique_params = (
-            {'name': self.distribution['name']},
-            {'base_path': self.distribution['base_path']}
+            {"name": self.distribution["name"]},
+            {"base_path": self.distribution["base_path"]}
         )
         for params in unique_params:
             with self.subTest(params=params):
-                page = self.client.get(CONTAINER_DISTRIBUTION_PATH, params=params)
-                self.assertEqual(len(page['results']), 1)
+                page = self.distribution_api.list(**params)
+                self.assertEqual(len(page.results), 1)
                 for key, val in self.distribution.items():
                     with self.subTest(key=key):
-                        self.assertEqual(page['results'][0][key], val)
+                        self.assertEqual(getattr(page.results[0], key), val)
 
-    @skip_if(bool, 'distribution', False)
+    @skip_if(bool, "distribution", False)
     def test_03_partially_update(self):
         """Update a distribution using HTTP PATCH."""
         body = gen_distribution()
-        self.client.patch(self.distribution['pulp_href'], body)
-        type(self).distribution = self.client.get(self.distribution['pulp_href'])
+        distribution_data = ContainerContainerDistribution(**body)
+        distribution_response = self.distribution_api.partial_update(
+            self.distribution["pulp_href"], distribution_data
+        )
+        monitor_task(distribution_response.task)
+
+        distribution_obj = self.distribution_api.read(self.distribution["pulp_href"])
+
+        self.distribution.clear()
+        self.distribution.update(distribution_obj.to_dict())
         for key, val in body.items():
             with self.subTest(key=key):
                 self.assertEqual(self.distribution[key], val)
 
-    @skip_if(bool, 'distribution', False)
+    @skip_if(bool, "distribution", False)
     def test_04_fully_update(self):
         """Update a distribution using HTTP PUT."""
         body = gen_distribution()
-        self.client.put(self.distribution['pulp_href'], body)
-        type(self).distribution = self.client.get(self.distribution['pulp_href'])
+        distribution_data = ContainerContainerDistribution(**body)
+        distribution_response = self.distribution_api.update(
+            self.distribution["pulp_href"], distribution_data
+        )
+        monitor_task(distribution_response.task)
+
+        distribution_obj = self.distribution_api.read(self.distribution["pulp_href"])
+
+        self.distribution.clear()
+        self.distribution.update(distribution_obj.to_dict())
         for key, val in body.items():
             with self.subTest(key=key):
                 self.assertEqual(self.distribution[key], val)
 
-    @skip_if(bool, 'distribution', False)
+    @skip_if(bool, "distribution", False)
     def test_05_delete(self):
         """Delete a distribution."""
-        self.client.delete(self.distribution['pulp_href'])
-        with self.assertRaises(HTTPError):
-            self.client.get(self.distribution['pulp_href'])
+        delete_response = self.distribution_api.delete(self.distribution["pulp_href"])
+        monitor_task(delete_response.task)
+        with self.assertRaises(ApiException):
+            self.distribution_api.read(self.distribution["pulp_href"])
 
     def test_negative_create_distribution_with_invalid_parameter(self):
         """Attempt to create distribution passing invalid parameter.
 
         Assert response returns an error 400 including ["Unexpected field"].
         """
-        response = api.Client(self.cfg, api.echo_handler).post(
-            CONTAINER_DISTRIBUTION_PATH, gen_distribution(foo='bar')
-        )
-        assert response.status_code == 400
-        assert response.json()['foo'] == ['Unexpected field']
+        with self.assertRaises(ApiException) as exc:
+            self.distribution_api.create(gen_distribution(foo="bar"))
+
+        assert exc.exception.status == 400
+        assert json.loads(exc.exception.body)["foo"] == ["Unexpected field"]
 
 
 class DistributionBasePathTestCase(unittest.TestCase):
@@ -160,38 +181,40 @@ class DistributionBasePathTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Create class-wide variables."""
-        cls.cfg = config.get_config()
-        cls.client = api.Client(cls.cfg, api.json_handler)
+        client_api = gen_container_client()
+        cls.distribution_api = DistributionsContainerApi(client_api)
+
         body = gen_distribution()
-        body['base_path'] = body['base_path'].replace('-', '/')
-        response_dict = cls.client.post(CONTAINER_DISTRIBUTION_PATH, body)
-        dist_task = cls.client.get(response_dict['task'])
-        distribution_href = dist_task['created_resources'][0]
-        cls.distribution = cls.client.get(distribution_href)
+        body["base_path"] = body["base_path"].replace("-", "/")
+        distribution_data = ContainerContainerDistribution(**body)
+        distribution_response = cls.distribution_api.create(distribution_data)
+        created_resources = monitor_task(distribution_response.task)
+
+        cls.distribution = cls.distribution_api.read(created_resources[0])
 
     @classmethod
     def tearDownClass(cls):
         """Clean up resources."""
-        cls.client.delete(cls.distribution['pulp_href'])
+        cls.distribution_api.delete(cls.distribution.pulp_href)
 
     def test_spaces(self):
         """Test that spaces can not be part of ``base_path``."""
-        self.try_create_distribution(base_path=utils.uuid4().replace('-', ' '))
-        self.try_update_distribution(base_path=utils.uuid4().replace('-', ' '))
+        self.try_create_distribution(base_path=utils.uuid4().replace("-", " "))
+        self.try_update_distribution(base_path=utils.uuid4().replace("-", " "))
 
     def test_begin_slash(self):
         """Test that slash cannot be in the begin of ``base_path``."""
-        self.try_create_distribution(base_path='/' + utils.uuid4())
-        self.try_update_distribution(base_path='/' + utils.uuid4())
+        self.try_create_distribution(base_path="/" + utils.uuid4())
+        self.try_update_distribution(base_path="/" + utils.uuid4())
 
     def test_end_slash(self):
         """Test that slash cannot be in the end of ``base_path``."""
-        self.try_create_distribution(base_path=utils.uuid4() + '/')
-        self.try_update_distribution(base_path=utils.uuid4() + '/')
+        self.try_create_distribution(base_path=utils.uuid4() + "/")
+        self.try_update_distribution(base_path=utils.uuid4() + "/")
 
     def test_unique_base_path(self):
         """Test that ``base_path`` can not be duplicated."""
-        self.try_create_distribution(base_path=self.distribution['base_path'])
+        self.try_create_distribution(base_path=self.distribution.base_path)
 
     def try_create_distribution(self, **kwargs):
         """Unsuccessfully create a distribution.
@@ -200,13 +223,13 @@ class DistributionBasePathTestCase(unittest.TestCase):
         """
         body = gen_distribution()
         body.update(kwargs)
-        with self.assertRaises(HTTPError):
-            self.client.post(CONTAINER_DISTRIBUTION_PATH, body)
+        with self.assertRaises(ApiException):
+            self.distribution_api.create(body)
 
     def try_update_distribution(self, **kwargs):
         """Unsuccessfully update a distribution with HTTP PATCH.
 
         Use the given kwargs as the body of the request.
         """
-        with self.assertRaises(HTTPError):
-            self.client.patch(self.distribution['pulp_href'], kwargs)
+        with self.assertRaises(ApiException):
+            self.distribution_api.partial_update(self.distribution.pulp_href, kwargs)

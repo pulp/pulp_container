@@ -15,8 +15,6 @@ CONTAINER_TAG_PATH = urljoin(BASE_CONTENT_PATH, 'container/tags/')
 
 CONTAINER_BLOB_PATH = urljoin(BASE_CONTENT_PATH, 'container/blobs/')
 
-CONTAINER_CONTENT_PATH = urljoin(BASE_CONTENT_PATH, 'container/unit/')
-
 CONTAINER_CONTENT_NAME = 'container.blob'
 
 CONTAINER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'container/container/')
