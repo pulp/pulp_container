@@ -153,12 +153,15 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         # Validate synchronously to return 400 errors.
         serializer.is_valid(raise_exception=True)
         remote = serializer.validated_data.get('remote')
+        mirror = serializer.validated_data.get('mirror')
+
         result = enqueue_with_reservation(
             tasks.synchronize,
             [repository, remote],
             kwargs={
                 'remote_pk': remote.pk,
-                'repository_pk': repository.pk
+                'repository_pk': repository.pk,
+                'mirror': mirror
             }
         )
         return OperationPostponedResponse(result, request)
