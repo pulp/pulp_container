@@ -67,6 +67,7 @@ class ManifestSerializer(SingleArtifactContentSerializer):
     )
     config_blob = DetailRelatedField(
         many=False,
+        required=False,
         help_text="Blob that contains configuration for this Manifest",
         view_name='container-blobs-detail',
         queryset=models.Blob.objects.all()
