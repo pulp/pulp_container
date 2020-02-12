@@ -3,7 +3,7 @@
 from setuptools import find_packages, setup
 
 requirements = [
-    'pulpcore>=3.1.0,<3.2',
+    'pulpcore>=3.1.0,<3.3',
     'ecdsa~=0.13.2',
     'pyjwkest~=1.4.0',
     'pyjwt[crypto]~=1.7.1'
