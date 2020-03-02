@@ -118,15 +118,13 @@ def build_image_from_containerfile(containerfile_pk=None, artifacts={}, reposito
                 os.makedirs(dirs)
 
             shutil.copy(artifact.file.path, "{}{}".format(path, val))
-        bud_cp = subprocess.run(["sudo", "buildah", "bud", "-v",
-                                 "{}:/pulp_working_directory".format(path), "-f",
-                                 containerfile.file.path, "-t", name], stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
+        bud_cp = subprocess.run(["buildah", "bud", "-f", containerfile.file.path, "-t", name],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if bud_cp.returncode != 0:
             raise Exception(bud_cp.stderr)
         image_dir = '{}image/'.format(path)
         os.makedirs(image_dir)
-        push_cp = subprocess.run(["sudo", "buildah", "push", "-f", "oci", name,
+        push_cp = subprocess.run(["buildah", "push", "-f", "oci", name,
                                   "dir:{}".format(image_dir)],
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if push_cp.returncode != 0:
