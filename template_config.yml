@@ -41,6 +41,7 @@ pulp_settings:
   token_server: http://$(hostname):24816/token
   token_signature_algorithm: ES256
 pulpcore_branch: master
+pulpcore_pip_version_specifier: null
 pydocstyle: true
 pypi_username: pulp
 stable_branch: '1.0'
@@ -48,6 +49,7 @@ test: false
 test_bindings: true
 test_performance: false
 travis: true
+travis_addtl_services: []
 travis_notifications: None
 verbose: false
 

@@ -1,4 +1,4 @@
 ecdsa~=0.13.2
 mock
-pulpcore>=3.0rc8,<3.2
+pulpcore>=3.2.0
 pyjwkest~=1.4.0
