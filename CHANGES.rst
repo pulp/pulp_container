@@ -13,6 +13,35 @@ Changelog
 
 .. towncrier release notes start
 
+1.2.0 (2020-03-05)
+==================
+
+
+Features
+--------
+
+- Enable users to sync content in mirror mode
+  `#5771 <https://pulp.plan.io/issues/5771>`_
+- Provide apache and nginx config snippets to be used by the installer.
+  `#6292 <https://pulp.plan.io/issues/6292>`_
+
+
+Bugfixes
+--------
+
+- Building an image from a Containerfile no longer requires root access.
+  `#5895 <https://pulp.plan.io/issues/5895>`_
+
+
+Misc
+----
+
+- `#6069 <https://pulp.plan.io/issues/6069>`_
+
+
+----
+
+
 1.1.0 (2020-01-22)
 ==================
 
