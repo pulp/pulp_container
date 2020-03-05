@@ -54,6 +54,7 @@ images:
   - pulp_container-${TAG}:
       image_name: pulp_container
       tag: $TAG
+      pulpcore: pulpcore
       plugins:
         - ./pulp_container
 VARSYAML
