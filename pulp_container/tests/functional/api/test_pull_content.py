@@ -4,30 +4,37 @@ import contextlib
 import unittest
 from urllib.parse import urljoin
 
-from pulp_smash import api, cli, config, exceptions
-from pulp_smash.pulp3.constants import ARTIFACTS_PATH
+from pulp_smash import cli, config, exceptions
 from pulp_smash.pulp3.utils import (
     delete_orphans,
     get_content,
     gen_distribution,
     gen_repo,
-    sync,
 )
 
 from pulp_container.tests.functional.utils import (
+    core_client,
+    gen_container_client,
     gen_container_remote,
-    get_docker_hub_remote_blobsums
+    gen_token_signing_keys,
+    get_docker_hub_remote_blobsums,
+    monitor_task,
 )
-
 from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
-    CONTAINER_DISTRIBUTION_PATH,
-    CONTAINER_REMOTE_PATH,
-    CONTAINER_REPO_PATH,
     REPO_UPSTREAM_NAME,
     REPO_UPSTREAM_TAG,
 )
-from pulp_container.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
+
+from pulpcore.client.pulp_container import (
+    ContainerContainerDistribution,
+    ContainerContainerRepository,
+    DistributionsContainerApi,
+    RepositorySyncURL,
+    RepositoriesContainerApi,
+    RemotesContainerApi,
+)
+from pulpcore.client.pulpcore import ArtifactsApi
 
 
 class PullContentTestCase(unittest.TestCase):
@@ -48,15 +55,13 @@ class PullContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
+        gen_token_signing_keys(cls.cfg)
 
-        token_auth = cls.cfg.hosts[0].roles['token auth']
-        client = cli.Client(cls.cfg)
-        client.run('openssl ecparam -genkey -name prime256v1 -noout -out {}'
-                   .format(token_auth['private key']).split())
-        client.run('openssl ec -in {} -pubout -out {}'.format(
-            token_auth['private key'], token_auth['public key']).split())
+        client_api = gen_container_client()
+        cls.repositories_api = RepositoriesContainerApi(client_api)
+        cls.remotes_api = RemotesContainerApi(client_api)
+        cls.distributions_api = DistributionsContainerApi(client_api)
 
-        cls.client = api.Client(cls.cfg, api.page_handler)
         cls.teardown_cleanups = []
 
         with contextlib.ExitStack() as stack:
@@ -64,41 +69,43 @@ class PullContentTestCase(unittest.TestCase):
             stack.callback(cls.tearDownClass)
 
             # Step 1
-            _repo = cls.client.post(CONTAINER_REPO_PATH, gen_repo())
-            cls.teardown_cleanups.append((cls.client.delete, _repo['pulp_href']))
+            _repo = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
+            cls.teardown_cleanups.append((cls.repositories_api.delete, _repo.pulp_href))
 
             # Step 2
-            cls.remote = cls.client.post(
-                CONTAINER_REMOTE_PATH, gen_container_remote()
-            )
-            cls.teardown_cleanups.append(
-                (cls.client.delete, cls.remote['pulp_href'])
-            )
+            cls.remote = cls.remotes_api.create(gen_container_remote())
+            cls.teardown_cleanups.append((cls.remotes_api.delete, cls.remote.pulp_href))
 
             # Step 3
-            sync(cls.cfg, cls.remote, _repo)
-            cls.repo = cls.client.get(_repo['pulp_href'])
+            sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
+            sync_response = cls.repositories_api.sync(_repo.pulp_href, sync_data)
+            monitor_task(sync_response.task)
+            cls.repo = cls.repositories_api.read(_repo.pulp_href)
 
             # Step 4.
-            response_dict = cls.client.using_handler(api.task_handler).post(
-                CONTAINER_DISTRIBUTION_PATH,
-                gen_distribution(repository=cls.repo['pulp_href'])
+            distribution_response = cls.distributions_api.create(
+                ContainerContainerDistribution(
+                    **gen_distribution(repository=cls.repo.pulp_href)
+                )
             )
-            distribution_href = response_dict['pulp_href']
-            cls.distribution_with_repo = cls.client.get(distribution_href)
+            created_resources = monitor_task(distribution_response.task)
+            distribution = cls.distributions_api.read(created_resources[0])
+            cls.distribution_with_repo = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo['pulp_href'])
+                (cls.distributions_api.delete, cls.distribution_with_repo.pulp_href)
             )
 
             # Step 5.
-            response_dict = cls.client.using_handler(api.task_handler).post(
-                CONTAINER_DISTRIBUTION_PATH,
-                gen_distribution(repository_version=cls.repo['latest_version_href'])
+            distribution_response = cls.distributions_api.create(
+                ContainerContainerDistribution(
+                    **gen_distribution(repository_version=cls.repo.latest_version_href)
+                )
             )
-            distribution_href = response_dict['pulp_href']
-            cls.distribution_with_repo_version = cls.client.get(distribution_href)
+            created_resources = monitor_task(distribution_response.task)
+            distribution = cls.distributions_api.read(created_resources[0])
+            cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo_version['pulp_href'])
+                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href)
             )
 
             # remove callback if everything goes well
@@ -119,8 +126,8 @@ class PullContentTestCase(unittest.TestCase):
         """
         # Get local checksums for content synced from remote registy
         checksums = [
-            content['digest'] for content
-            in get_content(self.repo)[CONTAINER_CONTENT_NAME]
+            content["digest"] for content
+            in get_content(self.repo.to_dict())[CONTAINER_CONTENT_NAME]
         ]
 
         # Assert that at least one layer is synced from remote:latest
@@ -128,11 +135,11 @@ class PullContentTestCase(unittest.TestCase):
         self.assertTrue(
             any(
                 [
-                    result['blobSum'] in checksums
+                    result["blobSum"] in checksums
                     for result in get_docker_hub_remote_blobsums()
                 ]
             ),
-            'Cannot find a matching layer on remote registry.'
+            "Cannot find a matching layer on remote registry."
         )
 
     def test_pull_image_from_repository(self):
@@ -145,12 +152,12 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(
-            unittest.SkipTest, 'Test requires podman/docker'
+            unittest.SkipTest, "Test requires podman/docker"
         )
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution_with_repo['base_path']
+            self.distribution_with_repo.base_path
         )
 
         registry.pull(local_url)
@@ -161,8 +168,8 @@ class PullContentTestCase(unittest.TestCase):
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
         self.assertEqual(
-            local_image[0]['Id'],
-            remote_image[0]['Id']
+            local_image[0]["Id"],
+            remote_image[0]["Id"]
         )
         registry.rmi(REPO_UPSTREAM_NAME)
 
@@ -176,12 +183,12 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(
-            unittest.SkipTest, 'Test requires podman/docker'
+            unittest.SkipTest, "Test requires podman/docker"
         )
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution_with_repo_version['base_path']
+            self.distribution_with_repo_version.base_path
         )
 
         registry.pull(local_url)
@@ -192,8 +199,8 @@ class PullContentTestCase(unittest.TestCase):
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
         self.assertEqual(
-            local_image[0]['Id'],
-            remote_image[0]['Id']
+            local_image[0]["Id"],
+            remote_image[0]["Id"]
         )
         registry.rmi(REPO_UPSTREAM_NAME)
 
@@ -207,12 +214,12 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(
-            unittest.SkipTest, 'Test requires podman/docker'
+            unittest.SkipTest, "Test requires podman/docker"
         )
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution_with_repo['base_path']
+            self.distribution_with_repo.base_path
         ) + REPO_UPSTREAM_TAG
 
         registry.pull(local_url)
@@ -228,8 +235,8 @@ class PullContentTestCase(unittest.TestCase):
         )
 
         self.assertEqual(
-            local_image[0]['Id'],
-            remote_image[0]['Id']
+            local_image[0]["Id"],
+            remote_image[0]["Id"]
         )
 
     def test_pull_nonexistent_image(self):
@@ -240,7 +247,7 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(
-            unittest.SkipTest, 'Test requires podman/docker'
+            unittest.SkipTest, "Test requires podman/docker"
         )
 
         local_url = urljoin(
@@ -269,61 +276,63 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
+        gen_token_signing_keys(cls.cfg)
 
-        token_auth = cls.cfg.hosts[0].roles['token auth']
-        client = cli.Client(cls.cfg)
-        client.run('openssl ecparam -genkey -name prime256v1 -noout -out {}'
-                   .format(token_auth['private key']).split())
-        client.run('openssl ec -in {} -pubout -out {}'.format(
-            token_auth['private key'], token_auth['public key']).split())
-
-        cls.client = api.Client(cls.cfg, api.page_handler)
+        client_api = gen_container_client()
+        cls.repositories_api = RepositoriesContainerApi(client_api)
+        cls.remotes_api = RemotesContainerApi(client_api)
+        cls.distributions_api = DistributionsContainerApi(client_api)
 
         cls.teardown_cleanups = []
 
-        delete_orphans(cls.cfg)
+        delete_orphans()
 
         with contextlib.ExitStack() as stack:
             # ensure tearDownClass runs if an error occurs here
             stack.callback(cls.tearDownClass)
 
             # Step 1
-            _repo = cls.client.post(CONTAINER_REPO_PATH, gen_repo())
-            cls.teardown_cleanups.append((cls.client.delete, _repo['pulp_href']))
+            _repo = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
+            cls.teardown_cleanups.append((cls.repositories_api.delete, _repo.pulp_href))
 
             # Step 2
-            cls.remote = cls.client.post(
-                CONTAINER_REMOTE_PATH, gen_container_remote(policy='on_demand')
-            )
+            cls.remote = cls.remotes_api.create(gen_container_remote(policy="on_demand"))
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.remote['pulp_href'])
+                (cls.remotes_api.delete, cls.remote.pulp_href)
             )
 
             # Step 3
-            sync(cls.cfg, cls.remote, _repo)
-            cls.repo = cls.client.get(_repo['pulp_href'])
-            cls.artifact_count = len(cls.client.get(ARTIFACTS_PATH))
+            sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
+            sync_response = cls.repositories_api.sync(_repo.pulp_href, sync_data)
+            monitor_task(sync_response.task)
+
+            cls.repo = cls.repositories_api.read(_repo.pulp_href)
+            cls.artifacts_api = ArtifactsApi(core_client)
+            cls.artifact_count = cls.artifacts_api.list().count
 
             # Step 4.
-            response_dict = cls.client.using_handler(api.task_handler).post(
-                CONTAINER_DISTRIBUTION_PATH,
-                gen_distribution(repository=cls.repo['pulp_href'])
+            distribution_response = cls.distributions_api.create(
+                ContainerContainerDistribution(**gen_distribution(repository=cls.repo.pulp_href))
             )
-            distribution_href = response_dict['pulp_href']
-            cls.distribution_with_repo = cls.client.get(distribution_href)
+            created_resources = monitor_task(distribution_response.task)
+
+            distribution = cls.distributions_api.read(created_resources[0])
+            cls.distribution_with_repo = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo['pulp_href'])
+                (cls.distributions_api.delete, cls.distribution_with_repo.pulp_href)
             )
 
             # Step 5.
-            response_dict = cls.client.using_handler(api.task_handler).post(
-                CONTAINER_DISTRIBUTION_PATH,
-                gen_distribution(repository_version=cls.repo['latest_version_href'])
+            distribution_response = cls.distributions_api.create(
+                ContainerContainerDistribution(
+                    **gen_distribution(repository_version=cls.repo.latest_version_href)
+                )
             )
-            distribution_href = response_dict['pulp_href']
-            cls.distribution_with_repo_version = cls.client.get(distribution_href)
+            created_resources = monitor_task(distribution_response.task)
+            distribution = cls.distributions_api.read(created_resources[0])
+            cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo_version['pulp_href'])
+                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href)
             )
 
             # remove callback if everything goes well
@@ -344,8 +353,8 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         # Get local checksums for content synced from remote registy
         checksums = [
-            content['digest'] for content
-            in get_content(self.repo)[CONTAINER_CONTENT_NAME]
+            content["digest"] for content
+            in get_content(self.repo.to_dict())[CONTAINER_CONTENT_NAME]
         ]
 
         # Assert that at least one layer is synced from remote:latest
@@ -353,11 +362,11 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         self.assertTrue(
             any(
                 [
-                    result['blobSum'] in checksums
+                    result["blobSum"] in checksums
                     for result in get_docker_hub_remote_blobsums()
                 ]
             ),
-            'Cannot find a matching layer on remote registry.'
+            "Cannot find a matching layer on remote registry."
         )
 
     def test_pull_image_from_repository(self):
@@ -371,12 +380,12 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(
-            unittest.SkipTest, 'Test requires podman/docker'
+            unittest.SkipTest, "Test requires podman/docker"
         )
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution_with_repo['base_path']
+            self.distribution_with_repo.base_path
         )
 
         registry.pull(local_url)
@@ -387,11 +396,11 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
         self.assertEqual(
-            local_image[0]['Id'],
-            remote_image[0]['Id']
+            local_image[0]["Id"],
+            remote_image[0]["Id"]
         )
 
-        new_artifact_count = len(self.client.get(ARTIFACTS_PATH))
+        new_artifact_count = self.artifacts_api.list().count
         self.assertGreater(new_artifact_count, self.artifact_count)
 
         registry.rmi(REPO_UPSTREAM_NAME)
@@ -406,12 +415,12 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(
-            unittest.SkipTest, 'Test requires podman/docker'
+            unittest.SkipTest, "Test requires podman/docker"
         )
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution_with_repo_version['base_path']
+            self.distribution_with_repo_version.base_path
         )
 
         registry.pull(local_url)
@@ -422,8 +431,8 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
         self.assertEqual(
-            local_image[0]['Id'],
-            remote_image[0]['Id']
+            local_image[0]["Id"],
+            remote_image[0]["Id"]
         )
         registry.rmi(REPO_UPSTREAM_NAME)
 
@@ -437,12 +446,12 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(
-            unittest.SkipTest, 'Test requires podman/docker'
+            unittest.SkipTest, "Test requires podman/docker"
         )
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution_with_repo['base_path']
+            self.distribution_with_repo.base_path
         ) + REPO_UPSTREAM_TAG
 
         registry.pull(local_url)
@@ -458,6 +467,6 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         )
 
         self.assertEqual(
-            local_image[0]['Id'],
-            remote_image[0]['Id']
+            local_image[0]["Id"],
+            remote_image[0]["Id"]
         )

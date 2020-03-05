@@ -5,115 +5,135 @@ import requests
 from requests.auth import AuthBase
 from functools import partial
 from unittest import SkipTest
+from time import sleep
+from tempfile import NamedTemporaryFile
 
-from pulp_smash import api, selectors
+from pulp_smash import selectors, cli
 from pulp_smash.pulp3.utils import (
     gen_remote,
     gen_repo,
     get_content,
-    require_pulp_3,
-    require_pulp_plugins,
-    sync
 )
 
 from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
-    CONTAINER_CONTENT_PATH,
-    CONTAINER_REMOTE_PATH,
-    CONTAINER_REPO_PATH,
+    CONTAINER_IMAGE_URL,
     REPO_UPSTREAM_NAME,
     REGISTRY_V2_FEED_URL,
 )
 
+from pulpcore.client.pulpcore import (
+    ApiClient as CoreApiClient,
+    ArtifactsApi,
+    Configuration,
+    TasksApi,
+)
+from pulpcore.client.pulp_container import (
+    ApiClient as ContainerApiClient,
+    RemotesContainerApi,
+    RepositoriesContainerApi,
+    RepositorySyncURL,
+)
 
-def set_up_module():
-    """Skip tests Pulp 3 isn't under test or if pulp_container isn't installed."""
-    require_pulp_3(SkipTest)
-    require_pulp_plugins({'pulp_container'}, SkipTest)
+configuration = Configuration()
+configuration.username = "admin"
+configuration.password = "password"
+configuration.safe_chars_for_path_param = "/"
 
 
-def gen_container_remote(**kwargs):
-    """Generate dict with common remote properties."""
-    return gen_remote(
-        kwargs.pop('url', REGISTRY_V2_FEED_URL),
-        upstream_name=kwargs.pop('upstream_name', REPO_UPSTREAM_NAME),
-        **kwargs
-    )
+def gen_container_client():
+    """Return an OBJECT for container client."""
+    return ContainerApiClient(configuration)
+
+
+def gen_container_remote(url=REGISTRY_V2_FEED_URL, **kwargs):
+    """Return a semi-random dict for use in creating a container Remote.
+
+    :param url: The URL of an external content source.
+    """
+    return gen_remote(url, upstream_name=kwargs.pop("upstream_name", REPO_UPSTREAM_NAME), **kwargs)
 
 
 def get_docker_hub_remote_blobsums(upstream_name=REPO_UPSTREAM_NAME):
     """Get remote blobsum list from dockerhub registry."""
     token_url = (
-        'https://auth.docker.io/token'
-        '?service=registry.docker.io'
-        '&scope=repository:library/{0}:pull'
+        "https://auth.docker.io/token"
+        "?service=registry.docker.io"
+        "&scope=repository:library/{0}:pull"
     ).format(upstream_name)
     token_response = requests.get(token_url)
     token_response.raise_for_status()
-    token = token_response.json()['token']
+    token = token_response.json()["token"]
 
     blob_url = (
-        '{0}/v2/library/{1}/manifests/latest'
+        "{0}/v2/library/{1}/manifests/latest"
     ).format(REGISTRY_V2_FEED_URL, upstream_name)
     response = requests.get(
         blob_url,
-        headers={'Authorization': 'Bearer ' + token}
+        headers={"Authorization": "Bearer " + token}
     )
     response.raise_for_status()
-    return response.json()['fsLayers']
+    return response.json()["fsLayers"]
 
 
 def get_container_image_paths(repo, version_href=None):
-    """Return the relative path of content units present in a file repository.
+    """Return the relative path of content units present in a container repository.
 
     :param repo: A dict of information about the repository.
     :param version_href: The repository version to read.
     :returns: A list with the paths of units present in a given repository.
     """
     return [
-        content_unit['_artifact']
+        content_unit["_artifact"]
         for content_unit
         in get_content(repo, version_href)[CONTAINER_CONTENT_NAME]
     ]
 
 
-def gen_container_image_attrs(artifact):
+def gen_container_content_attrs(artifact):
     """Generate a dict with content unit attributes.
 
-    :param: artifact: A dict of info about the artifact.
+    :param artifact: An artifact.
     :returns: A semi-random dict for use in creating a content unit.
     """
     # FIXME: Add content specific metadata here.
-    return {'_artifact': artifact['pulp_href']}
+    return {"_artifact": artifact.pulp_href}
 
 
-def populate_pulp(cfg, url=REGISTRY_V2_FEED_URL):
+def populate_pulp(url=REGISTRY_V2_FEED_URL):
     """Add container contents to Pulp.
 
-    :param pulp_smash.config.PulpSmashConfig: Information about a Pulp application.
     :param url: The container repository URL. Defaults to
-        :data:`pulp_smash.constants.DOCKER_FIXTURE_URL`
-    :returns: A list of dicts, where each dict describes one file content in Pulp.
+        :data:`pulp_container.tests.functional.constants.REGISTRY_V2_FEED_URL`
+    :returns: A dictionary of created resources.
     """
-    client = api.Client(cfg, api.json_handler)
-    remote = {}
-    repo = {}
-    try:
-        remote.update(
-            client.post(
-                CONTAINER_REMOTE_PATH,
-                gen_remote(url, upstream_name=REPO_UPSTREAM_NAME)
+    container_client = ContainerApiClient(configuration)
+    remotes_api = RemotesContainerApi(container_client)
+    repositories_api = RepositoriesContainerApi(container_client)
 
-            )
-        )
-        repo.update(client.post(CONTAINER_REPO_PATH, gen_repo()))
-        sync(cfg, remote, repo)
-    finally:
-        if remote:
-            client.delete(remote['pulp_href'])
-        if repo:
-            client.delete(repo['pulp_href'])
-    return client.get(CONTAINER_CONTENT_PATH)['results']
+    container_remote = remotes_api.create(gen_container_remote(url))
+    sync_data = RepositorySyncURL(remote=container_remote.pulp_href)
+    container_repository = repositories_api.create(gen_repo())
+    sync_response = repositories_api.sync(container_repository.pulp_href, sync_data)
+
+    created_resources = monitor_task(sync_response.task)
+    return created_resources
+
+
+def gen_token_signing_keys(cfg):
+    """Generate a private and public key in a place specified by the configuration.
+
+    A registry uses the generated keys to create a trustful signature allowing users to pull
+    and examine content with authorized access. The keys are generated by the utility 'openssl'
+    invoked by a 'pulp_smash' client.
+    """
+    client = cli.Client(cfg)
+
+    token_auth = cfg.hosts[0].roles["token auth"]
+    client.run("openssl ecparam -genkey -name prime256v1 -noout -out {}"
+               .format(token_auth["private key"]).split())
+    client.run("openssl ec -in {} -pubout -out {}".format(
+        token_auth["private key"], token_auth["public key"]).split())
 
 
 class BearerTokenAuth(AuthBase):
@@ -125,7 +145,7 @@ class BearerTokenAuth(AuthBase):
 
     def __call__(self, r):
         """Attaches a Bearer token authentication to the given request object."""
-        r.headers['Authorization'] = 'Bearer {}'.format(self.token)
+        r.headers["Authorization"] = "Bearer {}".format(self.token)
         return r
 
 
@@ -135,3 +155,39 @@ skip_if = partial(selectors.skip_if, exc=SkipTest)
 :func:`pulp_smash.selectors.skip_if` is test runner agnostic. This function is
 identical, except that ``exc`` has been set to ``unittest.SkipTest``.
 """
+
+core_client = CoreApiClient(configuration)
+tasks = TasksApi(core_client)
+
+
+def gen_artifact(url=CONTAINER_IMAGE_URL):
+    """Create an artifact."""
+    response = requests.get(url)
+    with NamedTemporaryFile() as temp_file:
+        temp_file.write(response.content)
+        artifact = ArtifactsApi(core_client).create(file=temp_file.name)
+        return artifact.to_dict()
+
+
+def monitor_task(task_href):
+    """Poll the Task API until the task is in a completed state.
+
+    Print the task details and a success or failure message. Exits on failure.
+
+    Args:
+        task_href(str): The href of the task to monitor.
+
+    Returns:
+        list[str]: A list of hrefs that identify resource created by the task.
+
+    """
+    completed = ["completed", "failed", "canceled"]
+    task = tasks.read(task_href)
+    while task.state not in completed:
+        sleep(2)
+        task = tasks.read(task_href)
+
+    if task.state == "completed":
+        return task.created_resources
+
+    return task.to_dict()

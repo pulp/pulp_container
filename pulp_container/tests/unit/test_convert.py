@@ -1,11 +1,13 @@
 import base64
 
+from django.test import TestCase
+
 from jwkest import jws
 
 from pulp_container.app import schema_convert
 
 
-class Test:
+class Test(TestCase):
     """Schema2toSchema1Converter test class"""
 
     def test_convert(self):
