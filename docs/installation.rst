@@ -73,8 +73,12 @@ Enable OCI Container Image building
 -----------------------------------
 
 Pulp container plugin can be used to build an OCI format image from a Containerfile. The plugin uses
-`buildah <https://github.com/containers/buildah/>`_ to build the container image. Buildah 1.11+
+`buildah <https://github.com/containers/buildah/>`_ to build the container image. Buildah 1.14+
 must be installed on the same machine that is running pulpcore-worker processes.
 
-The systemd unit file for pulpcore-worker processes needs to add `/usr/bin/` to the `PATH`.
-The user which pulpcore-worker runs as needs to be able to sudo without a password.
+The pulpcore-worker processes needs to have `/usr/bin/` in its `PATH`. The user that is running
+pulpcore-worker process needs to be able to manage subordinate user ids and group ids. The range of
+subordinate user ids is specified in `/etc/subuid` and the range of subordinate group ids is
+specified in `/etc/subgid`. More details can be found in `buildah documentation <https://github.com
+/containers/libpod/blob/master/docs/tutorials/rootless_tutorial.md#enable-user-namespaces-on-rhel7-
+machines>`_.
