@@ -8,7 +8,7 @@ from unittest import SkipTest
 from time import sleep
 from tempfile import NamedTemporaryFile
 
-from pulp_smash import selectors, cli
+from pulp_smash import selectors, cli, config
 from pulp_smash.pulp3.utils import (
     gen_remote,
     gen_repo,
@@ -25,7 +25,6 @@ from pulp_container.tests.functional.constants import (
 from pulpcore.client.pulpcore import (
     ApiClient as CoreApiClient,
     ArtifactsApi,
-    Configuration,
     TasksApi,
 )
 from pulpcore.client.pulp_container import (
@@ -35,10 +34,8 @@ from pulpcore.client.pulp_container import (
     RepositorySyncURL,
 )
 
-configuration = Configuration()
-configuration.username = "admin"
-configuration.password = "password"
-configuration.safe_chars_for_path_param = "/"
+cfg = config.get_config()
+configuration = cfg.get_bindings_config()
 
 
 def gen_container_client():
