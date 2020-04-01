@@ -74,20 +74,6 @@ class TestManifestCopy(unittest.TestCase):
             self.repositories_api.copy_manifests(self.to_repo.pulp_href, {})
         self.assertEqual(context.exception.status, 400)
 
-    def test_empty_source_repository(self):
-        """Ensure exception is raised when source_repository does not have latest version."""
-        delete_response = self.repositories_api.delete(self.to_repo.latest_version_href)
-        monitor_task(delete_response.task)
-        with self.assertRaises(ApiException) as context:
-            self.repositories_api.copy_manifests(
-                self.to_repo.pulp_href,
-                {
-                    # to_repo has no versions, use it as source
-                    "source_repository": self.to_repo.pulp_href,
-                }
-            )
-        self.assertEqual(context.exception.status, 400)
-
     def test_source_repository_and_source_version(self):
         """Passing source_repository_version and repository returns a 400."""
         with self.assertRaises(ApiException) as context:
@@ -369,19 +355,6 @@ class TestTagCopy(unittest.TestCase):
         """Ensure source_repository or source_repository_version is required."""
         with self.assertRaises(ApiException):
             self.repositories_api.copy_tags(self.to_repo.pulp_href, {})
-
-    def test_empty_source_repository(self):
-        """Ensure exception is raised when source_repository does not have latest version."""
-        delete_response = self.repositories_api.delete(self.to_repo.latest_version_href)
-        monitor_task(delete_response.task)
-        with self.assertRaises(ApiException):
-            self.repositories_api.copy_tags(
-                self.to_repo.pulp_href,
-                {
-                    # to_repo has no versions, use it as source
-                    "source_repository": self.to_repo.pulp_href,
-                }
-            )
 
     def test_source_repository_and_source_version(self):
         """Passing both source_repository_version and source_repository returns a 400."""
