@@ -1,8 +1,10 @@
 import asyncio
 import base64
+import fnmatch
 import json
 import hashlib
 import logging
+import re
 
 from gettext import gettext as _
 from urllib.parse import urljoin, urlparse, urlunparse
@@ -65,9 +67,7 @@ class ContainerFirstStage(Stage):
             # check for the presence of the pagination link header
             link = list_downloader.response_headers.get('Link')
             await self.handle_pagination(link, repo_name, tag_list)
-            whitelist_tags = self.remote.whitelist_tags
-            if whitelist_tags:
-                tag_list = list(set(tag_list) & set(whitelist_tags))
+            tag_list = self.filter_tags(tag_list)
             pb.increment()
 
         for tag_name in tag_list:
@@ -131,6 +131,26 @@ class ContainerFirstStage(Stage):
             self.handle_blobs(man_dc, content_data, total_blobs)
         for blob in total_blobs:
             await self.put(blob)
+
+    def filter_tags(self, tag_list):
+        """
+        Filter tags by a list of whitelisted tags.
+
+        Every single whitelisted tag is converted into a regular expression and used for scanning
+        a full match. Matched tags are then appended to the resulting list of filtered tags.
+        """
+        filtered_tags = tag_list
+
+        whitelist_tags = self.remote.whitelist_tags
+        if whitelist_tags:
+            regex_list = [re.compile(fnmatch.translate(wt)) for wt in whitelist_tags]
+
+            filtered_tags = []
+            for tag in tag_list:
+                if any(re.fullmatch(regex, tag) for regex in regex_list):
+                    filtered_tags.append(tag)
+
+        return filtered_tags
 
     async def handle_pagination(self, link, repo_name, tag_list):
         """
