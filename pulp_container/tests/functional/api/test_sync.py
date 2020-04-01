@@ -18,6 +18,7 @@ from pulpcore.client.pulp_container import (
     ContainerContainerRemote,
     ContentTagsApi,
     RepositoriesContainerApi,
+    RepositoriesContainerVersionsApi,
     RepositorySyncURL,
     RemotesContainerApi,
 )
@@ -183,3 +184,64 @@ class TestRepeatedSync(unittest.TestCase):
 
         self.assertEqual(first_sync_tags_named_a.count, 1)
         self.assertEqual(second_sync_tags_named_a.count, 1)
+
+
+class WhitelistedTagsSyncTestCase(unittest.TestCase):
+    """A test case for syncing repositories with whitelisted tags."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Create class-wide variables."""
+        client_api = gen_container_client()
+        cls.repositories_api = RepositoriesContainerApi(client_api)
+        cls.remotes_api = RemotesContainerApi(client_api)
+        cls.tags_api = ContentTagsApi(client_api)
+        cls.versions_api = RepositoriesContainerVersionsApi(client_api)
+
+        cls.repository = None
+
+    def test_sync_with_whitelisted_tags(self):
+        """Test whether the repository is synced only with whitelisted tags."""
+        whitelist_tags = ["manifest_a", "manifest_b", "manifest_c"]
+        self.sync_repository_with_whitelisted_tags(whitelist_tags)
+
+        self.assert_synced_tags(whitelist_tags)
+
+    def test_sync_with_whitelisted_tags_using_wildcard(self):
+        """Test whether the repository is synced only with whitelisted tags that use wildcards."""
+        whitelist_tags = ["ml_iv", "ml_ii", "manifest_a", "manifest_b",
+                          "manifest_c", "manifest_d", "manifest_e"]
+        self.sync_repository_with_whitelisted_tags(["ml_??", "manifest*"])
+
+        self.assert_synced_tags(whitelist_tags)
+
+    def sync_repository_with_whitelisted_tags(self, whitelist_tags):
+        """Sync a new repository with the whitelisted tags passed as an argument."""
+        self.repository = self.repositories_api.create(ContainerContainerRepository(**gen_repo()))
+        self.addCleanup(self.repositories_api.delete, self.repository.pulp_href)
+
+        remote_data = gen_container_remote(
+            upstream_name=DOCKERHUB_PULP_FIXTURE_1,
+            whitelist_tags=whitelist_tags
+        )
+        remote = self.remotes_api.create(remote_data)
+        self.addCleanup(self.remotes_api.delete, remote.pulp_href)
+
+        repository_sync_data = RepositorySyncURL(remote=remote.pulp_href)
+
+        sync_response = self.repositories_api.sync(self.repository.pulp_href, repository_sync_data)
+        monitor_task(sync_response.task)
+        repository = self.repositories_api.read(self.repository.pulp_href)
+        self.assertIsNotNone(repository.latest_version_href)
+
+    def assert_synced_tags(self, whitelist_tags):
+        """Check if the created repository contains only the selected whitelisted tags."""
+        latest_repo_version = self.repositories_api.read(
+            self.repository.pulp_href
+        ).latest_version_href
+        tags = self.tags_api.list(repository_version=latest_repo_version).results
+
+        if any(tag.name not in whitelist_tags for tag in tags):
+            self.fail(f"The repository contains tags that are not whitelisted")
+        if not all(tag.name in whitelist_tags for tag in tags):
+            self.fail(f"The repository does not contain all whitelisted tags")

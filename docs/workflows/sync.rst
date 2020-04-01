@@ -38,9 +38,6 @@ including `quay`, `google container registry`, or even another instance of Pulp.
 .. note::
    Container plugin supports both Docker and OCI media types.
 
-.. note::
-   Use whitelist_tags when a specific set of tags are needed to be mirrored instead of the whole repo.
-
 .. literalinclude:: ../_scripts/remote.sh
    :language: bash
 
@@ -62,6 +59,11 @@ Remote GET Response::
        "url": "https://registry-1.docker.io",
        "whitelist_tags": null
    }
+
+.. note::
+   Use the field whitelist_tags when a specific set of tags is needed to be mirrored instead
+   of the whole repository. Note that it is also possible to filter a bunch of tags that matches
+   defined criteria by leveraging wildcards.
 
 
 Reference: `Container Remote Usage <../restapi.html#tag/remotes>`_
