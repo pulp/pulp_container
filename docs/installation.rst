@@ -6,7 +6,7 @@ Ansible Installer (Recommended)
 -------------------------------
 
 We recommend that you install `pulpcore` and `pulp-container` together using the `Ansible installer
-<https://github.com/pulp/ansible-pulp/blob/master/README.md>`_. If you install this way, pulpcore
+<https://github.com/pulp/pulp_installer/blob/master/README.md>`_. If you install this way, pulpcore
 installation and all the following steps will be done for you.
 
 Install ``pulpcore``
