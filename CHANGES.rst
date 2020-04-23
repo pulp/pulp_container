@@ -13,6 +13,26 @@ Changelog
 
 .. towncrier release notes start
 
+1.3.0 (2020-04-23)
+==================
+
+
+Features
+--------
+
+- Added support for filtering tags using wildcards
+  `#6338 <https://pulp.plan.io/issues/6338>`_
+
+
+Misc
+----
+
+- `#6394 <https://pulp.plan.io/issues/6394>`_
+
+
+----
+
+
 1.2.0 (2020-03-05)
 ==================
 
