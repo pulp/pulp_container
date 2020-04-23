@@ -12,7 +12,7 @@ from pulpcore.plugin.models import (
     Repository,
     RepositoryVersionDistribution
 )
-from pulpcore.plugin.repo_version_utils import remove_duplicates
+from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
 
 from . import downloaders
 from pulp_container.constants import MEDIA_TYPE
@@ -199,6 +199,7 @@ class ContainerRepository(Repository):
                 finalize.
         """
         remove_duplicates(new_version)
+        validate_repo_version(new_version)
 
 
 class ContainerRemote(Remote):
