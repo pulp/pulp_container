@@ -3,7 +3,7 @@
 from setuptools import find_packages, setup
 
 requirements = [
-    'pulpcore>=3.2.0',
+    'pulpcore>=3.3,<3.4',
     'ecdsa~=0.13.2',
     'pyjwkest~=1.4.0',
     'pyjwt[crypto]~=1.7.1'
@@ -14,7 +14,7 @@ with open('README.rst') as f:
 
 setup(
     name='pulp-container',
-    version='1.3.0.dev',
+    version='1.3.0',
     description='Container plugin for the Pulp Project',
     long_description=long_description,
     license='GPLv2+',
