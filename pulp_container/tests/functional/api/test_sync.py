@@ -242,6 +242,6 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
         tags = self.tags_api.list(repository_version=latest_repo_version).results
 
         if any(tag.name not in whitelist_tags for tag in tags):
-            self.fail(f"The repository contains tags that are not whitelisted")
+            self.fail("The repository contains tags that are not whitelisted")
         if not all(tag.name in whitelist_tags for tag in tags):
-            self.fail(f"The repository does not contain all whitelisted tags")
+            self.fail("The repository does not contain all whitelisted tags")

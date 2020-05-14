@@ -12,7 +12,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
-from pulpcore.constants import TASK_STATES
+from pulpcore.plugin.constants import TASK_STATES
 
 from pulp_container.app.models import (Manifest, MEDIA_TYPE, Blob, Tag,
                                        BlobManifest, ManifestListManifest)
