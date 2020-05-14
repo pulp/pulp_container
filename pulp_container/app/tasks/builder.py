@@ -6,7 +6,7 @@ from pulp_container.app.models import (
     Tag
 )
 from pulp_container.constants import MEDIA_TYPE
-from pulpcore.app.models.content import Artifact, ContentArtifact
+from pulpcore.plugin.models import Artifact, ContentArtifact
 from pulpcore.plugin.tasking import WorkingDirectory
 
 import json
