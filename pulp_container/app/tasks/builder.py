@@ -123,7 +123,7 @@ def build_image_from_containerfile(
 
             shutil.copy(artifact.file.path, "{}{}".format(path, val))
         bud_cp = subprocess.run(
-            ["buildah", "bud", "-f", containerfile.file.path, "-t", name],
+            ["buildah", "bud", "-f", containerfile.file.path, "-t", name, path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
