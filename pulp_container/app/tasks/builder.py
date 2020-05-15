@@ -118,7 +118,7 @@ def build_image_from_containerfile(containerfile_pk=None, artifacts={}, reposito
                 os.makedirs(dirs)
 
             shutil.copy(artifact.file.path, "{}{}".format(path, val))
-        bud_cp = subprocess.run(["buildah", "bud", "-f", containerfile.file.path, "-t", name],
+        bud_cp = subprocess.run(["buildah", "bud", "-f", containerfile.file.path, "-t", name, path],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if bud_cp.returncode != 0:
             raise Exception(bud_cp.stderr)
