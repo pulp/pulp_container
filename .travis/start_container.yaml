@@ -43,6 +43,8 @@
         command: "{{ item.command | default(omit) }}"
         security_opts:
           - "seccomp:unconfined"
+        devices:
+          - "/dev/fuse"
         state: started
       loop: "{{ services | default([]) }}"
 
