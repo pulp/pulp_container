@@ -114,6 +114,10 @@ def build_image_from_containerfile(
     repository = ContainerRepository.objects.get(pk=repository_pk)
     name = str(uuid4())
     with WorkingDirectory() as working_directory:
+        buildah_env = os.environ.copy()
+        buildah_env.update(
+            {"_BUILDAH_STARTED_IN_USERNS": "", "BUILDAH_ISOLATION": "chroot", "HOME": "/"}
+        )
         path = "{}/".format(working_directory.path)
         for key, val in artifacts.items():
             artifact = Artifact.objects.get(pk=key)
@@ -126,6 +130,7 @@ def build_image_from_containerfile(
             ["buildah", "bud", "-f", containerfile.file.path, "-t", name, path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=buildah_env,
         )
         if bud_cp.returncode != 0:
             raise Exception(bud_cp.stderr)
@@ -135,6 +140,7 @@ def build_image_from_containerfile(
             ["buildah", "push", "-f", "oci", name, "dir:{}".format(image_dir)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=buildah_env,
         )
         if push_cp.returncode != 0:
             raise Exception(push_cp.stderr)

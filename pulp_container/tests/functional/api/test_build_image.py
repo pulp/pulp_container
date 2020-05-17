@@ -10,12 +10,11 @@ from pulp_smash.pulp3.utils import (
     gen_distribution,
     gen_repo,
 )
+from pulp_smash.pulp3.bindings import monitor_task
 
 from pulp_container.tests.functional.utils import (
     core_client,
     gen_container_client,
-    gen_token_signing_keys,
-    monitor_task,
 )
 
 from pulpcore.client.pulpcore import ArtifactsApi
@@ -42,7 +41,6 @@ class BuildImageTestCase(unittest.TestCase):
         5. Create a container distribution to serve the repository version
         """
         cls.cfg = config.get_config()
-        gen_token_signing_keys(cls.cfg)
 
         client_api = gen_container_client()
         cls.artifacts_api = ArtifactsApi(core_client)
@@ -61,36 +59,34 @@ class BuildImageTestCase(unittest.TestCase):
 
             # Step 2
             with NamedTemporaryFile() as text_file:
-                text_file.write(b'some text')
+                text_file.write(b"some text")
                 text_file.flush()
                 artifact = cls.artifacts_api.create(file=text_file.name)
-                cls.teardown_cleanups.append(
-                    (cls.artifacts_api.delete, artifact.pulp_href)
-                )
+                cls.teardown_cleanups.append((cls.artifacts_api.delete, artifact.pulp_href))
 
             # Step 3
             with NamedTemporaryFile() as containerfile:
-                containerfile.write(b"""FROM busybox:latest
+                containerfile.write(
+                    b"""FROM busybox:latest
 
 # Copy a file using COPY statement. Use the relative path specified in the 'artifacts' parameter.
 COPY foo/bar/example.txt /inside-image.txt
 
 # Print the content of the file when the container starts
-CMD ["cat", "/inside-image.txt"]""")
+CMD ["cat", "/inside-image.txt"]"""
+                )
                 containerfile.flush()
                 # Step 4
-                artifacts = "{{\"{}\": \"foo/bar/example.txt\"}}".format(artifact.pulp_href)
-                build_response = cls.repositories_api.build_image(_repo.pulp_href,
-                                                                  containerfile=containerfile.name,
-                                                                  artifacts=artifacts)
+                artifacts = '{{"{}": "foo/bar/example.txt"}}'.format(artifact.pulp_href)
+                build_response = cls.repositories_api.build_image(
+                    _repo.pulp_href, containerfile=containerfile.name, artifacts=artifacts
+                )
                 monitor_task(build_response.task)
                 cls.repo = cls.repositories_api.read(_repo.pulp_href)
 
             # Step 5.
             distribution_response = cls.distributions_api.create(
-                ContainerContainerDistribution(
-                    **gen_distribution(repository=cls.repo.pulp_href)
-                )
+                ContainerContainerDistribution(**gen_distribution(repository=cls.repo.pulp_href))
             )
             created_resources = monitor_task(distribution_response.task)
             distribution = cls.distributions_api.read(created_resources[0])
@@ -115,13 +111,10 @@ CMD ["cat", "/inside-image.txt"]""")
         2. Ensure image is deleted after the test.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
-            self.distribution_with_repo.base_path
+            self.cfg.get_content_host_base_url(), self.distribution_with_repo.base_path
         )
 
         registry.pull(local_url)
