@@ -49,7 +49,7 @@ stable_branch: '1.0'
 test: false
 test_bindings: false
 test_performance: false
-test_s3: false
+test_s3: true
 travis: true
 travis_addtl_services: []
 travis_notifications: None
