@@ -48,7 +48,7 @@ pip install -r dev_requirements.txt
 flake8 --config flake8.cfg
 
 # check for imports from pulpcore that aren't pulpcore.plugin
-#./.travis/check_pulpcore_imports.sh
+./.travis/check_pulpcore_imports.sh
 
 cd ..
 
