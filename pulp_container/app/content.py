@@ -1,6 +1,6 @@
 from aiohttp import web
 
-from pulpcore.content import app
+from pulpcore.plugin.content import app
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.registry import Registry
 
