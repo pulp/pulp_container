@@ -200,6 +200,13 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
 
         cls.repository = None
 
+    def test_sync_with_non_existing_whitelisted_tag(self):
+        """Check whether the sync machinery ignores a non-existing tag."""
+        whitelist_tags = ["manifest_a", "non_existing_manifest"]
+        self.sync_repository_with_whitelisted_tags(whitelist_tags)
+
+        self.assert_synced_tags(["manifest_a"])
+
     def test_sync_with_whitelisted_tags(self):
         """Test whether the repository is synced only with whitelisted tags."""
         whitelist_tags = ["manifest_a", "manifest_b", "manifest_c"]
@@ -241,7 +248,4 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
         ).latest_version_href
         tags = self.tags_api.list(repository_version=latest_repo_version).results
 
-        if any(tag.name not in whitelist_tags for tag in tags):
-            self.fail("The repository contains tags that are not whitelisted")
-        if not all(tag.name in whitelist_tags for tag in tags):
-            self.fail("The repository does not contain all whitelisted tags")
+        self.assertEqual(sorted(tag.name for tag in tags), sorted(whitelist_tags))
