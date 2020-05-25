@@ -58,3 +58,4 @@ Container Workflows
    manage-content
    build-containerfile
    authentication
+   managing-credentials
