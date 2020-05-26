@@ -13,7 +13,6 @@ from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
-    gen_token_signing_keys,
     monitor_task,
     BearerTokenAuth,
     AuthenticationHeaderQueries,
@@ -42,7 +41,6 @@ class RepositoriesListTestCase(unittest.TestCase):
         cls.distributions_api = DistributionsContainerApi(api_client)
 
         cls.cfg = config.get_config()
-        gen_token_signing_keys(cls.cfg)
         cls.client = api.Client(cls.cfg, api.json_handler)
 
         cls.repository = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))

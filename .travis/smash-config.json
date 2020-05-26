@@ -21,10 +21,6 @@
           "scheme": "http",
           "service": "pulp_content_app"
         },
-        "token auth": {
-          "private key": "/var/lib/pulp/tmp/private.pem",
-          "public key": "/var/lib/pulp/tmp/public.pem"
-        },
         "pulp resource manager": {},
         "pulp workers": {},
         "redis": {},

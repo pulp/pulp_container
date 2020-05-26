@@ -81,7 +81,7 @@ VARSYAML
 fi
 
 cat >> vars/main.yaml << VARSYAML
-pulp_settings: {"private_key_path": "/var/lib/pulp/tmp/private.pem", "public_key_path": "/var/lib/pulp/tmp/public.pem", "token_server": "http://pulp:80/token", "token_signature_algorithm": "ES256"}
+pulp_settings: {}
 VARSYAML
 
 if [ "$TEST" = "s3" ]; then
