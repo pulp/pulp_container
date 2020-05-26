@@ -22,8 +22,7 @@ from pulpcore.plugin.models import (
     Artifact,
     Content,
     ContentArtifact,
-    Repository,
-    RepositoryVersion
+    Repository
 )
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
@@ -479,7 +478,7 @@ class UploadResponse(Response):
                    'Docker-Upload-UUID': upload.pk,
                    'Location': '/v2/{path}/blobs/uploads/{pk}'.format(path=path, pk=upload.pk),
                    'Range': '0-{offset}'.format(offset=upload.file.size),
-                   'Content-Length': 0
+                   'Content-Length': content_length
                    }
         super().__init__(headers=headers, status=202)
 
@@ -578,7 +577,11 @@ class BlobUploads(ViewSet):
         """
         This methods handles the creation of an upload.
         """
-        repository = get_object_or_404(Repository, name=path)
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
         upload = models.Upload(repository=repository)
         upload.file.save(name='', content=ContentFile(''), save=False)
         upload.save()
@@ -590,7 +593,11 @@ class BlobUploads(ViewSet):
         """
         This methods handles uploading of a chunk to an existing upload.
         """
-        repository = get_object_or_404(Repository, name=path)
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
         chunk = request.META['wsgi.input']
         try:
             digest = request.query_params['digest']
@@ -626,7 +633,11 @@ class BlobUploads(ViewSet):
         return UploadResponse(upload=upload, path=path, content_length=upload.file.size, request=request)
 
     def put(self, request, path, pk=None):
-        repository = get_object_or_404(Repository, name=path)
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
         try:
             digest = request.query_params['digest']
             try:
@@ -681,7 +692,11 @@ class Blobs(ViewSet):
         :param digest:
         :return:
         """
-        repository = get_object_or_404(Repository, name=path)
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
         repository_version = repository.latest_version()
         if not repository_version:
             raise Http404("Blob does not exist: {digest}".format(digest=pk))
@@ -689,7 +704,11 @@ class Blobs(ViewSet):
         return BlobResponse(blob, path, 200, request)
 
     def get(self, request, path, pk=None):
-        repository = get_object_or_404(Repository, name=path)
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
         repository_version = repository.latest_version()
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
         return BlobResponse(blob, path, 200, request, True)
@@ -710,10 +729,16 @@ class Manifests(ViewSet):
         :param digest:
         :return:
         """
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
+        repository_version = repository.latest_version()
         try:
             manifest = models.Manifest.objects.get(digest=pk)
         except models.Manifest.DoesNotExist:
-            manifest = get_object_or_404(models.ManifestList, digest=pk)
+            manifest = get_object_or_404(models.ManifestList, digest=pk, pk__in=repository_version.content)
 
         return ManifestResponse(manifest, path, request)
 
@@ -725,6 +750,12 @@ class Manifests(ViewSet):
         :param digest:
         :return:
         """
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
+        repository_version = repository.latest_version()
         digest = None
         tag = None
         if pk[:7] == 'sha256:':
@@ -732,13 +763,10 @@ class Manifests(ViewSet):
         else:
             tag = pk
         if tag:
-            tag = get_object_or_404(models.ManifestListTag, name=tag)
-            manifest = tag.manifest_list
+            tag = get_object_or_404(models.Tag, name=tag, pk__in=repository_version.content)
+            manifest = tag.tagged_manifest
         else:
-            try:
-                manifest = models.Manifest.objects.get(digest=pk)
-            except models.Manifest.DoesNotExist:
-                manifest = get_object_or_404(models.Manifest, digest=pk)
+            manifest = get_object_or_404(models.Manifest, digest=pk, pk__in=repository_version.content)
 
         return ManifestResponse(manifest, path, request, send_body=True)
 
@@ -750,7 +778,11 @@ class Manifests(ViewSet):
         :param pk:
         :return:
         """
-        repository = get_object_or_404(Repository, name=path)
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
 
         # iterate over all the layers and create
         chunk = request.META['wsgi.input']
