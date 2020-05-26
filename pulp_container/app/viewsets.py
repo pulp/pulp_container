@@ -453,10 +453,23 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     serializer_class = serializers.ContainerDistributionSerializer
 
 
+from rest_framework.renderers import BaseRenderer
 from rest_framework.response import Response
 import hashlib
 import re
+from django.conf import settings
 from django.core.files.base import ContentFile
+from django.http import HttpResponseRedirect
+
+class ManifestRenderer(BaseRenderer):
+    """
+    Rendered class for rendering Manifest responses.
+    """
+    media_type = "*/*"
+    format = 'txt'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data.encode(self.charset)
 
 class UploadResponse(Response):
     """
@@ -509,10 +522,7 @@ class ManifestResponse(Response):
                    'Location': '/v2/{path}/manifests/{digest}'.format(path=path, digest=manifest.digest),
                    'Content-Length': size
                    }
-        if send_body:
-            super().__init__(data=artifact.file, headers=headers, status=status)
-        else:
-            super().__init__(headers=headers, status=status)
+        super().__init__(headers=headers, status=status)
 
 
 class BlobResponse(Response):
@@ -542,10 +552,7 @@ class BlobResponse(Response):
                    'Content-Type': 'application/octet-stream',
                    'Connection': 'close'
                    }
-        if send_body:
-            super().__init__(data=artifact.file, headers=headers, status=status)
-        else:
-            super().__init__(headers=headers, status=status)
+        super().__init__(headers=headers, status=status)
 
 class VersionView(APIView):
     """
@@ -711,7 +718,7 @@ class Blobs(ViewSet):
             raise Http404("Repository {} does not exist.".format(path))
         repository_version = repository.latest_version()
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
-        return BlobResponse(blob, path, 200, request, True)
+        return HttpResponseRedirect("{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest))
 
 class Manifests(ViewSet):
     """
@@ -720,6 +727,7 @@ class Manifests(ViewSet):
     # allow anyone to access
     authentication_classes = []
     permission_classes = []
+    renderer_classes = [ManifestRenderer]
 
     def head(self, request, path, pk=None):
         """
@@ -768,7 +776,7 @@ class Manifests(ViewSet):
         else:
             manifest = get_object_or_404(models.Manifest, digest=pk, pk__in=repository_version.content)
 
-        return ManifestResponse(manifest, path, request, send_body=True)
+        return HttpResponseRedirect("{}/pulp/container/{}/manifests/{}".format(settings.CONTENT_ORIGIN, path, manifest.digest))
 
     def put(self, request, path, pk=None):
         """
