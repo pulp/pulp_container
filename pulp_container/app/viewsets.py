@@ -461,24 +461,19 @@ from django.core.files.base import ContentFile
 
 class UploadResponse(Response):
     """
-    An HTTP response class for returning 202 and a spawned task.
+    An HTTP response class for requests for Uploads.
 
-    This response object should be used by views that dispatch asynchronous tasks. The most common
-    use case is for sync and publish operations. When JSON is requested, the response will look
-    like the following::
-
-        {
-            "_href": "https://example.com/pulp/api/v3/tasks/adlfk-bala-23k5l7-lslser",
-            "task_id": "adlfk-bala-23k5l7-lslser"
-        }
+    This response object provides information about Uploads during 'push' operations.
     """
 
     def __init__(self, upload, path, content_length, request):
         """
         Args:
-            task_result (pulpcore.app.models.Task): A :class:`rq.job.Job` object used to generate
-                the response.
-            request (rest_framework.request.Request): Request used to generate the _href urls
+            upload (pulp_container.app.models.Upload): An Upload model used to generate the response.
+            path (str): The base_path of the ContainerDistribution (Container repository name)
+            content_length (int): The value for the Content-Length header.
+            request (rest_framework.request.Request): Request object not used by this
+                implementation of Response.
         """
         headers = {'Docker-Distribution-Api-Version': 'registry/2.0',
                    'Docker-Upload-UUID': upload.pk,
@@ -491,24 +486,19 @@ class UploadResponse(Response):
 
 class ManifestResponse(Response):
     """
-    An HTTP response class for returning 202 and a spawned task.
-
-    This response object should be used by views that dispatch asynchronous tasks. The most common
-    use case is for sync and publish operations. When JSON is requested, the response will look
-    like the following::
-
-        {
-            "_href": "https://example.com/pulp/api/v3/tasks/adlfk-bala-23k5l7-lslser",
-            "task_id": "adlfk-bala-23k5l7-lslser"
-        }
+    An HTTP response class for returning Manifets.
     """
 
     def __init__(self, manifest, path, request, status=200, send_body=False):
         """
         Args:
-            task_result (pulpcore.app.models.Task): A :class:`rq.job.Job` object used to generate
-                the response.
-            request (rest_framework.request.Request): Request used to generate the _href urls
+            manifest (pulp_container.app.models.Manifest): A Manifest model used to generate the
+                response.
+            path (str): The base_path of the ContainerDistribution (Container repository name)
+            request (rest_framework.request.Request): Request object not used by this
+                implementation of Response.
+            status (int): Status code to send with the response.
+            send_body (bool): Whether a body should be sent with the response or just the headers.
         """
         artifact = manifest._artifacts.get()
         if send_body:
@@ -528,25 +518,18 @@ class ManifestResponse(Response):
 
 class BlobResponse(Response):
     """
-    An HTTP response class for returning 202 and a spawned task.
-
-    This response object should be used by views that dispatch asynchronous tasks. The most common
-    use case is for sync and publish operations. When JSON is requested, the response will look
-    like the following::
-
-        {
-            "_href": "https://example.com/pulp/api/v3/tasks/adlfk-bala-23k5l7-lslser",
-            "task_id": "adlfk-bala-23k5l7-lslser"
-        }
+    An HTTP response class for returning Blobs.
     """
 
     def __init__(self, blob, path, status, request, send_body=False):
         """
         Args:
-            blob (pulpcore.app.models.Task): A :class:`rq.job.Job` object used to generate
-                the response.
-            request (rest_framework.request.Request): Request used to generate the _href urls
-        """
+            blob (pulp_container.app.models.Blob): A Blob model used to generate the response.
+            path (str): The base_path of the ContainerDistribution (Container repository name)
+            request (rest_framework.request.Request): Request object not used by this
+                implementation of Response.
+            status (int): Status code to send with the response.
+            send_body (bool): Whether a body should be sent with the response or just the headers.        """
         artifact = blob._artifacts.get()
         size = artifact.size
 
