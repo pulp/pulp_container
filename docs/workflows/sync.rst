@@ -68,6 +68,8 @@ Remote GET Response::
 
 Reference: `Container Remote Usage <../restapi.html#tag/remotes>`_
 
+.. _sync-repository:
+
 Sync repository using a Remote
 ------------------------------
 
