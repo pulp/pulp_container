@@ -616,15 +616,10 @@ class BlobUploads(ViewSet):
         else:
             raise Http404("Repository {} does not exist.".format(path))
         chunk = request.META['wsgi.input']
-        try:
-            digest = request.query_params['digest']
-            try:
-                content_range = request.headers['Content-Range']
-                whole = False
-            except KeyError:
-                whole = True
-        except KeyError:
+        if 'Content-Range' in request.headers or 'digest' not in request.query_params:
             whole = False
+        else:
+            whole = True
 
         if whole:
             start = 0
@@ -657,17 +652,9 @@ class BlobUploads(ViewSet):
             repository = distribution.repository
         else:
             raise Http404("Repository {} does not exist.".format(path))
-        try:
-            digest = request.query_params['digest']
-            try:
-                content_range = request.headers['Content-Range']
-                whole = False
-            except KeyError:
-                whole = True
-        except KeyError:
-            whole = False
-        upload = models.Upload.objects.get(pk=pk, repository=repository)
 
+        digest = request.query_params['digest']
+        upload = models.Upload.objects.get(pk=pk, repository=repository)
 
         if upload.sha256 == digest[len("sha256:"):]:
             try:
@@ -786,14 +773,8 @@ class Manifests(ViewSet):
         else:
             raise Http404("Repository {} does not exist.".format(path))
         repository_version = repository.latest_version()
-        digest = None
-        tag = None
-        if pk[:7] == 'sha256:':
-            digest = pk
-        else:
-            tag = pk
-        if tag:
-            tag = get_object_or_404(models.Tag, name=tag, pk__in=repository_version.content)
+        if pk[:7] != 'sha256:':
+            tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
             manifest = tag.tagged_manifest
         else:
             manifest = get_object_or_404(models.Manifest, digest=pk,
