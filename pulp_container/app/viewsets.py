@@ -469,7 +469,7 @@ class ManifestRenderer(BaseRenderer):
 
     def render(self, data, accepted_media_type=None, renderer_context=None):
         """Encodes the response data."""
-        return data.encode(self.charset)
+        return data
 
 
 class UploadResponse(Response):
