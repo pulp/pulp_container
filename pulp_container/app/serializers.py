@@ -276,7 +276,6 @@ class RecursiveManageSerializer(serializers.Serializer):
 
     content_units = serializers.ListField(
         help_text=_('A list of content units to operate on.'),
-        write_only=True,
         required=False
     )
 
@@ -304,7 +303,6 @@ class CopySerializer(serializers.Serializer):
         queryset=models.ContainerRepository.objects.all(),
         view_name='repositories-container/container-detail',
         label=_('Repository'),
-        write_only=True,
         required=False,
     )
     source_repository_version = NestedRelatedField(
@@ -313,7 +311,6 @@ class CopySerializer(serializers.Serializer):
         lookup_field='number',
         parent_lookup_kwargs={'repository_pk': 'repository__pk'},
         queryset=RepositoryVersion.objects.all(),
-        write_only=True,
         required=False,
     )
 
@@ -393,7 +390,6 @@ class OCIBuildImageSerializer(serializers.Serializer):
             "An uploaded Containerfile that should be used to run buildah."
         ),
         required=False,
-        write_only=True,
     )
     tag = serializers.CharField(
         required=False,
