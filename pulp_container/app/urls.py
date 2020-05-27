@@ -10,14 +10,12 @@ from pulp_container.app.viewsets import (
 router = SimpleRouter(trailing_slash=False)
 
 head_route = Route(
-            url=r'^{prefix}/{lookup}{trailing_slash}$',
-            mapping={
-                'head': 'head',
-            },
-            name='{basename}-detail',
-            detail=True,
-            initkwargs={'suffix': 'Instance'}
-        )
+    url=r'^{prefix}/{lookup}{trailing_slash}$',
+    mapping={'head': 'head'},
+    name='{basename}-detail',
+    detail=True,
+    initkwargs={'suffix': 'Instance'}
+)
 
 router.routes.append(head_route)
 router.register(r'^v2/(?P<path>.+)/blobs/uploads\/?', BlobUploads, basename='docker-upload')

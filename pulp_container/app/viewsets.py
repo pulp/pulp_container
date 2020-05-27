@@ -5,14 +5,19 @@ Check `Plugin Writer's Guide`_ for more details.
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
 import logging
+import hashlib
+import re
 from tempfile import NamedTemporaryFile
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
-from django.http.response import StreamingHttpResponse
 from django.http import Http404
 from django_filters import MultipleChoiceFilter
 from drf_yasg.utils import swagger_auto_schema
+
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.http import HttpResponseRedirect
 
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
@@ -21,8 +26,7 @@ from pulpcore.plugin.serializers import (
 from pulpcore.plugin.models import (
     Artifact,
     Content,
-    ContentArtifact,
-    Repository
+    ContentArtifact
 )
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
@@ -37,6 +41,8 @@ from pulpcore.plugin.viewsets import (
     OperationPostponedResponse,
 )
 from rest_framework.decorators import action
+from rest_framework.renderers import BaseRenderer
+from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
 
@@ -453,23 +459,18 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     serializer_class = serializers.ContainerDistributionSerializer
 
 
-from rest_framework.renderers import BaseRenderer
-from rest_framework.response import Response
-import hashlib
-import re
-from django.conf import settings
-from django.core.files.base import ContentFile
-from django.http import HttpResponseRedirect
-
 class ManifestRenderer(BaseRenderer):
     """
     Rendered class for rendering Manifest responses.
     """
+
     media_type = "*/*"
     format = 'txt'
 
     def render(self, data, accepted_media_type=None, renderer_context=None):
+        """Encodes the response data."""
         return data.encode(self.charset)
+
 
 class UploadResponse(Response):
     """
@@ -481,7 +482,8 @@ class UploadResponse(Response):
     def __init__(self, upload, path, content_length, request):
         """
         Args:
-            upload (pulp_container.app.models.Upload): An Upload model used to generate the response.
+            upload (pulp_container.app.models.Upload): An Upload model used to generate the
+                response.
             path (str): The base_path of the ContainerDistribution (Container repository name)
             content_length (int): The value for the Content-Length header.
             request (rest_framework.request.Request): Request object not used by this
@@ -519,7 +521,8 @@ class ManifestResponse(Response):
             size = 0
         headers = {'Docker-Distribution-Api-Version': 'registry/2.0',
                    'Docker-Content-Digest': manifest.digest,
-                   'Location': '/v2/{path}/manifests/{digest}'.format(path=path, digest=manifest.digest),
+                   'Location': '/v2/{path}/manifests/{digest}'.format(path=path,
+                                                                      digest=manifest.digest),
                    'Content-Length': size
                    }
         super().__init__(headers=headers, status=status)
@@ -538,7 +541,9 @@ class BlobResponse(Response):
             request (rest_framework.request.Request): Request object not used by this
                 implementation of Response.
             status (int): Status code to send with the response.
-            send_body (bool): Whether a body should be sent with the response or just the headers.        """
+            send_body (bool): Whether a body should be sent with the response or just the
+                headers.
+        """
         artifact = blob._artifacts.get()
         size = artifact.size
 
@@ -554,23 +559,28 @@ class BlobResponse(Response):
                    }
         super().__init__(headers=headers, status=status)
 
+
 class VersionView(APIView):
     """
     Handles requests to the /v2/ endpoint.
     """
+
     # allow anyone to access
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
+        """Handles GET requests for the /v2/ endpoint."""
         headers = {'Docker-Distribution-Api-Version': 'registry/2.0',
                    }
         return Response(data={}, headers=headers)
+
 
 class BlobUploads(ViewSet):
     """
     The ViewSet for handling uploading of blobs.
     """
+
     model = models.Upload
     queryset = models.Upload.objects.all()
 
@@ -637,9 +647,11 @@ class BlobUploads(ViewSet):
             raise Exception
         upload.append_chunk(chunk, chunk_size=chunk_size)
         upload.save()
-        return UploadResponse(upload=upload, path=path, content_length=upload.file.size, request=request)
+        return UploadResponse(upload=upload, path=path, content_length=upload.file.size,
+                              request=request)
 
     def put(self, request, path, pk=None):
+        """Handles creation of Uploads."""
         distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
         if distribution.repository:
             repository = distribution.repository
@@ -659,7 +671,9 @@ class BlobUploads(ViewSet):
 
         if upload.sha256 == digest[len("sha256:"):]:
             try:
-                artifact = Artifact(file=upload.file.name, md5=upload.md5, sha1=upload.sha1, sha256=upload.sha256, sha384=upload.sha384, sha512=upload.sha512, size=upload.file.size)
+                artifact = Artifact(file=upload.file.name, md5=upload.md5, sha1=upload.sha1,
+                                    sha256=upload.sha256, sha384=upload.sha384,
+                                    sha512=upload.sha512, size=upload.file.size)
                 artifact.save()
             except IntegrityError:
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
@@ -669,7 +683,8 @@ class BlobUploads(ViewSet):
             except IntegrityError:
                 blob = models.Blob.objects.get(digest=digest)
             try:
-                blob_artifact = ContentArtifact(artifact=artifact, content=blob, relative_path=digest)
+                blob_artifact = ContentArtifact(artifact=artifact, content=blob,
+                                                relative_path=digest)
                 blob_artifact.save()
             except IntegrityError:
                 pass
@@ -683,10 +698,12 @@ class BlobUploads(ViewSet):
         else:
             raise Exception("The digest did not match")
 
+
 class Blobs(ViewSet):
     """
-    ViewSet for intereacting with Blobs
+    ViewSet for interacting with Blobs
     """
+
     # allow anyone to access
     authentication_classes = []
     permission_classes = []
@@ -711,6 +728,7 @@ class Blobs(ViewSet):
         return BlobResponse(blob, path, 200, request)
 
     def get(self, request, path, pk=None):
+        """Handles GET requests for Blobs."""
         distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
         if distribution.repository:
             repository = distribution.repository
@@ -718,12 +736,15 @@ class Blobs(ViewSet):
             raise Http404("Repository {} does not exist.".format(path))
         repository_version = repository.latest_version()
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
-        return HttpResponseRedirect("{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest))
+        return HttpResponseRedirect("{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN,
+                                                                           path, blob.digest))
+
 
 class Manifests(ViewSet):
     """
     ViewSet for intereacting with Manifests
     """
+
     # allow anyone to access
     authentication_classes = []
     permission_classes = []
@@ -746,7 +767,8 @@ class Manifests(ViewSet):
         try:
             manifest = models.Manifest.objects.get(digest=pk)
         except models.Manifest.DoesNotExist:
-            manifest = get_object_or_404(models.ManifestList, digest=pk, pk__in=repository_version.content)
+            manifest = get_object_or_404(models.ManifestList, digest=pk,
+                                         pk__in=repository_version.content)
 
         return ManifestResponse(manifest, path, request)
 
@@ -774,9 +796,11 @@ class Manifests(ViewSet):
             tag = get_object_or_404(models.Tag, name=tag, pk__in=repository_version.content)
             manifest = tag.tagged_manifest
         else:
-            manifest = get_object_or_404(models.Manifest, digest=pk, pk__in=repository_version.content)
+            manifest = get_object_or_404(models.Manifest, digest=pk,
+                                         pk__in=repository_version.content)
 
-        return HttpResponseRedirect("{}/pulp/container/{}/manifests/{}".format(settings.CONTENT_ORIGIN, path, manifest.digest))
+        return HttpResponseRedirect("{}/pulp/container/{}/manifests/{}".format(
+            settings.CONTENT_ORIGIN, path, manifest.digest))
 
     def put(self, request, path, pk=None):
         """
@@ -796,7 +820,8 @@ class Manifests(ViewSet):
         chunk = request.META['wsgi.input']
         artifact = self.receive_artifact(chunk)
 
-        manifest = models.Manifest(digest="sha256:{id}".format(id=artifact.sha256), schema_version=2, media_type=request.content_type)
+        manifest = models.Manifest(digest="sha256:{id}".format(id=artifact.sha256),
+                                   schema_version=2, media_type=request.content_type)
         try:
             manifest.save()
         except IntegrityError:
@@ -814,10 +839,12 @@ class Manifests(ViewSet):
         with repository.new_version() as new_version:
             new_version.add_content(models.Manifest.objects.filter(digest=manifest.digest))
             new_version.remove_content(models.Tag.objects.filter(name=tag.name))
-            new_version.add_content(models.Tag.objects.filter(name=tag.name, tagged_manifest=manifest))
+            new_version.add_content(models.Tag.objects.filter(name=tag.name,
+                                                              tagged_manifest=manifest))
         return ManifestResponse(manifest, path, request, status=201)
 
     def receive_artifact(self, chunk):
+        """Handles assembling of Manifest as it's being uploaded."""
         temp_file = NamedTemporaryFile('ab')
         size = 0
         hashers = {}

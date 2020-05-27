@@ -1,5 +1,7 @@
 import hashlib
+import os
 import re
+import time
 from logging import getLogger
 
 from django.db import models
@@ -12,7 +14,6 @@ from pulpcore.plugin.models import (
     BaseModel,
     Remote,
     Repository,
-    RepositoryVersion,
     RepositoryVersionDistribution
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
@@ -318,19 +319,20 @@ class ContainerDistribution(RepositoryVersionDistribution):
         default_related_name = "%(app_label)s_%(model_name)s"
 
 
-import os
-import time
-
 INCOMPLETE_EXT = '.part'
 
+
 def generate_filename(instance, filename):
+    """Method for generating upload file name"""
     filename = os.path.join(instance.upload_dir, str(instance.pk) + INCOMPLETE_EXT)
     return time.strftime(filename)
+
 
 class Upload(BaseModel):
     """
     Model for tracking Blob uploads.
     """
+
     repository = models.ForeignKey(
         Repository, related_name='uploads', on_delete=models.CASCADE)
 
@@ -349,6 +351,7 @@ class Upload(BaseModel):
     sha512 = models.CharField(max_length=128, null=True)
 
     def append_chunk(self, chunk, chunk_size=None, save=True):
+        """Method for appending a chunk to a file."""
         hashers = {}
         for algorithm in Artifact.DIGEST_FIELDS:
             hashers[algorithm] = getattr(hashlib, algorithm)()
@@ -371,6 +374,6 @@ class Upload(BaseModel):
             self.offset = self.file.size
         if save:
             self.save()
-        self.file.close() # Flush
+        self.file.close()  # Flush
         for algorithm in Artifact.DIGEST_FIELDS:
             setattr(self, algorithm, hashers[algorithm].hexdigest())
