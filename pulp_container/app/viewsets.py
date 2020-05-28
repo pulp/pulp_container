@@ -706,9 +706,11 @@ class Blobs(ViewSet):
         distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
         if distribution.repository:
             repository = distribution.repository
+            repository_version = repository.latest_version()
+        elif distribution.repository_version:
+            repository_version = distribution.repository_version
         else:
             raise Http404("Repository {} does not exist.".format(path))
-        repository_version = repository.latest_version()
         if not repository_version:
             raise Http404("Blob does not exist: {digest}".format(digest=pk))
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
@@ -719,9 +721,11 @@ class Blobs(ViewSet):
         distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
         if distribution.repository:
             repository = distribution.repository
+            repository_version = repository.latest_version()
+        elif distribution.repository_version:
+            repository_version = distribution.repository_version
         else:
             raise Http404("Repository {} does not exist.".format(path))
-        repository_version = repository.latest_version()
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
         return HttpResponseRedirect("{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN,
                                                                            path, blob.digest))
@@ -748,9 +752,11 @@ class Manifests(ViewSet):
         distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
         if distribution.repository:
             repository = distribution.repository
+            repository_version = repository.latest_version()
+        elif distribution.repository_version:
+            repository_version = distribution.repository_version
         else:
             raise Http404("Repository {} does not exist.".format(path))
-        repository_version = repository.latest_version()
         try:
             manifest = models.Manifest.objects.get(digest=pk)
         except models.Manifest.DoesNotExist:
@@ -770,9 +776,11 @@ class Manifests(ViewSet):
         distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
         if distribution.repository:
             repository = distribution.repository
+            repository_version = repository.latest_version()
+        elif distribution.repository_version:
+            repository_version = distribution.repository_version
         else:
             raise Http404("Repository {} does not exist.".format(path))
-        repository_version = repository.latest_version()
         if pk[:7] != 'sha256:':
             tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
             manifest = tag.tagged_manifest
