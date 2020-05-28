@@ -241,7 +241,7 @@ class Registry(Handler):
 
         """
         try:
-            artifact = tag._artifacts.get()
+            artifact = tag.tagged_manifest._artifacts.get()
         except ObjectDoesNotExist:
             raise ArtifactNotFound(tag.name)
         else:

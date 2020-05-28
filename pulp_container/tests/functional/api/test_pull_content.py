@@ -156,7 +156,7 @@ class PullContentTestCase(unittest.TestCase):
         )
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             self.distribution_with_repo.base_path
         )
 
@@ -187,7 +187,7 @@ class PullContentTestCase(unittest.TestCase):
         )
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             self.distribution_with_repo_version.base_path
         )
 
@@ -218,7 +218,7 @@ class PullContentTestCase(unittest.TestCase):
         )
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             self.distribution_with_repo.base_path
         ) + REPO_UPSTREAM_TAG
 
@@ -251,7 +251,7 @@ class PullContentTestCase(unittest.TestCase):
         )
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             "inexistentimagename"
         )
         with self.assertRaises(exceptions.CalledProcessError):
@@ -384,7 +384,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         )
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             self.distribution_with_repo.base_path
         )
 
@@ -419,7 +419,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         )
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             self.distribution_with_repo_version.base_path
         )
 
@@ -450,7 +450,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         )
 
         local_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             self.distribution_with_repo.base_path
         ) + REPO_UPSTREAM_TAG
 
