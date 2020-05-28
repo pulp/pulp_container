@@ -1,4 +1,4 @@
-pulpcore>=3.3
+pulpcore>=3.4,<3.5
 ecdsa~=0.13.2
 pyjwkest~=1.4.0
 pyjwt[crypto]~=1.7.1
