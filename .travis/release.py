@@ -89,7 +89,25 @@ with open(f"{plugin_path}/requirements.txt", "wt") as setup_file:
                     pulpcore_word = word
 
             line = line.replace(
-                pulpcore_word, f"pulpcore>={lower_pulpcore_version},<{upper_pulpcore_version}"
+                pulpcore_word, f"pulpcore>={lower_pulpcore_version},<{upper_pulpcore_version}\n"
+            )
+
+        setup_file.write(line)
+
+
+with open(f"{plugin_path}/unittest_requirements.txt", "rt") as setup_file:
+    setup_lines = setup_file.readlines()
+
+with open(f"{plugin_path}/unittest_requirements.txt", "wt") as setup_file:
+    for line in setup_lines:
+        if "pulpcore" in line and "pulpcore" not in release_path:
+            sep = "'" if len(line.split('"')) == 1 else '"'
+            for word in line.split(sep):
+                if "pulpcore" in word:
+                    pulpcore_word = word
+
+            line = line.replace(
+                pulpcore_word, f"pulpcore>={lower_pulpcore_version},<{upper_pulpcore_version}\n"
             )
 
         setup_file.write(line)
@@ -100,6 +118,7 @@ plugin_name = plugin_path.split("/")[-1]
 git.add(f"{plugin_path}/{plugin_name}/__init__.py")
 git.add(f"{plugin_path}/setup.py")
 git.add(f"{plugin_path}/requirements.txt")
+git.add(f"{plugin_path}/unittest_requirements.txt")
 git.add(f"{plugin_path}/.bumpversion.cfg")
 git.commit("-m", f"Releasing {release_version}\n\n[noissue]")
 
@@ -118,7 +137,23 @@ with open(f"{plugin_path}/requirements.txt", "wt") as setup_file:
                 if "pulpcore" in word:
                     pulpcore_word = word
 
-            line = line.replace(pulpcore_word, f"pulpcore>={lower_pulpcore_version}")
+            line = line.replace(pulpcore_word, f"pulpcore>={lower_pulpcore_version}\n")
+
+        setup_file.write(line)
+
+
+with open(f"{plugin_path}/unittest_requirements.txt", "rt") as setup_file:
+    setup_lines = setup_file.readlines()
+
+with open(f"{plugin_path}/unittest_requirements.txt", "wt") as setup_file:
+    for line in setup_lines:
+        if "pulpcore" in line and "pulpcore" not in release_path:
+            sep = "'" if len(line.split('"')) == 1 else '"'
+            for word in line.split(sep):
+                if "pulpcore" in word:
+                    pulpcore_word = word
+
+            line = line.replace(pulpcore_word, f"pulpcore>={lower_pulpcore_version}\n")
 
         setup_file.write(line)
 
@@ -133,6 +168,7 @@ new_dev_version = f"{version_ref['major']}.{version_ref['minor']}.{version_ref['
 git.add(f"{plugin_path}/{plugin_name}/__init__.py")
 git.add(f"{plugin_path}/setup.py")
 git.add(f"{plugin_path}/requirements.txt")
+git.add(f"{plugin_path}/unittest_requirements.txt")
 git.add(f"{plugin_path}/.bumpversion.cfg")
 git.commit("-m", f"Bump to {new_dev_version}\n\n[noissue]")
 
