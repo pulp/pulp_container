@@ -13,6 +13,40 @@ Changelog
 
 .. towncrier release notes start
 
+1.4.0 (2020-05-28)
+==================
+
+
+Features
+--------
+
+- Enable S3 as alternative storage.
+  `#4456 <https://pulp.plan.io/issues/4456>`_
+
+
+Bugfixes
+--------
+
+- Fixed webserver snippets config
+  `#6628 <https://pulp.plan.io/issues/6628>`_
+
+
+Improved Documentation
+----------------------
+
+- Added a new section about using pull secrets
+  `#6315 <https://pulp.plan.io/issues/6315>`_
+
+
+Misc
+----
+
+- `#6733 <https://pulp.plan.io/issues/6733>`_, `#6823 <https://pulp.plan.io/issues/6823>`_, `#6840 <https://pulp.plan.io/issues/6840>`_, `#6842 <https://pulp.plan.io/issues/6842>`_
+
+
+----
+
+
 1.3.0 (2020-04-23)
 ==================
 
