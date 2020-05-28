@@ -2,12 +2,8 @@
 
 from setuptools import find_packages, setup
 
-requirements = [
-    'pulpcore>=3.3',
-    'ecdsa~=0.13.2',
-    'pyjwkest~=1.4.0',
-    'pyjwt[crypto]~=1.7.1'
-]
+with open("requirements.txt") as requirements:
+    requirements = requirements.readlines()
 
 with open('README.rst') as f:
     long_description = f.read()
