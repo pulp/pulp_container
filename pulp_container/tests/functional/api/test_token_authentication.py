@@ -85,7 +85,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         All requests are sent via aiohttp modules.
         """
         image_path = "/v2/{}/manifests/{}".format(self.distribution.base_path, "manifest_a")
-        latest_image_url = urljoin(self.cfg.get_content_host_base_url(), image_path)
+        latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
         with self.assertRaises(HTTPError) as cm:
             self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V2})
@@ -117,7 +117,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
         image_url = urljoin(
-            self.cfg.get_content_host_base_url(),
+            self.cfg.get_base_url(),
             self.distribution.base_path
         )
         image_with_tag = f"{image_url}:manifest_a"
