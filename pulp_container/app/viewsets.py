@@ -594,11 +594,15 @@ class BlobUploads(ViewSet):
         """
         This methods handles the creation of an upload.
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
+        # TODO add repo push type to distinguish from sync repo type
+        distribution, _ = models.ContainerDistribution.objects.get_or_create(
+            name=path, base_path=path)
+        repository = distribution.repository
+        if not repository:
+            repository, _ = models.ContainerRepository.objects.get_or_create(name=path)
+            distribution.repository = repository
+            distribution.save()
+
         upload = models.Upload(repository=repository)
         upload.file.save(name='', content=ContentFile(''), save=False)
         upload.save()
