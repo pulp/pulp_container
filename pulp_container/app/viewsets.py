@@ -834,26 +834,26 @@ class Manifests(ViewSet):
 
     def receive_artifact(self, chunk):
         """Handles assembling of Manifest as it's being uploaded."""
-        temp_file = NamedTemporaryFile('ab')
-        size = 0
-        hashers = {}
-        for algorithm in Artifact.DIGEST_FIELDS:
-            hashers[algorithm] = getattr(hashlib, algorithm)()
-        while True:
-            subchunk = chunk.read(2000000)
-            if not subchunk:
-                break
-            temp_file.write(subchunk)
-            size += len(subchunk)
+        with NamedTemporaryFile('ab') as temp_file:
+            size = 0
+            hashers = {}
             for algorithm in Artifact.DIGEST_FIELDS:
-                hashers[algorithm].update(subchunk)
-        temp_file.flush()
-        digests = {}
-        for algorithm in Artifact.DIGEST_FIELDS:
-            digests[algorithm] = hashers[algorithm].hexdigest()
-        artifact = Artifact(file=temp_file.name, size=size, **digests)
-        try:
-            artifact.save()
-        except IntegrityError:
-            artifact = Artifact.objects.get(sha256=artifact.sha256)
-        return artifact
+                hashers[algorithm] = getattr(hashlib, algorithm)()
+            while True:
+                subchunk = chunk.read(2000000)
+                if not subchunk:
+                    break
+                temp_file.write(subchunk)
+                size += len(subchunk)
+                for algorithm in Artifact.DIGEST_FIELDS:
+                    hashers[algorithm].update(subchunk)
+            temp_file.flush()
+            digests = {}
+            for algorithm in Artifact.DIGEST_FIELDS:
+                digests[algorithm] = hashers[algorithm].hexdigest()
+            artifact = Artifact(file=temp_file.name, size=size, **digests)
+            try:
+                artifact.save()
+            except IntegrityError:
+                artifact = Artifact.objects.get(sha256=artifact.sha256)
+            return artifact

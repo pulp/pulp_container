@@ -84,7 +84,7 @@ class RepositoriesListTestCase(unittest.TestCase):
         caught an exception for the HTTP 401 response at first. Then, the token is retrieved
         from the token server and is used for requesting the list of repositories again.
         """
-        repositories_list_endpoint = urljoin(self.cfg.get_content_host_base_url(), "/v2/_catalog")
+        repositories_list_endpoint = urljoin(self.cfg.get_base_url(), "/v2/_catalog")
 
         with self.assertRaises(HTTPError) as cm:
             self.client.get(repositories_list_endpoint)

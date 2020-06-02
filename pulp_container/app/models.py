@@ -5,6 +5,8 @@ import time
 from logging import getLogger
 
 from django.db import models
+from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 from django.contrib.postgres import fields
 
 from pulpcore.plugin.download import DownloaderFactory
@@ -338,9 +340,12 @@ class Upload(BaseModel):
 
     offset = models.BigIntegerField(default=0)
 
-    file = models.FileField(max_length=255, null=True, upload_to=generate_filename)
+    file = models.FileField(
+        max_length=255, null=True, upload_to=generate_filename,
+        storage=FileSystemStorage(location=settings.CHUNKED_UPLOAD_DIR),
+    )
 
-    upload_dir = '/var/lib/pulp/tmp'
+    upload_dir = os.path.join(settings.CHUNKED_UPLOAD_DIR, 'container')
 
     size = models.IntegerField(null=True)
     md5 = models.CharField(max_length=32, null=True)
