@@ -59,3 +59,4 @@ Container Workflows
    build-containerfile
    authentication
    managing-credentials
+   push
