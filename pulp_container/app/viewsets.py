@@ -766,7 +766,7 @@ class Manifests(ViewSet):
 
     def head(self, request, path, pk=None):
         """
-        Responds to HEAD requests about blobs
+        Responds to HEAD requests about manifests by reference
         :param request:
         :param path:
         :param digest:
@@ -780,17 +780,18 @@ class Manifests(ViewSet):
             repository_version = distribution.repository_version
         else:
             raise Http404("Repository {} does not exist.".format(path))
-        try:
-            manifest = models.Manifest.objects.get(digest=pk)
-        except models.Manifest.DoesNotExist:
-            manifest = get_object_or_404(models.ManifestList, digest=pk,
+        if pk[:7] != 'sha256:':
+            tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
+            manifest = tag.tagged_manifest
+        else:
+            manifest = get_object_or_404(models.Manifest, digest=pk,
                                          pk__in=repository_version.content)
 
         return ManifestResponse(manifest, path, request)
 
     def get(self, request, path, pk=None):
         """
-        Responds to HEAD requests about blobs
+        Responds to GET requests about manifests by reference
         :param request:
         :param path:
         :param digest:
@@ -816,7 +817,7 @@ class Manifests(ViewSet):
 
     def put(self, request, path, pk=None):
         """
-        Responds with the actual blob
+        Responds with the actual manifest
         :param request:
         :param path:
         :param pk:
