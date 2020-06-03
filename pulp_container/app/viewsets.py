@@ -593,6 +593,37 @@ class CatalogView(APIView):
         return Response(data={'repositories': list(repositories_names)}, headers=headers)
 
 
+class TagsListView(APIView):
+    """
+    Handles requests to the /v2/<repo>/tags/list endpoint
+    """
+
+    # allow anyone to access
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, path):
+        """
+        Handles GET requests to the /v2/<repo>/tags/list endpoint
+        """
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository = distribution.repository
+            repository_version = repository.latest_version()
+        elif distribution.repository_version:
+            repository_version = distribution.repository_version
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
+        tags = {'name': path, 'tags': set()}
+        for c in repository_version.content:
+            c = c.cast()
+            if isinstance(c, models.Tag):
+                tags['tags'].add(c.name)
+        tags['tags'] = list(tags['tags'])
+        headers = {'Docker-Distribution-API-Version': 'registry/2.0'}
+        return Response(data=tags, headers=headers)
+
+
 class BlobUploads(ViewSet):
     """
     The ViewSet for handling uploading of blobs.
