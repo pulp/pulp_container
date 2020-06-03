@@ -13,6 +13,50 @@ Changelog
 
 .. towncrier release notes start
 
+2.0.0b1 (2020-06-03)
+====================
+
+
+Features
+--------
+
+- Enable S3 as alternative storage.
+  `#4456 <https://pulp.plan.io/issues/4456>`_
+- Added REST APIs for handling docker/podman push.
+  `#5027 <https://pulp.plan.io/issues/5027>`_
+
+
+Bugfixes
+--------
+
+- Fixed webserver snippets config
+  `#6628 <https://pulp.plan.io/issues/6628>`_
+- Fixed 500 error when pulling by tag.
+  `#6776 <https://pulp.plan.io/issues/6776>`_
+- Ensure that all relations between content models are properly created
+  `#6827 <https://pulp.plan.io/issues/6827>`_
+- Auto create repos and distributions for the container push.
+  `#6878 <https://pulp.plan.io/issues/6878>`_
+- Fixed not being able to push tags with periods in them.
+  `#6884 <https://pulp.plan.io/issues/6884>`_
+
+
+Improved Documentation
+----------------------
+
+- Added a new section about using pull secrets
+  `#6315 <https://pulp.plan.io/issues/6315>`_
+
+
+Misc
+----
+
+- `#6733 <https://pulp.plan.io/issues/6733>`_, `#6823 <https://pulp.plan.io/issues/6823>`_, `#6840 <https://pulp.plan.io/issues/6840>`_, `#6842 <https://pulp.plan.io/issues/6842>`_
+
+
+----
+
+
 1.3.0 (2020-04-23)
 ==================
 
