@@ -6,8 +6,6 @@ from pulp_container.app.registry import Registry
 
 registry = Registry()
 
-app.add_routes([web.get('/pulp/container/', registry.serve_v2)])
-app.add_routes([web.get('/pulp/container/_catalog', registry.list_repositories)])
 app.add_routes([web.get(r'/pulp/container/{path:.+}/blobs/sha256:{digest:.+}',
                         registry.get_by_digest)])
 app.add_routes([web.get(r'/pulp/container/{path:.+}/manifests/sha256:{digest:.+}',

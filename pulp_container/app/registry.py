@@ -125,29 +125,6 @@ class Registry(Handler):
         else:
             raise NotImplementedError()
 
-    async def serve_v2(self, request):
-        """
-        Handler for Container Registry v2 root.
-
-        The docker client uses this endpoint to discover that the V2 API is available.
-        """
-        self.verify_token(request, 'pull')
-
-        return web.json_response({}, headers=v2_headers)
-
-    async def list_repositories(self, request):
-        """
-        Handler for listing all repositories.
-
-        A name of a repository is stored in the field "base_path" in a container distribution.
-        To list all the repositories, the base_path fields are retrieved from the database and
-        returned in the json response.
-        """
-        self.verify_token(request, 'pull')
-
-        repositories_names = ContainerDistribution.objects.values_list('base_path', flat=True)
-        return web.json_response({'repositories': list(repositories_names)}, headers=v2_headers)
-
     async def tags_list(self, request):
         """
         Handler for Container Registry v2 tags/list API.

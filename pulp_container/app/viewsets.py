@@ -576,6 +576,23 @@ class VersionView(APIView):
         return Response(data={}, headers=headers)
 
 
+class CatalogView(APIView):
+    """
+    Handles requests to the /v2/_catalog endpoint
+    """
+
+    # allow anyone to access
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        """Handles GET requests for the /v2/_catalog endpoint."""
+        repositories_names = models.ContainerDistribution.objects.values_list('base_path',
+                                                                              flat=True)
+        headers = {'Docker-Distribution-API-Version': 'registry/2.0'}
+        return Response(data={'repositories': list(repositories_names)}, headers=headers)
+
+
 class BlobUploads(ViewSet):
     """
     The ViewSet for handling uploading of blobs.
