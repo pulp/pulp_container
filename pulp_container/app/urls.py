@@ -7,6 +7,7 @@ from pulp_container.app.viewsets import (
     VersionView
 )
 
+
 router = SimpleRouter(trailing_slash=False)
 
 head_route = Route(

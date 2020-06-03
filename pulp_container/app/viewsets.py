@@ -744,6 +744,8 @@ class Manifests(ViewSet):
     authentication_classes = []
     permission_classes = []
     renderer_classes = [ManifestRenderer]
+    # The lookup regex does not allow /, ^, &, *, %, !, ~, @, #, +, =, ?
+    lookup_value_regex = '[^/^&*%!~@#+=?]+'
 
     def head(self, request, path, pk=None):
         """
