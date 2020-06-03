@@ -4,10 +4,13 @@ Check `Plugin Writer's Guide`_ for more details.
 . _Plugin Writer's Guide:
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
+import json
 import logging
 import hashlib
 import re
 from tempfile import NamedTemporaryFile
+
+from django.core.files.storage import default_storage as storage
 
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
@@ -831,9 +834,15 @@ class Manifests(ViewSet):
         # iterate over all the layers and create
         chunk = request.META['wsgi.input']
         artifact = self.receive_artifact(chunk)
+        with storage.open(artifact.file.name) as artifact_file:
+            raw_data = artifact_file.read()
+        content_data = json.loads(raw_data)
+        config_layer = content_data.get('config')
+        config_blob = models.Blob.objects.get(digest=config_layer.get('digest'))
 
         manifest = models.Manifest(digest="sha256:{id}".format(id=artifact.sha256),
-                                   schema_version=2, media_type=request.content_type)
+                                   schema_version=2, media_type=request.content_type,
+                                   config_blob=config_blob)
         try:
             manifest.save()
         except IntegrityError:
@@ -843,6 +852,17 @@ class Manifests(ViewSet):
             ca.save()
         except IntegrityError:
             pass
+        layers = content_data.get("layers")
+        blobs = []
+        for layer in layers:
+            blobs.append(layer.get('digest'))
+        blobs_qs = models.Blob.objects.filter(digest__in=blobs)
+        thru = []
+        for blob in blobs_qs:
+            thru.append(models.BlobManifest(manifest=manifest, manifest_blob=blob))
+        models.BlobManifest.objects.bulk_create(objs=thru,
+                                                ignore_conflicts=True,
+                                                batch_size=1000)
         tag = models.Tag(name=pk, tagged_manifest=manifest)
         try:
             tag.save()
