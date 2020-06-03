@@ -11,7 +11,6 @@ app.add_routes([web.get(r'/pulp/container/{path:.+}/blobs/sha256:{digest:.+}',
 app.add_routes([web.get(r'/pulp/container/{path:.+}/manifests/sha256:{digest:.+}',
                         registry.get_by_digest)])
 app.add_routes([web.get(r'/pulp/container/{path:.+}/manifests/{tag_name}', registry.get_tag)])
-app.add_routes([web.get(r'/pulp/container/{path:.+}/tags/list', registry.tags_list)])
 
 authorization_service = AuthorizationService()
 
