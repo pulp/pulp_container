@@ -5,6 +5,7 @@ from pulp_container.app.viewsets import (
     BlobUploads,
     CatalogView,
     Manifests,
+    TagsListView,
     VersionView
 )
 
@@ -27,5 +28,6 @@ router.register(r'^v2/(?P<path>.+)/manifests', Manifests, basename='manifests')
 urlpatterns = [
     url(r'^v2/$', VersionView.as_view()),
     url(r'^v2/_catalog', CatalogView.as_view()),
+    url(r'^v2/(?P<path>.+)/tags/list', TagsListView.as_view()),
     url(r'', include(router.urls))
 ]

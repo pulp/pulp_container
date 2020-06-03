@@ -125,23 +125,6 @@ class Registry(Handler):
         else:
             raise NotImplementedError()
 
-    async def tags_list(self, request):
-        """
-        Handler for Container Registry v2 tags/list API.
-        """
-        self.verify_token(request, 'pull')
-
-        path = request.match_info['path']
-        distribution = self._match_distribution(path)
-        tags = {'name': path, 'tags': set()}
-        repository_version = distribution.get_repository_version()
-        for c in repository_version.content:
-            c = c.cast()
-            if isinstance(c, Tag):
-                tags['tags'].add(c.name)
-        tags['tags'] = list(tags['tags'])
-        return web.json_response(tags, headers=v2_headers)
-
     async def get_tag(self, request):
         """
         Match the path and stream either Manifest or ManifestList.
