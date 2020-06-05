@@ -33,9 +33,10 @@ class PushContentTestCase(unittest.TestCase):
         """Test push with official registry client"""
         # TODO better handling of the "http://"
         local_url = urljoin(cfg.get_base_url(), 'foo/bar:1.0')[7:]
-        registry.pull("busybox:latest")
-        registry.tag("busybox:latest", local_url)
+        registry.pull("centos:7")
+        registry.tag("centos:7", local_url)
         registry.push(local_url)
+        registry.pull(local_url)
         repository = repositories_api.list(name='foo/bar').results[0]
         distribution = distributions_api.list(name='foo/bar').results[0]
         self.addCleanup(repositories_api.delete, repository.pulp_href)
