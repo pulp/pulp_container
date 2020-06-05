@@ -11,7 +11,6 @@ from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
 from pulp_container.app.models import ContainerDistribution, Tag
 from pulp_container.app.schema_convert import Schema2toSchema1ConverterWrapper
-from pulp_container.app.token_verification import TokenVerifier
 from pulp_container.constants import MEDIA_TYPE
 
 log = logging.getLogger(__name__)
@@ -34,19 +33,6 @@ class Registry(Handler):
     """
 
     distribution_model = ContainerDistribution
-
-    def __init__(self):
-        """
-        Initialize the token verifier according to user defined settings.
-
-        The token authentication is enabled by default. If a user declares the setting
-        "TOKEN_AUTH_DISABLED = True", the registry shall not request clients to authenticate
-        themselves leveraging Bearer token.
-        """
-        if settings.get("TOKEN_AUTH_DISABLED", False):
-            self.verify_token = lambda *args, **kwargs: None
-        else:
-            self.verify_token = TokenVerifier.verify_from
 
     @staticmethod
     async def get_accepted_media_types(request):
@@ -142,8 +128,6 @@ class Registry(Handler):
                 streamed back to the client.
 
         """
-        self.verify_token(request, "pull")
-
         path = request.match_info["path"]
         tag_name = request.match_info["tag_name"]
         distribution = self._match_distribution(path)
@@ -251,7 +235,6 @@ class Registry(Handler):
         """
         Return a response to the "GET" action.
         """
-        self.verify_token(request, "pull")
 
         path = request.match_info["path"]
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])

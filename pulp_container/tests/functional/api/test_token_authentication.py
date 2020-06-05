@@ -14,6 +14,7 @@ from pulp_container.tests.functional.utils import (
     gen_token_signing_keys,
     monitor_task,
     BearerTokenAuth,
+    AuthenticationHeaderQueries,
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
@@ -144,17 +145,3 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
         config_blob_response = self.client.get(manifest_response["config_blob"])
         self.assertEqual(pulled_manifest_digest, config_blob_response["digest"])
-
-
-class AuthenticationHeaderQueries:
-    """A data class to store header queries located in the Www-Authenticate header."""
-
-    def __init__(self, authenticate_header):
-        """Extract service, realm, and scope from the header."""
-        realm, service, scope = authenticate_header[7:].split(",")
-        # realm="rlm" -> rlm
-        self.realm = realm[6:][1:-1]
-        # service="srv" -> srv
-        self.service = service[8:][1:-1]
-        # scope="scp" -> scp
-        self.scope = scope[6:][1:-1]

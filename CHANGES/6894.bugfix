@@ -1,0 +1,1 @@
+Refactored token_authentication that now happens in pulpcore-api app
