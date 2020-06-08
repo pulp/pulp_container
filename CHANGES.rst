@@ -20,8 +20,6 @@ Changelog
 Features
 --------
 
-- Enable S3 as alternative storage.
-  `#4456 <https://pulp.plan.io/issues/4456>`_
 - Added REST APIs for handling docker/podman push.
   `#5027 <https://pulp.plan.io/issues/5027>`_
 
@@ -29,8 +27,6 @@ Features
 Bugfixes
 --------
 
-- Fixed webserver snippets config
-  `#6628 <https://pulp.plan.io/issues/6628>`_
 - Fixed 500 error when pulling by tag.
   `#6776 <https://pulp.plan.io/issues/6776>`_
 - Ensure that all relations between content models are properly created
@@ -39,6 +35,41 @@ Bugfixes
   `#6878 <https://pulp.plan.io/issues/6878>`_
 - Fixed not being able to push tags with periods in them.
   `#6884 <https://pulp.plan.io/issues/6884>`_
+
+
+----
+
+
+1.4.1 (2020-06-04)
+==================
+
+
+Bugfixes
+--------
+
+- Including requirements.txt on MANIFEST.in
+  `#6890 <https://pulp.plan.io/issues/6890>`_
+
+
+----
+
+
+1.4.0 (2020-05-28)
+==================
+
+
+Features
+--------
+
+- Enable S3 as alternative storage.
+  `#4456 <https://pulp.plan.io/issues/4456>`_
+
+
+Bugfixes
+--------
+
+- Fixed webserver snippets config
+  `#6628 <https://pulp.plan.io/issues/6628>`_
 
 
 Improved Documentation
