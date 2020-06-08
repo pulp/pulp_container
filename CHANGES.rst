@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.0.0b2 (2020-06-08)
+====================
+
+
+Bugfixes
+--------
+
+- Fixed the client_max_body_size value in the nginx config.
+  `#6916 <https://pulp.plan.io/issues/6916>`_
+
+
+----
+
+
 2.0.0b1 (2020-06-03)
 ====================
 
