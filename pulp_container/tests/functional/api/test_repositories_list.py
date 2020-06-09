@@ -3,6 +3,7 @@
 import unittest
 
 from urllib.parse import urljoin
+from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
@@ -14,6 +15,7 @@ from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_token_signing_keys,
     monitor_task,
+    BearerTokenAuth,
 )
 
 from pulpcore.client.pulp_container import (
@@ -84,7 +86,17 @@ class RepositoriesListTestCase(unittest.TestCase):
         """
         repositories_list_endpoint = urljoin(self.cfg.get_base_url(), "/v2/_catalog")
 
-        repositories = self.client.get(repositories_list_endpoint)
+        with self.assertRaises(HTTPError) as cm:
+            self.client.get(repositories_list_endpoint)
+        content_response = cm.exception.response
+        authenticate_header = content_response.headers["Www-Authenticate"]
+
+        queries = AuthenticationHeaderQueries(authenticate_header)
+        content_response = self.client.get(queries.realm, params={"service": queries.service})
+        repositories = self.client.get(
+            repositories_list_endpoint,
+            auth=BearerTokenAuth(content_response["token"])
+        )
 
         repositories_names = [
             self.distribution1.base_path,

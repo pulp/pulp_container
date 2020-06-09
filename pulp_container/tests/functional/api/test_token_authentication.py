@@ -76,7 +76,6 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         cls.remotes_api.delete(cls.remote.pulp_href)
         cls.distributions_api.delete(cls.distribution.pulp_href)
 
-    @unittest.skip("Token auth is teomporarily not being tested.")
     def test_pull_image_with_raw_http_requests(self):
         """
         Test if a content was pulled from a registry by using raw HTTP requests.
