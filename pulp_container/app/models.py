@@ -3,16 +3,19 @@ import os
 import re
 import time
 from logging import getLogger
+from url_normalize import url_normalize
 
 from django.db import models
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.contrib.postgres import fields
+from django.shortcuts import redirect
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
     Artifact,
     Content,
+    ContentGuard,
     BaseModel,
     Remote,
     Repository,
@@ -309,6 +312,14 @@ class ContainerDistribution(RepositoryVersionDistribution):
         else:
             return None
 
+    def redirect_to_content_app(self, url):
+        """
+        Add preauthentication query string to redirect attempt.
+        """
+        if self.content_guard:
+            url = self.content_guard.cast().preauthenticate_url(url)
+        return redirect(url)
+
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
 
@@ -375,3 +386,54 @@ class Upload(BaseModel):
         self.file.close()  # Flush
         for algorithm in Artifact.DIGEST_FIELDS:
             setattr(self, algorithm, hashers[algorithm].hexdigest())
+
+
+def _gen_secret():
+    return os.urandom(32)
+
+
+class ContentRedirectContentGuard(ContentGuard):
+    """
+    Content guard to allow preauthenticated redirects to the content app.
+    """
+
+    TYPE = "content_redirect"
+
+    shared_secret = models.BinaryField(max_length=32, default=_gen_secret)
+
+    def permit(self, request):
+        """
+        Permit preauthenticated redirects from pulp-api.
+        """
+        signed_url = request.url
+        try:
+            validate_token = request.query["validate_token"]
+        except KeyError:
+            raise PermissionError("Access not authenticated")
+        hex_salt, hex_digest = validate_token.split(":", 1)
+        salt = bytes.fromhex(hex_salt)
+        digest = bytes.fromhex(hex_digest)
+        url = re.sub(r"\?validate_token=.*$", "", str(signed_url))
+        if not digest == self._get_digest(salt, url):
+            raise PermissionError("Access not authenticated")
+
+    def preauthenticate_url(self, url, salt=None):
+        """
+        Add validate_token to urls query string.
+        """
+        if not salt:
+            salt = _gen_secret()
+        hex_salt = salt.hex()
+        digest = self._get_digest(salt, url).hex()
+        url = url + f"?validate_token={hex_salt}:{digest}"
+        return url
+
+    def _get_digest(self, salt, url):
+        hasher = hashlib.sha256()
+        hasher.update(salt)
+        hasher.update(url_normalize(url).encode())
+        hasher.update(self.shared_secret)
+        return hasher.digest()
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"

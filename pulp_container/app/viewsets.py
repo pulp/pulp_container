@@ -20,7 +20,6 @@ from drf_yasg.utils import swagger_auto_schema
 
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.http import HttpResponseRedirect
 
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
@@ -32,6 +31,7 @@ from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
     CharInFilter,
     ContentFilter,
+    ContentGuardViewSet,
     NamedModelViewSet,
     ReadOnlyContentViewSet,
     RemoteViewSet,
@@ -56,6 +56,7 @@ class ContainerRegistryApiMixin:
     """
     Mixin to add docker registry specific headers to all error responses.
     """
+
     def handle_exception(self, exc):
         """
         Add docker registry specific headers to all error responses.
@@ -445,6 +446,16 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     serializer_class = serializers.ContainerDistributionSerializer
 
 
+class ContentRedirectContentGuardViewSet(ContentGuardViewSet):
+    """
+    Content guard to protect preauthenticated redirects to the content app.
+    """
+
+    endpoint_name = "content_redirect"
+    queryset = models.ContentRedirectContentGuard.objects.all()
+    serializer_class = serializers.ContentRedirectContentGuardSerializer
+
+
 class ManifestRenderer(BaseRenderer):
     """
     Rendered class for rendering Manifest responses.
@@ -773,8 +784,8 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
         else:
             raise Http404("Repository {} does not exist.".format(path))
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
-        return HttpResponseRedirect(
-            "{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest)
+        return distribution.redirect_to_content_app(
+            "{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest),
         )
 
 
@@ -839,10 +850,10 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
                 models.Manifest, digest=pk, pk__in=repository_version.content
             )
 
-        return HttpResponseRedirect(
+        return distribution.redirect_to_content_app(
             "{}/pulp/container/{}/manifests/{}".format(
-                settings.CONTENT_ORIGIN, path, manifest.digest
-            )
+                settings.CONTENT_ORIGIN, path, manifest.digest,
+            ),
         )
 
     def put(self, request, path, pk=None):

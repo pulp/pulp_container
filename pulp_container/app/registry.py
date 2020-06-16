@@ -131,6 +131,7 @@ class Registry(Handler):
         path = request.match_info["path"]
         tag_name = request.match_info["tag_name"]
         distribution = self._match_distribution(path)
+        self._permit(request, distribution)
         repository_version = distribution.get_repository_version()
         accepted_media_types = await Registry.get_accepted_media_types(request)
 
@@ -239,6 +240,7 @@ class Registry(Handler):
         path = request.match_info["path"]
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
         distribution = self._match_distribution(path)
+        self._permit(request, distribution)
         repository_version = distribution.get_repository_version()
         log.info(digest)
         try:
