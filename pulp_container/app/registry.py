@@ -17,7 +17,7 @@ from pulp_container.constants import MEDIA_TYPE
 log = logging.getLogger(__name__)
 
 v2_headers = MultiDict()
-v2_headers['Docker-Distribution-API-Version'] = 'registry/2.0'
+v2_headers["Docker-Distribution-API-Version"] = "registry/2.0"
 
 
 class ArtifactNotFound(Exception):
@@ -43,7 +43,7 @@ class Registry(Handler):
         "TOKEN_AUTH_DISABLED = True", the registry shall not request clients to authenticate
         themselves leveraging Bearer token.
         """
-        if settings.get('TOKEN_AUTH_DISABLED', False):
+        if settings.get("TOKEN_AUTH_DISABLED", False):
             self.verify_token = lambda *args, **kwargs: None
         else:
             self.verify_token = TokenVerifier.verify_from
@@ -62,8 +62,8 @@ class Registry(Handler):
         """
         accepted_media_types = []
         for header, values in request.raw_headers:
-            if header == b'Accept':
-                values = [v.strip().decode('UTF-8') for v in values.split(b",")]
+            if header == b"Accept":
+                values = [v.strip().decode("UTF-8") for v in values.split(b",")]
                 accepted_media_types.extend(values)
         return accepted_media_types
 
@@ -102,18 +102,19 @@ class Registry(Handler):
         """
         full_headers = MultiDict()
 
-        full_headers['Content-Type'] = headers['Content-Type']
-        full_headers['Docker-Content-Digest'] = headers['Docker-Content-Digest']
-        full_headers['Docker-Distribution-API-Version'] = 'registry/2.0'
-        full_headers['Content-Length'] = str(file.size)
-        full_headers['Content-Disposition'] = 'attachment; filename={n}'.format(
-            n=os.path.basename(file.name))
+        full_headers["Content-Type"] = headers["Content-Type"]
+        full_headers["Docker-Content-Digest"] = headers["Docker-Content-Digest"]
+        full_headers["Docker-Distribution-API-Version"] = "registry/2.0"
+        full_headers["Content-Length"] = str(file.size)
+        full_headers["Content-Disposition"] = "attachment; filename={n}".format(
+            n=os.path.basename(file.name)
+        )
 
-        if settings.DEFAULT_FILE_STORAGE == 'pulpcore.app.models.storage.FileSystem':
+        if settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem":
             path = os.path.join(settings.MEDIA_ROOT, file.name)
             file_response = web.FileResponse(path, headers=full_headers)
             return file_response
-        elif settings.DEFAULT_FILE_STORAGE == 'storages.backends.s3boto3.S3Boto3Storage':
+        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.s3boto3.S3Boto3Storage":
             content_url = file.storage.url(
                 file.name,
                 parameters={
@@ -141,26 +142,25 @@ class Registry(Handler):
                 streamed back to the client.
 
         """
-        self.verify_token(request, 'pull')
+        self.verify_token(request, "pull")
 
-        path = request.match_info['path']
-        tag_name = request.match_info['tag_name']
+        path = request.match_info["path"]
+        tag_name = request.match_info["tag_name"]
         distribution = self._match_distribution(path)
         repository_version = distribution.get_repository_version()
         accepted_media_types = await Registry.get_accepted_media_types(request)
 
         try:
-            tag = Tag.objects.get(
-                pk__in=repository_version.content,
-                name=tag_name,
-            )
+            tag = Tag.objects.get(pk__in=repository_version.content, name=tag_name,)
         except ObjectDoesNotExist:
             raise PathNotResolved(tag_name)
 
         # we do not convert OCI to docker
         oci_mediatypes = [MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI]
-        if tag.tagged_manifest.media_type in oci_mediatypes and \
-                tag.tagged_manifest.media_type not in accepted_media_types:
+        if (
+            tag.tagged_manifest.media_type in oci_mediatypes
+            and tag.tagged_manifest.media_type not in accepted_media_types
+        ):
             log.warn(
                 "OCI format found, but the client only accepts {accepted_media_types}.".format(
                     accepted_media_types=accepted_media_types
@@ -171,15 +171,19 @@ class Registry(Handler):
         # return schema1 (even in case only oci is requested)
         if tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V1:
             return_media_type = MEDIA_TYPE.MANIFEST_V1_SIGNED
-            response_headers = {'Content-Type': return_media_type,
-                                'Docker-Content-Digest': tag.tagged_manifest.digest}
+            response_headers = {
+                "Content-Type": return_media_type,
+                "Docker-Content-Digest": tag.tagged_manifest.digest,
+            }
             return await Registry.dispatch_tag(tag, response_headers)
 
         # return what was found in case media_type is accepted header (docker, oci)
         if tag.tagged_manifest.media_type in accepted_media_types:
             return_media_type = tag.tagged_manifest.media_type
-            response_headers = {'Content-Type': return_media_type,
-                                'Docker-Content-Digest': tag.tagged_manifest.digest}
+            response_headers = {
+                "Content-Type": return_media_type,
+                "Docker-Content-Digest": tag.tagged_manifest.digest,
+            }
             return await Registry.dispatch_tag(tag, response_headers)
 
         # convert if necessary
@@ -233,9 +237,11 @@ class Registry(Handler):
             schema, converted, digest = schema1_converter.convert()
         except RuntimeError:
             raise PathNotResolved(tag.name)
-        response_headers = {'Docker-Content-Digest': digest,
-                            'Content-Type': MEDIA_TYPE.MANIFEST_V1_SIGNED,
-                            'Docker-Distribution-API-Version': 'registry/2.0'}
+        response_headers = {
+            "Docker-Content-Digest": digest,
+            "Content-Type": MEDIA_TYPE.MANIFEST_V1_SIGNED,
+            "Docker-Distribution-API-Version": "registry/2.0",
+        }
         if not converted:
             return await Registry.dispatch_tag(schema, response_headers)
 
@@ -245,18 +251,21 @@ class Registry(Handler):
         """
         Return a response to the "GET" action.
         """
-        self.verify_token(request, 'pull')
+        self.verify_token(request, "pull")
 
-        path = request.match_info['path']
-        digest = "sha256:{digest}".format(digest=request.match_info['digest'])
+        path = request.match_info["path"]
+        digest = "sha256:{digest}".format(digest=request.match_info["digest"])
         distribution = self._match_distribution(path)
         repository_version = distribution.get_repository_version()
         log.info(digest)
         try:
-            ca = ContentArtifact.objects.get(content__in=repository_version.content,
-                                             relative_path=digest)
-            headers = {'Content-Type': ca.content.cast().media_type,
-                       'Docker-Content-Digest': ca.content.cast().digest}
+            ca = ContentArtifact.objects.get(
+                content__in=repository_version.content, relative_path=digest
+            )
+            headers = {
+                "Content-Type": ca.content.cast().media_type,
+                "Docker-Content-Digest": ca.content.cast().digest,
+            }
         except ObjectDoesNotExist:
             raise PathNotResolved(path)
         else:

@@ -84,9 +84,7 @@ class PullContentTestCase(unittest.TestCase):
 
             # Step 4.
             distribution_response = cls.distributions_api.create(
-                ContainerContainerDistribution(
-                    **gen_distribution(repository=cls.repo.pulp_href)
-                )
+                ContainerContainerDistribution(**gen_distribution(repository=cls.repo.pulp_href))
             )
             created_resources = monitor_task(distribution_response.task)
             distribution = cls.distributions_api.read(created_resources[0])
@@ -105,7 +103,7 @@ class PullContentTestCase(unittest.TestCase):
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href)
+                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href,)
             )
 
             # remove callback if everything goes well
@@ -126,20 +124,15 @@ class PullContentTestCase(unittest.TestCase):
         """
         # Get local checksums for content synced from remote registy
         checksums = [
-            content["digest"] for content
-            in get_content(self.repo.to_dict())[CONTAINER_CONTENT_NAME]
+            content["digest"]
+            for content in get_content(self.repo.to_dict())[CONTAINER_CONTENT_NAME]
         ]
 
         # Assert that at least one layer is synced from remote:latest
         # and the checksum matched with remote
         self.assertTrue(
-            any(
-                [
-                    result["blobSum"] in checksums
-                    for result in get_docker_hub_remote_blobsums()
-                ]
-            ),
-            "Cannot find a matching layer on remote registry."
+            any([result["blobSum"] in checksums for result in get_docker_hub_remote_blobsums()]),
+            "Cannot find a matching layer on remote registry.",
         )
 
     def test_pull_image_from_repository(self):
@@ -151,14 +144,9 @@ class PullContentTestCase(unittest.TestCase):
         4. Ensure image is deleted after the test.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        local_url = urljoin(
-            self.cfg.get_base_url(),
-            self.distribution_with_repo.base_path
-        )
+        local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
 
         registry.pull(local_url)
         self.teardown_cleanups.append((registry.rmi, local_url))
@@ -167,10 +155,7 @@ class PullContentTestCase(unittest.TestCase):
         registry.pull(REPO_UPSTREAM_NAME)
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
-        self.assertEqual(
-            local_image[0]["Id"],
-            remote_image[0]["Id"]
-        )
+        self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])
         registry.rmi(REPO_UPSTREAM_NAME)
 
     def test_pull_image_from_repository_version(self):
@@ -182,14 +167,9 @@ class PullContentTestCase(unittest.TestCase):
         4. Ensure image is deleted after the test.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        local_url = urljoin(
-            self.cfg.get_base_url(),
-            self.distribution_with_repo_version.base_path
-        )
+        local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo_version.base_path)
 
         registry.pull(local_url)
         self.teardown_cleanups.append((registry.rmi, local_url))
@@ -198,10 +178,7 @@ class PullContentTestCase(unittest.TestCase):
         registry.pull(REPO_UPSTREAM_NAME)
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
-        self.assertEqual(
-            local_image[0]["Id"],
-            remote_image[0]["Id"]
-        )
+        self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])
         registry.rmi(REPO_UPSTREAM_NAME)
 
     def test_pull_image_with_tag(self):
@@ -213,31 +190,22 @@ class PullContentTestCase(unittest.TestCase):
         4. Ensure image is deleted after the test.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        local_url = urljoin(
-            self.cfg.get_base_url(),
-            self.distribution_with_repo.base_path
-        ) + REPO_UPSTREAM_TAG
+        local_url = (
+            urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
+            + REPO_UPSTREAM_TAG
+        )
 
         registry.pull(local_url)
         self.teardown_cleanups.append((registry.rmi, local_url))
         local_image = registry.inspect(local_url)
 
         registry.pull(REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
-        self.teardown_cleanups.append(
-            (registry.rmi, REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
-        )
-        remote_image = registry.inspect(
-            REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG
-        )
+        self.teardown_cleanups.append((registry.rmi, REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG))
+        remote_image = registry.inspect(REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
 
-        self.assertEqual(
-            local_image[0]["Id"],
-            remote_image[0]["Id"]
-        )
+        self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])
 
     def test_pull_nonexistent_image(self):
         """Verify that a client cannot pull nonexistent image from Pulp.
@@ -246,14 +214,9 @@ class PullContentTestCase(unittest.TestCase):
         2. Assert that error is occurred and nothing has been pulled.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        local_url = urljoin(
-            self.cfg.get_base_url(),
-            "inexistentimagename"
-        )
+        local_url = urljoin(self.cfg.get_base_url(), "inexistentimagename")
         with self.assertRaises(exceptions.CalledProcessError):
             registry.pull(local_url)
 
@@ -297,9 +260,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
 
             # Step 2
             cls.remote = cls.remotes_api.create(gen_container_remote(policy="on_demand"))
-            cls.teardown_cleanups.append(
-                (cls.remotes_api.delete, cls.remote.pulp_href)
-            )
+            cls.teardown_cleanups.append((cls.remotes_api.delete, cls.remote.pulp_href))
 
             # Step 3
             sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
@@ -332,7 +293,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href)
+                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href,)
             )
 
             # remove callback if everything goes well
@@ -353,20 +314,15 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         # Get local checksums for content synced from remote registy
         checksums = [
-            content["digest"] for content
-            in get_content(self.repo.to_dict())[CONTAINER_CONTENT_NAME]
+            content["digest"]
+            for content in get_content(self.repo.to_dict())[CONTAINER_CONTENT_NAME]
         ]
 
         # Assert that at least one layer is synced from remote:latest
         # and the checksum matched with remote
         self.assertTrue(
-            any(
-                [
-                    result["blobSum"] in checksums
-                    for result in get_docker_hub_remote_blobsums()
-                ]
-            ),
-            "Cannot find a matching layer on remote registry."
+            any([result["blobSum"] in checksums for result in get_docker_hub_remote_blobsums()]),
+            "Cannot find a matching layer on remote registry.",
         )
 
     def test_pull_image_from_repository(self):
@@ -379,14 +335,9 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         5. Ensure image is deleted after the test.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        local_url = urljoin(
-            self.cfg.get_base_url(),
-            self.distribution_with_repo.base_path
-        )
+        local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
 
         registry.pull(local_url)
         self.teardown_cleanups.append((registry.rmi, local_url))
@@ -395,10 +346,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         registry.pull(REPO_UPSTREAM_NAME)
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
-        self.assertEqual(
-            local_image[0]["Id"],
-            remote_image[0]["Id"]
-        )
+        self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])
 
         new_artifact_count = self.artifacts_api.list().count
         self.assertGreater(new_artifact_count, self.artifact_count)
@@ -414,14 +362,9 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         4. Ensure image is deleted after the test.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        local_url = urljoin(
-            self.cfg.get_base_url(),
-            self.distribution_with_repo_version.base_path
-        )
+        local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo_version.base_path)
 
         registry.pull(local_url)
         self.teardown_cleanups.append((registry.rmi, local_url))
@@ -430,10 +373,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         registry.pull(REPO_UPSTREAM_NAME)
         remote_image = registry.inspect(REPO_UPSTREAM_NAME)
 
-        self.assertEqual(
-            local_image[0]["Id"],
-            remote_image[0]["Id"]
-        )
+        self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])
         registry.rmi(REPO_UPSTREAM_NAME)
 
     def test_pull_image_with_tag(self):
@@ -445,28 +385,19 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         4. Ensure image is deleted after the test.
         """
         registry = cli.RegistryClient(self.cfg)
-        registry.raise_if_unsupported(
-            unittest.SkipTest, "Test requires podman/docker"
-        )
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        local_url = urljoin(
-            self.cfg.get_base_url(),
-            self.distribution_with_repo.base_path
-        ) + REPO_UPSTREAM_TAG
+        local_url = (
+            urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
+            + REPO_UPSTREAM_TAG
+        )
 
         registry.pull(local_url)
         self.teardown_cleanups.append((registry.rmi, local_url))
         local_image = registry.inspect(local_url)
 
         registry.pull(REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
-        self.teardown_cleanups.append(
-            (registry.rmi, REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
-        )
-        remote_image = registry.inspect(
-            REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG
-        )
+        self.teardown_cleanups.append((registry.rmi, REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG))
+        remote_image = registry.inspect(REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
 
-        self.assertEqual(
-            local_image[0]["Id"],
-            remote_image[0]["Id"]
-        )
+        self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])

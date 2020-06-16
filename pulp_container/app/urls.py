@@ -6,28 +6,28 @@ from pulp_container.app.viewsets import (
     CatalogView,
     Manifests,
     TagsListView,
-    VersionView
+    VersionView,
 )
 
 
 router = SimpleRouter(trailing_slash=False)
 
 head_route = Route(
-    url=r'^{prefix}/{lookup}{trailing_slash}$',
-    mapping={'head': 'head'},
-    name='{basename}-detail',
+    url=r"^{prefix}/{lookup}{trailing_slash}$",
+    mapping={"head": "head"},
+    name="{basename}-detail",
     detail=True,
-    initkwargs={'suffix': 'Instance'}
+    initkwargs={"suffix": "Instance"},
 )
 
 router.routes.append(head_route)
-router.register(r'^v2/(?P<path>.+)/blobs/uploads\/?', BlobUploads, basename='docker-upload')
-router.register(r'^v2/(?P<path>.+)/blobs', Blobs, basename='blobs')
-router.register(r'^v2/(?P<path>.+)/manifests', Manifests, basename='manifests')
+router.register(r"^v2/(?P<path>.+)/blobs/uploads\/?", BlobUploads, basename="docker-upload")
+router.register(r"^v2/(?P<path>.+)/blobs", Blobs, basename="blobs")
+router.register(r"^v2/(?P<path>.+)/manifests", Manifests, basename="manifests")
 
 urlpatterns = [
-    url(r'^v2/$', VersionView.as_view()),
-    url(r'^v2/_catalog', CatalogView.as_view()),
-    url(r'^v2/(?P<path>.+)/tags/list', TagsListView.as_view()),
-    url(r'', include(router.urls))
+    url(r"^v2/$", VersionView.as_view()),
+    url(r"^v2/_catalog", CatalogView.as_view()),
+    url(r"^v2/(?P<path>.+)/tags/list", TagsListView.as_view()),
+    url(r"", include(router.urls)),
 ]

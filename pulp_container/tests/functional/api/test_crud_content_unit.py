@@ -16,8 +16,7 @@ from pulpcore.client.pulp_container import ContentManifestsApi
 
 # Read the instructions provided below for the steps needed to enable this test (see: FIXME's).
 @unittest.skip(
-    "FIXME: plugin writer action required"
-    " container plugin doesn't support push or uploads yet."
+    "FIXME: plugin writer action required" " container plugin doesn't support push or uploads yet."
 )
 class ContentUnitTestCase(unittest.TestCase):
     """CRUD content unit.

@@ -97,13 +97,12 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         authenticate_header = content_response.headers["Www-Authenticate"]
         queries = AuthenticationHeaderQueries(authenticate_header)
         content_response = self.client.get(
-            queries.realm,
-            params={"service": queries.service, "scope": queries.scope}
+            queries.realm, params={"service": queries.service, "scope": queries.scope}
         )
         content_response = self.client.get(
             latest_image_url,
             auth=BearerTokenAuth(content_response["token"]),
-            headers={"Accept": MEDIA_TYPE.MANIFEST_V2}
+            headers={"Accept": MEDIA_TYPE.MANIFEST_V2},
         )
         self.compare_config_blob_digests(content_response["config"]["digest"])
 
@@ -117,10 +116,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        image_url = urljoin(
-            self.cfg.get_base_url(),
-            self.distribution.base_path
-        )
+        image_url = urljoin(self.cfg.get_base_url(), self.distribution.base_path)
         image_with_tag = f"{image_url}:manifest_a"
         registry.pull(image_with_tag)
 

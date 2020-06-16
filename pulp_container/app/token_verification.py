@@ -4,7 +4,7 @@ import jwt
 from aiohttp import web
 from django.conf import settings
 
-CONTENT_HOST = re.sub(r'(http://|https://)', '', settings.CONTENT_ORIGIN, count=1)
+CONTENT_HOST = re.sub(r"(http://|https://)", "", settings.CONTENT_ORIGIN, count=1)
 
 
 class TokenVerifier:
@@ -39,12 +39,12 @@ class TokenVerifier:
 
         """
         try:
-            return self.request.headers['Authorization']
+            return self.request.headers["Authorization"]
         except KeyError:
             raise web.HTTPUnauthorized(
                 headers=self._build_response_headers(),
-                reason='Access to the requested resource is not authorized. '
-                       'A Bearer token is missing in a request header.'
+                reason="Access to the requested resource is not authorized. "
+                "A Bearer token is missing in a request header.",
             )
 
     def check_authorization_token(self, authorization):
@@ -62,8 +62,8 @@ class TokenVerifier:
         if not self.is_token_valid(token):
             raise web.HTTPUnauthorized(
                 headers=self._build_response_headers(),
-                reason='Access to the requested resource is not authorized. '
-                       'A provided Bearer token is invalid.'
+                reason="Access to the requested resource is not authorized. "
+                "A provided Bearer token is invalid.",
             )
 
     def _get_token(self, authorization):
@@ -88,8 +88,8 @@ class TokenVerifier:
         authenticate_header = self._build_authenticate_string(source_path)
 
         headers = {
-            'Docker-Distribution-API-Version': 'registry/2.0',
-            'Www-Authenticate': authenticate_header
+            "Docker-Distribution-API-Version": "registry/2.0",
+            "Www-Authenticate": authenticate_header,
         }
         return headers
 
@@ -104,14 +104,14 @@ class TokenVerifier:
         authenticate_string = f'Bearer realm="{realm}",service="{CONTENT_HOST}"'
 
         if not self._is_verifying_root_endpoint():
-            scope = f'repository:{source_path}:pull'
+            scope = f"repository:{source_path}:pull"
             authenticate_string += f',scope="{scope}"'
 
         return authenticate_string
 
     def is_token_valid(self, encoded_token):
         """Decode and validate a token."""
-        with open(settings.PUBLIC_KEY_PATH, 'rb') as public_key:
+        with open(settings.PUBLIC_KEY_PATH, "rb") as public_key:
             decoded_token = self.decode_token(encoded_token, public_key.read())
 
         return self.contains_accessible_actions(decoded_token)
@@ -127,20 +127,20 @@ class TokenVerifier:
         try:
             decoded_token = jwt.decode(encoded_token, public_key, **jwt_config)
         except jwt.exceptions.InvalidTokenError:
-            decoded_token = {'access': []}
+            decoded_token = {"access": []}
         return decoded_token
 
     def _init_jwt_decoder_config(self):
         """Initialize a basic configuration used for sanitizing and decoding a token."""
         return {
-            'algorithms': [settings.TOKEN_SIGNATURE_ALGORITHM],
-            'issuer': settings.TOKEN_SERVER,
-            'audience': CONTENT_HOST
+            "algorithms": [settings.TOKEN_SIGNATURE_ALGORITHM],
+            "issuer": settings.TOKEN_SERVER,
+            "audience": CONTENT_HOST,
         }
 
     def contains_accessible_actions(self, decoded_token):
         """Check if a client has an access permission to execute the pull/push operation."""
-        for access in decoded_token['access']:
+        for access in decoded_token["access"]:
             if self._targets_current_content_path(access):
                 return True
 
@@ -155,8 +155,8 @@ class TokenVerifier:
         """
         content_path = self._get_current_content_path()
 
-        if content_path == access['name']:
-            if self.access_action in access['actions']:
+        if content_path == access["name"]:
+            if self.access_action in access["actions"]:
                 return True
             if self._is_verifying_root_endpoint():
                 return True
@@ -170,9 +170,9 @@ class TokenVerifier:
         If the path does not exist, it means that a client is querying a root endpoint.
         """
         try:
-            content_path = self.request.match_info['path']
+            content_path = self.request.match_info["path"]
         except KeyError:
-            content_path = ''
+            content_path = ""
         return content_path
 
     def _is_verifying_root_endpoint(self):

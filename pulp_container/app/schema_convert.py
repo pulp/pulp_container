@@ -52,10 +52,7 @@ class Schema2toSchema1ConverterWrapper:
 
         try:
             converter = Schema2toSchema1Converter(
-                manifest_dict,
-                config_dict,
-                name=self.name,
-                tag=self.tag.name
+                manifest_dict, config_dict, name=self.name, tag=self.tag.name
             )
         except ValueError:
             raise RuntimeError()
@@ -65,7 +62,7 @@ class Schema2toSchema1ConverterWrapper:
         ml = self.tag.tagged_manifest.listed_manifests.all()
         for manifest in ml:
             m = manifest.manifest_lists.first()
-            if m.architecture == 'amd64' and m.os == 'linux':
+            if m.architecture == "amd64" and m.os == "linux":
                 return m.manifest_list
 
         raise RuntimeError()
@@ -95,9 +92,9 @@ class Schema2toSchema1Converter:
         self._assert_foreign_layers()
 
     def _assert_foreign_layers(self):
-        for layer in self.manifest['layers']:
-            if layer.get('mediaType') == MEDIA_TYPE.FOREIGN_BLOB:
-                raise ValueError('The conversion cannot be applied for foreign layers.')
+        for layer in self.manifest["layers"]:
+            if layer.get("mediaType") == MEDIA_TYPE.FOREIGN_BLOB:
+                raise ValueError("The conversion cannot be applied for foreign layers.")
 
     def convert(self):
         """
@@ -105,8 +102,12 @@ class Schema2toSchema1Converter:
         """
         self.compute_layers()
         manifest = dict(
-            name=self.name, tag=self.tag, architecture=self.config_layer['architecture'],
-            schemaVersion=1, fsLayers=self.fs_layers, history=self.history
+            name=self.name,
+            tag=self.tag,
+            architecture=self.config_layer["architecture"],
+            schemaVersion=1,
+            fsLayers=self.fs_layers,
+            history=self.history,
         )
         key = jwk.ECKey().load_key(ecc.P256)
         key.kid = getKeyId(key)
@@ -131,9 +132,10 @@ class Schema2toSchema1Converter:
         for i, fs_layer in enumerate(fs_layers):
             layer_id = self._compute_layer_id(fs_layer.layer_id, fs_layer.uncompressed_digest, i)
             config = self._compute_v1_compatibility_config(
-                layer_id, fs_layer, last_layer=(i == fs_layers_count - 1))
+                layer_id, fs_layer, last_layer=(i == fs_layers_count - 1)
+            )
             if parent is not None:
-                config['parent'] = parent
+                config["parent"] = parent
             parent = layer_id
             history_entries.append(dict(v1Compatibility=_jsonDumpsCompact(config)))
         # Reverse again for proper order
@@ -141,11 +143,11 @@ class Schema2toSchema1Converter:
 
     def _compute_fs_layers(self):
         """Utility function to return a list of FS_Layer objects"""
-        layers = reversed(self.manifest['layers'])
-        config_layer_history = reversed(self.config_layer['history'])
-        diff_ids = reversed(self.config_layer['rootfs']['diff_ids'])
+        layers = reversed(self.manifest["layers"])
+        config_layer_history = reversed(self.config_layer["history"])
+        diff_ids = reversed(self.config_layer["rootfs"]["diff_ids"])
         fs_layers = []
-        curr_compressed_dig = next(layers)['digest']
+        curr_compressed_dig = next(layers)["digest"]
         curr_uncompressed_dig = next(diff_ids)
         for curr_hist in config_layer_history:
             if curr_hist.get("empty_layer"):
@@ -155,7 +157,7 @@ class Schema2toSchema1Converter:
                 layer_id = curr_compressed_dig
                 uncompressed_dig = curr_uncompressed_dig
                 try:
-                    curr_compressed_dig = next(layers)['digest']
+                    curr_compressed_dig = next(layers)["digest"]
                     curr_uncompressed_dig = next(diff_ids)
                 except StopIteration:
                     curr_compressed_dig = self.EMPTY_LAYER
@@ -172,11 +174,13 @@ class Schema2toSchema1Converter:
             config.pop("history", None)
             config.pop("rootfs", None)
         else:
-            config = dict(created=fs_layer.history['created'],
-                          container_config=dict(Cmd=fs_layer.history['created_by']))
+            config = dict(
+                created=fs_layer.history["created"],
+                container_config=dict(Cmd=fs_layer.history["created_by"]),
+            )
         if fs_layer.uncompressed_digest is None:
-            config['throwaway'] = True
-        config['id'] = layer_id
+            config["throwaway"] = True
+        config["id"] = layer_id
         return config
 
     @classmethod
@@ -199,11 +203,11 @@ class Schema2toSchema1Converter:
 
 
 def _jsonDumps(data):
-    return json.dumps(data, indent=3, sort_keys=True, separators=(',', ': '))
+    return json.dumps(data, indent=3, sort_keys=True, separators=(",", ": "))
 
 
 def _jsonDumpsCompact(data):
-    return json.dumps(data, sort_keys=True, separators=(',', ':'))
+    return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
 
 def sign(data, key):
@@ -211,19 +215,19 @@ def sign(data, key):
     Sign the JSON document with a elliptic curve key
     """
     jdata = _jsonDumps(data)
-    now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+    now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     header = dict(alg="ES256", jwk=key.serialize())
-    protected = dict(formatLength=len(jdata) - 2,
-                     formatTail=jws.b64encode_item(jdata[-2:]),
-                     time=now)
+    protected = dict(
+        formatLength=len(jdata) - 2, formatTail=jws.b64encode_item(jdata[-2:]), time=now
+    )
     _jws = jws.JWS(jdata, **header)
     protectedHeader, payload, signature = _jws.sign_compact([key], protected=protected).split(".")
     signatures = [dict(header=header, signature=signature, protected=protectedHeader)]
     jsig = _jsonDumps(dict(signatures=signatures))[1:-2]
-    arr = [jdata[:-2], ',', jsig, jdata[-2:]]
+    arr = [jdata[:-2], ",", jsig, jdata[-2:]]
     # Add the signature block at the end of the json string, keeping the
     # formatting
-    jdata2 = ''.join(arr)
+    jdata2 = "".join(arr)
     return jdata2
 
 
@@ -234,18 +238,20 @@ def getKeyId(key):
     derRepr = toDer(key)
     shaRepr = hashlib.sha256(derRepr).digest()[:30]
     b32Repr = base64.b32encode(shaRepr).decode()
-    return ':'.join(byN(b32Repr, 4))
+    return ":".join(byN(b32Repr, 4))
 
 
 def toDer(key):
     """Return the DER-encoded representation of the key"""
-    point = b"\x00\x04" + number2string(key.x, key.curve.bytes) + \
-        number2string(key.y, key.curve.bytes)
+    point = (
+        b"\x00\x04" + number2string(key.x, key.curve.bytes) + number2string(key.y, key.curve.bytes)
+    )
     der = ecdsa.der
     curveEncodedOid = der.encode_oid(1, 2, 840, 10045, 3, 1, 7)
     return der.encode_sequence(
         der.encode_sequence(ecdsa.keys.encoded_oid_ecPublicKey, curveEncodedOid),
-        der.encode_bitstring(point))
+        der.encode_bitstring(point),
+    )
 
 
 def byN(strobj, N):
@@ -254,7 +260,7 @@ def byN(strobj, N):
     """
     it = iter(strobj)
     while True:
-        substr = ''.join(itertools.islice(it, N))
+        substr = "".join(itertools.islice(it, N))
         if not substr:
             return
         yield substr
@@ -268,7 +274,7 @@ def number2string(num, order):
     # convert to hex
     nhex = "%x" % num
     # Zero-pad to the left so the length of the resulting unhexified string is order
-    nhex = nhex.rjust(2 * order, '0')
+    nhex = nhex.rjust(2 * order, "0")
     return binascii.unhexlify(nhex)
 
 

@@ -62,13 +62,8 @@ def get_docker_hub_remote_blobsums(upstream_name=REPO_UPSTREAM_NAME):
     token_response.raise_for_status()
     token = token_response.json()["token"]
 
-    blob_url = (
-        "{0}/v2/library/{1}/manifests/latest"
-    ).format(REGISTRY_V2_FEED_URL, upstream_name)
-    response = requests.get(
-        blob_url,
-        headers={"Authorization": "Bearer " + token}
-    )
+    blob_url = ("{0}/v2/library/{1}/manifests/latest").format(REGISTRY_V2_FEED_URL, upstream_name)
+    response = requests.get(blob_url, headers={"Authorization": "Bearer " + token})
     response.raise_for_status()
     return response.json()["fsLayers"]
 
@@ -82,8 +77,7 @@ def get_container_image_paths(repo, version_href=None):
     """
     return [
         content_unit["_artifact"]
-        for content_unit
-        in get_content(repo, version_href)[CONTAINER_CONTENT_NAME]
+        for content_unit in get_content(repo, version_href)[CONTAINER_CONTENT_NAME]
     ]
 
 
@@ -127,10 +121,16 @@ def gen_token_signing_keys(cfg):
     client = cli.Client(cfg)
 
     token_auth = cfg.hosts[0].roles["token auth"]
-    client.run("openssl ecparam -genkey -name prime256v1 -noout -out {}"
-               .format(token_auth["private key"]).split())
-    client.run("openssl ec -in {} -pubout -out {}".format(
-        token_auth["private key"], token_auth["public key"]).split())
+    client.run(
+        "openssl ecparam -genkey -name prime256v1 -noout -out {}".format(
+            token_auth["private key"]
+        ).split()
+    )
+    client.run(
+        "openssl ec -in {} -pubout -out {}".format(
+            token_auth["private key"], token_auth["public key"]
+        ).split()
+    )
 
 
 class BearerTokenAuth(AuthBase):
