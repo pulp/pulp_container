@@ -67,8 +67,7 @@ class TaggingTestCase(unittest.TestCase):
         self.tag_image(manifest_a, "new_tag")
 
         new_repository_version_href = "{repository_href}versions/{new_version}/".format(
-            repository_href=self.repository.pulp_href,
-            new_version='2'
+            repository_href=self.repository.pulp_href, new_version="2"
         )
         created_tag = self.tags_api.list(
             repository_version_added=new_repository_version_href
@@ -115,8 +114,7 @@ class TaggingTestCase(unittest.TestCase):
         self.tag_image(manifest_b, "new_tag")
 
         new_repository_version_href = "{repository_href}versions/{new_version}/".format(
-            repository_href=self.repository.pulp_href,
-            new_version="3"
+            repository_href=self.repository.pulp_href, new_version="3"
         )
         created_tag = self.tags_api.list(
             repository_version_added=new_repository_version_href
@@ -149,13 +147,12 @@ class TaggingTestCase(unittest.TestCase):
         self.untag_image("new_tag")
 
         new_repository_version_href = "{repository_href}versions/{new_version}/".format(
-            repository_href=self.repository.pulp_href,
-            new_version="4"
+            repository_href=self.repository.pulp_href, new_version="4"
         )
 
         removed_tags_href = "{unit_path}?{filters}".format(
             unit_path=CONTAINER_TAG_PATH,
-            filters=f"repository_version_removed={new_repository_version_href}"
+            filters=f"repository_version_removed={new_repository_version_href}",
         )
 
         repository_version = self.versions_api.read(new_repository_version_href)
@@ -183,10 +180,11 @@ class TaggingTestCase(unittest.TestCase):
             self.repository.pulp_href
         ).latest_version_href
 
-        manifest_a_href = self.tags_api.list(
-            name=tag_name,
-            repository_version=latest_version_href
-        ).results[0].tagged_manifest
+        manifest_a_href = (
+            self.tags_api.list(name=tag_name, repository_version=latest_version_href)
+            .results[0]
+            .tagged_manifest
+        )
         return self.manifests_api.read(manifest_a_href)
 
     def tag_image(self, manifest, tag_name):

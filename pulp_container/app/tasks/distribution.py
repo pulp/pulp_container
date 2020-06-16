@@ -14,7 +14,7 @@ def create(*args, **kwargs):
         ValidationError: If the ContainerDistributionSerializer is not valid
 
     """
-    data = kwargs.pop('data', None)
+    data = kwargs.pop("data", None)
     serializer = ContainerDistributionSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     serializer.save()
@@ -33,8 +33,8 @@ def update(instance_id, *args, **kwargs):
         ValidationError: If the DistributionSerializer is not valid
 
     """
-    data = kwargs.pop('data', None)
-    partial = kwargs.pop('partial', False)
+    data = kwargs.pop("data", None)
+    partial = kwargs.pop("partial", False)
     instance = ContainerDistribution.objects.get(pk=instance_id)
     serializer = ContainerDistributionSerializer(instance, data=data, partial=partial)
     serializer.is_valid(raise_exception=True)

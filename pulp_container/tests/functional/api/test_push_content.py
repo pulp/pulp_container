@@ -32,12 +32,12 @@ class PushContentTestCase(unittest.TestCase):
     def test_push_using_podman(self):
         """Test push with official registry client"""
         # TODO better handling of the "http://"
-        local_url = urljoin(cfg.get_base_url(), 'foo/bar:1.0')[7:]
+        local_url = urljoin(cfg.get_base_url(), "foo/bar:1.0")[7:]
         registry.pull("centos:7")
         registry.tag("centos:7", local_url)
         registry.push(local_url)
         registry.pull(local_url)
-        repository = repositories_api.list(name='foo/bar').results[0]
-        distribution = distributions_api.list(name='foo/bar').results[0]
+        repository = repositories_api.list(name="foo/bar").results[0]
+        distribution = distributions_api.list(name="foo/bar").results[0]
         self.addCleanup(repositories_api.delete, repository.pulp_href)
         self.addCleanup(distributions_api.delete, distribution.pulp_href)

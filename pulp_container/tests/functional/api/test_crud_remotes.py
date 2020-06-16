@@ -211,8 +211,9 @@ def _gen_verbose_remote():
     attrs = gen_container_remote()
     attrs.update(
         {
-            "password": utils.uuid4(), "username": utils.uuid4(),
-            "policy": choice(ON_DEMAND_DOWNLOAD_POLICIES)
+            "password": utils.uuid4(),
+            "username": utils.uuid4(),
+            "policy": choice(ON_DEMAND_DOWNLOAD_POLICIES),
         }
     )
     return attrs

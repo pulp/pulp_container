@@ -86,7 +86,10 @@ class RepositoriesListTestCase(unittest.TestCase):
 
         repositories = self.client.get(repositories_list_endpoint)
 
-        repositories_names = [self.distribution1.base_path, self.distribution2.base_path]
+        repositories_names = [
+            self.distribution1.base_path,
+            self.distribution2.base_path,
+        ]
         self.assertEqual(repositories, {"repositories": repositories_names})
 
 
@@ -100,7 +103,7 @@ class AuthenticationHeaderQueries:
         The scope is not provided by the token server because we are accessing the endpoint from
         the root.
         """
-        realm, service = authenticate_header[7:].split(',')
+        realm, service = authenticate_header[7:].split(",")
         # realm="rlm" -> rlm
         self.realm = realm[6:][1:-1]
         # service="srv" -> srv
