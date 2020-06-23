@@ -1,7 +1,6 @@
 # coding=utf-8
 """Tests that verify that images can be pushed to Pulp."""
 import unittest
-from urllib.parse import urljoin
 
 from pulp_smash import cli, config
 
@@ -29,13 +28,18 @@ registry = cli.RegistryClient(cfg)
 class PushContentTestCase(unittest.TestCase):
     """Verify whether images can be pushed to pulp."""
 
-    def test_push_using_podman(self):
+    def test_push_using_registry_client(self):
         """Test push with official registry client"""
+        registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
         # TODO better handling of the "http://"
-        local_url = urljoin(cfg.get_base_url(), "foo/bar:1.0")[7:]
+        registry_name = cfg.get_base_url()[7:]
+        local_url = "/".join([registry_name, "foo/bar:1.0"])
+        registry.logout(registry_name)
         registry.pull("centos:7")
         registry.tag("centos:7", local_url)
+        registry.login("-u", "admin", "-p", "password", registry_name)
         registry.push(local_url)
+        registry.logout(registry_name)
         registry.pull(local_url)
         repository = repositories_api.list(name="foo/bar").results[0]
         distribution = distributions_api.list(name="foo/bar").results[0]

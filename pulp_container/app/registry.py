@@ -242,7 +242,6 @@ class Registry(Handler):
         distribution = self._match_distribution(path)
         self._permit(request, distribution)
         repository_version = distribution.get_repository_version()
-        log.info(digest)
         try:
             ca = ContentArtifact.objects.get(
                 content__in=repository_version.content, relative_path=digest

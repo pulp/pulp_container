@@ -40,12 +40,14 @@ from pulpcore.plugin.viewsets import (
     OperationPostponedResponse,
 )
 from rest_framework.decorators import action
+from rest_framework.exceptions import ParseError
 from rest_framework.renderers import BaseRenderer
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
 
 from pulp_container.app import models, serializers, tasks
+from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.token_verification import TokenAuthentication
 
 
@@ -63,7 +65,6 @@ class ContainerRegistryApiMixin:
         """
         response = super().handle_exception(exc)
         response["Docker-Distribution-API-Version"] = "registry/2.0"
-        log.info(response)
         return response
 
 
@@ -557,6 +558,40 @@ class BlobResponse(Response):
             "Connection": "close",
         }
         super().__init__(headers=headers, status=status)
+
+
+class BearerTokenView(APIView):
+    """
+    Hand out anonymous or authenticated bearer tokens.
+    """
+
+    # Allow everyone to access but still value authenticated users.
+    permission_classes = []
+
+    ANONYMOUS_USER = ""
+    EMPTY_ACCESS_SCOPE = "::"
+
+    def get(self, request):
+        """Handles GET requests for the /token/ endpoint."""
+        headers = {
+            "Docker-Distribution-Api-Version": "registry/2.0",
+        }
+
+        account = request.query_params.get("account", self.ANONYMOUS_USER)
+        try:
+            service = request.query_params["service"]
+        except KeyError:
+            raise ParseError(details="No service name provided.")
+        scope = request.query_params.get("scope", self.EMPTY_ACCESS_SCOPE)
+
+        if account != self.ANONYMOUS_USER:
+            if not request.user.is_authenticated:
+                raise ParseError(detail="Authentication failed.")
+            if account != request.user.username:
+                raise ParseError(detail="Username mismatch.")
+
+        data = AuthorizationService().generate_token(account, service, scope)
+        return Response(data=data, headers=headers)
 
 
 class VersionView(ContainerRegistryApiMixin, APIView):

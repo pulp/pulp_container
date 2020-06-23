@@ -2,7 +2,7 @@ import re
 import jwt
 
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, User
 
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
@@ -98,7 +98,16 @@ class TokenAuthentication(BaseAuthentication):
                 detail="Access to the requested resource is not authorized. "
                 "A provided Bearer token is invalid.",
             )
-        return (AnonymousUser(), None)
+
+        username = decoded_token.get("sub")
+        if username:
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                raise AuthenticationFailed("No such user")
+        else:
+            user = AnonymousUser()
+        return (user, None)
 
     def authenticate_header(self, request):
         """
