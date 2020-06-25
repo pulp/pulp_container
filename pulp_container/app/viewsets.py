@@ -48,7 +48,7 @@ from rest_framework.views import APIView
 
 from pulp_container.app import models, serializers, tasks
 from pulp_container.app.authorization import AuthorizationService
-from pulp_container.app.token_verification import TokenAuthentication
+from pulp_container.app.token_verification import TokenAuthentication, TokenPermission
 
 
 log = logging.getLogger(__name__)
@@ -600,7 +600,7 @@ class VersionView(ContainerRegistryApiMixin, APIView):
     """
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = []
+    permission_classes = [TokenPermission]
 
     def get(self, request):
         """Handles GET requests for the /v2/ endpoint."""
@@ -616,7 +616,7 @@ class CatalogView(ContainerRegistryApiMixin, APIView):
     """
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = []
+    permission_classes = [TokenPermission]
 
     def get(self, request):
         """Handles GET requests for the /v2/_catalog endpoint."""
@@ -633,7 +633,7 @@ class TagsListView(ContainerRegistryApiMixin, APIView):
     """
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = []
+    permission_classes = [TokenPermission]
 
     def get(self, request, path):
         """
@@ -666,7 +666,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
     queryset = models.Upload.objects.all()
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = []
+    permission_classes = [TokenPermission]
 
     content_range_pattern = re.compile(r"^(?P<start>\d+)-(?P<end>\d+)$")
 
@@ -785,7 +785,7 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
     """
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = []
+    permission_classes = [TokenPermission]
 
     def head(self, request, path, pk=None):
         """
@@ -830,7 +830,7 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     """
 
     authentication_classes = [TokenAuthentication]
-    permission_classes = []
+    permission_classes = [TokenPermission]
     renderer_classes = [ManifestRenderer]
     # The lookup regex does not allow /, ^, &, *, %, !, ~, @, #, +, =, ?
     lookup_value_regex = "[^/^&*%!~@#+=?]+"

@@ -2,7 +2,7 @@
 """Tests that verify that images can be pushed to Pulp."""
 import unittest
 
-from pulp_smash import cli, config
+from pulp_smash import cli, config, exceptions
 
 from pulp_container.tests.functional.utils import (
     gen_container_client,
@@ -34,13 +34,28 @@ class PushContentTestCase(unittest.TestCase):
         # TODO better handling of the "http://"
         registry_name = cfg.get_base_url()[7:]
         local_url = "/".join([registry_name, "foo/bar:1.0"])
+        # Be sure to not being logged in
         registry.logout(registry_name)
+        # Pull an image with large blobs
         registry.pull("centos:7")
+        # Tag it to registry under test
         registry.tag("centos:7", local_url)
+        # Try to push without permission
+        with self.assertRaises(exceptions.CalledProcessError):
+            registry.push(local_url)
+        # Log in
         registry.login("-u", "admin", "-p", "password", registry_name)
+        # Push successfully
         registry.push(local_url)
-        registry.logout(registry_name)
+        # Pull while logged in
         registry.pull(local_url)
+        # Log out
+        registry.logout(registry_name)
+        # Untag local copy
+        registry.rmi(local_url)
+        # Pull while logged out
+        registry.pull(local_url)
+        # cleanup
         repository = repositories_api.list(name="foo/bar").results[0]
         distribution = distributions_api.list(name="foo/bar").results[0]
         self.addCleanup(repositories_api.delete, repository.pulp_href)
