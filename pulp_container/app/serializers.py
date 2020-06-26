@@ -2,6 +2,7 @@ from gettext import gettext as _
 import os
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import serializers
 
@@ -11,6 +12,7 @@ from pulpcore.plugin.models import (
     RepositoryVersion,
 )
 from pulpcore.plugin.serializers import (
+    ContentGuardSerializer,
     DetailRelatedField,
     NestedRelatedField,
     RelatedField,
@@ -162,12 +164,49 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
             "this distribution."
         ),
     )
+    content_guard = DetailRelatedField(
+        required=False,
+        help_text=_("An optional content-guard. If none is specified, a default one will be used."),
+        view_name=r"contentguards-container/content-redirect-detail",
+        queryset=models.ContentRedirectContentGuard.objects.all(),
+        allow_null=False,
+    )
+
+    def validate(self, data):
+        """
+        Validate the ContainterDistribution.
+
+        Make sure there is an instance of ContentRedirectContentGuard always present in validated
+        data.
+        """
+        validated_data = super().validate(data)
+        if "content_guard" not in validated_data:
+            try:
+                validated_data["content_guard"] = models.ContentRedirectContentGuard.objects.get(
+                    name="content redirect"
+                )
+            except ObjectDoesNotExist:
+                cg_serializer = ContentRedirectContentGuardSerializer(
+                    data={"name": "content redirect"}
+                )
+                cg_serializer.is_valid(raise_exception=True)
+                validated_data["content_guard"] = cg_serializer.create(cg_serializer.validated_data)
+        return validated_data
 
     class Meta:
         model = models.ContainerDistribution
         fields = tuple(set(RepositoryVersionDistributionSerializer.Meta.fields) - {"base_url"}) + (
             "registry_path",
         )
+
+
+class ContentRedirectContentGuardSerializer(ContentGuardSerializer):
+    """
+    A serializer for ContentRedirectContentGuard.
+    """
+
+    class Meta(ContentGuardSerializer.Meta):
+        model = models.ContentRedirectContentGuard
 
 
 class TagOperationSerializer(serializers.Serializer):

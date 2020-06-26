@@ -120,7 +120,7 @@ class AuthorizationService(Handler):
         """
         typ, name, actions = scope.split(":")
         actions_list = actions.split(",")
-        permitted_actions = list(set(actions_list).intersection(["pull"]))
+        permitted_actions = list(set(actions_list).intersection(["pull", "push"]))
         return {"type": typ, "name": name, "actions": permitted_actions}
 
     def _generate_claim_set(self, issuer, issued_at, subject, audience, access):

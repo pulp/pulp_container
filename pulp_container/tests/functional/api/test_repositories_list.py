@@ -3,6 +3,7 @@
 import unittest
 
 from urllib.parse import urljoin
+from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
@@ -14,6 +15,8 @@ from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_token_signing_keys,
     monitor_task,
+    BearerTokenAuth,
+    AuthenticationHeaderQueries,
 )
 
 from pulpcore.client.pulp_container import (
@@ -84,27 +87,17 @@ class RepositoriesListTestCase(unittest.TestCase):
         """
         repositories_list_endpoint = urljoin(self.cfg.get_base_url(), "/v2/_catalog")
 
-        repositories = self.client.get(repositories_list_endpoint)
+        with self.assertRaises(HTTPError) as cm:
+            self.client.get(repositories_list_endpoint)
+        content_response = cm.exception.response
+        authenticate_header = content_response.headers["Www-Authenticate"]
 
-        repositories_names = [
-            self.distribution1.base_path,
-            self.distribution2.base_path,
-        ]
+        queries = AuthenticationHeaderQueries(authenticate_header)
+        self.assertFalse(hasattr(queries, "scope"))
+        content_response = self.client.get(queries.realm, params={"service": queries.service},)
+        repositories = self.client.get(
+            repositories_list_endpoint, auth=BearerTokenAuth(content_response["token"])
+        )
+
+        repositories_names = [self.distribution1.base_path, self.distribution2.base_path]
         self.assertEqual(repositories, {"repositories": repositories_names})
-
-
-class AuthenticationHeaderQueries:
-    """A data class to store header queries located in the Www-Authenticate header."""
-
-    def __init__(self, authenticate_header):
-        """
-        Extract service and realm from the header.
-
-        The scope is not provided by the token server because we are accessing the endpoint from
-        the root.
-        """
-        realm, service = authenticate_header[7:].split(",")
-        # realm="rlm" -> rlm
-        self.realm = realm[6:][1:-1]
-        # service="srv" -> srv
-        self.service = service[8:][1:-1]

@@ -146,6 +146,23 @@ class BearerTokenAuth(AuthBase):
         return r
 
 
+class AuthenticationHeaderQueries:
+    """A data class to store header queries located in the Www-Authenticate header."""
+
+    def __init__(self, authenticate_header):
+        """
+        Extract service and realm from the header.
+
+        The scope is not provided by the token server because we are accessing the endpoint from
+        the root.
+        """
+        if not authenticate_header.lower().startswith("bearer "):
+            raise Exception(f"Authentication header has wrong format.\n{authenticate_header}")
+        for item in authenticate_header[7:].split(","):
+            key, value = item.split("=")
+            setattr(self, key, value.strip('"'))
+
+
 skip_if = partial(selectors.skip_if, exc=SkipTest)
 """The ``@skip_if`` decorator, customized for unittest.
 

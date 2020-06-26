@@ -20,7 +20,6 @@ from drf_yasg.utils import swagger_auto_schema
 
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.http import HttpResponseRedirect
 
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
@@ -32,6 +31,7 @@ from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
     CharInFilter,
     ContentFilter,
+    ContentGuardViewSet,
     NamedModelViewSet,
     ReadOnlyContentViewSet,
     RemoteViewSet,
@@ -45,10 +45,26 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
 
-from . import models, serializers, tasks
+from pulp_container.app import models, serializers, tasks
+from pulp_container.app.token_verification import TokenAuthentication
 
 
 log = logging.getLogger(__name__)
+
+
+class ContainerRegistryApiMixin:
+    """
+    Mixin to add docker registry specific headers to all error responses.
+    """
+
+    def handle_exception(self, exc):
+        """
+        Add docker registry specific headers to all error responses.
+        """
+        response = super().handle_exception(exc)
+        response["Docker-Distribution-API-Version"] = "registry/2.0"
+        log.info(response)
+        return response
 
 
 class TagFilter(ContentFilter):
@@ -430,6 +446,16 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     serializer_class = serializers.ContainerDistributionSerializer
 
 
+class ContentRedirectContentGuardViewSet(ContentGuardViewSet):
+    """
+    Content guard to protect preauthenticated redirects to the content app.
+    """
+
+    endpoint_name = "content_redirect"
+    queryset = models.ContentRedirectContentGuard.objects.all()
+    serializer_class = serializers.ContentRedirectContentGuardSerializer
+
+
 class ManifestRenderer(BaseRenderer):
     """
     Rendered class for rendering Manifest responses.
@@ -533,13 +559,12 @@ class BlobResponse(Response):
         super().__init__(headers=headers, status=status)
 
 
-class VersionView(APIView):
+class VersionView(ContainerRegistryApiMixin, APIView):
     """
     Handles requests to the /v2/ endpoint.
     """
 
-    # allow anyone to access
-    authentication_classes = []
+    authentication_classes = [TokenAuthentication]
     permission_classes = []
 
     def get(self, request):
@@ -550,13 +575,12 @@ class VersionView(APIView):
         return Response(data={}, headers=headers)
 
 
-class CatalogView(APIView):
+class CatalogView(ContainerRegistryApiMixin, APIView):
     """
     Handles requests to the /v2/_catalog endpoint
     """
 
-    # allow anyone to access
-    authentication_classes = []
+    authentication_classes = [TokenAuthentication]
     permission_classes = []
 
     def get(self, request):
@@ -568,13 +592,12 @@ class CatalogView(APIView):
         return Response(data={"repositories": list(repositories_names)}, headers=headers)
 
 
-class TagsListView(APIView):
+class TagsListView(ContainerRegistryApiMixin, APIView):
     """
     Handles requests to the /v2/<repo>/tags/list endpoint
     """
 
-    # allow anyone to access
-    authentication_classes = []
+    authentication_classes = [TokenAuthentication]
     permission_classes = []
 
     def get(self, request, path):
@@ -599,7 +622,7 @@ class TagsListView(APIView):
         return Response(data=tags, headers=headers)
 
 
-class BlobUploads(ViewSet):
+class BlobUploads(ContainerRegistryApiMixin, ViewSet):
     """
     The ViewSet for handling uploading of blobs.
     """
@@ -607,8 +630,7 @@ class BlobUploads(ViewSet):
     model = models.Upload
     queryset = models.Upload.objects.all()
 
-    # allow anyone to access
-    authentication_classes = []
+    authentication_classes = [TokenAuthentication]
     permission_classes = []
 
     content_range_pattern = re.compile(r"^(?P<start>\d+)-(?P<end>\d+)$")
@@ -722,13 +744,12 @@ class BlobUploads(ViewSet):
             raise Exception("The digest did not match")
 
 
-class Blobs(ViewSet):
+class Blobs(ContainerRegistryApiMixin, ViewSet):
     """
     ViewSet for interacting with Blobs
     """
 
-    # allow anyone to access
-    authentication_classes = []
+    authentication_classes = [TokenAuthentication]
     permission_classes = []
 
     def head(self, request, path, pk=None):
@@ -763,18 +784,17 @@ class Blobs(ViewSet):
         else:
             raise Http404("Repository {} does not exist.".format(path))
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
-        return HttpResponseRedirect(
-            "{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest)
+        return distribution.redirect_to_content_app(
+            "{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest),
         )
 
 
-class Manifests(ViewSet):
+class Manifests(ContainerRegistryApiMixin, ViewSet):
     """
     ViewSet for intereacting with Manifests
     """
 
-    # allow anyone to access
-    authentication_classes = []
+    authentication_classes = [TokenAuthentication]
     permission_classes = []
     renderer_classes = [ManifestRenderer]
     # The lookup regex does not allow /, ^, &, *, %, !, ~, @, #, +, =, ?
@@ -830,10 +850,10 @@ class Manifests(ViewSet):
                 models.Manifest, digest=pk, pk__in=repository_version.content
             )
 
-        return HttpResponseRedirect(
+        return distribution.redirect_to_content_app(
             "{}/pulp/container/{}/manifests/{}".format(
-                settings.CONTENT_ORIGIN, path, manifest.digest
-            )
+                settings.CONTENT_ORIGIN, path, manifest.digest,
+            ),
         )
 
     def put(self, request, path, pk=None):
