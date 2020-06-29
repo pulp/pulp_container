@@ -11,7 +11,7 @@ from pulp_container.tests.functional.utils import (
 
 from pulpcore.client.pulp_container import (
     DistributionsContainerApi,
-    RepositoriesContainerApi,
+    RepositoriesContainerPushApi,
 )
 
 
@@ -19,7 +19,7 @@ cfg = config.get_config()
 gen_token_signing_keys(cfg)
 
 api_client = gen_container_client()
-repositories_api = RepositoriesContainerApi(api_client)
+push_repositories_api = RepositoriesContainerPushApi(api_client)
 distributions_api = DistributionsContainerApi(api_client)
 
 registry = cli.RegistryClient(cfg)
@@ -56,7 +56,7 @@ class PushContentTestCase(unittest.TestCase):
         # Pull while logged out
         registry.pull(local_url)
         # cleanup
-        repository = repositories_api.list(name="foo/bar").results[0]
+        repository = push_repositories_api.list(name="foo/bar").results[0]
         distribution = distributions_api.list(name="foo/bar").results[0]
-        self.addCleanup(repositories_api.delete, repository.pulp_href)
+        self.addCleanup(push_repositories_api.delete, repository.pulp_href)
         self.addCleanup(distributions_api.delete, distribution.pulp_href)

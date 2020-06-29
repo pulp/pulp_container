@@ -188,10 +188,42 @@ class Tag(Content):
 class ContainerRepository(Repository):
     """
     Repository for "container" content.
+
+    This Repository type is designed for standard pulp operations, and can be distributed as a
+    read only registry.
     """
 
     TYPE = "container"
     CONTENT_TYPES = [Blob, Manifest, Tag]
+    PUSH_ENABLED = False
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+
+    def finalize_new_version(self, new_version):
+        """
+        Ensure no added content Tags contain the same `name`.
+        Args:
+            new_version (pulpcore.app.models.RepositoryVersion): The incomplete RepositoryVersion to
+                finalize.
+        """
+        remove_duplicates(new_version)
+        validate_repo_version(new_version)
+
+
+class ContainerPushRepository(Repository):
+    """
+    Repository for "container" content.
+
+    This repository type is designed for the read and write registry usecase. It will be
+    automatically instanciated on authorised push to nonexisting repositories.
+    With this repository type, all but the latest repository_version are solely of historical
+    interest.
+    """
+
+    TYPE = "container-push"
+    CONTENT_TYPES = [Blob, Manifest, Tag]
+    PUSH_ENABLED = True
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"

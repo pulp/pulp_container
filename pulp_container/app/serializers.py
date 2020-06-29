@@ -120,6 +120,16 @@ class ContainerRepositorySerializer(RepositorySerializer):
         model = models.ContainerRepository
 
 
+class ContainerPushRepositorySerializer(RepositorySerializer):
+    """
+    Serializer for Container Push Repositories.
+    """
+
+    class Meta:
+        fields = RepositorySerializer.Meta.fields
+        model = models.ContainerPushRepository
+
+
 class ContainerRemoteSerializer(RemoteSerializer):
     """
     A Serializer for ContainerRemote.
