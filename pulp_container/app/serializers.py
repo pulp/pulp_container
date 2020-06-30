@@ -134,11 +134,11 @@ class ContainerRemoteSerializer(RemoteSerializer):
         allow_blank=False,
         help_text=_("Name of the upstream repository")
     )
-    whitelist_tags = serializers.ListField(
+    allowlist_tags = serializers.ListField(
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_("A list of whitelisted tags to sync")
+        help_text=_("A list of allowlisted tags to sync")
     )
 
     policy = serializers.ChoiceField(
@@ -153,7 +153,7 @@ class ContainerRemoteSerializer(RemoteSerializer):
     )
 
     class Meta:
-        fields = RemoteSerializer.Meta.fields + ('upstream_name', 'whitelist_tags',)
+        fields = RemoteSerializer.Meta.fields + ('upstream_name', 'allowlist_tags',)
         model = models.ContainerRemote
 
 

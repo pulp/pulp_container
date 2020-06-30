@@ -134,16 +134,16 @@ class ContainerFirstStage(Stage):
 
     def filter_tags(self, tag_list):
         """
-        Filter tags by a list of whitelisted tags.
+        Filter tags by a list of allowlisted tags.
 
-        Every single whitelisted tag is converted into a regular expression and used for scanning
+        Every single allowlisted tag is converted into a regular expression and used for scanning
         a full match. Matched tags are then appended to the resulting list of filtered tags.
         """
         filtered_tags = tag_list
 
-        whitelist_tags = self.remote.whitelist_tags
-        if whitelist_tags:
-            regex_list = [re.compile(fnmatch.translate(wt)) for wt in whitelist_tags]
+        allowlist_tags = self.remote.allowlist_tags
+        if allowlist_tags:
+            regex_list = [re.compile(fnmatch.translate(wt)) for wt in allowlist_tags]
 
             filtered_tags = []
             for tag in tag_list:

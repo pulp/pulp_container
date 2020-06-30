@@ -186,8 +186,8 @@ class TestRepeatedSync(unittest.TestCase):
         self.assertEqual(second_sync_tags_named_a.count, 1)
 
 
-class WhitelistedTagsSyncTestCase(unittest.TestCase):
-    """A test case for syncing repositories with whitelisted tags."""
+class AllowlistedTagsSyncTestCase(unittest.TestCase):
+    """A test case for syncing repositories with allowlisted tags."""
 
     @classmethod
     def setUpClass(cls):
@@ -200,36 +200,36 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
 
         cls.repository = None
 
-    def test_sync_with_non_existing_whitelisted_tag(self):
+    def test_sync_with_non_existing_allowlisted_tag(self):
         """Check whether the sync machinery ignores a non-existing tag."""
-        whitelist_tags = ["manifest_a", "non_existing_manifest"]
-        self.sync_repository_with_whitelisted_tags(whitelist_tags)
+        allowlist_tags = ["manifest_a", "non_existing_manifest"]
+        self.sync_repository_with_allowlisted_tags(allowlist_tags)
 
         self.assert_synced_tags(["manifest_a"])
 
-    def test_sync_with_whitelisted_tags(self):
-        """Test whether the repository is synced only with whitelisted tags."""
-        whitelist_tags = ["manifest_a", "manifest_b", "manifest_c"]
-        self.sync_repository_with_whitelisted_tags(whitelist_tags)
+    def test_sync_with_allowlisted_tags(self):
+        """Test whether the repository is synced only with allowlisted tags."""
+        allowlist_tags = ["manifest_a", "manifest_b", "manifest_c"]
+        self.sync_repository_with_allowlisted_tags(allowlist_tags)
 
-        self.assert_synced_tags(whitelist_tags)
+        self.assert_synced_tags(allowlist_tags)
 
-    def test_sync_with_whitelisted_tags_using_wildcard(self):
-        """Test whether the repository is synced only with whitelisted tags that use wildcards."""
-        whitelist_tags = ["ml_iv", "ml_ii", "manifest_a", "manifest_b",
+    def test_sync_with_allowlisted_tags_using_wildcard(self):
+        """Test whether the repository is synced only with allowlisted tags that use wildcards."""
+        allowlist_tags = ["ml_iv", "ml_ii", "manifest_a", "manifest_b",
                           "manifest_c", "manifest_d", "manifest_e"]
-        self.sync_repository_with_whitelisted_tags(["ml_??", "manifest*"])
+        self.sync_repository_with_allowlisted_tags(["ml_??", "manifest*"])
 
-        self.assert_synced_tags(whitelist_tags)
+        self.assert_synced_tags(allowlist_tags)
 
-    def sync_repository_with_whitelisted_tags(self, whitelist_tags):
-        """Sync a new repository with the whitelisted tags passed as an argument."""
+    def sync_repository_with_allowlisted_tags(self, allowlist_tags):
+        """Sync a new repository with the allowlisted tags passed as an argument."""
         self.repository = self.repositories_api.create(ContainerContainerRepository(**gen_repo()))
         self.addCleanup(self.repositories_api.delete, self.repository.pulp_href)
 
         remote_data = gen_container_remote(
             upstream_name=DOCKERHUB_PULP_FIXTURE_1,
-            whitelist_tags=whitelist_tags
+            allowlist_tags=allowlist_tags
         )
         remote = self.remotes_api.create(remote_data)
         self.addCleanup(self.remotes_api.delete, remote.pulp_href)
@@ -241,11 +241,11 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
         repository = self.repositories_api.read(self.repository.pulp_href)
         self.assertIsNotNone(repository.latest_version_href)
 
-    def assert_synced_tags(self, whitelist_tags):
-        """Check if the created repository contains only the selected whitelisted tags."""
+    def assert_synced_tags(self, allowlist_tags):
+        """Check if the created repository contains only the selected allowlisted tags."""
         latest_repo_version = self.repositories_api.read(
             self.repository.pulp_href
         ).latest_version_href
         tags = self.tags_api.list(repository_version=latest_repo_version).results
 
-        self.assertEqual(sorted(tag.name for tag in tags), sorted(whitelist_tags))
+        self.assertEqual(sorted(tag.name for tag in tags), sorted(allowlist_tags))

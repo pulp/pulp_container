@@ -57,11 +57,11 @@ Remote GET Response::
        "ssl_validation": true,
        "upstream_name": "library/hello-world",
        "url": "https://registry-1.docker.io",
-       "whitelist_tags": null
+       "allowlist_tags": null
    }
 
 .. note::
-   Use the field whitelist_tags when a specific set of tags is needed to be mirrored instead
+   Use the field allowlist_tags when a specific set of tags is needed to be mirrored instead
    of the whole repository. Note that it is also possible to filter a bunch of tags that matches
    defined criteria by leveraging wildcards.
 
