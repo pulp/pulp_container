@@ -12,7 +12,7 @@ from tempfile import NamedTemporaryFile
 
 from django.core.files.storage import default_storage as storage
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django_filters import MultipleChoiceFilter
@@ -40,7 +40,7 @@ from pulpcore.plugin.viewsets import (
     OperationPostponedResponse,
 )
 from rest_framework.decorators import action
-from rest_framework.exceptions import ParseError
+from rest_framework.exceptions import MethodNotAllowed, ParseError, ValidationError
 from rest_framework.renderers import BaseRenderer
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
@@ -52,20 +52,6 @@ from pulp_container.app.token_verification import TokenAuthentication, TokenPerm
 
 
 log = logging.getLogger(__name__)
-
-
-class ContainerRegistryApiMixin:
-    """
-    Mixin to add docker registry specific headers to all error responses.
-    """
-
-    def handle_exception(self, exc):
-        """
-        Add docker registry specific headers to all error responses.
-        """
-        response = super().handle_exception(exc)
-        response["Docker-Distribution-API-Version"] = "registry/2.0"
-        return response
 
 
 class TagFilter(ContentFilter):
@@ -433,6 +419,24 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
     parent_viewset = ContainerRepositoryViewSet
 
 
+class ContainerPushRepositoryViewSet(RepositoryViewSet):
+    """
+    ViewSet for container push repository.
+    """
+
+    endpoint_name = "container-push"
+    queryset = models.ContainerPushRepository.objects.all()
+    serializer_class = serializers.ContainerPushRepositorySerializer
+
+
+class ContainerPushRepositoryVersionViewSet(RepositoryVersionViewSet):
+    """
+    ContainerPushRepositoryVersion represents a single container push repository version.
+    """
+
+    parent_viewset = ContainerPushRepositoryViewSet
+
+
 class ContainerDistributionViewSet(BaseDistributionViewSet):
     """
     The Container Distribution will serve the latest version of a Repository if
@@ -560,6 +564,75 @@ class BlobResponse(Response):
         super().__init__(headers=headers, status=status)
 
 
+class ContainerRegistryApiMixin:
+    """
+    Mixin to add docker registry specific headers to all error responses.
+    """
+
+    def handle_exception(self, exc):
+        """
+        Add docker registry specific headers to all error responses.
+        """
+        response = super().handle_exception(exc)
+        response["Docker-Distribution-API-Version"] = "registry/2.0"
+        return response
+
+    def get_drv_pull(self, path):
+        """
+        Get distribution, repository and repository_version for pull access.
+        """
+        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        if distribution.repository:
+            repository_version = distribution.repository.latest_version()
+        elif distribution.repository_version:
+            repository_version = distribution.repository_version
+        else:
+            raise Http404("Repository {} does not exist.".format(path))
+        return distribution, distribution.repository, repository_version
+
+    def get_dr_push(self, request, path, create=False):
+        """
+        Get distribution and repository for push access.
+
+        Optionally create them if not found.
+        """
+        try:
+            distribution = models.ContainerDistribution.objects.get(base_path=path)
+        except models.ContainerDistribution.DoesNotExist:
+            if create:
+                try:
+                    with transaction.atomic():
+                        repo_serializer = serializers.ContainerPushRepositorySerializer(
+                            data={"name": path}, context={"request": request},
+                        )
+                        repo_serializer.is_valid(raise_exception=True)
+                        repository = repo_serializer.create(repo_serializer.validated_data)
+                        repo_href = serializers.ContainerPushRepositorySerializer(
+                            repository, context={"request": request},
+                        ).data["pulp_href"]
+
+                        dist_serializer = serializers.ContainerDistributionSerializer(
+                            data={"base_path": path, "name": path, "repository": repo_href}
+                        )
+                        dist_serializer.is_valid(raise_exception=True)
+                        distribution = dist_serializer.create(dist_serializer.validated_data)
+                except ValidationError:
+                    ParseError("Attempt to create repository failed.")
+            else:
+                raise Http404("Repository {} does not exist.".format(path))
+        else:
+            repository = distribution.repository
+            if repository:
+                repository = repository.cast()
+                if not repository.PUSH_ENABLED:
+                    raise MethodNotAllowed(
+                        request.method, detail="Repository {} is read-only.".format(path)
+                    )
+            else:
+                raise Http404("Repository {} does not exist.".format(path))
+        return distribution, repository
+
+
 class BearerTokenView(APIView):
     """
     Hand out anonymous or authenticated bearer tokens.
@@ -639,14 +712,7 @@ class TagsListView(ContainerRegistryApiMixin, APIView):
         """
         Handles GET requests to the /v2/<repo>/tags/list endpoint
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-            repository_version = repository.latest_version()
-        elif distribution.repository_version:
-            repository_version = distribution.repository_version
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
+        _, _, repository_version = self.get_drv_pull(path)
         tags = {"name": path, "tags": set()}
         for c in repository_version.content:
             c = c.cast()
@@ -674,15 +740,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         """
         This methods handles the creation of an upload.
         """
-        # TODO add repo push type to distinguish from sync repo type
-        distribution, _ = models.ContainerDistribution.objects.get_or_create(
-            name=path, base_path=path
-        )
-        repository = distribution.repository
-        if not repository:
-            repository, _ = models.ContainerRepository.objects.get_or_create(name=path)
-            distribution.repository = repository
-            distribution.save()
+        _, repository = self.get_dr_push(request, path, create=True)
 
         upload = models.Upload(repository=repository)
         upload.file.save(name="", content=ContentFile(""), save=False)
@@ -695,11 +753,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         """
         This methods handles uploading of a chunk to an existing upload.
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
+        _, repository = self.get_dr_push(request, path)
         chunk = request.META["wsgi.input"]
         if "Content-Range" in request.headers or "digest" not in request.query_params:
             whole = False
@@ -733,11 +787,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
     def put(self, request, path, pk=None):
         """Handles creation of Uploads."""
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
+        _, repository = self.get_dr_push(request, path)
 
         digest = request.query_params["digest"]
         upload = models.Upload.objects.get(pk=pk, repository=repository)
@@ -795,29 +845,13 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
         :param digest:
         :return:
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-            repository_version = repository.latest_version()
-        elif distribution.repository_version:
-            repository_version = distribution.repository_version
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
-        if not repository_version:
-            raise Http404("Blob does not exist: {digest}".format(digest=pk))
+        _, _, repository_version = self.get_drv_pull(path)
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
         return BlobResponse(blob, path, 200, request)
 
     def get(self, request, path, pk=None):
         """Handles GET requests for Blobs."""
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-            repository_version = repository.latest_version()
-        elif distribution.repository_version:
-            repository_version = distribution.repository_version
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
+        distribution, _, repository_version = self.get_drv_pull(path)
         blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
         return distribution.redirect_to_content_app(
             "{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest),
@@ -843,14 +877,7 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
         :param digest:
         :return:
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-            repository_version = repository.latest_version()
-        elif distribution.repository_version:
-            repository_version = distribution.repository_version
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
+        _, _, repository_version = self.get_drv_pull(path)
         if pk[:7] != "sha256:":
             tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
             manifest = tag.tagged_manifest
@@ -869,14 +896,7 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
         :param digest:
         :return:
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-            repository_version = repository.latest_version()
-        elif distribution.repository_version:
-            repository_version = distribution.repository_version
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
+        distribution, _, repository_version = self.get_drv_pull(path)
         if pk[:7] != "sha256:":
             tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
             manifest = tag.tagged_manifest
@@ -899,12 +919,7 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
         :param pk:
         :return:
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
-        if distribution.repository:
-            repository = distribution.repository
-        else:
-            raise Http404("Repository {} does not exist.".format(path))
-
+        _, repository = self.get_dr_push(request, path)
         # iterate over all the layers and create
         chunk = request.META["wsgi.input"]
         artifact = self.receive_artifact(chunk)
