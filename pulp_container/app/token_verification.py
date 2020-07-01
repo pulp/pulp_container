@@ -2,10 +2,11 @@ import re
 import jwt
 
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, User
 
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
 CONTENT_HOST = re.sub(r"(http://|https://)", "", settings.CONTENT_ORIGIN, count=1)
@@ -24,17 +25,14 @@ def _decode_token(encoded_token):
         "audience": CONTENT_HOST,
     }
     with open(settings.PUBLIC_KEY_PATH, "rb") as public_key:
-        try:
-            decoded_token = jwt.decode(encoded_token, public_key.read(), **JWT_DECODER_CONFIG)
-        except jwt.exceptions.InvalidTokenError:
-            decoded_token = {"access": []}
+        decoded_token = jwt.decode(encoded_token, public_key.read(), **JWT_DECODER_CONFIG)
     return decoded_token
 
 
 def _access_scope(request):
     repository_path = request.resolver_match.kwargs.get("path", "")
 
-    if request.method in ["GET", "HEAD", "OPTIONS"]:
+    if request.method in SAFE_METHODS:
         access_action = "pull"
     else:
         access_action = "push"
@@ -79,26 +77,29 @@ class TokenAuthentication(BaseAuthentication):
         try:
             authorization_header = request.headers["Authorization"]
         except KeyError:
-            raise AuthenticationFailed(
-                detail="Access to the requested resource is not authorized. "
-                "A Bearer token is missing in a request header.",
-            )
+            # No authorization
+            return None
         if not authorization_header.lower().startswith(self.keyword.lower() + " "):
-            raise AuthenticationFailed(
-                detail="Access to the requested resource is not authorized. "
-                "A Bearer token is missing in a request header.",
-            )
+            # Not our type of authorization
+            return None
         token = authorization_header[len(self.keyword) + 1 :]
-        decoded_token = _decode_token(token)
-        repository_path, access_action = _access_scope(request)
-
-        # Without repository_path, there is no action
-        if not _contains_accessible_actions(decoded_token, repository_path, access_action):
+        try:
+            decoded_token = _decode_token(token)
+        except jwt.exceptions.InvalidTokenError:
             raise AuthenticationFailed(
                 detail="Access to the requested resource is not authorized. "
                 "A provided Bearer token is invalid.",
             )
-        return (AnonymousUser(), None)
+
+        username = decoded_token.get("sub")
+        if username:
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                raise AuthenticationFailed("No such user")
+        else:
+            user = AnonymousUser()
+        return (user, decoded_token)
 
     def authenticate_header(self, request):
         """
@@ -117,3 +118,20 @@ class TokenAuthentication(BaseAuthentication):
             scope = f"repository:{repository_path}:{access_action}"
             authenticate_string += f',scope="{scope}"'
         return authenticate_string
+
+
+class TokenPermission(BasePermission):
+    """
+    Permission class to determine permissions based on the scope of a token.
+    """
+
+    message = "Access to the requested resource is not authorized."
+
+    def has_permission(self, request, view):
+        """
+        Decide upon permission based on token
+        """
+        try:
+            return _contains_accessible_actions(request.auth, *_access_scope(request))
+        except Exception:
+            return False
