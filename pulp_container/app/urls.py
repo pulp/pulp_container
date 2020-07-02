@@ -1,6 +1,6 @@
 from django.conf.urls import url, include
 from rest_framework.routers import Route, SimpleRouter
-from pulp_container.app.viewsets import (
+from pulp_container.app.registry_api import (
     BearerTokenView,
     Blobs,
     BlobUploads,
