@@ -78,7 +78,7 @@ class ManifestResponse(Response):
     An HTTP response class for returning Manifets.
     """
 
-    def __init__(self, manifest, path, request, status=200, send_body=False):
+    def __init__(self, manifest, path, request, status=200):
         """
         Args:
             manifest (pulp_container.app.models.Manifest): A Manifest model used to generate the
@@ -87,7 +87,6 @@ class ManifestResponse(Response):
             request (rest_framework.request.Request): Request object not used by this
                 implementation of Response.
             status (int): Status code to send with the response.
-            send_body (bool): Whether a body should be sent with the response or just the headers.
         """
         artifact = manifest._artifacts.get()
         size = artifact.size
@@ -104,7 +103,7 @@ class BlobResponse(Response):
     An HTTP response class for returning Blobs.
     """
 
-    def __init__(self, blob, path, status, request, send_body=False):
+    def __init__(self, blob, path, status, request):
         """
         Args:
             blob (pulp_container.app.models.Blob): A Blob model used to generate the response.
@@ -112,8 +111,6 @@ class BlobResponse(Response):
             request (rest_framework.request.Request): Request object not used by this
                 implementation of Response.
             status (int): Status code to send with the response.
-            send_body (bool): Whether a body should be sent with the response or just the
-                headers.
         """
         artifact = blob._artifacts.get()
         size = artifact.size
