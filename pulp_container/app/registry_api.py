@@ -14,14 +14,20 @@ from django.core.files.storage import default_storage as storage
 
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
-from django.http import Http404
 
 from django.conf import settings
 from django.core.files.base import ContentFile
 
 from pulpcore.plugin.models import Artifact, ContentArtifact
-from rest_framework.exceptions import MethodNotAllowed, ParseError, ValidationError
-from rest_framework.renderers import BaseRenderer
+from rest_framework.exceptions import (
+    AuthenticationFailed,
+    NotAuthenticated,
+    PermissionDenied,
+    NotFound,
+    ParseError,
+    ValidationError,
+)
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
@@ -32,6 +38,73 @@ from pulp_container.app.token_verification import TokenAuthentication, TokenPerm
 
 
 log = logging.getLogger(__name__)
+
+
+class RepositoryNotFound(NotFound):
+    """Exception to render a 404 with the code 'NAME_UNKNOWN'"""
+
+    def __init__(self, name):
+        """Initialize the exception with the repository name."""
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "NAME_UNKNOWN",
+                        "message": "Repository not found.",
+                        "detail": {"name": name},
+                    }
+                ]
+            }
+        )
+
+
+class RepositoryInvalid(ParseError):
+    """Exception to render a 400 with the code 'NAME_INVALID'"""
+
+    def __init__(self, name, message=None):
+        """Initialize the exception with the repository name."""
+        message = message or "Invalid repository name."
+        super().__init__(
+            detail={
+                "errors": [{"code": "NAME_INVALID", "message": message, "detail": {"name": name}}]
+            }
+        )
+
+
+class BlobNotFound(NotFound):
+    """Exception to render a 404 with the code 'BLOB_UNKNOWN'"""
+
+    def __init__(self, digest):
+        """Initialize the exception with the blob digest."""
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "BLOB_UNKNOWN",
+                        "message": "Blob not found.",
+                        "detail": {"digest": digest},
+                    }
+                ]
+            }
+        )
+
+
+class ManifestNotFound(NotFound):
+    """Exception to render a 404 with the code 'MANIFEST_UNKNOWN'"""
+
+    def __init__(self, reference):
+        """Initialize the exception with the manifest reference."""
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "MANIFEST_UNKNOWN",
+                        "message": "Manifest not found.",
+                        "detail": {"reference": reference},
+                    }
+                ]
+            }
+        )
 
 
 class ManifestRenderer(BaseRenderer):
@@ -150,17 +223,44 @@ class ContainerRegistryApiMixin:
         headers.update({"Docker-Distribution-Api-Version": "registry/2.0"})
         return headers
 
+    def get_exception_handler_context(self):
+        """
+        Adjust the reder context for exceptions.
+        """
+        context = super().get_exception_handler_context()
+        if context["request"]:
+            context["request"].accepted_renderer = JSONRenderer()
+            context["request"].accepted_media_type = JSONRenderer.media_type
+        return context
+
+    def handle_exception(self, exc):
+        """Convert the exception detail to the container api format."""
+        detail = getattr(exc, "detail", "")
+        # If detail is a dict, we assume the exception meets the required stucture already
+        if not isinstance(detail, dict):
+            if isinstance(exc, (NotAuthenticated, AuthenticationFailed)):
+                code = "UNAUTHORIZED"
+            elif isinstance(exc, PermissionDenied):
+                code = "DENIED"
+            else:
+                code = "UNSUPPORTED"
+            exc.detail = {"errors": [{"code": code, "message": detail, "detail": {}}]}
+        return super().handle_exception(exc)
+
     def get_drv_pull(self, path):
         """
         Get distribution, repository and repository_version for pull access.
         """
-        distribution = get_object_or_404(models.ContainerDistribution, base_path=path)
+        try:
+            distribution = models.ContainerDistribution.objects.get(base_path=path)
+        except models.ContainerDistribution.DoesNotExist:
+            raise RepositoryNotFound(name=path)
         if distribution.repository:
             repository_version = distribution.repository.latest_version()
         elif distribution.repository_version:
             repository_version = distribution.repository_version
         else:
-            raise Http404("Repository {} does not exist.".format(path))
+            raise RepositoryNotFound(name=path)
         return distribution, distribution.repository, repository_version
 
     def get_dr_push(self, request, path, create=False):
@@ -190,19 +290,17 @@ class ContainerRegistryApiMixin:
                         dist_serializer.is_valid(raise_exception=True)
                         distribution = dist_serializer.create(dist_serializer.validated_data)
                 except ValidationError:
-                    ParseError("Attempt to create repository failed.")
+                    raise RepositoryInvalid(name=path)
             else:
-                raise Http404("Repository {} does not exist.".format(path))
+                raise RepositoryNotFound(name=path)
         else:
             repository = distribution.repository
             if repository:
                 repository = repository.cast()
                 if not repository.PUSH_ENABLED:
-                    raise MethodNotAllowed(
-                        request.method, detail="Repository {} is read-only.".format(path)
-                    )
+                    raise RepositoryInvalid(name=path, message="Repository is read-only.")
             else:
-                raise Http404("Repository {} does not exist.".format(path))
+                raise RepositoryNotFound(name=path)
         return distribution, repository
 
 
@@ -395,13 +493,19 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
         :return:
         """
         _, _, repository_version = self.get_drv_pull(path)
-        blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
+        try:
+            blob = models.Blob.objects.get(digest=pk, pk__in=repository_version.content)
+        except models.Blob.DoesNotExist:
+            raise BlobNotFound(digest=pk)
         return BlobResponse(blob, path, 200, request)
 
     def get(self, request, path, pk=None):
         """Handles GET requests for Blobs."""
         distribution, _, repository_version = self.get_drv_pull(path)
-        blob = get_object_or_404(models.Blob, digest=pk, pk__in=repository_version.content)
+        try:
+            blob = models.Blob.objects.get(digest=pk, pk__in=repository_version.content)
+        except models.Blob.DoesNotExist:
+            raise BlobNotFound(digest=pk)
         return distribution.redirect_to_content_app(
             "{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest),
         )
@@ -425,13 +529,14 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
         :return:
         """
         _, _, repository_version = self.get_drv_pull(path)
-        if pk[:7] != "sha256:":
-            tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
-            manifest = tag.tagged_manifest
-        else:
-            manifest = get_object_or_404(
-                models.Manifest, digest=pk, pk__in=repository_version.content
-            )
+        try:
+            if pk[:7] != "sha256:":
+                tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
+                manifest = tag.tagged_manifest
+            else:
+                manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
+        except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
+            raise ManifestNotFound(reference=pk)
 
         return ManifestResponse(manifest, path, request)
 
@@ -444,17 +549,18 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
         :return:
         """
         distribution, _, repository_version = self.get_drv_pull(path)
-        if pk[:7] != "sha256:":
-            tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
-            return distribution.redirect_to_content_app(
-                "{}/pulp/container/{}/manifests/{}".format(
-                    settings.CONTENT_ORIGIN, path, tag.name,
-                ),
-            )
-        else:
-            manifest = get_object_or_404(
-                models.Manifest, digest=pk, pk__in=repository_version.content
-            )
+        try:
+            if pk[:7] != "sha256:":
+                tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
+                return distribution.redirect_to_content_app(
+                    "{}/pulp/container/{}/manifests/{}".format(
+                        settings.CONTENT_ORIGIN, path, tag.name,
+                    ),
+                )
+            else:
+                manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
+        except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
+            raise ManifestNotFound(reference=pk)
 
         return distribution.redirect_to_content_app(
             "{}/pulp/container/{}/manifests/{}".format(
