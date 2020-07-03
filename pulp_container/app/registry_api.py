@@ -65,7 +65,6 @@ class UploadResponse(Response):
                 implementation of Response.
         """
         headers = {
-            "Docker-Distribution-Api-Version": "registry/2.0",
             "Docker-Upload-UUID": upload.pk,
             "Location": "/v2/{path}/blobs/uploads/{pk}".format(path=path, pk=upload.pk),
             "Range": "0-{offset}".format(offset=upload.file.size),
@@ -91,12 +90,8 @@ class ManifestResponse(Response):
             send_body (bool): Whether a body should be sent with the response or just the headers.
         """
         artifact = manifest._artifacts.get()
-        if send_body:
-            size = artifact.size
-        else:
-            size = 0
+        size = artifact.size
         headers = {
-            "Docker-Distribution-Api-Version": "registry/2.0",
             "Docker-Content-Digest": manifest.digest,
             "Location": "/v2/{path}/manifests/{digest}".format(path=path, digest=manifest.digest),
             "Content-Length": size,
@@ -125,7 +120,6 @@ class BlobResponse(Response):
 
         log.info("digest: {digest}".format(digest=blob.digest))
         headers = {
-            "Docker-Distribution-Api-Version": "registry/2.0",
             "Docker-Content-Digest": blob.digest,
             "Location": "/v2/{path}/blobs/{digest}".format(path=path, digest=blob.digest),
             "Etag": blob.digest,
@@ -139,16 +133,24 @@ class BlobResponse(Response):
 
 class ContainerRegistryApiMixin:
     """
-    Mixin to add docker registry specific headers to all error responses.
+    Mixin to add docker registry specifics to APIView classes.
+
+    This must be inherited from first to gain precedence.
+    It adds a registry version header to all responses.
+    It sets token authentication and token permission.
     """
 
-    def handle_exception(self, exc):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [TokenPermission]
+
+    @property
+    def default_response_headers(self):
         """
-        Add docker registry specific headers to all error responses.
+        Provide common headers to all responses.
         """
-        response = super().handle_exception(exc)
-        response["Docker-Distribution-API-Version"] = "registry/2.0"
-        return response
+        headers = super().default_response_headers
+        headers.update({"Docker-Distribution-Api-Version": "registry/2.0"})
+        return headers
 
     def get_drv_pull(self, path):
         """
@@ -219,10 +221,6 @@ class BearerTokenView(APIView):
 
     def get(self, request):
         """Handles GET requests for the /token/ endpoint."""
-        headers = {
-            "Docker-Distribution-Api-Version": "registry/2.0",
-        }
-
         account = request.query_params.get("account", self.ANONYMOUS_USER)
         try:
             service = request.query_params["service"]
@@ -237,7 +235,7 @@ class BearerTokenView(APIView):
                 raise ParseError(detail="Username mismatch.")
 
         data = AuthorizationService().generate_token(account, service, scope)
-        return Response(data=data, headers=headers)
+        return Response(data=data)
 
 
 class VersionView(ContainerRegistryApiMixin, APIView):
@@ -245,15 +243,9 @@ class VersionView(ContainerRegistryApiMixin, APIView):
     Handles requests to the /v2/ endpoint.
     """
 
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [TokenPermission]
-
     def get(self, request):
         """Handles GET requests for the /v2/ endpoint."""
-        headers = {
-            "Docker-Distribution-Api-Version": "registry/2.0",
-        }
-        return Response(data={}, headers=headers)
+        return Response(data={})
 
 
 class CatalogView(ContainerRegistryApiMixin, APIView):
@@ -261,25 +253,18 @@ class CatalogView(ContainerRegistryApiMixin, APIView):
     Handles requests to the /v2/_catalog endpoint
     """
 
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [TokenPermission]
-
     def get(self, request):
         """Handles GET requests for the /v2/_catalog endpoint."""
         repositories_names = models.ContainerDistribution.objects.values_list(
             "base_path", flat=True
         )
-        headers = {"Docker-Distribution-API-Version": "registry/2.0"}
-        return Response(data={"repositories": list(repositories_names)}, headers=headers)
+        return Response(data={"repositories": list(repositories_names)})
 
 
 class TagsListView(ContainerRegistryApiMixin, APIView):
     """
     Handles requests to the /v2/<repo>/tags/list endpoint
     """
-
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [TokenPermission]
 
     def get(self, request, path):
         """
@@ -292,8 +277,7 @@ class TagsListView(ContainerRegistryApiMixin, APIView):
             if isinstance(c, models.Tag):
                 tags["tags"].add(c.name)
         tags["tags"] = list(tags["tags"])
-        headers = {"Docker-Distribution-API-Version": "registry/2.0"}
-        return Response(data=tags, headers=headers)
+        return Response(data=tags)
 
 
 class BlobUploads(ContainerRegistryApiMixin, ViewSet):
@@ -303,9 +287,6 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
     model = models.Upload
     queryset = models.Upload.objects.all()
-
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [TokenPermission]
 
     content_range_pattern = re.compile(r"^(?P<start>\d+)-(?P<end>\d+)$")
 
@@ -407,9 +388,6 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
     ViewSet for interacting with Blobs
     """
 
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [TokenPermission]
-
     def head(self, request, path, pk=None):
         """
         Responds to HEAD requests about blobs
@@ -436,8 +414,6 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     ViewSet for intereacting with Manifests
     """
 
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [TokenPermission]
     renderer_classes = [ManifestRenderer]
     # The lookup regex does not allow /, ^, &, *, %, !, ~, @, #, +, =, ?
     lookup_value_regex = "[^/^&*%!~@#+=?]+"
