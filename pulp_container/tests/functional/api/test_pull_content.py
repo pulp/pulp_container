@@ -1,10 +1,11 @@
 # coding=utf-8
 """Tests that verify that images served by Pulp can be pulled."""
 import contextlib
+import requests
 import unittest
 from urllib.parse import urljoin
 
-from pulp_smash import cli, config, exceptions
+from pulp_smash import api, cli, config, exceptions
 from pulp_smash.pulp3.utils import (
     delete_orphans,
     get_content,
@@ -16,15 +17,17 @@ from pulp_container.tests.functional.utils import (
     core_client,
     gen_container_client,
     gen_container_remote,
-    gen_token_signing_keys,
     get_docker_hub_remote_blobsums,
     monitor_task,
+    BearerTokenAuth,
+    AuthenticationHeaderQueries,
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
     REPO_UPSTREAM_NAME,
     REPO_UPSTREAM_TAG,
 )
+from pulp_container.constants import MEDIA_TYPE
 
 from pulpcore.client.pulp_container import (
     ContainerContainerDistribution,
@@ -55,8 +58,8 @@ class PullContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
-        gen_token_signing_keys(cls.cfg)
 
+        cls.client = api.Client(cls.cfg, api.code_handler)
         client_api = gen_container_client()
         cls.repositories_api = RepositoriesContainerApi(client_api)
         cls.remotes_api = RemotesContainerApi(client_api)
@@ -134,6 +137,32 @@ class PullContentTestCase(unittest.TestCase):
             any([result["blobSum"] in checksums for result in get_docker_hub_remote_blobsums()]),
             "Cannot find a matching layer on remote registry.",
         )
+
+    def test_api_performes_schema_conversion(self):
+        """Verify pull via token with accepted content type.
+        """
+        image_path = "/v2/{}/manifests/{}".format(self.distribution_with_repo.base_path, "latest")
+        latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
+
+        with self.assertRaises(requests.HTTPError) as cm:
+            self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V1})
+
+        content_response = cm.exception.response
+        self.assertEqual(content_response.status_code, 401)
+
+        authenticate_header = content_response.headers["Www-Authenticate"]
+        queries = AuthenticationHeaderQueries(authenticate_header)
+        content_response = self.client.get(
+            queries.realm, params={"service": queries.service, "scope": queries.scope}
+        )
+        token = content_response.json()["token"]
+        content_response = self.client.get(
+            latest_image_url,
+            auth=BearerTokenAuth(token),
+            headers={"Accept": MEDIA_TYPE.MANIFEST_V1},
+        )
+        base_content_type = content_response.headers["Content-Type"].split(";")[0]
+        self.assertIn(base_content_type, {MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1_SIGNED})
 
     def test_pull_image_from_repository(self):
         """Verify that a client can pull the image from Pulp.
@@ -239,7 +268,6 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
-        gen_token_signing_keys(cls.cfg)
 
         client_api = gen_container_client()
         cls.repositories_api = RepositoriesContainerApi(client_api)

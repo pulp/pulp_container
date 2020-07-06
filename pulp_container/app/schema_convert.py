@@ -1,4 +1,3 @@
-import os
 import base64
 import binascii
 import datetime
@@ -11,7 +10,6 @@ from collections import namedtuple
 from jwkest import jws, jwk, ecc
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.conf import settings
 
 from pulp_container.constants import MEDIA_TYPE
 
@@ -292,6 +290,4 @@ def _get_manifest_dict(manifest):
 
 
 def _get_dict(artifact):
-    with open(os.path.join(settings.MEDIA_ROOT, artifact.file.path)) as json_file:
-        json_string = json_file.read()
-    return json.loads(json_string)
+    return json.load(artifact.file)

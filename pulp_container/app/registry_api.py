@@ -139,6 +139,7 @@ class ContainerRegistryApiMixin:
 
     authentication_classes = [TokenAuthentication]
     permission_classes = [TokenPermission]
+    schema = None
 
     @property
     def default_response_headers(self):
@@ -222,7 +223,7 @@ class BearerTokenView(APIView):
         try:
             service = request.query_params["service"]
         except KeyError:
-            raise ParseError(details="No service name provided.")
+            raise ParseError(detail="No service name provided.")
         scope = request.query_params.get("scope", self.EMPTY_ACCESS_SCOPE)
 
         if account != self.ANONYMOUS_USER:
@@ -445,7 +446,11 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
         distribution, _, repository_version = self.get_drv_pull(path)
         if pk[:7] != "sha256:":
             tag = get_object_or_404(models.Tag, name=pk, pk__in=repository_version.content)
-            manifest = tag.tagged_manifest
+            return distribution.redirect_to_content_app(
+                "{}/pulp/container/{}/manifests/{}".format(
+                    settings.CONTENT_ORIGIN, path, tag.name,
+                ),
+            )
         else:
             manifest = get_object_or_404(
                 models.Manifest, digest=pk, pk__in=repository_version.content
