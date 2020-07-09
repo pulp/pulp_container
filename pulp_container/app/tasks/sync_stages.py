@@ -457,18 +457,33 @@ class InterrelateContent(Stage):
         """
         Relate each item in the input queue to objects specified on the DeclarativeContent.
         """
-        async for dc in self.items():
+        async for batch in self.batches():
+            manifest_to_list_list = []
+            blob_list = []
+            config_blob_list = []
+            for dc in batch:
+                if dc.extra_data.get("relation"):
+                    manifest_to_list = self.relate_manifest_to_list(dc)
+                    manifest_to_list_list.append(manifest_to_list)
+                elif dc.extra_data.get("blob_relation"):
+                    blob = self.relate_blob(dc)
+                    blob_list.append(blob)
+                elif dc.extra_data.get("config_relation"):
+                    config_blob = self.relate_config_blob(dc)
+                    config_blob_list.append(config_blob)
+                elif dc.extra_data.get("man_relation"):
+                    self.relate_manifest_tag(dc)
 
-            if dc.extra_data.get("relation"):
-                self.relate_manifest_to_list(dc)
-            elif dc.extra_data.get("blob_relation"):
-                self.relate_blob(dc)
-            elif dc.extra_data.get("config_relation"):
-                self.relate_config_blob(dc)
-            elif dc.extra_data.get("man_relation"):
-                self.relate_manifest_tag(dc)
+            ManifestListManifest.objects.bulk_create(
+                objs=manifest_to_list_list, ignore_conflicts=True, batch_size=1000
+            )
+            BlobManifest.objects.bulk_create(objs=blob_list, ignore_conflicts=True, batch_size=1000)
+            Manifest.objects.bulk_update(
+                objs=config_blob_list, fields=["config_blob"], batch_size=1000
+            )
 
-            await self.put(dc)
+            for dc in batch:
+                await self.put(dc)
 
     def relate_config_blob(self, dc):
         """
@@ -477,10 +492,14 @@ class InterrelateContent(Stage):
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
 
+        Returns:
+            pulp_container.app.models.Manifest: An existing Manifest object with the updated
+                config layer
+
         """
         configured_dc = dc.extra_data.get("config_relation")
         configured_dc.content.config_blob = dc.content
-        configured_dc.content.save()
+        return configured_dc.content
 
     def relate_blob(self, dc):
         """
@@ -489,13 +508,13 @@ class InterrelateContent(Stage):
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
 
+        Returns:
+            pulp_container.app.models.BlobManifest: A new BlobManifest object with the added
+                reference to a Manifest object
+
         """
         related_dc = dc.extra_data.get("blob_relation")
-        thru = BlobManifest(manifest=related_dc.content, manifest_blob=dc.content)
-        try:
-            thru.save()
-        except IntegrityError:
-            pass
+        return BlobManifest(manifest=related_dc.content, manifest_blob=dc.content)
 
     def relate_manifest_tag(self, dc):
         """
@@ -521,10 +540,14 @@ class InterrelateContent(Stage):
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ImageManifest
 
+        Returns:
+            pulp_container.app.models.ManifestListManifest: A new ManifestListManifest object
+                with the associated ImageManifest object and corresponding platform information
+
         """
         related_dc = dc.extra_data.get("relation")
         platform = dc.extra_data.get("platform")
-        thru = ManifestListManifest(
+        return ManifestListManifest(
             manifest_list=dc.content,
             image_manifest=related_dc.content,
             architecture=platform["architecture"],
@@ -534,8 +557,3 @@ class InterrelateContent(Stage):
             os_version=platform.get("os.version"),
             os_features=platform.get("os.features"),
         )
-
-        try:
-            thru.save()
-        except IntegrityError:
-            pass
