@@ -50,7 +50,7 @@ Below is provided an example of the settings file:
 
 .. code-block:: python
 
-    TOKEN_SERVER = "http://localhost:24816/token"
+    TOKEN_SERVER = "http://localhost:24817/token/"
     TOKEN_SIGNATURE_ALGORITHM = 'ES256'
     PUBLIC_KEY_PATH = '/tmp/public_key.pem'
     PRIVATE_KEY_PATH = '/tmp/private_key.pem'
@@ -62,44 +62,58 @@ Restart Pulp services in order to reload the updated settings. Pulp will fetch a
 server and will initialize all handlers according to that. Check if the token authentication was
 successfully configured by initiating the following set of commands in your environment::
 
-    $ http 'http://localhost:24816/v2/'
+    $ http 'http://localhost:24817/v2/'
 
-    HTTP/1.1 401 Access to the requested resource is not authorized. A provided Bearer token is invalid.
-    Content-Length: 92
-    Content-Type: text/plain; charset=utf-8
-    Date: Mon, 14 Oct 2019 16:46:48 GMT
-    Docker-Distribution-API-Version: registry/2.0
-    Server: Python/3.7 aiohttp/3.6.1
-    Www-Authenticate: Bearer realm="http://localhost:24816/token",service="localhost:24816"
+    HTTP/1.1 401 Unauthorized
+    Allow: GET, HEAD, OPTIONS
+    Connection: close
+    Content-Length: 58
+    Content-Type: application/json
+    Date: Mon, 13 Jul 2020 09:56:54 GMT
+    Docker-Distribution-Api-Version: registry/2.0
+    Server: gunicorn/20.0.4
+    Vary: Accept
+    WWW-Authenticate: Bearer realm="http://localhost:24817/token/",service="pulp3-source-fedora31.localhost.example.com"
+    X-Frame-Options: SAMEORIGIN
 
-    401: Access to the requested resource is not authorized. A provided Bearer token is invalid.
+    {
+        "detail": "Authentication credentials were not provided."
+    }
 
 Send a request to a specified realm::
 
-    $ http 'http://localhost:24816/token?service=localhost:24816'
+    $ http http://localhost:24817/token/?service=pulp3-source-fedora31.localhost.example.com
 
     HTTP/1.1 200 OK
-    Content-Length: 566
-    Content-Type: application/json; charset=utf-8
-    Date: Mon, 14 Oct 2019 16:47:33 GMT
-    Server: Python/3.7 aiohttp/3.6.1
+    Allow: GET, HEAD, OPTIONS
+    Connection: close
+    Content-Length: 609
+    Content-Type: application/json
+    Date: Mon, 13 Jul 2020 09:57:25 GMT
+    Server: gunicorn/20.0.4
+    Vary: Accept, Cookie
+    X-Frame-Options: SAMEORIGIN
 
     {
         "expires_in": 300,
-        "issued_at": "2019-10-14T16:47:33.107118Z",
-        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IkhBM1Q6SVlSUjpHUTNUOklPTEM6TVE0RzpFT0xDOkdGUVQ6QVpURTpHQlNXOkNaUlY6TUlZVzpLTkpWIn0.eyJhY2Nlc3MiOlt7InR5cGUiOiIiLCJuYW1lIjoiIiwiYWN0aW9ucyI6W119XSwiYXVkIjoibG9jYWxob3N0OjI0ODE2IiwiZXhwIjoxNTcxMDcxOTUzLCJpYXQiOjE1NzEwNzE2NTMsImlzcyI6ImxvY2FsaG9zdDoyNDgxNi90b2tlbiIsImp0aSI6IjRmYTliYTYwLTY0ZTUtNDA3MC1hMzMyLWZmZTRlMTk2YzVjNyIsIm5iZiI6MTU3MTA3MTY1Mywic3ViIjoiIn0.pirj8yhbjYnldxmZ-jIZ72VJrzxkAnwLXLu1ND9QAL-kl3gZrvPbp98w2xdhEoQ_7WEka4veb6uU5ZzmD87X1Q"
+        "issued_at": "2020-07-13T09:57:25.601760Z",
+        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IkdNMkQ6SU9CVDpHQVpEOk1aUlE6RzQyVzpDWkJaOkdWUlQ6R00zRzpNRTJUOlFNSlk6R1JURDpNTUpRIn0.eyJhY2Nlc3MiOlt7InR5cGUiOiIiLCJuYW1lIjoiIiwiYWN0aW9ucyI6W119XSwiYXVkIjoicHVscDMtc291cmNlLWZlZG9yYTMxLmxvY2FsaG9zdC5leGFtcGxlLmNvbSIsImV4cCI6MTU5NDYzNDU0NSwiaWF0IjoxNTk0NjM0MjQ1LCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjI0ODE3L3Rva2VuLyIsImp0aSI6ImU4ZTUyYzVhLWYxMzAtNGJlMi1iNjFhLTUwNzVhMjhkMTA0YSIsIm5iZiI6MTU5NDYzNDI0NSwic3ViIjoiIn0.ySDUHooaURbsyKLkHoXqA1JJPwlcDtpz_u6GgcqA8fmFGmSWJFlAGYtA2GLXDzPioH-bh1JkMJdBDs61c5JnFw"
     }
 
 Use the generated token to access the root again::
 
-    $ http 'localhost:24816/v2/' --auth-type=jwt --auth="eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IkhBM1Q6SVlSUjpHUTNUOklPTEM6TVE0RzpFT0xDOkdGUVQ6QVpURTpHQlNXOkNaUlY6TUlZVzpLTkpWIn0.eyJhY2Nlc3MiOlt7InR5cGUiOiIiLCJuYW1lIjoiIiwiYWN0aW9ucyI6W119XSwiYXVkIjoibG9jYWxob3N0OjI0ODE2IiwiZXhwIjoxNTcxMDcxOTUzLCJpYXQiOjE1NzEwNzE2NTMsImlzcyI6ImxvY2FsaG9zdDoyNDgxNi90b2tlbiIsImp0aSI6IjRmYTliYTYwLTY0ZTUtNDA3MC1hMzMyLWZmZTRlMTk2YzVjNyIsIm5iZiI6MTU3MTA3MTY1Mywic3ViIjoiIn0.pirj8yhbjYnldxmZ-jIZ72VJrzxkAnwLXLu1ND9QAL-kl3gZrvPbp98w2xdhEoQ_7WEka4veb6uU5ZzmD87X1Q"
+    $ http --auth-type=jwt --auth=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IkdNMkQ6SU9CVDpHQVpEOk1aUlE6RzQyVzpDWkJaOkdWUlQ6R00zRzpNRTJUOlFNSlk6R1JURDpNTUpRIn0.eyJhY2Nlc3MiOlt7InR5cGUiOiIiLCJuYW1lIjoiIiwiYWN0aW9ucyI6W119XSwiYXVkIjoicHVscDMtc291cmNlLWZlZG9yYTMxLmxvY2FsaG9zdC5leGFtcGxlLmNvbSIsImV4cCI6MTU5NDYzNDU0NSwiaWF0IjoxNTk0NjM0MjQ1LCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjI0ODE3L3Rva2VuLyIsImp0aSI6ImU4ZTUyYzVhLWYxMzAtNGJlMi1iNjFhLTUwNzVhMjhkMTA0YSIsIm5iZiI6MTU5NDYzNDI0NSwic3ViIjoiIn0.ySDUHooaURbsyKLkHoXqA1JJPwlcDtpz_u6GgcqA8fmFGmSWJFlAGYtA2GLXDzPioH-bh1JkMJdBDs61c5JnFw :24817/v2/
 
     HTTP/1.1 200 OK
+    Allow: GET, HEAD, OPTIONS
+    Connection: close
     Content-Length: 2
-    Content-Type: application/json; charset=utf-8
-    Date: Mon, 14 Oct 2019 16:50:26 GMT
-    Docker-Distribution-API-Version: registry/2.0
-    Server: Python/3.7 aiohttp/3.6.1
+    Content-Type: application/json
+    Date: Mon, 13 Jul 2020 09:58:40 GMT
+    Docker-Distribution-Api-Version: registry/2.0
+    Server: gunicorn/20.0.4
+    Vary: Accept
+    X-Frame-Options: SAMEORIGIN
 
     {}
 
@@ -111,4 +125,4 @@ The authentication is handled by the engines as shown before.
 
 .. code-block:: bash
 
-    podman pull localhost:24816/foo/bar
+    podman pull localhost:24817/foo/bar
