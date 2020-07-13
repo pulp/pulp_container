@@ -228,7 +228,7 @@ class Registry(Handler):
             "Docker-Distribution-API-Version": "registry/2.0",
         }
         if not converted:
-            return await Registry.dispatch_tag(schema, response_headers)
+            raise PathNotResolved(tag.name)
 
         return web.Response(text=schema, headers=response_headers)
 
