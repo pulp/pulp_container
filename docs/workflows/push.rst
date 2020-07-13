@@ -34,6 +34,3 @@ Functionality may not fully work and backwards compatibility when upgrading to f
             ]
           }
 
-
-.. note::
-   Push API is unauthenticated!
