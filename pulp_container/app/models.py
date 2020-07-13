@@ -437,16 +437,16 @@ class ContentRedirectContentGuard(ContentGuard):
         """
         Permit preauthenticated redirects from pulp-api.
         """
-        signed_url = request.url
         try:
+            signed_url = request.url
             validate_token = request.query["validate_token"]
-        except KeyError:
-            raise PermissionError("Access not authenticated")
-        hex_salt, hex_digest = validate_token.split(":", 1)
-        salt = bytes.fromhex(hex_salt)
-        digest = bytes.fromhex(hex_digest)
-        url = re.sub(r"\?validate_token=.*$", "", str(signed_url))
-        if not digest == self._get_digest(salt, url):
+            hex_salt, hex_digest = validate_token.split(":", 1)
+            salt = bytes.fromhex(hex_salt)
+            digest = bytes.fromhex(hex_digest)
+            url = re.sub(r"\?validate_token=.*$", "", str(signed_url))
+            if not digest == self._get_digest(salt, url):
+                raise PermissionError("Access not authenticated")
+        except (KeyError, ValueError):
             raise PermissionError("Access not authenticated")
 
     def preauthenticate_url(self, url, salt=None):
