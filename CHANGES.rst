@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+1.4.2 (2020-07-13)
+==================
+
+
+Bugfixes
+--------
+
+- Improved the performance of the synchronization
+  `#6940 <https://pulp.plan.io/issues/6940>`_
+
+
+----
+
+
 1.4.1 (2020-06-04)
 ==================
 
