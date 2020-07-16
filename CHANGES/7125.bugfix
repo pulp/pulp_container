@@ -1,2 +1,0 @@
-Fixed a runtime error which was triggered when a registry client sends an accept header with an
-inappropriate media type for a manifest and the conversion failed.

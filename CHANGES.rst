@@ -13,6 +13,45 @@ Changelog
 
 .. towncrier release notes start
 
+2.0.0b3 (2020-07-16)
+====================
+
+
+Features
+--------
+
+- Redirected get on Manifest get to the content app to enable schema conversion.
+  Repaired schema conversion to work with django-storage framework.
+  `#6824 <https://pulp.plan.io/issues/6824>`_
+- Added ContainerPushRepository type to back writeable container registries.
+  `#6825 <https://pulp.plan.io/issues/6825>`_
+- Added ContentRedirectContentGuard to redirect with preauthenticated urls to the content app.
+  `#6894 <https://pulp.plan.io/issues/6894>`_
+- Restricted push access to admin user.
+  `#6976 <https://pulp.plan.io/issues/6976>`_
+
+
+Bugfixes
+--------
+
+- Refactored token_authentication that now happens in pulpcore-api app
+  `#6894 <https://pulp.plan.io/issues/6894>`_
+- Fixed a crash when trying to access content with an unparseable token.
+  `#7124 <https://pulp.plan.io/issues/7124>`_
+- Fixed a runtime error which was triggered when a registry client sends an accept header with an
+  inappropriate media type for a manifest and the conversion failed.
+  `#7125 <https://pulp.plan.io/issues/7125>`_
+
+
+Misc
+----
+
+- `#5302 <https://pulp.plan.io/issues/5302>`_
+
+
+----
+
+
 2.0.0b2 (2020-06-08)
 ====================
 
