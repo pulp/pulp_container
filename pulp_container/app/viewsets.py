@@ -21,6 +21,7 @@ from pulpcore.plugin.viewsets import (
     CharInFilter,
     ContentFilter,
     ContentGuardViewSet,
+    ImmutableRepositoryViewSet,
     NamedModelViewSet,
     ReadOnlyContentViewSet,
     RemoteViewSet,
@@ -401,9 +402,9 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
     parent_viewset = ContainerRepositoryViewSet
 
 
-class ContainerPushRepositoryViewSet(RepositoryViewSet):
+class ContainerPushRepositoryViewSet(ImmutableRepositoryViewSet):
     """
-    ViewSet for container push repository.
+    ViewSet for a container push repository.
     """
 
     endpoint_name = "container-push"
