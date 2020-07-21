@@ -7,7 +7,7 @@ Check `Plugin Writer's Guide`_ for more details.
 
 from django.db.utils import IntegrityError
 from django_filters import MultipleChoiceFilter
-from drf_yasg.utils import swagger_auto_schema
+from drf_spectacular.utils import extend_schema
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositorySyncURLSerializer,
@@ -134,9 +134,9 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to sync content.",
-        operation_summary="Sync from a remote",
+    @extend_schema(
+        description="Trigger an asynchronous task to sync content.",
+        summary="Sync from a remote",
         responses={202: AsyncOperationResponseSerializer}
     )
     @action(detail=True, methods=['post'], serializer_class=RepositorySyncURLSerializer)
@@ -166,11 +166,11 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         )
         return OperationPostponedResponse(result, request)
 
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to tag an image in the repository",
-        operation_summary="Create a Tag",
+    @extend_schema(
+        description="Trigger an asynchronous task to tag an image in the repository",
+        summary="Create a Tag",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.TagImageSerializer,
+        request=serializers.TagImageSerializer,
     )
     @action(detail=True, methods=['post'], serializer_class=serializers.TagImageSerializer)
     def tag(self, request, pk):
@@ -200,11 +200,11 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         )
         return OperationPostponedResponse(result, request)
 
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to untag an image in the repository",
-        operation_summary="Delete a tag",
+    @extend_schema(
+        description="Trigger an asynchronous task to untag an image in the repository",
+        summary="Delete a tag",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.UnTagImageSerializer,
+        request=serializers.UnTagImageSerializer,
     )
     @action(detail=True, methods=['post'], serializer_class=serializers.UnTagImageSerializer)
     def untag(self, request, pk):
@@ -232,11 +232,11 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         )
         return OperationPostponedResponse(result, request)
 
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to recursively add container content.",
-        operation_summary="Add content",
+    @extend_schema(
+        description="Trigger an asynchronous task to recursively add container content.",
+        summary="Add content",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.RecursiveManageSerializer,
+        request=serializers.RecursiveManageSerializer,
     )
     @action(detail=True, methods=['post'], serializer_class=serializers.RecursiveManageSerializer)
     def add(self, request, pk):
@@ -262,11 +262,11 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         )
         return OperationPostponedResponse(result, request)
 
-    @swagger_auto_schema(
-        operation_description="Trigger an async task to recursively remove container content.",
-        operation_summary="Remove content",
+    @extend_schema(
+        description="Trigger an async task to recursively remove container content.",
+        summary="Remove content",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.RecursiveManageSerializer,
+        request=serializers.RecursiveManageSerializer,
     )
     @action(detail=True, methods=['post'], serializer_class=serializers.RecursiveManageSerializer)
     def remove(self, request, pk):
@@ -296,11 +296,11 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         )
         return OperationPostponedResponse(result, request)
 
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to copy tags",
-        operation_summary="Copy tags",
+    @extend_schema(
+        description="Trigger an asynchronous task to copy tags",
+        summary="Copy tags",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.TagCopySerializer,
+        request=serializers.TagCopySerializer,
     )
     @action(detail=True, methods=['post'], serializer_class=serializers.TagCopySerializer)
     def copy_tags(self, request, pk):
@@ -332,11 +332,11 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         )
         return OperationPostponedResponse(result, request)
 
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to copy manifests",
-        operation_summary="Copy manifests",
+    @extend_schema(
+        description="Trigger an asynchronous task to copy manifests",
+        summary="Copy manifests",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.ManifestCopySerializer,
+        request=serializers.ManifestCopySerializer,
     )
     @action(detail=True, methods=['post'], serializer_class=serializers.ManifestCopySerializer)
     def copy_manifests(self, request, pk):
@@ -370,14 +370,14 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         )
         return OperationPostponedResponse(result, request)
 
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to build an OCI image from a "
-                              "Containerfile. A new repository version is created with the new "
-                              "image and tag. This API is tech preview in Pulp Container 1.1. "
-                              "Backwards compatibility when upgrading is not guaranteed.",
-        operation_summary="Build an Image",
+    @extend_schema(
+        description="Trigger an asynchronous task to build an OCI image from a "
+                    "Containerfile. A new repository version is created with the new "
+                    "image and tag. This API is tech preview in Pulp Container 1.1. "
+                    "Backwards compatibility when upgrading is not guaranteed.",
+        summary="Build an Image",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.OCIBuildImageSerializer,
+        request=serializers.OCIBuildImageSerializer,
     )
     @action(detail=True, methods=['post'], serializer_class=serializers.TagImageSerializer)
     def build_image(self, request, pk):

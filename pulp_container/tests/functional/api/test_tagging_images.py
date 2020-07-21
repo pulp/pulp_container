@@ -79,7 +79,7 @@ class TaggingTestCase(unittest.TestCase):
 
         added_content = repository_version.content_summary.added
         added_tags = added_content["container.tag"]["count"]
-        self.assertEqual(added_tags, "1", added_content)
+        self.assertEqual(added_tags, 1, added_content)
 
         removed_content = repository_version.content_summary.removed
         self.assertEqual(removed_content, {}, removed_content)
@@ -138,11 +138,11 @@ class TaggingTestCase(unittest.TestCase):
 
         added_content = repository_version.content_summary.added
         added_tags = added_content["container.tag"]["count"]
-        self.assertEqual(added_tags, "1", added_content)
+        self.assertEqual(added_tags, 1, added_content)
 
         removed_content = repository_version.content_summary.removed
         removed_tags = removed_content["container.tag"]["count"]
-        self.assertEqual(removed_tags, "1", removed_content)
+        self.assertEqual(removed_tags, 1, removed_content)
 
     def test_04_untag_second_image(self):
         """Untag the manifest and check if the tag was added in a new repository version."""
