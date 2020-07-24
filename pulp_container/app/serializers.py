@@ -15,6 +15,7 @@ from pulpcore.plugin.serializers import (
     ContentGuardSerializer,
     DetailRelatedField,
     NestedRelatedField,
+    NoArtifactContentSerializer,
     RelatedField,
     RemoteSerializer,
     RepositorySerializer,
@@ -26,7 +27,7 @@ from pulpcore.plugin.serializers import (
 from . import models
 
 
-class TagSerializer(SingleArtifactContentSerializer):
+class TagSerializer(NoArtifactContentSerializer):
     """
     Serializer for Tags.
     """
@@ -40,7 +41,7 @@ class TagSerializer(SingleArtifactContentSerializer):
     )
 
     class Meta:
-        fields = SingleArtifactContentSerializer.Meta.fields + ("name", "tagged_manifest",)
+        fields = NoArtifactContentSerializer.Meta.fields + ("name", "tagged_manifest",)
         model = models.Tag
 
 

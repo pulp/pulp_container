@@ -101,8 +101,6 @@ class ContainerFirstStage(Stage):
             tag = await download_tag
             with open(tag.path, "rb") as content_file:
                 raw_data = content_file.read()
-            content_data = json.loads(raw_data)
-            media_type = content_data.get("mediaType")
             tag.artifact_attributes["file"] = tag.path
             saved_artifact = Artifact(**tag.artifact_attributes)
             try:
@@ -110,10 +108,14 @@ class ContainerFirstStage(Stage):
             except IntegrityError:
                 del tag.artifact_attributes["file"]
                 saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
-            tag_dc = self.create_tag(saved_artifact, tag.url)
 
+            tag_name = tag.url.split("/")[-1]
+            tag_dc = DeclarativeContent(Tag(name=tag_name))
+
+            content_data = json.loads(raw_data)
+            media_type = content_data.get("mediaType")
             if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
-                list_dc = self.create_tagged_manifest_list(tag_dc, content_data)
+                list_dc = self.create_tagged_manifest_list(tag_name, saved_artifact, content_data)
                 await self.put(list_dc)
                 tag_dc.extra_data["man_relation"] = list_dc
                 for manifest_data in content_data.get("manifests"):
@@ -122,7 +124,9 @@ class ContainerFirstStage(Stage):
                     man_dcs[man_dc.content.digest] = man_dc
                     await self.put(man_dc)
             else:
-                man_dc = self.create_tagged_manifest(tag_dc, content_data, raw_data)
+                man_dc = self.create_tagged_manifest(
+                    tag_name, saved_artifact, content_data, raw_data
+                )
                 await self.put(man_dc)
                 tag_dc.extra_data["man_relation"] = man_dc
                 self.handle_blobs(man_dc, content_data, total_blobs)
@@ -194,97 +198,72 @@ class ContainerFirstStage(Stage):
             blob_dc.extra_data["config_relation"] = man
             total_blobs.append(blob_dc)
 
-    def create_tag(self, saved_artifact, url):
-        """
-        Create `DeclarativeContent` for each tag.
-
-        Each dc contains enough information to be dowloaded by an ArtifactDownload Stage.
-
-        Args:
-            tag_name (str): Name of each tag
-
-        Returns:
-            pulpcore.plugin.stages.DeclarativeContent: A Tag DeclarativeContent object
-
-        """
-        tag_name = url.split("/")[-1]
-        relative_url = "/v2/{name}/manifests/{tag}".format(
-            name=self.remote.namespaced_upstream_name, tag=tag_name,
-        )
-        url = urljoin(self.remote.url, relative_url)
-        tag = Tag(name=tag_name)
-        da = DeclarativeArtifact(
-            artifact=saved_artifact,
-            url=url,
-            relative_path=tag_name,
-            remote=self.remote,
-            extra_data={"headers": V2_ACCEPT_HEADERS},
-        )
-        tag_dc = DeclarativeContent(content=tag, d_artifacts=[da])
-        return tag_dc
-
-    def create_tagged_manifest_list(self, tag_dc, manifest_list_data):
+    def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data):
         """
         Create a ManifestList.
 
         Args:
-            tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
+            tag_name (str): A name of a tag
+            saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_list_data (dict): Data about a ManifestList
 
         """
-        digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
-        relative_url = "/v2/{name}/manifests/{digest}".format(
-            name=self.remote.namespaced_upstream_name, digest=digest,
-        )
-        url = urljoin(self.remote.url, relative_url)
+        digest = f"sha256:{saved_artifact.sha256}"
         manifest_list = Manifest(
             digest=digest,
             schema_version=manifest_list_data["schemaVersion"],
             media_type=manifest_list_data["mediaType"],
         )
-        da = DeclarativeArtifact(
-            artifact=tag_dc.d_artifacts[0].artifact,
-            url=url,
-            relative_path=digest,
-            remote=self.remote,
-            extra_data={"headers": V2_ACCEPT_HEADERS},
+
+        return self._create_manifest_declarative_content(
+            manifest_list, saved_artifact, tag_name, digest
         )
-        list_dc = DeclarativeContent(content=manifest_list, d_artifacts=[da])
 
-        return list_dc
-
-    def create_tagged_manifest(self, tag_dc, manifest_data, raw_data):
+    def create_tagged_manifest(self, tag_name, saved_artifact, manifest_data, raw_data):
         """
         Create an Image Manifest.
 
         Args:
-            tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
+            tag_name (str): A name of a tag
+            saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_data (dict): Data about a single new ImageManifest.
             raw_data: (str): The raw JSON representation of the ImageManifest.
 
         """
         media_type = manifest_data.get("mediaType", MEDIA_TYPE.MANIFEST_V1)
         if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
-            digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
+            digest = f"sha256:{saved_artifact.sha256}"
         else:
-
             digest = self._calculate_digest(raw_data)
+
         manifest = Manifest(
             digest=digest, schema_version=manifest_data["schemaVersion"], media_type=media_type,
         )
-        relative_url = "/v2/{name}/manifests/{digest}".format(
-            name=self.remote.namespaced_upstream_name, digest=digest,
+
+        return self._create_manifest_declarative_content(manifest, saved_artifact, tag_name, digest)
+
+    def _create_manifest_declarative_content(self, manifest, saved_artifact, tag_name, digest):
+        relative_url = f"/v2/{self.remote.namespaced_upstream_name}/manifests/"
+        da_digest = self._create_manifest_declarative_artifact(
+            relative_url + digest, saved_artifact, digest
         )
+        da_tag = self._create_manifest_declarative_artifact(
+            relative_url + tag_name, saved_artifact, digest
+        )
+
+        man_dc = DeclarativeContent(content=manifest, d_artifacts=[da_digest, da_tag])
+        return man_dc
+
+    def _create_manifest_declarative_artifact(self, relative_url, saved_artifact, digest):
         url = urljoin(self.remote.url, relative_url)
         da = DeclarativeArtifact(
-            artifact=tag_dc.d_artifacts[0].artifact,
+            artifact=saved_artifact,
             url=url,
             relative_path=digest,
             remote=self.remote,
             extra_data={"headers": V2_ACCEPT_HEADERS},
         )
-        man_dc = DeclarativeContent(content=manifest, d_artifacts=[da])
-        return man_dc
+        return da
 
     def create_manifest(self, list_dc, manifest_data):
         """
