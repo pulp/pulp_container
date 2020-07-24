@@ -189,6 +189,7 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
 
         Make sure there is an instance of ContentRedirectContentGuard always present in validated
         data.
+        Validate that the distribution  is not serving a repository versions of a push repository.
         """
         validated_data = super().validate(data)
         if "content_guard" not in validated_data:
@@ -202,6 +203,15 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
                 )
                 cg_serializer.is_valid(raise_exception=True)
                 validated_data["content_guard"] = cg_serializer.create(cg_serializer.validated_data)
+        if "repository_version" in validated_data:
+            repository = validated_data["repository_version"].repository.cast()
+            if repository.PUSH_ENABLED:
+                raise serializers.ValidationError(
+                    _(
+                        "A container push repository cannot be distributed by specifying a "
+                        "repository version."
+                    )
+                )
         return validated_data
 
     class Meta:
