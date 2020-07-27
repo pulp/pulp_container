@@ -13,9 +13,87 @@ Changelog
 
 .. towncrier release notes start
 
+2.0.0b3 (2020-07-16)
+====================
+
+
+Features
+--------
+
+- Redirected get on Manifest get to the content app to enable schema conversion.
+  Repaired schema conversion to work with django-storage framework.
+  `#6824 <https://pulp.plan.io/issues/6824>`_
+- Added ContainerPushRepository type to back writeable container registries.
+  `#6825 <https://pulp.plan.io/issues/6825>`_
+- Added ContentRedirectContentGuard to redirect with preauthenticated urls to the content app.
+  `#6894 <https://pulp.plan.io/issues/6894>`_
+- Restricted push access to admin user.
+  `#6976 <https://pulp.plan.io/issues/6976>`_
+
+
+Bugfixes
+--------
+
+- Refactored token_authentication that now happens in pulpcore-api app
+  `#6894 <https://pulp.plan.io/issues/6894>`_
+- Fixed a crash when trying to access content with an unparseable token.
+  `#7124 <https://pulp.plan.io/issues/7124>`_
+- Fixed a runtime error which was triggered when a registry client sends an accept header with an
+  inappropriate media type for a manifest and the conversion failed.
+  `#7125 <https://pulp.plan.io/issues/7125>`_
+
+
+Misc
+----
+
+- `#5302 <https://pulp.plan.io/issues/5302>`_
+
+
+----
+
+
+2.0.0b2 (2020-06-08)
+====================
+
+
+Bugfixes
+--------
+
+- Fixed the client_max_body_size value in the nginx config.
+  `#6916 <https://pulp.plan.io/issues/6916>`_
+
+
+----
+
+
+2.0.0b1 (2020-06-03)
+====================
+
+
+Features
+--------
+
+- Added REST APIs for handling docker/podman push.
+  `#5027 <https://pulp.plan.io/issues/5027>`_
+
+Bugfixes
+--------
+
+- Fixed 500 error when pulling by tag.
+  `#6776 <https://pulp.plan.io/issues/6776>`_
+- Ensure that all relations between content models are properly created
+  `#6827 <https://pulp.plan.io/issues/6827>`_
+- Auto create repos and distributions for the container push.
+  `#6878 <https://pulp.plan.io/issues/6878>`_
+- Fixed not being able to push tags with periods in them.
+  `#6884 <https://pulp.plan.io/issues/6884>`_
+
+
+----
+
+
 1.4.2 (2020-07-13)
 ==================
-
 
 Bugfixes
 --------

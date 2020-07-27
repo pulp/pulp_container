@@ -37,9 +37,8 @@ def synchronize(remote_pk, repository_pk, mirror):
     remote = ContainerRemote.objects.get(pk=remote_pk)
     repository = ContainerRepository.objects.get(pk=repository_pk)
     if not remote.url:
-        raise ValueError(_('A remote must have a url specified to synchronize.'))
-    log.info(_('Synchronizing: repository={r} remote={p}').format(
-        r=repository.name, p=remote.name))
+        raise ValueError(_("A remote must have a url specified to synchronize."))
+    log.info(_("Synchronizing: repository={r} remote={p}").format(r=repository.name, p=remote.name))
     first_stage = ContainerFirstStage(remote)
     dv = ContainerDeclarativeVersion(first_stage, repository, mirror)
     dv.create()
