@@ -1,18 +1,28 @@
+import hashlib
+import os
 import re
-
+import time
 from logging import getLogger
+from url_normalize import url_normalize
 
 from django.db import models
+from django.conf import settings
+from django.core.files.storage import FileSystemStorage
 from django.contrib.postgres import fields
+from django.shortcuts import redirect
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
+    Artifact,
     Content,
+    ContentGuard,
+    BaseModel,
     Remote,
     Repository,
-    RepositoryVersionDistribution
+    RepositoryVersionDistribution,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
+
 
 from . import downloaders
 from pulp_container.constants import MEDIA_TYPE
@@ -35,7 +45,7 @@ class Blob(Content):
         manifest (models.ForeignKey): Many-to-one relationship with Manifest.
     """
 
-    TYPE = 'blob'
+    TYPE = "blob"
 
     BLOB_CHOICES = (
         (MEDIA_TYPE.CONFIG_BLOB, MEDIA_TYPE.CONFIG_BLOB),
@@ -46,14 +56,11 @@ class Blob(Content):
         (MEDIA_TYPE.FOREIGN_BLOB_OCI, MEDIA_TYPE.FOREIGN_BLOB_OCI),
     )
     digest = models.CharField(max_length=255, db_index=True)
-    media_type = models.CharField(
-        max_length=80,
-        choices=BLOB_CHOICES
-    )
+    media_type = models.CharField(max_length=80, choices=BLOB_CHOICES)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
-        unique_together = ('digest',)
+        unique_together = ("digest",)
 
 
 class Manifest(Content):
@@ -74,7 +81,7 @@ class Manifest(Content):
             field is used only for a manifest-list type Manifests.
     """
 
-    TYPE = 'manifest'
+    TYPE = "manifest"
 
     MANIFEST_CHOICES = (
         (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1),
@@ -85,25 +92,24 @@ class Manifest(Content):
     )
     digest = models.CharField(max_length=255, db_index=True)
     schema_version = models.IntegerField()
-    media_type = models.CharField(
-        max_length=60,
-        choices=MANIFEST_CHOICES)
+    media_type = models.CharField(max_length=60, choices=MANIFEST_CHOICES)
 
-    blobs = models.ManyToManyField(Blob, through='BlobManifest')
-    config_blob = models.ForeignKey(Blob, related_name='config_blob',
-                                    null=True, on_delete=models.CASCADE)
+    blobs = models.ManyToManyField(Blob, through="BlobManifest")
+    config_blob = models.ForeignKey(
+        Blob, related_name="config_blob", null=True, on_delete=models.CASCADE
+    )
 
     # Order matters for through fields, (source, target)
     listed_manifests = models.ManyToManyField(
         "self",
-        through='ManifestListManifest',
+        through="ManifestListManifest",
         symmetrical=False,
-        through_fields=('image_manifest', 'manifest_list')
+        through_fields=("image_manifest", "manifest_list"),
     )
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
-        unique_together = ('digest',)
+        unique_together = ("digest",)
 
 
 class BlobManifest(models.Model):
@@ -111,13 +117,11 @@ class BlobManifest(models.Model):
     Many-to-many relationship between Blobs and Manifests.
     """
 
-    manifest = models.ForeignKey(
-        Manifest, related_name='blob_manifests', on_delete=models.CASCADE)
-    manifest_blob = models.ForeignKey(
-        Blob, related_name='manifest_blobs', on_delete=models.CASCADE)
+    manifest = models.ForeignKey(Manifest, related_name="blob_manifests", on_delete=models.CASCADE)
+    manifest_blob = models.ForeignKey(Blob, related_name="manifest_blobs", on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ('manifest', 'manifest_blob')
+        unique_together = ("manifest", "manifest_blob")
 
 
 class ManifestListManifest(models.Model):
@@ -139,18 +143,20 @@ class ManifestListManifest(models.Model):
 
     architecture = models.CharField(max_length=255)
     os = models.CharField(max_length=255)
-    os_version = models.CharField(max_length=255, default='', blank=True)
-    os_features = models.TextField(default='', blank=True)
-    features = models.TextField(default='', blank=True)
-    variant = models.CharField(max_length=255, default='', blank=True)
+    os_version = models.CharField(max_length=255, default="", blank=True)
+    os_features = models.TextField(default="", blank=True)
+    features = models.TextField(default="", blank=True)
+    variant = models.CharField(max_length=255, default="", blank=True)
 
     image_manifest = models.ForeignKey(
-        Manifest, related_name='image_manifests', on_delete=models.CASCADE)
+        Manifest, related_name="image_manifests", on_delete=models.CASCADE
+    )
     manifest_list = models.ForeignKey(
-        Manifest, related_name='manifest_lists', on_delete=models.CASCADE)
+        Manifest, related_name="manifest_lists", on_delete=models.CASCADE
+    )
 
     class Meta:
-        unique_together = ('image_manifest', 'manifest_list')
+        unique_together = ("image_manifest", "manifest_list")
 
 
 class Tag(Content):
@@ -165,28 +171,59 @@ class Tag(Content):
 
     """
 
-    TYPE = 'tag'
-    repo_key_fields = ('name',)
+    TYPE = "tag"
+    repo_key_fields = ("name",)
 
     name = models.CharField(max_length=255, db_index=True)
 
     tagged_manifest = models.ForeignKey(
-        Manifest, null=True, related_name='tagged_manifests', on_delete=models.CASCADE)
+        Manifest, null=True, related_name="tagged_manifests", on_delete=models.CASCADE
+    )
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
-        unique_together = (
-            ('name', 'tagged_manifest'),
-        )
+        unique_together = (("name", "tagged_manifest"),)
 
 
 class ContainerRepository(Repository):
     """
     Repository for "container" content.
+
+    This Repository type is designed for standard pulp operations, and can be distributed as a
+    read only registry.
     """
 
     TYPE = "container"
     CONTENT_TYPES = [Blob, Manifest, Tag]
+    PUSH_ENABLED = False
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+
+    def finalize_new_version(self, new_version):
+        """
+        Ensure no added content Tags contain the same `name`.
+        Args:
+            new_version (pulpcore.app.models.RepositoryVersion): The incomplete RepositoryVersion to
+                finalize.
+        """
+        remove_duplicates(new_version)
+        validate_repo_version(new_version)
+
+
+class ContainerPushRepository(Repository):
+    """
+    Repository for "container" content.
+
+    This repository type is designed for the read and write registry usecase. It will be
+    automatically instanciated on authorised push to nonexisting repositories.
+    With this repository type, all but the latest repository_version are solely of historical
+    interest.
+    """
+
+    TYPE = "container-push"
+    CONTENT_TYPES = [Blob, Manifest, Tag]
+    PUSH_ENABLED = True
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
@@ -214,12 +251,9 @@ class ContainerRemote(Remote):
 
     upstream_name = models.CharField(max_length=255, db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
-    whitelist_tags = fields.ArrayField(
-        models.CharField(max_length=255, null=True),
-        null=True
-    )
+    whitelist_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
 
-    TYPE = 'container'
+    TYPE = "container"
 
     @property
     def download_factory(self):
@@ -242,9 +276,9 @@ class ContainerRemote(Remote):
             self._download_factory = DownloaderFactory(
                 self,
                 downloader_overrides={
-                    'http': downloaders.RegistryAuthHttpDownloader,
-                    'https': downloaders.RegistryAuthHttpDownloader,
-                }
+                    "http": downloaders.RegistryAuthHttpDownloader,
+                    "https": downloaders.RegistryAuthHttpDownloader,
+                },
             )
             return self._download_factory
 
@@ -270,7 +304,7 @@ class ContainerRemote(Remote):
             is configured with the remote settings.
 
         """
-        kwargs['remote'] = self
+        kwargs["remote"] = self
         return super().get_downloader(remote_artifact=remote_artifact, url=url, **kwargs)
 
     @property
@@ -282,9 +316,9 @@ class ContainerRemote(Remote):
         as the namespace.
         """
         # Docker's registry aligns non-namespaced images to the library namespace.
-        container_registry = re.search(r'registry[-,\w]*.docker.io', self.url, re.IGNORECASE)
-        if '/' not in self.upstream_name and container_registry:
-            return 'library/{name}'.format(name=self.upstream_name)
+        container_registry = re.search(r"registry[-,\w]*.docker.io", self.url, re.IGNORECASE)
+        if "/" not in self.upstream_name and container_registry:
+            return "library/{name}".format(name=self.upstream_name)
         else:
             return self.upstream_name
 
@@ -297,7 +331,7 @@ class ContainerDistribution(RepositoryVersionDistribution):
     A container distribution defines how a publication is distributed by Pulp's webserver.
     """
 
-    TYPE = 'container'
+    TYPE = "container"
 
     def get_repository_version(self):
         """
@@ -309,6 +343,129 @@ class ContainerDistribution(RepositoryVersionDistribution):
             return self.repository_version
         else:
             return None
+
+    def redirect_to_content_app(self, url):
+        """
+        Add preauthentication query string to redirect attempt.
+        """
+        if self.content_guard:
+            url = self.content_guard.cast().preauthenticate_url(url)
+        return redirect(url)
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+
+
+INCOMPLETE_EXT = ".part"
+
+
+def generate_filename(instance, filename):
+    """Method for generating upload file name"""
+    filename = os.path.join(instance.upload_dir, str(instance.pk) + INCOMPLETE_EXT)
+    return time.strftime(filename)
+
+
+class Upload(BaseModel):
+    """
+    Model for tracking Blob uploads.
+    """
+
+    repository = models.ForeignKey(Repository, related_name="uploads", on_delete=models.CASCADE)
+
+    offset = models.BigIntegerField(default=0)
+
+    file = models.FileField(
+        max_length=255,
+        null=True,
+        upload_to=generate_filename,
+        storage=FileSystemStorage(location=settings.CHUNKED_UPLOAD_DIR),
+    )
+
+    upload_dir = os.path.join(settings.CHUNKED_UPLOAD_DIR, "container")
+
+    size = models.IntegerField(null=True)
+    md5 = models.CharField(max_length=32, null=True)
+    sha1 = models.CharField(max_length=40, null=True)
+    sha224 = models.CharField(max_length=56, null=True)
+    sha256 = models.CharField(max_length=64, null=True)
+    sha384 = models.CharField(max_length=96, null=True)
+    sha512 = models.CharField(max_length=128, null=True)
+
+    def append_chunk(self, chunk, chunk_size=None, save=True):
+        """Method for appending a chunk to a file."""
+        hashers = {}
+        for algorithm in Artifact.DIGEST_FIELDS:
+            hashers[algorithm] = getattr(hashlib, algorithm)()
+
+        self.file.close()
+        self.file.open(mode="ab")  # mode = append+binary
+        while True:
+            subchunk = chunk.read(2000000)
+            if not subchunk:
+                break
+            self.file.write(subchunk)
+            for algorithm in Artifact.DIGEST_FIELDS:
+                hashers[algorithm].update(subchunk)
+
+        if chunk_size is not None:
+            self.offset += chunk_size
+        elif hasattr(chunk, "size"):
+            self.offset += chunk.size
+        else:
+            self.offset = self.file.size
+        if save:
+            self.save()
+        self.file.close()  # Flush
+        for algorithm in Artifact.DIGEST_FIELDS:
+            setattr(self, algorithm, hashers[algorithm].hexdigest())
+
+
+def _gen_secret():
+    return os.urandom(32)
+
+
+class ContentRedirectContentGuard(ContentGuard):
+    """
+    Content guard to allow preauthenticated redirects to the content app.
+    """
+
+    TYPE = "content_redirect"
+
+    shared_secret = models.BinaryField(max_length=32, default=_gen_secret)
+
+    def permit(self, request):
+        """
+        Permit preauthenticated redirects from pulp-api.
+        """
+        try:
+            signed_url = request.url
+            validate_token = request.query["validate_token"]
+            hex_salt, hex_digest = validate_token.split(":", 1)
+            salt = bytes.fromhex(hex_salt)
+            digest = bytes.fromhex(hex_digest)
+            url = re.sub(r"\?validate_token=.*$", "", str(signed_url))
+            if not digest == self._get_digest(salt, url):
+                raise PermissionError("Access not authenticated")
+        except (KeyError, ValueError):
+            raise PermissionError("Access not authenticated")
+
+    def preauthenticate_url(self, url, salt=None):
+        """
+        Add validate_token to urls query string.
+        """
+        if not salt:
+            salt = _gen_secret()
+        hex_salt = salt.hex()
+        digest = self._get_digest(salt, url).hex()
+        url = url + f"?validate_token={hex_salt}:{digest}"
+        return url
+
+    def _get_digest(self, salt, url):
+        hasher = hashlib.sha256()
+        hasher.update(salt)
+        hasher.update(url_normalize(url).encode())
+        hasher.update(self.shared_secret)
+        return hasher.digest()
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"

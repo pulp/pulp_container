@@ -18,31 +18,21 @@ def tag_image(manifest_pk, tag, repository_pk):
     repository = ContainerRepository.objects.get(pk=repository_pk)
     latest_version = repository.latest_version()
 
-    tags_to_remove = Tag.objects.filter(
-        pk__in=latest_version.content.all(),
-        name=tag
-    ).exclude(
+    tags_to_remove = Tag.objects.filter(pk__in=latest_version.content.all(), name=tag).exclude(
         tagged_manifest=manifest
     )
 
-    manifest_tag, created = Tag.objects.get_or_create(
-        name=tag,
-        tagged_manifest=manifest
-    )
+    manifest_tag, created = Tag.objects.get_or_create(name=tag, tagged_manifest=manifest)
 
     if created:
         resource = CreatedResource(content_object=manifest_tag)
         resource.save()
 
     ContentArtifact.objects.get_or_create(
-        artifact=artifact,
-        content=manifest_tag,
-        relative_path=tag
+        artifact=artifact, content=manifest_tag, relative_path=tag
     )
 
-    tags_to_add = Tag.objects.filter(
-        pk=manifest_tag.pk
-    ).exclude(
+    tags_to_add = Tag.objects.filter(pk=manifest_tag.pk).exclude(
         pk__in=latest_version.content.all()
     )
 

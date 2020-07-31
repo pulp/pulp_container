@@ -8,7 +8,11 @@ from itertools import permutations
 from pulp_smash import utils
 from pulp_smash.pulp3.utils import gen_distribution
 
-from pulp_container.tests.functional.utils import skip_if, gen_container_client, monitor_task
+from pulp_container.tests.functional.utils import (
+    skip_if,
+    gen_container_client,
+    monitor_task,
+)
 
 from pulpcore.client.pulp_container import (
     ApiException,
@@ -101,7 +105,7 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
         """
         unique_params = (
             {"name": self.distribution["name"]},
-            {"base_path": self.distribution["base_path"]}
+            {"base_path": self.distribution["base_path"]},
         )
         for params in unique_params:
             with self.subTest(params=params):

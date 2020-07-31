@@ -1,3 +1,3 @@
-__version__ = '1.5.0.dev'
+__version__ = "2.0.0b4.dev"
 
-default_app_config = 'pulp_container.app.PulpContainerPluginAppConfig'
+default_app_config = "pulp_container.app.PulpContainerPluginAppConfig"

@@ -14,6 +14,7 @@ from pulp_container.tests.functional.utils import (
     gen_token_signing_keys,
     monitor_task,
     BearerTokenAuth,
+    AuthenticationHeaderQueries,
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
@@ -85,7 +86,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         All requests are sent via aiohttp modules.
         """
         image_path = "/v2/{}/manifests/{}".format(self.distribution.base_path, "manifest_a")
-        latest_image_url = urljoin(self.cfg.get_content_host_base_url(), image_path)
+        latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
         with self.assertRaises(HTTPError) as cm:
             self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V2})
@@ -96,13 +97,12 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         authenticate_header = content_response.headers["Www-Authenticate"]
         queries = AuthenticationHeaderQueries(authenticate_header)
         content_response = self.client.get(
-            queries.realm,
-            params={"service": queries.service, "scope": queries.scope}
+            queries.realm, params={"service": queries.service, "scope": queries.scope}
         )
         content_response = self.client.get(
             latest_image_url,
             auth=BearerTokenAuth(content_response["token"]),
-            headers={"Accept": MEDIA_TYPE.MANIFEST_V2}
+            headers={"Accept": MEDIA_TYPE.MANIFEST_V2},
         )
         self.compare_config_blob_digests(content_response["config"]["digest"])
 
@@ -116,10 +116,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
 
-        image_url = urljoin(
-            self.cfg.get_content_host_base_url(),
-            self.distribution.base_path
-        )
+        image_url = urljoin(self.cfg.get_base_url(), self.distribution.base_path)
         image_with_tag = f"{image_url}:manifest_a"
         registry.pull(image_with_tag)
 
@@ -148,17 +145,3 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
         config_blob_response = self.client.get(manifest_response["config_blob"])
         self.assertEqual(pulled_manifest_digest, config_blob_response["digest"])
-
-
-class AuthenticationHeaderQueries:
-    """A data class to store header queries located in the Www-Authenticate header."""
-
-    def __init__(self, authenticate_header):
-        """Extract service, realm, and scope from the header."""
-        realm, service, scope = authenticate_header[7:].split(",")
-        # realm="rlm" -> rlm
-        self.realm = realm[6:][1:-1]
-        # service="srv" -> srv
-        self.service = service[8:][1:-1]
-        # scope="scp" -> scp
-        self.scope = scope[6:][1:-1]

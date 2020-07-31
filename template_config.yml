@@ -3,7 +3,7 @@
 
 additional_plugins: []
 all: false
-black: false
+black: true
 bootstrap: false
 check_commit_message: true
 cherry_pick_automation: true

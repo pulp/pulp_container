@@ -216,8 +216,15 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
 
     def test_sync_with_whitelisted_tags_using_wildcard(self):
         """Test whether the repository is synced only with whitelisted tags that use wildcards."""
-        whitelist_tags = ["ml_iv", "ml_ii", "manifest_a", "manifest_b",
-                          "manifest_c", "manifest_d", "manifest_e"]
+        whitelist_tags = [
+            "ml_iv",
+            "ml_ii",
+            "manifest_a",
+            "manifest_b",
+            "manifest_c",
+            "manifest_d",
+            "manifest_e",
+        ]
         self.sync_repository_with_whitelisted_tags(["ml_??", "manifest*"])
 
         self.assert_synced_tags(whitelist_tags)
@@ -228,8 +235,7 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
         self.addCleanup(self.repositories_api.delete, self.repository.pulp_href)
 
         remote_data = gen_container_remote(
-            upstream_name=DOCKERHUB_PULP_FIXTURE_1,
-            whitelist_tags=whitelist_tags
+            upstream_name=DOCKERHUB_PULP_FIXTURE_1, whitelist_tags=whitelist_tags
         )
         remote = self.remotes_api.create(remote_data)
         self.addCleanup(self.remotes_api.delete, remote.pulp_href)

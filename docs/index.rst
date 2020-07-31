@@ -4,6 +4,9 @@ Pulp Container Plugin
 The ``pulp_container`` plugin extends `pulpcore <https://pypi.python.org/pypi/pulpcore/>`__ to support
 hosting container images and container metadata, supporting ``docker pull`` and ``podman pull``.
 
+.. note::
+   Push API is provided as a tech preview feature.
+
 If you are just getting started, we recommend getting to know the :doc:`basic
 workflows<workflows/index>`.
 
@@ -19,7 +22,13 @@ Features
 * Curate container images by creating repository versions with :ref:`a specific set <recursive-add>` of images
 * De-duplication of all saved content
 
+Tech Preview
+------------
 
+Some additional features are being supplied as a tech preview.  There is a possibility that
+backwards incompatible changes will be introduced for these particular features.  For a list of
+features currently being supplied as tech previews only, see the :doc:`tech preview page
+<tech-preview>`.
 
 How to use these docs
 ---------------------
@@ -45,6 +54,7 @@ Container Workflows
    installation
    workflows/index
    restapi/index
+   tech-preview
    changes
    contributing
 
