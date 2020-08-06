@@ -1,4 +1,4 @@
-from .distribution import create, delete, update  # noqa
+from .base import general_multi_delete  # noqa
 from .builder import build_image_from_containerfile  # noqa
 from .recursive_add import recursive_add_content  # noqa
 from .recursive_remove import recursive_remove_content  # noqa
