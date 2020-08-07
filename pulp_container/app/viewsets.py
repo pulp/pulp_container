@@ -411,6 +411,28 @@ class ContainerPushRepositoryViewSet(ImmutableRepositoryViewSet):
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
 
+    @extend_schema(
+        description="Trigger an asynchronous delete task",
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    def destroy(self, request, pk, **kwargs):
+        """
+        Delete a push repository with its distribution
+        """
+        repository = self.get_object()
+        distribution = models.ContainerDistribution.objects.get(repository_id=repository.pk)
+        async_result = enqueue_with_reservation(
+            tasks.general_multi_delete,
+            [distribution, repository],
+            args=(
+                [
+                    (distribution.pk, "container", "ContainerDistributionSerializer"),
+                    (distribution.repository.pk, "container", "ContainerPushRepositorySerializer"),
+                ],
+            ),
+        )
+        return OperationPostponedResponse(async_result, request)
+
 
 class ContainerPushRepositoryVersionViewSet(RepositoryVersionViewSet):
     """
@@ -432,6 +454,30 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     endpoint_name = "container"
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
+
+    @extend_schema(
+        description="Trigger an asynchronous delete task",
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    def destroy(self, request, pk, **kwargs):
+        """
+        Delete a distribution. If a push repository is associated to it, delete it as well.
+        """
+        distribution = self.get_object()
+        reservations = [distribution]
+        instance_ids = [
+            (distribution.pk, "container", "ContainerDistributionSerializer"),
+        ]
+        if distribution.repository and distribution.repository.cast().PUSH_ENABLED:
+            reservations.append(distribution.repository)
+            instance_ids.append(
+                (distribution.repository.pk, "container", "ContainerPushRepositorySerializer"),
+            )
+
+        async_result = enqueue_with_reservation(
+            tasks.general_multi_delete, reservations, args=(instance_ids,),
+        )
+        return OperationPostponedResponse(async_result, request)
 
 
 class ContentRedirectContentGuardViewSet(ContentGuardViewSet):
