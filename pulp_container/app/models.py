@@ -2,29 +2,29 @@ import hashlib
 import os
 import re
 import time
+
 from logging import getLogger
+from tempfile import NamedTemporaryFile
 from url_normalize import url_normalize
 
-from django.db import models
-from django.conf import settings
-from django.core.files.storage import FileSystemStorage
+from django.db import models, transaction
 from django.contrib.postgres import fields
+from django.core.files import File
 from django.shortcuts import redirect
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
-    Artifact,
+    BaseModel,
     Content,
     ContentGuard,
-    BaseModel,
+    PulpTemporaryFile,
     Remote,
     Repository,
     RepositoryVersionDistribution,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
 
-
-from . import downloaders
+from pulp_container.app import downloaders
 from pulp_container.constants import MEDIA_TYPE
 
 
@@ -367,57 +367,52 @@ def generate_filename(instance, filename):
 
 class Upload(BaseModel):
     """
-    Model for tracking Blob uploads.
+    A model for tracking Blob uploads.
     """
 
     repository = models.ForeignKey(Repository, related_name="uploads", on_delete=models.CASCADE)
+    cumulative_size = models.BigIntegerField(default=0)
 
+
+class BlobTemporaryUpload(PulpTemporaryFile):
+    """
+    A model used for storing uploaded blob chunks in a temporary file.
+    """
+
+    upload = models.ForeignKey(Upload, related_name="blob_uploads", on_delete=models.CASCADE)
     offset = models.BigIntegerField(default=0)
 
-    file = models.FileField(
-        max_length=255,
-        null=True,
-        upload_to=generate_filename,
-        storage=FileSystemStorage(location=settings.CHUNKED_UPLOAD_DIR),
-    )
+    def save_chunk(self, chunk, chunk_size=None):
+        """Save the passed chunk to a temporary file and update offset for a current upload."""
+        self._init_temporary_file(chunk)
+        self._update_upload_size(chunk, chunk_size)
+        self._save_data()
 
-    upload_dir = os.path.join(settings.CHUNKED_UPLOAD_DIR, "container")
+    def _init_temporary_file(self, chunk):
+        with NamedTemporaryFile("ab") as temp_file:
+            while True:
+                subchunk = chunk.read(2000000)
+                if not subchunk:
+                    break
+                temp_file.write(subchunk)
 
-    size = models.IntegerField(null=True)
-    md5 = models.CharField(max_length=32, null=True)
-    sha1 = models.CharField(max_length=40, null=True)
-    sha224 = models.CharField(max_length=56, null=True)
-    sha256 = models.CharField(max_length=64, null=True)
-    sha384 = models.CharField(max_length=96, null=True)
-    sha512 = models.CharField(max_length=128, null=True)
+            temp_file.flush()
 
-    def append_chunk(self, chunk, chunk_size=None, save=True):
-        """Method for appending a chunk to a file."""
-        hashers = {}
-        for algorithm in Artifact.DIGEST_FIELDS:
-            hashers[algorithm] = getattr(hashlib, algorithm)()
+            self.file = File(open(temp_file.name, "rb"))
+            self.offset = self.upload.cumulative_size
 
-        self.file.close()
-        self.file.open(mode="ab")  # mode = append+binary
-        while True:
-            subchunk = chunk.read(2000000)
-            if not subchunk:
-                break
-            self.file.write(subchunk)
-            for algorithm in Artifact.DIGEST_FIELDS:
-                hashers[algorithm].update(subchunk)
-
+    def _update_upload_size(self, chunk, chunk_size):
         if chunk_size is not None:
-            self.offset += chunk_size
+            self.upload.cumulative_size += chunk_size
         elif hasattr(chunk, "size"):
-            self.offset += chunk.size
+            self.upload.cumulative_size += chunk.size
         else:
-            self.offset = self.file.size
-        if save:
+            self.upload.cumulative_size += self.file.size
+
+    def _save_data(self):
+        with transaction.atomic():
+            self.upload.save()
             self.save()
-        self.file.close()  # Flush
-        for algorithm in Artifact.DIGEST_FIELDS:
-            setattr(self, algorithm, hashers[algorithm].hexdigest())
 
 
 def _gen_secret():

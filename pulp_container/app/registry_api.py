@@ -6,17 +6,14 @@ Check `Plugin Writer's Guide`_ for more details.
 """
 import json
 import logging
-import hashlib
 import re
+
 from tempfile import NamedTemporaryFile
 
 from django.core.files.storage import default_storage as storage
-
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
-
 from django.conf import settings
-from django.core.files.base import ContentFile
 
 from pulpcore.plugin.models import Artifact, ContentArtifact
 from rest_framework.exceptions import (
@@ -33,6 +30,7 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
 
 from pulp_container.app import models, serializers
+from pulp_container.app.utils import write_file
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.token_verification import TokenAuthentication, TokenPermission
 
@@ -127,20 +125,21 @@ class UploadResponse(Response):
     This response object provides information about Uploads during 'push' operations.
     """
 
-    def __init__(self, upload, path, content_length, request):
+    def __init__(self, upload, path, offset, content_length, request):
         """
         Args:
             upload (pulp_container.app.models.Upload): An Upload model used to generate the
                 response.
             path (str): The base_path of the ContainerDistribution (Container repository name)
+            offset (int): The actual offset for the written data
             content_length (int): The value for the Content-Length header.
             request (rest_framework.request.Request): Request object not used by this
                 implementation of Response.
         """
         headers = {
             "Docker-Upload-UUID": upload.pk,
-            "Location": "/v2/{path}/blobs/uploads/{pk}".format(path=path, pk=upload.pk),
-            "Range": "0-{offset}".format(offset=upload.file.size),
+            "Location": f"/v2/{path}/blobs/uploads/{upload.pk}",
+            "Range": f"0-{offset}",
             "Content-Length": content_length,
         }
         super().__init__(headers=headers, status=202)
@@ -393,9 +392,11 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         _, repository = self.get_dr_push(request, path, create=True)
 
         upload = models.Upload(repository=repository)
-        upload.file.save(name="", content=ContentFile(""), save=False)
         upload.save()
-        response = UploadResponse(upload=upload, path=path, content_length=0, request=request)
+
+        response = UploadResponse(
+            upload=upload, path=path, offset=0, content_length=0, request=request
+        )
 
         return response
 
@@ -426,13 +427,18 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 chunk_size = end - start + 1
 
         upload = get_object_or_404(models.Upload, repository=repository, pk=pk)
+        blob_upload = models.BlobTemporaryUpload(upload=upload)
+        blob_upload.save_chunk(chunk, chunk_size=chunk_size)
 
-        if upload.offset != start:
+        if blob_upload.offset != start:
             raise Exception
-        upload.append_chunk(chunk, chunk_size=chunk_size)
-        upload.save()
+
         return UploadResponse(
-            upload=upload, path=path, content_length=upload.file.size, request=request
+            upload=upload,
+            path=path,
+            offset=blob_upload.file.size,
+            content_length=blob_upload.file.size,
+            request=request,
         )
 
     def put(self, request, path, pk=None):
@@ -442,41 +448,47 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         digest = request.query_params["digest"]
         upload = models.Upload.objects.get(pk=pk, repository=repository)
 
-        if upload.sha256 == digest[len("sha256:") :]:
-            try:
-                artifact = Artifact(
-                    file=upload.file.name,
-                    md5=upload.md5,
-                    sha1=upload.sha1,
-                    sha256=upload.sha256,
-                    sha384=upload.sha384,
-                    sha512=upload.sha512,
-                    size=upload.file.size,
-                )
-                artifact.save()
-            except IntegrityError:
-                artifact = Artifact.objects.get(sha256=artifact.sha256)
-            try:
-                blob = models.Blob(digest=digest, media_type=models.MEDIA_TYPE.REGULAR_BLOB)
-                blob.save()
-            except IntegrityError:
-                blob = models.Blob.objects.get(digest=digest)
-            try:
-                blob_artifact = ContentArtifact(
-                    artifact=artifact, content=blob, relative_path=digest
-                )
-                blob_artifact.save()
-            except IntegrityError:
-                pass
+        chunks = models.BlobTemporaryUpload.objects.filter(upload=upload).order_by("offset")
+        chunks_files = map(lambda chunk: chunk.file, chunks)
 
-            with repository.new_version() as new_version:
-                new_version.add_content(models.Blob.objects.filter(pk=blob.pk))
+        with NamedTemporaryFile("ab") as temp_file:
+            size, digests = write_file(temp_file, chunks_files)
 
-            upload.delete()
+            if digests["sha256"] == digest[len("sha256:") :]:
+                try:
+                    artifact = Artifact(
+                        file=temp_file.name,
+                        md5=digests["md5"],
+                        sha1=digests["sha1"],
+                        sha256=digests["sha256"],
+                        sha384=digests["sha384"],
+                        sha512=digests["sha512"],
+                        size=size,
+                    )
+                    artifact.save()
+                except IntegrityError:
+                    artifact = Artifact.objects.get(sha256=artifact.sha256)
+                try:
+                    blob = models.Blob(digest=digest, media_type=models.MEDIA_TYPE.REGULAR_BLOB)
+                    blob.save()
+                except IntegrityError:
+                    blob = models.Blob.objects.get(digest=digest)
+                try:
+                    blob_artifact = ContentArtifact(
+                        artifact=artifact, content=blob, relative_path=digest
+                    )
+                    blob_artifact.save()
+                except IntegrityError:
+                    pass
 
-            return BlobResponse(blob, path, 201, request)
-        else:
-            raise Exception("The digest did not match")
+                with repository.new_version() as new_version:
+                    new_version.add_content(models.Blob.objects.filter(pk=blob.pk))
+
+                upload.delete()
+
+                return BlobResponse(blob, path, 201, request)
+            else:
+                raise Exception("The digest did not match")
 
 
 class Blobs(ContainerRegistryApiMixin, ViewSet):
@@ -487,10 +499,6 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
     def head(self, request, path, pk=None):
         """
         Responds to HEAD requests about blobs
-        :param request:
-        :param path:
-        :param digest:
-        :return:
         """
         _, _, repository_version = self.get_drv_pull(path)
         try:
@@ -523,10 +531,6 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     def head(self, request, path, pk=None):
         """
         Responds to HEAD requests about manifests by reference
-        :param request:
-        :param path:
-        :param digest:
-        :return:
         """
         _, _, repository_version = self.get_drv_pull(path)
         try:
@@ -543,10 +547,6 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     def get(self, request, path, pk=None):
         """
         Responds to GET requests about manifests by reference
-        :param request:
-        :param path:
-        :param digest:
-        :return:
         """
         distribution, _, repository_version = self.get_drv_pull(path)
         try:
@@ -571,10 +571,6 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     def put(self, request, path, pk=None):
         """
         Responds with the actual manifest
-        :param request:
-        :param path:
-        :param pk:
-        :return:
         """
         _, repository = self.get_dr_push(request, path)
         # iterate over all the layers and create
@@ -626,22 +622,7 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     def receive_artifact(self, chunk):
         """Handles assembling of Manifest as it's being uploaded."""
         with NamedTemporaryFile("ab") as temp_file:
-            size = 0
-            hashers = {}
-            for algorithm in Artifact.DIGEST_FIELDS:
-                hashers[algorithm] = getattr(hashlib, algorithm)()
-            while True:
-                subchunk = chunk.read(2000000)
-                if not subchunk:
-                    break
-                temp_file.write(subchunk)
-                size += len(subchunk)
-                for algorithm in Artifact.DIGEST_FIELDS:
-                    hashers[algorithm].update(subchunk)
-            temp_file.flush()
-            digests = {}
-            for algorithm in Artifact.DIGEST_FIELDS:
-                digests[algorithm] = hashers[algorithm].hexdigest()
+            size, digests = write_file(temp_file, [chunk])
             artifact = Artifact(file=temp_file.name, size=size, **digests)
             try:
                 artifact.save()
