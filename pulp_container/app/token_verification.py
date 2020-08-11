@@ -72,7 +72,7 @@ class TokenAuthentication(BaseAuthentication):
         Check that the provided Bearer token specifies access.
         """
         if settings.get("TOKEN_AUTH_DISABLED", False):
-            return (AnonymousUser(), None)
+            return (AnonymousUser(), True)
 
         try:
             authorization_header = request.headers["Authorization"]
@@ -132,6 +132,9 @@ class TokenPermission(BasePermission):
         Decide upon permission based on token
         """
         try:
-            return _contains_accessible_actions(request.auth, *_access_scope(request))
+            decoded_token = request.auth
+            return decoded_token is True or _contains_accessible_actions(
+                decoded_token, *_access_scope(request)
+            )
         except Exception:
             return False
