@@ -1,7 +1,6 @@
 # coding=utf-8
 """Tests that verify that images served by Pulp can be pulled."""
 import contextlib
-import requests
 import unittest
 from urllib.parse import urljoin
 
@@ -19,8 +18,6 @@ from pulp_container.tests.functional.utils import (
     gen_container_remote,
     get_docker_hub_remote_blobsums,
     monitor_task,
-    BearerTokenAuth,
-    AuthenticationHeaderQueries,
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
@@ -139,27 +136,13 @@ class PullContentTestCase(unittest.TestCase):
         )
 
     def test_api_performes_schema_conversion(self):
-        """Verify pull via token with accepted content type.
+        """Verify pull with accepted content type.
         """
         image_path = "/v2/{}/manifests/{}".format(self.distribution_with_repo.base_path, "latest")
         latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
-        with self.assertRaises(requests.HTTPError) as cm:
-            self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V1})
-
-        content_response = cm.exception.response
-        self.assertEqual(content_response.status_code, 401)
-
-        authenticate_header = content_response.headers["Www-Authenticate"]
-        queries = AuthenticationHeaderQueries(authenticate_header)
         content_response = self.client.get(
-            queries.realm, params={"service": queries.service, "scope": queries.scope}
-        )
-        token = content_response.json()["token"]
-        content_response = self.client.get(
-            latest_image_url,
-            auth=BearerTokenAuth(token),
-            headers={"Accept": MEDIA_TYPE.MANIFEST_V1},
+            latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V1},
         )
         base_content_type = content_response.headers["Content-Type"].split(";")[0]
         self.assertIn(base_content_type, {MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1_SIGNED})

@@ -57,6 +57,13 @@ def _contains_accessible_actions(decoded_token, repository_path, access_action):
     return False
 
 
+def _anonymous_access(repository_path, access_action):
+    """
+    Check whether unauthorised access shall be granted.
+    """
+    return access_action == "pull"
+
+
 class TokenAuthentication(BaseAuthentication):
     """
     Token based authentication for Container Registry.
@@ -71,9 +78,6 @@ class TokenAuthentication(BaseAuthentication):
         """
         Check that the provided Bearer token specifies access.
         """
-        if settings.get("TOKEN_AUTH_DISABLED", False):
-            return (AnonymousUser(), None)
-
         try:
             authorization_header = request.headers["Authorization"]
         except KeyError:
@@ -132,6 +136,11 @@ class TokenPermission(BasePermission):
         Decide upon permission based on token
         """
         try:
-            return _contains_accessible_actions(request.auth, *_access_scope(request))
+            decoded_token = request.auth
+            access_scope = _access_scope(request)
+            if decoded_token:
+                return _contains_accessible_actions(decoded_token, *access_scope)
+            else:
+                return _anonymous_access(*access_scope)
         except Exception:
             return False
