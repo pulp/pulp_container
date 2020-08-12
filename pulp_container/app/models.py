@@ -251,7 +251,8 @@ class ContainerRemote(Remote):
 
     upstream_name = models.CharField(max_length=255, db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
-    whitelist_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
+    include_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
+    exclude_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
 
     TYPE = "container"
 

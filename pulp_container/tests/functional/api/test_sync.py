@@ -186,8 +186,8 @@ class TestRepeatedSync(unittest.TestCase):
         self.assertEqual(second_sync_tags_named_a.count, 1)
 
 
-class WhitelistedTagsSyncTestCase(unittest.TestCase):
-    """A test case for syncing repositories with whitelisted tags."""
+class FilteredTagsSyncTestCase(unittest.TestCase):
+    """A test case for syncing repositories with filtered tags."""
 
     @classmethod
     def setUpClass(cls):
@@ -200,23 +200,23 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
 
         cls.repository = None
 
-    def test_sync_with_non_existing_whitelisted_tag(self):
+    def test_sync_with_non_existing_included_tag(self):
         """Check whether the sync machinery ignores a non-existing tag."""
-        whitelist_tags = ["manifest_a", "non_existing_manifest"]
-        self.sync_repository_with_whitelisted_tags(whitelist_tags)
+        include_tags = ["manifest_a", "non_existing_manifest"]
+        self.sync_repository_with_filtered_tags(include_tags)
 
         self.assert_synced_tags(["manifest_a"])
 
-    def test_sync_with_whitelisted_tags(self):
-        """Test whether the repository is synced only with whitelisted tags."""
-        whitelist_tags = ["manifest_a", "manifest_b", "manifest_c"]
-        self.sync_repository_with_whitelisted_tags(whitelist_tags)
+    def test_sync_with_included_tags(self):
+        """Test whether the repository is synced only with included tags."""
+        include_tags = ["manifest_a", "manifest_b", "manifest_c"]
+        self.sync_repository_with_filtered_tags(include_tags)
 
-        self.assert_synced_tags(whitelist_tags)
+        self.assert_synced_tags(include_tags)
 
-    def test_sync_with_whitelisted_tags_using_wildcard(self):
-        """Test whether the repository is synced only with whitelisted tags that use wildcards."""
-        whitelist_tags = [
+    def test_sync_with_included_tags_using_wildcard(self):
+        """Test whether the repository is synced only with included tags that use wildcards."""
+        include_tags = [
             "ml_iv",
             "ml_ii",
             "manifest_a",
@@ -225,17 +225,32 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
             "manifest_d",
             "manifest_e",
         ]
-        self.sync_repository_with_whitelisted_tags(["ml_??", "manifest*"])
+        self.sync_repository_with_filtered_tags(["ml_??", "manifest*"])
 
-        self.assert_synced_tags(whitelist_tags)
+        self.assert_synced_tags(include_tags)
 
-    def sync_repository_with_whitelisted_tags(self, whitelist_tags):
-        """Sync a new repository with the whitelisted tags passed as an argument."""
+    def test_sync_with_complex_filtering(self):
+        """Test sync repository with included and excluded that use wildcards."""
+        include_tags = [
+            "manifest_a",
+            "manifest_c",
+            "manifest_e",
+        ]
+        self.sync_repository_with_filtered_tags(
+            include_tags=["manifest_*"], exclude_tags=["*_[bd]"]
+        )
+
+        self.assert_synced_tags(include_tags)
+
+    def sync_repository_with_filtered_tags(self, include_tags=None, exclude_tags=None):
+        """Sync a new repository with the included tags passed as an argument."""
         self.repository = self.repositories_api.create(ContainerContainerRepository(**gen_repo()))
         self.addCleanup(self.repositories_api.delete, self.repository.pulp_href)
 
         remote_data = gen_container_remote(
-            upstream_name=DOCKERHUB_PULP_FIXTURE_1, whitelist_tags=whitelist_tags
+            upstream_name=DOCKERHUB_PULP_FIXTURE_1,
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
         )
         remote = self.remotes_api.create(remote_data)
         self.addCleanup(self.remotes_api.delete, remote.pulp_href)
@@ -244,14 +259,12 @@ class WhitelistedTagsSyncTestCase(unittest.TestCase):
 
         sync_response = self.repositories_api.sync(self.repository.pulp_href, repository_sync_data)
         monitor_task(sync_response.task)
-        repository = self.repositories_api.read(self.repository.pulp_href)
-        self.assertIsNotNone(repository.latest_version_href)
 
-    def assert_synced_tags(self, whitelist_tags):
-        """Check if the created repository contains only the selected whitelisted tags."""
+    def assert_synced_tags(self, expected_tags):
+        """Check if the created repository contains only the selected included tags."""
         latest_repo_version = self.repositories_api.read(
             self.repository.pulp_href
         ).latest_version_href
         tags = self.tags_api.list(repository_version=latest_repo_version).results
 
-        self.assertEqual(sorted(tag.name for tag in tags), sorted(whitelist_tags))
+        self.assertEqual(sorted(tag.name for tag in tags), sorted(expected_tags))

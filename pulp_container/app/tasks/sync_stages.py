@@ -4,7 +4,6 @@ import fnmatch
 import json
 import hashlib
 import logging
-import re
 
 from gettext import gettext as _
 from urllib.parse import urljoin, urlparse, urlunparse
@@ -148,23 +147,25 @@ class ContainerFirstStage(Stage):
 
     def filter_tags(self, tag_list):
         """
-        Filter tags by a list of whitelisted tags.
-
-        Every single whitelisted tag is converted into a regular expression and used for scanning
-        a full match. Matched tags are then appended to the resulting list of filtered tags.
+        Filter tags by a list of included and excluded tags.
         """
-        filtered_tags = tag_list
+        include_tags = self.remote.include_tags
+        if include_tags:
+            tag_list = [
+                tag
+                for tag in tag_list
+                if any(fnmatch.fnmatch(tag, pattern) for pattern in include_tags)
+            ]
 
-        whitelist_tags = self.remote.whitelist_tags
-        if whitelist_tags:
-            regex_list = [re.compile(fnmatch.translate(wt)) for wt in whitelist_tags]
+        exclude_tags = self.remote.exclude_tags
+        if exclude_tags:
+            tag_list = [
+                tag
+                for tag in tag_list
+                if not any(fnmatch.fnmatch(tag, pattern) for pattern in exclude_tags)
+            ]
 
-            filtered_tags = []
-            for tag in tag_list:
-                if any(re.fullmatch(regex, tag) for regex in regex_list):
-                    filtered_tags.append(tag)
-
-        return filtered_tags
+        return tag_list
 
     async def handle_pagination(self, link, repo_name, tag_list):
         """
