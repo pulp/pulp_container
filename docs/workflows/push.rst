@@ -4,8 +4,12 @@ Push content to a Repository
 =============================
 
 Users can push container image to the reposities hosted by Container Registry
-Push API is provided as a tech preview in Pulp Container 2.0.
-Functionality may not fully work and backwards compatibility when upgrading to future Pulp Container releases is not guaranteed::
+
+.. note::
+   If token auth is enabled admin credentials will be required during push operation.
+   Provide them in the login to the registry or in each API call.
+   
+::
 
         $ podman tag d21d863f69b5 localhost:24817/test/this:mytag1.8
         $ push d21d863f69b5 localhost:24817/test/this:mytag1.8
@@ -34,3 +38,10 @@ Functionality may not fully work and backwards compatibility when upgrading to f
             ]
           }
 
+
+.. note::
+   Content is pushed to a push repository type. A push repository supports neither mirroring of the
+   remote content nor addition or removal of the content via Pulp API.
+
+.. note::
+   Rollback to the previous repository versions is not possible with a push repository. Its latest version will always be served.

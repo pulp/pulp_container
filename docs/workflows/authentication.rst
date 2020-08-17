@@ -4,7 +4,7 @@ Registry Token Authentication
 =============================
 
 Pulp registry supports the `token authentication <https://docs.docker.com/registry/spec/auth/token/>`_.
-This enables users to pull content with an authorized access. A token server grants access based on the
+This enables users to pull/push content with an authorized access. A token server grants access based on the
 user's privileges and current scope.
 
 The feature is enabled by default. However, it is possible to disable it from the settings by declaring
@@ -56,7 +56,7 @@ Below is provided an example of the settings file:
     PRIVATE_KEY_PATH = '/tmp/private_key.pem'
 
 To learn more about Pulp settings, take a look at `Configuration
-<https://docs.pulpproject.org/en/3.0/nightly/installation/configuration.html>`_.
+<https://docs.pulpproject.org/installation/configuration.html>`_.
 
 Restart Pulp services in order to reload the updated settings. Pulp will fetch a domain for the token
 server and will initialize all handlers according to that. Check if the token authentication was

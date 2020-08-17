@@ -9,7 +9,7 @@ For instance, let's assume that a new distribution of a repository with the name
 recently created. Its name is now possible to fetch from the list of names of distributed
 repositories::
 
-    http :24816/v2/_catalog
+    http :24817/v2/_catalog
 
     HTTP/1.1 200 OK
     Content-Length: 25

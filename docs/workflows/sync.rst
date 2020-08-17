@@ -24,7 +24,7 @@ Repository GET Response::
    }
 
 Reference (pulpcore): `Repository API Usage
-<https://docs.pulpproject.org/en/3.0/nightly/restapi.html#tag/repositories>`_
+<https://docs.pulpproject.org/restapi.html#tag/repositories>`_
 
 .. _create-remote:
 
@@ -85,6 +85,10 @@ sync with. You are telling pulp to fetch content from the remote and add to the 
     sync will be run in the additive mode only. Set ``mirror`` to ``True`` and Pulp will pull
     in new content and remove content which was also removed from upstream.
 
+.. note::
+   It is not posible to push content to a repository that has been used to mirror content.
+
+
 Reference: `Container Sync Usage <../restapi.html#operation/remotes_container_container_sync>`_
 
 
@@ -133,4 +137,4 @@ Repository Version GET Response (when complete):
    }
 
 Reference (pulpcore): `Repository Version API Usage
-<https://docs.pulpproject.org/en/3.0/nightly/restapi.html#operation/repositories_versions_read>`_
+<https://docs.pulpproject.org/restapi.html#operation/repositories_versions_read>`_

@@ -2,10 +2,7 @@ Pulp Container Plugin
 =====================
 
 The ``pulp_container`` plugin extends `pulpcore <https://pypi.python.org/pypi/pulpcore/>`__ to support
-hosting container images and container metadata, supporting ``docker pull`` and ``podman pull``.
-
-.. note::
-   Push API is provided as a tech preview feature.
+hosting container images and container metadata, supporting ``pull`` and ``push`` operations.
 
 If you are just getting started, we recommend getting to know the :doc:`basic
 workflows<workflows/index>`.
@@ -18,8 +15,11 @@ Features
 * :ref:`Create Versioned Repositories <versioned-repo-created>` so every operation is a restorable snapshot
 * :ref:`Download content on-demand <create-remote>` when requested by clients to reduce disk space
 * :ref:`Perform docker/podman pull <host>` from a container distribution served by Pulp
+* :ref:`Perform docker/podman push <push-workflow>` to the Pulp Registry
 * Curate container images by :ref:`filtering <create-remote>` what is mirrored from an external repository
 * Curate container images by creating repository versions with :ref:`a specific set <recursive-add>` of images
+* :ref:`Build an OCI format image from a Containerfile <build-Containerfile-workflow>` and make it available from the Pulp Registry
+* Host content either `locally or on S3 <https://docs.pulpproject.org/installation/storage.html>`_
 * De-duplication of all saved content
 
 Tech Preview
@@ -36,7 +36,7 @@ How to use these docs
 The documentation here should be considered **the primary documentation for managing container
 related content**. All relevent workflows are covered here, with references to some pulpcore
 supplemental docs. Users may also find `pulpcore's conceptual docs
-<https://docs.pulpproject.org/en/3.0/nightly/concepts.html>`_ useful.
+<https://docs.pulpproject.org/concepts.html>`_ useful.
 
 This documentation falls into two main categories:
 
