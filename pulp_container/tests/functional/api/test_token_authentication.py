@@ -11,7 +11,6 @@ from pulp_smash.pulp3.utils import gen_repo, gen_distribution
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
-    gen_token_signing_keys,
     monitor_task,
     BearerTokenAuth,
     AuthenticationHeaderQueries,
@@ -46,7 +45,6 @@ class TokenAuthenticationTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class wide-variables."""
         cls.cfg = config.get_config()
-        gen_token_signing_keys(cls.cfg)
         cls.client = api.Client(cls.cfg, api.page_handler)
 
         api_client = gen_container_client()

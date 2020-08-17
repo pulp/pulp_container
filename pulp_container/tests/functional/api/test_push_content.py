@@ -4,16 +4,12 @@ import unittest
 
 from pulp_smash import cli, config, exceptions
 
-from pulp_container.tests.functional.utils import (
-    gen_container_client,
-    gen_token_signing_keys,
-)
+from pulp_container.tests.functional.utils import gen_container_client
 
 from pulpcore.client.pulp_container import RepositoriesContainerPushApi
 
 
 cfg = config.get_config()
-gen_token_signing_keys(cfg)
 
 api_client = gen_container_client()
 push_repositories_api = RepositoriesContainerPushApi(api_client)
