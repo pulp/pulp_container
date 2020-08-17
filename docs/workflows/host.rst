@@ -26,7 +26,7 @@ Response:
         "base_path": "test",
         "content_guard": null,
         "name": "testing-hello",
-        "registry_path": "localhost:24816/test",
+        "registry_path": "localhost:24817/test",
         "repository": "/pulp/api/v3/repositories/container/container/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
         "repository_version": null
     }
@@ -44,14 +44,14 @@ images in it, that content can be consumed by container clients.
 Podman
 ^^^^^^
 
-``$ podman pull localhost:24816/test:<tag_name>``
+``$ podman pull localhost:24817/test:<tag_name>``
 
 If SSL has not been setup for your Pulp, configure podman to work with the insecure registry:
 
 Edit the file ``/etc/containers/registries.conf.`` and add::
 
     [registries.insecure]
-    registries = ['localhost:24816']
+    registries = ['localhost:24817']
 
 More info:
 https://www.projectatomic.io/blog/2018/05/podman-tls/
@@ -64,7 +64,7 @@ If SSL has not been setup for your Pulp, configure docker to work with the insec
 Edit the file ``/etc/docker/daemon.json`` and add::
 
     {
-        "insecure-registries" : ["localhost:24816"]
+        "insecure-registries" : ["localhost:24817"]
 
     }
 
@@ -76,12 +76,12 @@ https://docs.docker.com/registry/insecure/#deploy-a-plain-http-registry
 
 Docker Output::
 
-    Unable to find image 'localhost:24816/test:latest' locally
-    Trying to pull repository localhost:24816/test ...
-    sha256:451ce787d12369c5df2a32c85e5a03d52cbcef6eb3586dd03075f3034f10adcd: Pulling from localhost:24816/test
+    Unable to find image 'localhost:24817/test:latest' locally
+    Trying to pull repository localhost:24817/test ...
+    sha256:451ce787d12369c5df2a32c85e5a03d52cbcef6eb3586dd03075f3034f10adcd: Pulling from localhost:24817/test
     1b930d010525: Pull complete
     Digest: sha256:451ce787d12369c5df2a32c85e5a03d52cbcef6eb3586dd03075f3034f10adcd
-    Status: Downloaded newer image for localhost:24816/test:latest
+    Status: Downloaded newer image for localhost:24817/test:latest
 
     Hello from Docker!
     This message shows that your installation appears to be working correctly.

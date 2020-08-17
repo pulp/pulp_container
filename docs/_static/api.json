@@ -57,15 +57,7 @@
                         "in": "query",
                         "description": "media_type",
                         "schema": {
-                            "type": "string",
-                            "enum": [
-                                "application/vnd.docker.container.image.v1+json",
-                                "application/vnd.docker.image.rootfs.diff.tar.gzip",
-                                "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
-                                "application/vnd.oci.image.config.v1+json",
-                                "application/vnd.oci.image.layer.v1.tar+gzip",
-                                "application/vnd.oci.image.layer.nondistributable.v1.tar+gzip"
-                            ]
+                            "type": "string"
                         }
                     },
                     {
@@ -270,14 +262,7 @@
                         "in": "query",
                         "description": "media_type",
                         "schema": {
-                            "type": "string",
-                            "enum": [
-                                "application/vnd.docker.distribution.manifest.v1+json",
-                                "application/vnd.docker.distribution.manifest.v2+json",
-                                "application/vnd.docker.distribution.manifest.list.v2+json",
-                                "application/vnd.oci.image.manifest.v1+json",
-                                "application/vnd.oci.image.index.v1+json"
-                            ]
+                            "type": "string"
                         }
                     },
                     {
@@ -473,14 +458,7 @@
                         "in": "query",
                         "description": "media_type",
                         "schema": {
-                            "type": "string",
-                            "enum": [
-                                "application/vnd.docker.distribution.manifest.v1+json",
-                                "application/vnd.docker.distribution.manifest.v2+json",
-                                "application/vnd.docker.distribution.manifest.list.v2+json",
-                                "application/vnd.oci.image.manifest.v1+json",
-                                "application/vnd.oci.image.index.v1+json"
-                            ]
+                            "type": "string"
                         }
                     },
                     {
@@ -4678,26 +4656,26 @@
                 "type": "object",
                 "description": "A serializer for ContainerDistribution.",
                 "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "A unique name. Ex, `rawhide` and `stable`."
-                    },
-                    "repository": {
-                        "type": "string",
-                        "format": "uri",
-                        "nullable": true,
-                        "description": "The latest RepositoryVersion for this Repository will be served."
-                    },
                     "content_guard": {
                         "type": "string",
                         "format": "uri",
                         "description": "An optional content-guard. If none is specified, a default one will be used."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "A unique name. Ex, `rawhide` and `stable`."
                     },
                     "repository_version": {
                         "type": "string",
                         "format": "uri",
                         "nullable": true,
                         "description": "RepositoryVersion to be served"
+                    },
+                    "repository": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "description": "The latest RepositoryVersion for this Repository will be served."
                     },
                     "base_path": {
                         "type": "string",
@@ -4993,26 +4971,26 @@
                 "type": "object",
                 "description": "A serializer for ContainerDistribution.",
                 "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "A unique name. Ex, `rawhide` and `stable`."
-                    },
-                    "repository": {
-                        "type": "string",
-                        "format": "uri",
-                        "nullable": true,
-                        "description": "The latest RepositoryVersion for this Repository will be served."
-                    },
                     "content_guard": {
                         "type": "string",
                         "format": "uri",
                         "description": "An optional content-guard. If none is specified, a default one will be used."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "A unique name. Ex, `rawhide` and `stable`."
                     },
                     "repository_version": {
                         "type": "string",
                         "format": "uri",
                         "nullable": true,
                         "description": "RepositoryVersion to be served"
+                    },
+                    "repository": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "description": "The latest RepositoryVersion for this Repository will be served."
                     },
                     "base_path": {
                         "type": "string",
@@ -5028,31 +5006,14 @@
                 "type": "object",
                 "description": "A serializer for ContainerDistribution.",
                 "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "A unique name. Ex, `rawhide` and `stable`."
-                    },
-                    "pulp_created": {
-                        "type": "string",
-                        "format": "date-time",
-                        "readOnly": true,
-                        "description": "Timestamp of creation."
-                    },
-                    "pulp_href": {
-                        "type": "string",
-                        "format": "uri",
-                        "readOnly": true
-                    },
-                    "repository": {
-                        "type": "string",
-                        "format": "uri",
-                        "nullable": true,
-                        "description": "The latest RepositoryVersion for this Repository will be served."
-                    },
                     "content_guard": {
                         "type": "string",
                         "format": "uri",
                         "description": "An optional content-guard. If none is specified, a default one will be used."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "A unique name. Ex, `rawhide` and `stable`."
                     },
                     "repository_version": {
                         "type": "string",
@@ -5060,9 +5021,26 @@
                         "nullable": true,
                         "description": "RepositoryVersion to be served"
                     },
+                    "repository": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "description": "The latest RepositoryVersion for this Repository will be served."
+                    },
                     "base_path": {
                         "type": "string",
                         "description": "The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")"
+                    },
+                    "pulp_href": {
+                        "type": "string",
+                        "format": "uri",
+                        "readOnly": true
+                    },
+                    "pulp_created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "description": "Timestamp of creation."
                     },
                     "registry_path": {
                         "type": "string",

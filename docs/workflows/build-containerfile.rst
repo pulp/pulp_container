@@ -57,7 +57,7 @@ Artifact GET Response::
     }
 
 Reference (pulpcore): `Artifact API Usage
-<https://docs.pulpproject.org/en/3.0/nightly/restapi.html#tag/artifacts>`_
+<https://docs.pulpproject.org/restapi.html#tag/artifacts>`_
 
 Create a Containerfile
 ----------------------
