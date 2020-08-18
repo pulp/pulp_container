@@ -13,6 +13,52 @@ Changelog
 
 .. towncrier release notes start
 
+2.0.0 (2020-08-18)
+====================
+
+
+Features
+--------
+
+- Added 'exclude_tags' to support e.g. skipping source containers in sync.
+  `#6922 <https://pulp.plan.io/issues/6922>`_
+- Push repositories will be deleted together with their attached distribution.
+  `#7172 <https://pulp.plan.io/issues/7172>`_
+
+
+Bugfixes
+--------
+
+- Updated the sync machinery to not store an image manifest as a tag's artifact
+  `#6816 <https://pulp.plan.io/issues/6816>`_
+- Added a validation, that a push repository cannot be distributed by specifying a version.
+  `#7012 <https://pulp.plan.io/issues/7012>`_
+- Forbid the REST API methods PATCH and PUT to prevent changes to repositories created via
+  docker/podman push requests
+  `#7013 <https://pulp.plan.io/issues/7013>`_
+- Fixed the rendering of errors in the container registry api.
+  `#7054 <https://pulp.plan.io/issues/7054>`_
+- Repaired broken registry with TOKEN_AUTH_DISABLED=True
+  `#7304 <https://pulp.plan.io/issues/7304>`_
+
+
+Improved Documentation
+----------------------
+
+- Updated docs for 2.0 GA.
+  `#7317 <https://pulp.plan.io/issues/7317>`_
+
+
+Deprecations and Removals
+-------------------------
+
+- Renamed 'whitelist_tags' to 'include_tags'.
+  `#7070 <https://pulp.plan.io/issues/7070>`_
+
+
+----
+
+
 2.0.0b3 (2020-07-16)
 ====================
 
