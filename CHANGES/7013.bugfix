@@ -1,2 +1,0 @@
-Forbid the REST API methods PATCH and PUT to prevent changes to repositories created via
-docker/podman push requests

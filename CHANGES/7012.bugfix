@@ -1,1 +1,0 @@
-Added a validation, that a push repository cannot be distributed by specifying a version.
