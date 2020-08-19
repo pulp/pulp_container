@@ -9,6 +9,7 @@ import logging
 from django.db import IntegrityError
 from django_filters import MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
+from rest_framework import mixins
 
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
@@ -482,3 +483,19 @@ class ContentRedirectContentGuardViewSet(ContentGuardViewSet):
     endpoint_name = "content_redirect"
     queryset = models.ContentRedirectContentGuard.objects.all()
     serializer_class = serializers.ContentRedirectContentGuardSerializer
+
+
+class ContainerNamespaceViewSet(
+    NamedModelViewSet,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+):
+    """
+    ViewSet for ContainerNamespaces.
+    """
+
+    endpoint_name = "pulp_container/namespaces"
+    queryset = models.ContainerNamespace.objects.all()
+    serializer_class = serializers.ContainerNamespaceSerializer
