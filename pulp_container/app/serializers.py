@@ -2,6 +2,7 @@ from gettext import gettext as _
 import os
 
 from django.conf import settings
+from django.db import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import serializers
@@ -14,6 +15,7 @@ from pulpcore.plugin.models import (
 from pulpcore.plugin.serializers import (
     ContentGuardSerializer,
     DetailRelatedField,
+    ModelSerializer,
     NestedRelatedField,
     NoArtifactContentSerializer,
     RelatedField,
@@ -27,6 +29,26 @@ from pulpcore.plugin.serializers import (
 from . import models
 
 VALID_TAG_REGEX = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+
+
+class _GetOrCreateMixin:
+    @classmethod
+    def get_or_create(cls, natural_key, default_values=None):
+        try:
+            result = cls.Meta.model.objects.get(**natural_key)
+        except ObjectDoesNotExist:
+            data = {}
+            if default_values:
+                data.update(default_values)
+            data.update(natural_key)
+            serializer = cls(data=data)
+            try:
+                serializer.is_valid(raise_exception=True)
+                result = serializer.create(serializer.validated_data)
+            except (IntegrityError, serializers.ValidationError):
+                # recover from a race condition, where another thread just created the object
+                result = cls.Meta.model.objects.get(**natural_key)
+        return result
 
 
 class TagSerializer(NoArtifactContentSerializer):
@@ -111,6 +133,16 @@ class RegistryPathField(serializers.CharField):
         """
         host = settings.CONTENT_ORIGIN
         return "".join([host.split("//")[-1], "/", value])
+
+
+class ContainerNamespaceSerializer(ModelSerializer, _GetOrCreateMixin):
+    """
+    Serializer for ContainerNamespaces.
+    """
+
+    class Meta:
+        fields = ModelSerializer.Meta.fields + ("name",)
+        model = models.ContainerNamespace
 
 
 class ContainerRepositorySerializer(RepositorySerializer):
@@ -213,16 +245,9 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
         """
         validated_data = super().validate(data)
         if "content_guard" not in validated_data:
-            try:
-                validated_data["content_guard"] = models.ContentRedirectContentGuard.objects.get(
-                    name="content redirect"
-                )
-            except ObjectDoesNotExist:
-                cg_serializer = ContentRedirectContentGuardSerializer(
-                    data={"name": "content redirect"}
-                )
-                cg_serializer.is_valid(raise_exception=True)
-                validated_data["content_guard"] = cg_serializer.create(cg_serializer.validated_data)
+            validated_data["content_guard"] = ContentRedirectContentGuardSerializer.get_or_create(
+                {"name": "content redirect"}
+            )
         if "repository_version" in validated_data:
             repository = validated_data["repository_version"].repository.cast()
             if repository.PUSH_ENABLED:
@@ -232,6 +257,18 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
                         "repository version."
                     )
                 )
+        base_path = validated_data["base_path"]
+        namespace_name = base_path.split("/")[0]
+
+        if "namespace" in validated_data:
+            if validated_data["namespace"].name != namespace_name:
+                raise serializers.ValidationError(
+                    _("Selected namespace does not match first component of base_path.")
+                )
+        else:
+            validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
+                {"name": namespace_name}
+            )
         return validated_data
 
     class Meta:
@@ -241,7 +278,7 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
         )
 
 
-class ContentRedirectContentGuardSerializer(ContentGuardSerializer):
+class ContentRedirectContentGuardSerializer(ContentGuardSerializer, _GetOrCreateMixin):
     """
     A serializer for ContentRedirectContentGuard.
     """

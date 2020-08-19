@@ -186,6 +186,17 @@ class Tag(Content):
         unique_together = (("name", "tagged_manifest"),)
 
 
+class ContainerNamespace(BaseModel):
+    """
+    Namespace for the container registry.
+    """
+
+    name = models.CharField(max_length=255, db_index=True)
+
+    class Meta:
+        unique_together = (("name",),)
+
+
 class ContainerRepository(Repository):
     """
     Repository for "container" content.
@@ -330,10 +341,17 @@ class ContainerRemote(Remote):
 
 class ContainerDistribution(RepositoryVersionDistribution):
     """
-    A container distribution defines how a publication is distributed by Pulp's webserver.
+    A container distribution defines how a repository version is distributed by Pulp's webserver.
     """
 
     TYPE = "container"
+
+    namespace = models.ForeignKey(
+        ContainerNamespace,
+        on_delete=models.CASCADE,
+        related_name="container_distributions",
+        null=True,
+    )
 
     def get_repository_version(self):
         """
