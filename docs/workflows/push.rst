@@ -3,12 +3,12 @@
 Push content to a Repository
 =============================
 
-Users can push container image to the reposities hosted by Container Registry
+Users can push a container image to the repositories hosted by the Container Registry
 
 .. note::
-   If token auth is enabled admin credentials will be required during push operation.
+   If token auth is enabled admin credentials will be required during the push operation.
    Provide them in the login to the registry or in each API call.
-   
+
 ::
 
         $ podman tag d21d863f69b5 localhost:24817/test/this:mytag1.8
@@ -18,7 +18,7 @@ Users can push container image to the reposities hosted by Container Registry
           Copying config d21d863f69 done
           Writing manifest to image destination
           Storing signatures
-        
+
         $ http GET $BASE_ADDR/v2/test/this/tags/list
           HTTP/1.1 200 OK
           Allow: GET, HEAD, OPTIONS
