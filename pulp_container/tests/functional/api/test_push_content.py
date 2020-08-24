@@ -27,7 +27,10 @@ class PushContentTestCase(unittest.TestCase):
         registry_name = cfg.get_base_url()[7:]
         local_url = "/".join([registry_name, "foo/bar:1.0"])
         # Be sure to not being logged in
-        registry.logout(registry_name)
+        try:
+            registry.logout(registry_name)
+        except exceptions.CalledProcessError:
+            pass
         # Pull an image with large blobs
         registry.pull("centos:7")
         # Tag it to registry under test
