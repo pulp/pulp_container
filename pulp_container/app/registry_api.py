@@ -34,6 +34,7 @@ from rest_framework.views import APIView
 
 from pulp_container.app import models, serializers
 from pulp_container.app.authorization import AuthorizationService
+from pulp_container.app.redirects import FileStorageRedirects, S3StorageRedirects
 from pulp_container.app.token_verification import TokenAuthentication, TokenPermission
 
 
@@ -479,7 +480,26 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             raise Exception("The digest did not match")
 
 
-class Blobs(ContainerRegistryApiMixin, ViewSet):
+class RedirectsMixin:
+    """
+    A mixin used for configuring how the redirects will work based on a storage type.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Determine a storage type and initialize the redirect class according to that.
+        """
+        super().__init__(*args, **kwargs)
+
+        if settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem":
+            self.redirects_class = FileStorageRedirects
+        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.s3boto3.S3Boto3Storage":
+            self.redirects_class = S3StorageRedirects
+        else:
+            raise NotImplementedError()
+
+
+class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
     """
     ViewSet for interacting with Blobs
     """
@@ -487,10 +507,6 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
     def head(self, request, path, pk=None):
         """
         Responds to HEAD requests about blobs
-        :param request:
-        :param path:
-        :param digest:
-        :return:
         """
         _, _, repository_version = self.get_drv_pull(path)
         try:
@@ -502,16 +518,16 @@ class Blobs(ContainerRegistryApiMixin, ViewSet):
     def get(self, request, path, pk=None):
         """Handles GET requests for Blobs."""
         distribution, _, repository_version = self.get_drv_pull(path)
+        redirects = self.redirects_class(distribution, path, request)
+
         try:
             blob = models.Blob.objects.get(digest=pk, pk__in=repository_version.content)
         except models.Blob.DoesNotExist:
             raise BlobNotFound(digest=pk)
-        return distribution.redirect_to_content_app(
-            "{}/pulp/container/{}/blobs/{}".format(settings.CONTENT_ORIGIN, path, blob.digest),
-        )
+        return redirects.issue_blob_redirect(blob)
 
 
-class Manifests(ContainerRegistryApiMixin, ViewSet):
+class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
     """
     ViewSet for intereacting with Manifests
     """
@@ -523,10 +539,6 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     def head(self, request, path, pk=None):
         """
         Responds to HEAD requests about manifests by reference
-        :param request:
-        :param path:
-        :param digest:
-        :return:
         """
         _, _, repository_version = self.get_drv_pull(path)
         try:
@@ -543,38 +555,24 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
     def get(self, request, path, pk=None):
         """
         Responds to GET requests about manifests by reference
-        :param request:
-        :param path:
-        :param digest:
-        :return:
         """
         distribution, _, repository_version = self.get_drv_pull(path)
+        redirects = self.redirects_class(distribution, path, request)
+
         try:
             if pk[:7] != "sha256:":
                 tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
-                return distribution.redirect_to_content_app(
-                    "{}/pulp/container/{}/manifests/{}".format(
-                        settings.CONTENT_ORIGIN, path, tag.name,
-                    ),
-                )
+                return redirects.issue_tag_redirect(tag)
             else:
                 manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
         except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
             raise ManifestNotFound(reference=pk)
 
-        return distribution.redirect_to_content_app(
-            "{}/pulp/container/{}/manifests/{}".format(
-                settings.CONTENT_ORIGIN, path, manifest.digest,
-            ),
-        )
+        return redirects.issue_manifest_redirect(manifest)
 
     def put(self, request, path, pk=None):
         """
         Responds with the actual manifest
-        :param request:
-        :param path:
-        :param pk:
-        :return:
         """
         _, repository = self.get_dr_push(request, path)
         # iterate over all the layers and create
