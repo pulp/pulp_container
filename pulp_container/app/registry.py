@@ -1,8 +1,10 @@
 import logging
 import os
 
+import requests
+
 from aiohttp import web
-from aiohttp.web_exceptions import HTTPFound
+from aiohttp.web_exceptions import HTTPNotFound
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from multidict import MultiDict
@@ -108,7 +110,14 @@ class Registry(Handler):
                     "ResponseContentDisposition": full_headers["Content-Disposition"],
                 },
             )
-            raise HTTPFound(content_url)
+
+            try:
+                response = requests.get(url=content_url, stream=True)
+                response.raise_for_status()
+            except requests.exceptions.RequestException:
+                raise HTTPNotFound()
+
+            return web.Response(body=response.raw, headers=full_headers)
         else:
             raise NotImplementedError()
 
