@@ -324,7 +324,7 @@ class TestRecursiveRemove(unittest.TestCase):
             .pulp_href
         )
         add_response = self.repositories_api.add(
-            self.to_repo.pulp_href, {"content_units": [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]},
+            self.to_repo.pulp_href, {"content_units": [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]}
         )
         monitor_task(add_response.task)
         latest_version_href = self.repositories_api.read(self.to_repo.pulp_href).latest_version_href
@@ -335,7 +335,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.assertEqual(latest.content_summary.added["container.blob"]["count"], 10)
 
         remove_response = self.repositories_api.remove(
-            self.to_repo.pulp_href, {"content_units": [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]},
+            self.to_repo.pulp_href, {"content_units": [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]}
         )
         monitor_task(remove_response.task)
         latest_version_href = self.repositories_api.read(self.to_repo.pulp_href).latest_version_href

@@ -277,12 +277,12 @@ class ContainerRegistryApiMixin:
                 try:
                     with transaction.atomic():
                         repo_serializer = serializers.ContainerPushRepositorySerializer(
-                            data={"name": path}, context={"request": request},
+                            data={"name": path}, context={"request": request}
                         )
                         repo_serializer.is_valid(raise_exception=True)
                         repository = repo_serializer.create(repo_serializer.validated_data)
                         repo_href = serializers.ContainerPushRepositorySerializer(
-                            repository, context={"request": request},
+                            repository, context={"request": request}
                         ).data["pulp_href"]
 
                         dist_serializer = serializers.ContainerDistributionSerializer(
