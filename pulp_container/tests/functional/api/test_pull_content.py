@@ -106,7 +106,7 @@ class PullContentTestCase(unittest.TestCase):
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href,)
+                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href)
             )
 
             # remove callback if everything goes well
@@ -139,8 +139,7 @@ class PullContentTestCase(unittest.TestCase):
         )
 
     def test_api_performes_schema_conversion(self):
-        """Verify pull via token with accepted content type.
-        """
+        """Verify pull via token with accepted content type."""
         image_path = "/v2/{}/manifests/{}".format(self.distribution_with_repo.base_path, "latest")
         latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
@@ -321,7 +320,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
-                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href,)
+                (cls.distributions_api.delete, cls.distribution_with_repo_version.pulp_href)
             )
 
             # remove callback if everything goes well

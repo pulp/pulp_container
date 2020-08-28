@@ -136,7 +136,7 @@ class Registry(Handler):
         accepted_media_types = await Registry.get_accepted_media_types(request)
 
         try:
-            tag = Tag.objects.get(pk__in=repository_version.content, name=tag_name,)
+            tag = Tag.objects.get(pk__in=repository_version.content, name=tag_name)
         except ObjectDoesNotExist:
             raise PathNotResolved(tag_name)
 
