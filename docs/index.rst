@@ -40,9 +40,9 @@ supplemental docs. Users may also find `pulpcore's conceptual docs
 
 This documentation falls into two main categories:
 
-  1. :ref:`workflows-index` show the **major features** of the contaianer plugin, with links to
+  1. :ref:`workflows-index` shows the **major features** of the container plugin, with links to
      reference docs.
-  2. `REST API Docs <restapi.html>`_ are automatically generated and provide more detailed
+  2. The `REST API Docs <restapi.html>`_ are automatically generated and provide more detailed
      information for each **minor feature**, including all fields and options.
 
 Container Workflows
