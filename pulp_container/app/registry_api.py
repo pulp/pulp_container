@@ -276,12 +276,14 @@ class ContainerRegistryApiMixin:
                 try:
                     with transaction.atomic():
                         repo_serializer = serializers.ContainerPushRepositorySerializer(
-                            data={"name": path}, context={"request": request},
+                            data={"name": path},
+                            context={"request": request},
                         )
                         repo_serializer.is_valid(raise_exception=True)
                         repository = repo_serializer.create(repo_serializer.validated_data)
                         repo_href = serializers.ContainerPushRepositorySerializer(
-                            repository, context={"request": request},
+                            repository,
+                            context={"request": request},
                         ).data["pulp_href"]
 
                         dist_serializer = serializers.ContainerDistributionSerializer(
@@ -554,7 +556,9 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
                 tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
                 return distribution.redirect_to_content_app(
                     "{}/pulp/container/{}/manifests/{}".format(
-                        settings.CONTENT_ORIGIN, path, tag.name,
+                        settings.CONTENT_ORIGIN,
+                        path,
+                        tag.name,
                     ),
                 )
             else:
@@ -564,7 +568,9 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
 
         return distribution.redirect_to_content_app(
             "{}/pulp/container/{}/manifests/{}".format(
-                settings.CONTENT_ORIGIN, path, manifest.digest,
+                settings.CONTENT_ORIGIN,
+                path,
+                manifest.digest,
             ),
         )
 

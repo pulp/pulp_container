@@ -24,10 +24,11 @@ def recursive_add_content(repository_pk, content_units):
     """
     repository = ContainerRepository.objects.get(pk=repository_pk)
 
-    tags_to_add = Tag.objects.filter(pk__in=content_units,)
+    tags_to_add = Tag.objects.filter(pk__in=content_units)
 
     manifest_lists_to_add = Manifest.objects.filter(
-        pk__in=content_units, media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI],
+        pk__in=content_units,
+        media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI],
     ) | Manifest.objects.filter(
         pk__in=tags_to_add.values_list("tagged_manifest", flat=True),
         media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI],

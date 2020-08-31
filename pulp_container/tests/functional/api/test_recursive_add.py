@@ -113,7 +113,8 @@ class TestManifestCopy(unittest.TestCase):
         """Passing only source version copies all manifests."""
         latest_from = self.repositories_api.read(self.from_repo.pulp_href)
         copy_response = self.repositories_api.copy_manifests(
-            self.to_repo.pulp_href, {"source_repository_version": latest_from.latest_version_href},
+            self.to_repo.pulp_href,
+            {"source_repository_version": latest_from.latest_version_href},
         )
         monitor_task(copy_response.task)
 
@@ -296,7 +297,8 @@ class TestManifestCopy(unittest.TestCase):
     def test_copy_manifests_by_digest_empty_list(self):
         """Passing an empty list copies no manifests."""
         self.repositories_api.copy_manifests(
-            self.to_repo.pulp_href, {"source_repository": self.from_repo.pulp_href, "digests": []},
+            self.to_repo.pulp_href,
+            {"source_repository": self.from_repo.pulp_href, "digests": []},
         )
         latest_to = self.repositories_api.read(self.to_repo.pulp_href)
         # Assert a new version was not created
@@ -386,7 +388,8 @@ class TestTagCopy(unittest.TestCase):
             self.from_repo.pulp_href
         ).latest_version_href
         copy_response = self.repositories_api.copy_tags(
-            self.to_repo.pulp_href, {"source_repository_version": latest_from_repo_href},
+            self.to_repo.pulp_href,
+            {"source_repository_version": latest_from_repo_href},
         )
         monitor_task(copy_response.task)
 
@@ -423,7 +426,8 @@ class TestTagCopy(unittest.TestCase):
     def test_copy_tags_by_name_empty_list(self):
         """Passing an empty list of names copies nothing."""
         copy_response = self.repositories_api.copy_tags(
-            self.to_repo.pulp_href, {"source_repository": self.from_repo.pulp_href, "names": []},
+            self.to_repo.pulp_href,
+            {"source_repository": self.from_repo.pulp_href, "names": []},
         )
         monitor_task(copy_response.task)
 
@@ -537,7 +541,7 @@ class TestRecursiveAdd(unittest.TestCase):
     def test_manifest_list_recursion(self):
         """Add a Manifest List, related manifests, and related blobs."""
         ml_i = (
-            self.tags_api.list(name="ml_i", repository_version=self.latest_from_version,)
+            self.tags_api.list(name="ml_i", repository_version=self.latest_from_version)
             .results[0]
             .tagged_manifest
         )
@@ -648,7 +652,8 @@ class TestRecursiveAdd(unittest.TestCase):
             .pulp_href
         )
         add_response = self.repositories_api.add(
-            self.to_repo.pulp_href, {"content_units": [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]},
+            self.to_repo.pulp_href,
+            {"content_units": [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]},
         )
         monitor_task(add_response.task)
 

@@ -41,7 +41,7 @@ class TagSerializer(NoArtifactContentSerializer):
     )
 
     class Meta:
-        fields = NoArtifactContentSerializer.Meta.fields + ("name", "tagged_manifest",)
+        fields = NoArtifactContentSerializer.Meta.fields + ("name", "tagged_manifest")
         model = models.Tag
 
 
@@ -94,7 +94,7 @@ class BlobSerializer(SingleArtifactContentSerializer):
     media_type = serializers.CharField(help_text="Blob media type of the file")
 
     class Meta:
-        fields = SingleArtifactContentSerializer.Meta.fields + ("digest", "media_type",)
+        fields = SingleArtifactContentSerializer.Meta.fields + ("digest", "media_type")
         model = models.Blob
 
 
@@ -176,7 +176,7 @@ class ContainerRemoteSerializer(RemoteSerializer):
     )
 
     class Meta:
-        fields = RemoteSerializer.Meta.fields + ("upstream_name", "include_tags", "exclude_tags",)
+        fields = RemoteSerializer.Meta.fields + ("upstream_name", "include_tags", "exclude_tags")
         model = models.ContainerRemote
 
 
@@ -295,7 +295,8 @@ class TagImageSerializer(TagOperationSerializer):
 
         try:
             manifest = models.Manifest.objects.get(
-                pk__in=new_data["latest_version"].content.all(), digest=new_data["digest"],
+                pk__in=new_data["latest_version"].content.all(),
+                digest=new_data["digest"],
             )
         except models.Manifest.DoesNotExist:
             raise serializers.ValidationError(
@@ -430,7 +431,9 @@ class ManifestCopySerializer(CopySerializer):
     """
 
     digests = serializers.ListField(
-        required=False, allow_null=False, help_text="A list of manifest digests to copy.",
+        required=False,
+        allow_null=False,
+        help_text="A list of manifest digests to copy.",
     )
     media_types = serializers.MultipleChoiceField(
         choices=models.Manifest.MANIFEST_CHOICES,
@@ -459,7 +462,9 @@ class OCIBuildImageSerializer(serializers.Serializer):
         required=False,
     )
     tag = serializers.CharField(
-        required=False, default="latest", help_text="A tag name for the new image being built.",
+        required=False,
+        default="latest",
+        help_text="A tag name for the new image being built.",
     )
     artifacts = serializers.JSONField(
         required=False,

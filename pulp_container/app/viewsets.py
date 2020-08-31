@@ -215,7 +215,9 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         tag = serializer.validated_data["tag"]
 
         result = enqueue_with_reservation(
-            tasks.untag_image, [repository], kwargs={"tag": tag, "repository_pk": repository.pk},
+            tasks.untag_image,
+            [repository],
+            kwargs={"tag": tag, "repository_pk": repository.pk},
         )
         return OperationPostponedResponse(result, request)
 
@@ -226,7 +228,9 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         request=serializers.RecursiveManageSerializer,
     )
     @action(
-        detail=True, methods=["post"], serializer_class=serializers.RecursiveManageSerializer,
+        detail=True,
+        methods=["post"],
+        serializer_class=serializers.RecursiveManageSerializer,
     )
     def add(self, request, pk):
         """
@@ -256,7 +260,9 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         request=serializers.RecursiveManageSerializer,
     )
     @action(
-        detail=True, methods=["post"], serializer_class=serializers.RecursiveManageSerializer,
+        detail=True,
+        methods=["post"],
+        serializer_class=serializers.RecursiveManageSerializer,
     )
     def remove(self, request, pk):
         """
@@ -300,7 +306,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         repository = self.get_object()
         source_latest = serializer.validated_data["source_repository_version"]
         content_tags_in_repo = source_latest.content.filter(pulp_type="container.tag")
-        tags_in_repo = models.Tag.objects.filter(pk__in=content_tags_in_repo,)
+        tags_in_repo = models.Tag.objects.filter(pk__in=content_tags_in_repo)
         if names is None:
             tags_to_add = tags_in_repo
         else:
@@ -323,7 +329,9 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         request=serializers.ManifestCopySerializer,
     )
     @action(
-        detail=True, methods=["post"], serializer_class=serializers.ManifestCopySerializer,
+        detail=True,
+        methods=["post"],
+        serializer_class=serializers.ManifestCopySerializer,
     )
     def copy_manifests(self, request, pk):
         """
@@ -334,7 +342,7 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         repository = self.get_object()
         source_latest = serializer.validated_data["source_repository_version"]
         content_manifests_in_repo = source_latest.content.filter(pulp_type="container.manifest")
-        manifests_in_repo = models.Manifest.objects.filter(pk__in=content_manifests_in_repo,)
+        manifests_in_repo = models.Manifest.objects.filter(pk__in=content_manifests_in_repo)
         digests = request.data.get("digests")
         media_types = request.data.get("media_types")
         filters = {}
@@ -475,7 +483,9 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
             )
 
         async_result = enqueue_with_reservation(
-            tasks.general_multi_delete, reservations, args=(instance_ids,),
+            tasks.general_multi_delete,
+            reservations,
+            args=(instance_ids,),
         )
         return OperationPostponedResponse(async_result, request)
 
