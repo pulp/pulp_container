@@ -2,7 +2,6 @@ import logging
 import os
 
 from aiohttp import web
-from aiohttp.web_exceptions import HTTPFound
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from multidict import MultiDict
@@ -11,6 +10,7 @@ from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
 from pulp_container.app.models import ContainerDistribution, Tag
 from pulp_container.app.schema_convert import Schema2toSchema1ConverterWrapper
+from pulp_container.app.utils import get_accepted_media_types
 from pulp_container.constants import MEDIA_TYPE
 
 log = logging.getLogger(__name__)
@@ -33,25 +33,6 @@ class Registry(Handler):
     """
 
     distribution_model = ContainerDistribution
-
-    @staticmethod
-    async def get_accepted_media_types(request):
-        """
-        Returns a list of media types from the Accept headers.
-
-        Args:
-            request(:class:`~aiohttp.web.Request`): The request to extract headers from.
-
-        Returns:
-            List of media types supported by the client.
-
-        """
-        accepted_media_types = []
-        for header, values in request.raw_headers:
-            if header == b"Accept":
-                values = [v.strip().decode("UTF-8") for v in values.split(b",")]
-                accepted_media_types.extend(values)
-        return accepted_media_types
 
     @staticmethod
     def _base_paths(path):
@@ -96,21 +77,9 @@ class Registry(Handler):
             n=os.path.basename(file.name)
         )
 
-        if settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem":
-            path = os.path.join(settings.MEDIA_ROOT, file.name)
-            file_response = web.FileResponse(path, headers=full_headers)
-            return file_response
-        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.s3boto3.S3Boto3Storage":
-            content_url = file.storage.url(
-                file.name,
-                parameters={
-                    "ResponseContentType": full_headers["Content-Type"],
-                    "ResponseContentDisposition": full_headers["Content-Disposition"],
-                },
-            )
-            raise HTTPFound(content_url)
-        else:
-            raise NotImplementedError()
+        path = os.path.join(settings.MEDIA_ROOT, file.name)
+        file_response = web.FileResponse(path, headers=full_headers)
+        return file_response
 
     async def get_tag(self, request):
         """
@@ -133,10 +102,10 @@ class Registry(Handler):
         distribution = self._match_distribution(path)
         self._permit(request, distribution)
         repository_version = distribution.get_repository_version()
-        accepted_media_types = await Registry.get_accepted_media_types(request)
+        accepted_media_types = get_accepted_media_types(request.headers)
 
         try:
-            tag = Tag.objects.get(pk__in=repository_version.content, name=tag_name,)
+            tag = Tag.objects.get(pk__in=repository_version.content, name=tag_name)
         except ObjectDoesNotExist:
             raise PathNotResolved(tag_name)
 

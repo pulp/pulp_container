@@ -83,7 +83,7 @@ class ContainerFirstStage(Stage):
 
         for tag_name in tag_list:
             relative_url = "/v2/{name}/manifests/{tag}".format(
-                name=self.remote.namespaced_upstream_name, tag=tag_name,
+                name=self.remote.namespaced_upstream_name, tag=tag_name
             )
             url = urljoin(self.remote.url, relative_url)
             downloader = self.remote.get_downloader(url=url)
@@ -238,7 +238,7 @@ class ContainerFirstStage(Stage):
             digest = self._calculate_digest(raw_data)
 
         manifest = Manifest(
-            digest=digest, schema_version=manifest_data["schemaVersion"], media_type=media_type,
+            digest=digest, schema_version=manifest_data["schemaVersion"], media_type=media_type
         )
 
         return self._create_manifest_declarative_content(manifest, saved_artifact, tag_name, digest)
@@ -320,9 +320,9 @@ class ContainerFirstStage(Stage):
         """
         digest = blob_data.get("digest") or blob_data.get("blobSum")
         blob_artifact = Artifact(sha256=digest[len("sha256:") :])
-        blob = Blob(digest=digest, media_type=blob_data.get("mediaType", MEDIA_TYPE.REGULAR_BLOB),)
+        blob = Blob(digest=digest, media_type=blob_data.get("mediaType", MEDIA_TYPE.REGULAR_BLOB))
         relative_url = "/v2/{name}/blobs/{digest}".format(
-            name=self.remote.namespaced_upstream_name, digest=digest,
+            name=self.remote.namespaced_upstream_name, digest=digest
         )
         blob_url = urljoin(self.remote.url, relative_url)
         da = DeclarativeArtifact(
@@ -333,7 +333,7 @@ class ContainerFirstStage(Stage):
             extra_data={"headers": V2_ACCEPT_HEADERS},
             deferred_download=self.deferred_download,
         )
-        blob_dc = DeclarativeContent(content=blob, d_artifacts=[da],)
+        blob_dc = DeclarativeContent(content=blob, d_artifacts=[da])
 
         return blob_dc
 
@@ -350,7 +350,7 @@ class ContainerFirstStage(Stage):
         """
         foreign_excluded = not self.remote.include_foreign_layers
         layer_type = layer.get("mediaType", MEDIA_TYPE.REGULAR_BLOB)
-        is_foreign = layer_type in (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB_OCI,)
+        is_foreign = layer_type in (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB_OCI)
         if is_foreign and foreign_excluded:
             log.debug(_("Foreign Layer: %(d)s EXCLUDED"), dict(d=layer))
             return False
