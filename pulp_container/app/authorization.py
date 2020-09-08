@@ -1,4 +1,3 @@
-import re
 import base64
 import hashlib
 import random
@@ -13,8 +12,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 TOKEN_EXPIRATION_TIME = 300
-
-KNOWN_SERVICES = [re.sub(r"(http://|https://)", "", settings.CONTENT_ORIGIN, count=1)]
 
 
 class AuthorizationService:
