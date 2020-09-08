@@ -1,2 +1,0 @@
-Fixed bug where users would get 403 response when pulling from the registry running behind an HTTPS
-reverse proxy.
