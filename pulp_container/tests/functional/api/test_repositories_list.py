@@ -92,7 +92,7 @@ class RepositoriesListTestCase(unittest.TestCase):
 
         queries = AuthenticationHeaderQueries(authenticate_header)
         self.assertFalse(hasattr(queries, "scope"))
-        content_response = self.client.get(queries.realm, params={"service": queries.service},)
+        content_response = self.client.get(queries.realm, params={"service": queries.service})
         repositories = self.client.get(
             repositories_list_endpoint, auth=BearerTokenAuth(content_response["token"])
         )

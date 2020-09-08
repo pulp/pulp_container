@@ -4,6 +4,7 @@ import re
 import time
 from logging import getLogger
 from url_normalize import url_normalize
+from urllib.parse import urlparse
 
 from django.db import models
 from django.conf import settings
@@ -462,9 +463,12 @@ class ContentRedirectContentGuard(ContentGuard):
         return url
 
     def _get_digest(self, salt, url):
+        url_parts = urlparse(url_normalize(url))
         hasher = hashlib.sha256()
         hasher.update(salt)
-        hasher.update(url_normalize(url).encode())
+        hasher.update(url_parts.path.encode())
+        hasher.update(b"?")
+        hasher.update(url_parts.query.encode())
         hasher.update(self.shared_secret)
         return hasher.digest()
 
