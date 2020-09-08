@@ -13,6 +13,21 @@ Changelog
 
 .. towncrier release notes start
 
+2.0.1 (2020-09-08)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed bug where users would get 403 response when pulling from the registry running behind an HTTPS
+  reverse proxy.
+  `#7462 <https://pulp.plan.io/issues/7462>`_
+
+
+----
+
+
 2.0.0 (2020-08-18)
 ====================
 
