@@ -554,7 +554,9 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
                 tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
                 return distribution.redirect_to_content_app(
                     "{}/pulp/container/{}/manifests/{}".format(
-                        settings.CONTENT_ORIGIN, path, tag.name,
+                        settings.CONTENT_ORIGIN,
+                        path,
+                        tag.name,
                     ),
                 )
             else:
@@ -564,7 +566,9 @@ class Manifests(ContainerRegistryApiMixin, ViewSet):
 
         return distribution.redirect_to_content_app(
             "{}/pulp/container/{}/manifests/{}".format(
-                settings.CONTENT_ORIGIN, path, manifest.digest,
+                settings.CONTENT_ORIGIN,
+                path,
+                manifest.digest,
             ),
         )
 
