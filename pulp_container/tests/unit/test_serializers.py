@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from pulp_container.app.serializers import ContainerDistributionSerializer
+from pulp_container.app.serializers import ContainerDistributionSerializer, TagOperationSerializer
 from pulp_container.app.models import ContainerPushRepository, ContainerRepository
 
 
@@ -63,3 +63,27 @@ class TestContainerDistributionSerializer(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("non_field_errors", serializer.errors)
         self.assertIn("cannot be distributed", str(serializer.errors["non_field_errors"][0]))
+
+
+class TestTagOperationSerializer(TestCase):
+    """Test TagOperationSerializer."""
+
+    def setUp(self):
+        """Create a new repository."""
+        self.repository, _ = ContainerRepository.objects.get_or_create(name="tag repository")
+
+    def test_valid_tag(self):
+        """Test the serializer while passing a valid tag."""
+        serializer = TagOperationSerializer(
+            data={"tag": "valid-tag", "repository": self.repository}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_invalid_tag(self):
+        """Test the serializer while passing an invalid tag."""
+        serializer = TagOperationSerializer(
+            data={"tag": ".invalid-tag", "repository": self.repository}
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("tag", serializer.errors)
+        self.assertIn("tag is not valid", str(serializer.errors["tag"][0]))
