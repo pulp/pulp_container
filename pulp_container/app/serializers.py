@@ -26,6 +26,8 @@ from pulpcore.plugin.serializers import (
 
 from . import models
 
+VALID_TAG_REGEX = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+
 
 class TagSerializer(NoArtifactContentSerializer):
     """
@@ -253,7 +255,18 @@ class TagOperationSerializer(serializers.Serializer):
     A base serializer for tagging and untagging manifests.
     """
 
-    tag = serializers.CharField(required=True, help_text="A tag name")
+    tag = serializers.RegexField(
+        regex=VALID_TAG_REGEX,
+        required=True,
+        help_text="A tag name",
+        error_messages={
+            "invalid": _(
+                "The provided tag is not valid. A tag may contain lowercase and uppercase ASCII "
+                "alphabetic characters, digits, underscores, periods, and dashes. A tag must not "
+                "start with a period or a dash."
+            )
+        },
+    )
 
     def validate(self, data):
         """
