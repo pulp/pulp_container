@@ -13,6 +13,27 @@ Changelog
 
 .. towncrier release notes start
 
+2.1.0 (2020-09-23)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed the unnecessary double redirect issued for the S3 storage
+  `#6826 <https://pulp.plan.io/issues/6826>`_
+
+
+Improved Documentation
+----------------------
+
+- Documented how include/exclude_tags options work with mirror=True/False.
+  `#7380 <https://pulp.plan.io/issues/7380>`_
+
+
+----
+
+
 2.0.1 (2020-09-08)
 ==================
 
