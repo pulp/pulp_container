@@ -13,20 +13,6 @@ Changelog
 
 .. towncrier release notes start
 
-2.0.2 (2020-09-22)
-==================
-
-
-Improved Documentation
-----------------------
-
-- Documented how include/exclude_tags options work with mirror=True/False.
-  `#7380 <https://pulp.plan.io/issues/7380>`_
-
-
-----
-
-
 2.0.1 (2020-09-08)
 ==================
 

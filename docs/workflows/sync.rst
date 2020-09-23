@@ -84,8 +84,6 @@ sync with. You are telling pulp to fetch content from the remote and add to the 
     In the above example, the payload contains the field ``mirror=False``. This means that the
     sync will be run in the additive mode only. Set ``mirror`` to ``True`` and Pulp will pull
     in new content and remove content which was also removed from upstream.
-    The same logic will be applied when ``include/exclude_tags`` are specified together with 
-    the ``mirror`` command, but only on the subset of tags.
 
 .. note::
    It is not posible to push content to a repository that has been used to mirror content.
