@@ -34,13 +34,15 @@ plugin_dash: pulp-container
 plugin_dash_short: container
 plugin_name: pulp_container
 plugin_snake: pulp_container
+publish_docs_to_pulpprojectdotorg: false
 pulp_settings: {}
 pulpcore_branch: master
 pulpcore_pip_version_specifier: null
+pulpprojectdotorg_key_id: null
 pydocstyle: true
 pypi_username: pulp
 redmine_project: pulp_container
-stable_branch: '1.4'
+stable_branch: None
 test: false
 test_bindings: false
 test_performance: false
