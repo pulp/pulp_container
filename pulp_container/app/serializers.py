@@ -1,7 +1,6 @@
 from gettext import gettext as _
 import os
 
-from django.conf import settings
 from django.db import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -132,8 +131,8 @@ class RegistryPathField(serializers.CharField):
         """
         Converts a base_path into a registry path.
         """
-        host = settings.CONTENT_ORIGIN
-        return "".join([host.split("//")[-1], "/", value])
+        request = self.context["request"]
+        return f"{request.get_host()}/{value}"
 
 
 class ContainerNamespaceSerializer(ModelSerializer, _GetOrCreateMixin):

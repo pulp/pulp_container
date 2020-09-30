@@ -1,4 +1,3 @@
-import re
 import jwt
 
 from django.conf import settings
@@ -9,20 +8,17 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
-CONTENT_HOST = re.sub(r"(http://|https://)", "", settings.CONTENT_ORIGIN, count=1)
-
-
-def _decode_token(encoded_token):
+def _decode_token(encoded_token, request):
     """
-    Decode token and verify a signature with a public key.
+    Decode the token and verify the signature with a public key.
 
-    If the token could not be decoded with a success, a client does not have a
+    If the token could not be decoded with a success, a client does not have
     permission to operate with a registry.
     """
     JWT_DECODER_CONFIG = {
         "algorithms": [settings.TOKEN_SIGNATURE_ALGORITHM],
         "issuer": settings.TOKEN_SERVER,
-        "audience": CONTENT_HOST,
+        "audience": request.get_host(),
     }
     with open(settings.PUBLIC_KEY_PATH, "rb") as public_key:
         decoded_token = jwt.decode(encoded_token, public_key.read(), **JWT_DECODER_CONFIG)
@@ -84,11 +80,11 @@ class TokenAuthentication(BaseAuthentication):
             return None
         token = authorization_header[len(self.keyword) + 1 :]
         try:
-            decoded_token = _decode_token(token)
+            decoded_token = _decode_token(token, request)
         except jwt.exceptions.InvalidTokenError:
             raise AuthenticationFailed(
                 detail="Access to the requested resource is not authorized. "
-                "A provided Bearer token is invalid.",
+                "The provided Bearer token is invalid.",
             )
 
         username = decoded_token.get("sub")
@@ -112,7 +108,7 @@ class TokenAuthentication(BaseAuthentication):
         realm = settings.TOKEN_SERVER
         repository_path, access_action = _access_scope(request)
 
-        authenticate_string = f'{self.keyword} realm="{realm}",service="{CONTENT_HOST}"'
+        authenticate_string = f'{self.keyword} realm="{realm}",service="{request.get_host()}"'
 
         if repository_path:
             scope = f"repository:{repository_path}:{access_action}"
