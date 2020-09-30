@@ -5,13 +5,10 @@ Build an OCI image from a Containerfile
 
 
 .. warning::
-    All container build APIs are tech preview in Pulp Container 1.1. Backwards compatibility when
+    All container build APIs are tech preview in Pulp Container 2.1. Backwards compatibility when
     upgrading is not guaranteed.
 
-    This feature may not be available in all deployments due to permission problems. `buildah`
-    needs to also be installed. The user running the pulp worker process needs to be able to use
-    `sudo` without a password, `though this limitation should be removed in the near future
-    <https://pulp.plan.io/issues/5895>`_.
+    `buildah` needs to be installed to enable image building.
 
 Users can add new images to a container repository by uploading a Containerfile. The syntax for
 Containerfile is the same as for a Dockerfile. The same REST API endpoint also accepts a JSON
