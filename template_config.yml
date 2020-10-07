@@ -34,11 +34,11 @@ plugin_dash: pulp-container
 plugin_dash_short: container
 plugin_name: pulp_container
 plugin_snake: pulp_container
-publish_docs_to_pulpprojectdotorg: false
+publish_docs_to_pulpprojectdotorg: true
 pulp_settings: {}
 pulpcore_branch: master
 pulpcore_pip_version_specifier: null
-pulpprojectdotorg_key_id: null
+pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
 redmine_project: pulp_container
