@@ -94,7 +94,7 @@ start with a repository that has some content in it.
 
 Next create a new repository that we can add content to.
 
-.. literalinclude:: ../_scripts/destination_repo.sh
+.. literalinclude:: ../_scripts/second_repo.sh
    :language: bash
 
 Now we recursively add a tag to the destination repository.
@@ -234,7 +234,7 @@ are removed.
 
 Again we start with a new destination repository.
 
-.. literalinclude:: ../_scripts/destination_repo.sh
+.. literalinclude:: ../_scripts/second_repo.sh
    :language: bash
 
 With copy (contrasted to recursive add) we do not need to retrieve the
