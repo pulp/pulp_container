@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo "Create a task to recursively remove the same tag to the repo."
-export TASK_HREF=$(http POST $BASE_ADDR$REPO_HREF'remove/' \
+export TASK_HREF=$(http POST $BASE_ADDR$SECOND_REPO_HREF'remove/' \
   content_units:="[\"$TAG_HREF\"]" \
   | jq -r '.task')
 

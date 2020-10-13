@@ -15,15 +15,15 @@ source distribution.sh
 source download_after_sync.sh
 
 # Check add/remove
-source destination_repo.sh
+source second_repo.sh
 source recursive_add_tag.sh
 source recursive_remove_tag.sh
 
 # Check Copy
-source destination_repo.sh
+source second_repo.sh
 source manifest_copy.sh
 
-source destination_repo.sh
+source second_repo.sh
 source tag_copy.sh
 
 # Check tag/untag

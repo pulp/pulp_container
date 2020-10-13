@@ -5,7 +5,7 @@ export TAG_HREF=$(http $BASE_ADDR'/pulp/api/v3/content/container/tags/?repositor
   | jq -r '.results | first | .pulp_href')
 
 echo "Create a task to recursively add a tag to the repo."
-export TASK_HREF=$(http POST $BASE_ADDR$REPO_HREF'add/' \
+export TASK_HREF=$(http POST $BASE_ADDR$SECOND_REPO_HREF'add/' \
   content_units:="[\"$TAG_HREF\"]" \
   | jq -r '.task')
 

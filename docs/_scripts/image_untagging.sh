@@ -3,8 +3,7 @@
 export TAG_NAME='custom_tag'
 
 echo "Untagging a manifest which is labeled with ${TAG_NAME}"
-export TASK_URL=$(http POST $BASE_ADDR$REPO_HREF'untag/' \
-  repository=$REPO_HREF tag=$TAG_NAME \
+export TASK_URL=$(http POST $BASE_ADDR$REPO_HREF'untag/' tag=$TAG_NAME \
   | jq -r '.task')
 
 wait_until_task_finished $BASE_ADDR$TASK_URL
