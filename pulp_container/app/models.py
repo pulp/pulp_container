@@ -380,7 +380,7 @@ class Upload(BaseModel):
         max_length=255,
         null=True,
         upload_to=generate_filename,
-        storage=FileSystemStorage(location=settings.CHUNKED_UPLOAD_DIR),
+        storage=FileSystemStorage(location="/var/lib/pulp/upload/"),
     )
 
     upload_dir = os.path.join(settings.CHUNKED_UPLOAD_DIR, "container")
