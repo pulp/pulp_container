@@ -15,6 +15,7 @@ from pulpcore.plugin.models import (
 from pulpcore.plugin.serializers import (
     ContentGuardSerializer,
     DetailRelatedField,
+    IdentityField,
     ModelSerializer,
     NestedRelatedField,
     NoArtifactContentSerializer,
@@ -140,6 +141,8 @@ class ContainerNamespaceSerializer(ModelSerializer, _GetOrCreateMixin):
     Serializer for ContainerNamespaces.
     """
 
+    pulp_href = IdentityField(view_name="pulp_container/namespaces-detail")
+
     class Meta:
         fields = ModelSerializer.Meta.fields + ("name",)
         model = models.ContainerNamespace
@@ -234,6 +237,12 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
         queryset=models.ContentRedirectContentGuard.objects.all(),
         allow_null=False,
     )
+    namespace = RelatedField(
+        required=False,
+        read_only=True,
+        view_name="pulp_container/namespaces-detail",
+        help_text=_("Namespace this distribution belongs to."),
+    )
 
     def validate(self, data):
         """
@@ -275,6 +284,7 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
         model = models.ContainerDistribution
         fields = tuple(set(RepositoryVersionDistributionSerializer.Meta.fields) - {"base_url"}) + (
             "registry_path",
+            "namespace",
         )
 
 
