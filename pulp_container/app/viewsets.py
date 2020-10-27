@@ -7,7 +7,7 @@ Check `Plugin Writer's Guide`_ for more details.
 import logging
 
 from django.db import IntegrityError
-from django_filters import MultipleChoiceFilter
+from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 
@@ -22,6 +22,7 @@ from pulpcore.plugin.viewsets import (
     CharInFilter,
     ContentFilter,
     ContentGuardViewSet,
+    # TODO: DistributionFilter,
     ImmutableRepositoryViewSet,
     NamedModelViewSet,
     ReadOnlyContentViewSet,
@@ -71,6 +72,33 @@ class ManifestFilter(ContentFilter):
         }
 
 
+class BlobFilter(ContentFilter):
+    """
+    FilterSet for Blobs.
+    """
+
+    media_type = MultipleChoiceFilter(choices=models.Blob.BLOB_CHOICES)
+
+    class Meta:
+        model = models.Blob
+        fields = {
+            "digest": ["exact", "in"],
+        }
+
+
+# TODO: class ContainerDistributionFilter(DistributionFilter):
+class ContainerDistributionFilter(BaseDistributionViewSet.filterset_class):
+    """
+    FilterSet for ContainerDistributions
+    """
+
+    namespace__name = CharFilter(lookup_expr="exact")
+
+    class Meta:
+        model = models.ContainerDistribution
+        fields = BaseDistributionViewSet.filterset_class.Meta.fields
+
+
 class TagViewSet(ReadOnlyContentViewSet):
     """
     ViewSet for Tag.
@@ -91,20 +119,6 @@ class ManifestViewSet(ReadOnlyContentViewSet):
     queryset = models.Manifest.objects.all()
     serializer_class = serializers.ManifestSerializer
     filterset_class = ManifestFilter
-
-
-class BlobFilter(ContentFilter):
-    """
-    FilterSet for Blobs.
-    """
-
-    media_type = MultipleChoiceFilter(choices=models.Blob.BLOB_CHOICES)
-
-    class Meta:
-        model = models.Blob
-        fields = {
-            "digest": ["exact", "in"],
-        }
 
 
 class BlobViewSet(ReadOnlyContentViewSet):
@@ -449,6 +463,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     endpoint_name = "container"
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
+    filterset_class = ContainerDistributionFilter
 
     @extend_schema(
         description="Trigger an asynchronous delete task",
