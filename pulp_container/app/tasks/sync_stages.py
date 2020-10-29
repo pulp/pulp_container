@@ -330,7 +330,6 @@ class ContainerFirstStage(Stage):
             url=blob_url,
             relative_path=digest,
             remote=self.remote,
-            extra_data={"headers": V2_ACCEPT_HEADERS},
             deferred_download=self.deferred_download,
         )
         blob_dc = DeclarativeContent(content=blob, d_artifacts=[da])
