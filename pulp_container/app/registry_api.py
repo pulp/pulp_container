@@ -452,6 +452,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                     sha256=upload.sha256,
                     sha384=upload.sha384,
                     sha512=upload.sha512,
+                    sha224=upload.sha224,
                     size=upload.file.size,
                 )
                 artifact.save()
