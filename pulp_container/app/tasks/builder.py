@@ -116,6 +116,8 @@ def build_image_from_containerfile(
         buildah_env = os.environ.copy()
         buildah_env.update(
             {
+                "_BUILDAH_STARTED_IN_USERNS": "",
+                "BUILDAH_ISOLATION": "chroot",
                 "HOME": working_directory.path,
             }
         )
