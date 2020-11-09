@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
 
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
@@ -13,7 +14,6 @@ from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
-    monitor_task,
     BearerTokenAuth,
     AuthenticationHeaderQueries,
 )

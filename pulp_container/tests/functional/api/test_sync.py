@@ -3,12 +3,12 @@
 import unittest
 
 from pulp_smash import config
+from pulp_smash.pulp3.bindings import monitor_task, PulpTaskError
 from pulp_smash.pulp3.utils import delete_orphans, gen_repo
 
 from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_container_remote,
-    monitor_task,
 )
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 
@@ -99,11 +99,9 @@ class SyncInvalidURLTestCase(unittest.TestCase):
         repository_sync_data = RepositorySyncURL(remote=remote.pulp_href)
         sync_response = repository_api.sync(repository.pulp_href, repository_sync_data)
 
-        task = monitor_task(sync_response.task)
-        if isinstance(task, dict):
-            self.assertIsNotNone(task["error"]["description"])
-        else:
-            self.assertFalse("Sync with an invalid remote URL was successful")
+        with self.assertRaises(PulpTaskError) as context:
+            monitor_task(sync_response.task)
+        self.assertIsNotNone(context.exception.task.error["description"])
 
 
 class TestRepeatedSync(unittest.TestCase):

@@ -2,12 +2,12 @@
 """Tests for tagging and untagging images."""
 import unittest
 
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo
 
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
-    monitor_task,
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
