@@ -4,12 +4,12 @@ from random import choice
 import unittest
 
 from pulp_smash import utils
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.constants import ON_DEMAND_DOWNLOAD_POLICIES
 
 from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_container_remote,
-    monitor_task,
     skip_if,
 )
 

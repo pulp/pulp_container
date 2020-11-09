@@ -2,13 +2,13 @@
 """Tests that CRUD container content units."""
 import unittest
 
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import delete_orphans
 
 from pulp_container.tests.functional.utils import (
     gen_artifact,
     gen_container_client,
     gen_container_content_attrs,
-    monitor_task,
     skip_if,
 )
 from pulpcore.client.pulp_container import ContentManifestsApi

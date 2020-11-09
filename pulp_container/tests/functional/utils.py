@@ -5,10 +5,10 @@ import requests
 from requests.auth import AuthBase
 from functools import partial
 from unittest import SkipTest
-from time import sleep
 from tempfile import NamedTemporaryFile
 
 from pulp_smash import selectors, config
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import (
     gen_remote,
     gen_repo,
@@ -159,27 +159,3 @@ def gen_artifact(url=CONTAINER_IMAGE_URL):
         temp_file.write(response.content)
         artifact = ArtifactsApi(core_client).create(file=temp_file.name)
         return artifact.to_dict()
-
-
-def monitor_task(task_href):
-    """Poll the Task API until the task is in a completed state.
-
-    Print the task details and a success or failure message. Exits on failure.
-
-    Args:
-        task_href(str): The href of the task to monitor.
-
-    Returns:
-        list[str]: A list of hrefs that identify resource created by the task.
-
-    """
-    completed = ["completed", "failed", "canceled"]
-    task = tasks.read(task_href)
-    while task.state not in completed:
-        sleep(2)
-        task = tasks.read(task_href)
-
-    if task.state == "completed":
-        return task.created_resources
-
-    return task.to_dict()

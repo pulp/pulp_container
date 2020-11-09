@@ -6,12 +6,12 @@ from urllib.parse import urljoin
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, cli
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo, gen_distribution
 
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
-    monitor_task,
     BearerTokenAuth,
     AuthenticationHeaderQueries,
 )

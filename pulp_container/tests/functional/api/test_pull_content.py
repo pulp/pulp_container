@@ -6,6 +6,7 @@ import unittest
 from urllib.parse import urljoin
 
 from pulp_smash import api, cli, config, exceptions
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import (
     delete_orphans,
     get_content,
@@ -18,7 +19,6 @@ from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_container_remote,
     get_docker_hub_remote_blobsums,
-    monitor_task,
     BearerTokenAuth,
     AuthenticationHeaderQueries,
 )
