@@ -84,6 +84,10 @@ jobs:
       before_script: skip
       script: bash .travis/update_redmine.sh
       if: tag IS present
+    - stage: test_released_plugin_with_next_pulpcore_release
+      env:
+        - TEST=plugin-from-pypi
+      if: type = cron
 notifications: None
 
 ...

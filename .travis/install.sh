@@ -19,6 +19,11 @@ pip install -r functest_requirements.txt
 cd .travis
 
 TAG=ci_build
+if [[ "$TEST" == "plugin-from-pypi" ]]; then
+  PLUGIN_NAME=pulp_container
+else
+  PLUGIN_NAME=./pulp_container
+fi
 if [ -n "$TRAVIS_TAG" ]; then
   # Install the plugin only and use published PyPI packages for the rest
   # Quoting ${TAG} ensures Ansible casts the tag as a string.
@@ -30,7 +35,7 @@ plugins:
   - name: pulpcore
     source: pulpcore
   - name: pulp_container
-    source: ./pulp_container
+    source:  "${PLUGIN_NAME}"
 services:
   - name: pulp
     image: "pulp:${TAG}"
@@ -43,10 +48,10 @@ image:
   name: pulp
   tag: "${TAG}"
 plugins:
+  - name: pulp_container
+    source: "${PLUGIN_NAME}"
   - name: pulpcore
     source: ./pulpcore
-  - name: pulp_container
-    source: ./pulp_container
 services:
   - name: pulp
     image: "pulp:${TAG}"
