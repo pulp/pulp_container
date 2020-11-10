@@ -33,6 +33,11 @@ if [ "$TEST" = "docs" ]; then
   exit
 fi
 
+if [[ "$TEST" == "plugin-from-pypi" ]]; then
+  COMPONENT_VERSION=$(http https://pypi.org/pypi/pulp-container/json | jq -r '.info.version')
+  git checkout ${COMPONENT_VERSION} -- pulp_container/tests/
+fi
+
 cd ../pulp-openapi-generator
 
 ./generate.sh pulpcore python

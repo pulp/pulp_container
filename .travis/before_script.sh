@@ -26,7 +26,7 @@ tail -v -n +1 .travis/vars/main.yaml
 echo "PULP CONFIG:"
 tail -v -n +1 .travis/settings/settings.* ~/.config/pulp_smash/settings.json
 
-if [[ "$TEST" == 'pulp' || "$TEST" == 'performance' || "$TEST" == 's3' ]]; then
+if [[ "$TEST" == 'pulp' || "$TEST" == 'performance' || "$TEST" == 's3' || "$TEST" == "plugin-from-pypi" ]]; then
   # Many functional tests require these
   cmd_prefix dnf install -yq lsof which dnf-plugins-core
 fi

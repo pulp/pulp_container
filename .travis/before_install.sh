@@ -9,7 +9,11 @@
 
 set -mveuo pipefail
 
-COMPONENT_VERSION=$(sed -ne 's/\s*version=\"\(.*\)\"[\s,]*/\1/p' setup.py)
+if [[ "$TEST" == "plugin-from-pypi" ]]; then
+  COMPONENT_VERSION=$(http https://pypi.org/pypi/pulp-container/json | jq -r '.info.version')
+else
+  COMPONENT_VERSION=$(sed -ne 's/\s*version=\"\(.*\)\"[\s,]*/\1/p' setup.py)
+fi
 mkdir .travis/vars || true
 echo "---" > .travis/vars/main.yaml
 echo "component_name: pulp_container" >> .travis/vars/main.yaml
