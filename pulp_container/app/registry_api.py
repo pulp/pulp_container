@@ -11,14 +11,14 @@ import re
 from tempfile import NamedTemporaryFile
 
 from django.core.files.storage import default_storage as storage
-
+from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 
 from django.conf import settings
-from django.core.files.base import ContentFile
 
-from pulpcore.plugin.models import Artifact, ContentArtifact
+from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
+from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
@@ -140,8 +140,8 @@ class UploadResponse(Response):
         """
         headers = {
             "Docker-Upload-UUID": upload.pk,
-            "Location": "/v2/{path}/blobs/uploads/{pk}".format(path=path, pk=upload.pk),
-            "Range": "0-{offset}".format(offset=upload.file.size),
+            "Location": f"/v2/{path}/blobs/uploads/{upload.pk}",
+            "Range": f"0-{upload.size}",
             "Content-Length": content_length,
         }
         super().__init__(headers=headers, status=202)
@@ -389,12 +389,11 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
     def create(self, request, path):
         """
-        This methods handles the creation of an upload.
+        Create a new upload.
         """
         _, repository = self.get_dr_push(request, path, create=True)
 
-        upload = models.Upload(repository=repository)
-        upload.file.save(name="", content=ContentFile(""), save=False)
+        upload = models.Upload(repository=repository, size=0)
         upload.save()
         response = UploadResponse(upload=upload, path=path, content_length=0, request=request)
 
@@ -402,7 +401,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
     def partial_update(self, request, path, pk=None):
         """
-        This methods handles uploading of a chunk to an existing upload.
+        Process a chunk that will be appended to an existing upload.
         """
         _, repository = self.get_dr_push(request, path)
         chunk = request.META["wsgi.input"]
@@ -413,48 +412,44 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
         if whole:
             start = 0
-            end = chunk.size - 1
         else:
             content_range = request.META.get("HTTP_CONTENT_RANGE", "")
             match = self.content_range_pattern.match(content_range)
-            if not match:
-                start = 0
-                end = 0
-                chunk_size = 0
-            else:
-                start = int(match.group("start"))
-                end = int(match.group("end"))
-                chunk_size = end - start + 1
+            start = 0 if not match else int(match.group("start"))
 
         upload = get_object_or_404(models.Upload, repository=repository, pk=pk)
 
-        if upload.offset != start:
-            raise Exception
-        upload.append_chunk(chunk, chunk_size=chunk_size)
-        upload.save()
-        return UploadResponse(
-            upload=upload, path=path, content_length=upload.file.size, request=request
-        )
+        chunk = ContentFile(chunk.read())
+        with transaction.atomic():
+            if upload.size != start:
+                raise Exception
+
+            upload.append(chunk, upload.size)
+            upload.size += chunk.size
+            upload.save()
+
+        return UploadResponse(upload=upload, path=path, content_length=chunk.size, request=request)
 
     def put(self, request, path, pk=None):
-        """Handles creation of Uploads."""
+        """
+        Create a blob from uploaded chunks.
+        """
         _, repository = self.get_dr_push(request, path)
 
         digest = request.query_params["digest"]
         upload = models.Upload.objects.get(pk=pk, repository=repository)
+        chunks = UploadChunk.objects.filter(upload=upload).order_by("offset")
 
-        if upload.sha256 == digest[len("sha256:") :]:
+        with NamedTemporaryFile("ab") as temp_file:
+            for chunk in chunks:
+                temp_file.write(chunk.file.read())
+            temp_file.flush()
+
+            uploaded_file = PulpTemporaryUploadedFile.from_file(File(open(temp_file.name, "rb")))
+
+        if uploaded_file.hashers["sha256"].hexdigest() == digest[len("sha256:") :]:
             try:
-                artifact = Artifact(
-                    file=upload.file.name,
-                    md5=upload.md5,
-                    sha1=upload.sha1,
-                    sha256=upload.sha256,
-                    sha384=upload.sha384,
-                    sha512=upload.sha512,
-                    sha224=upload.sha224,
-                    size=upload.file.size,
-                )
+                artifact = Artifact.init_and_validate(uploaded_file)
                 artifact.save()
             except IntegrityError:
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
