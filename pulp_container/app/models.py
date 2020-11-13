@@ -7,20 +7,18 @@ from url_normalize import url_normalize
 from urllib.parse import urlparse
 
 from django.db import models
-from django.conf import settings
-from django.core.files.storage import FileSystemStorage
 from django.contrib.postgres import fields
 from django.shortcuts import redirect
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
-    Artifact,
+    BaseModel,
     Content,
     ContentGuard,
-    BaseModel,
     Remote,
     Repository,
     RepositoryVersionDistribution,
+    Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
 
@@ -385,59 +383,12 @@ def generate_filename(instance, filename):
     return time.strftime(filename)
 
 
-class Upload(BaseModel):
+class Upload(CoreUpload):
     """
     Model for tracking Blob uploads.
     """
 
     repository = models.ForeignKey(Repository, related_name="uploads", on_delete=models.CASCADE)
-
-    offset = models.BigIntegerField(default=0)
-
-    file = models.FileField(
-        max_length=255,
-        null=True,
-        upload_to=generate_filename,
-        storage=FileSystemStorage(location="/var/lib/pulp/upload/"),
-    )
-
-    upload_dir = os.path.join(settings.CHUNKED_UPLOAD_DIR, "container")
-
-    size = models.IntegerField(null=True)
-    md5 = models.CharField(max_length=32, null=True)
-    sha1 = models.CharField(max_length=40, null=True)
-    sha224 = models.CharField(max_length=56, null=True)
-    sha256 = models.CharField(max_length=64, null=True)
-    sha384 = models.CharField(max_length=96, null=True)
-    sha512 = models.CharField(max_length=128, null=True)
-
-    def append_chunk(self, chunk, chunk_size=None, save=True):
-        """Method for appending a chunk to a file."""
-        hashers = {}
-        for algorithm in Artifact.DIGEST_FIELDS:
-            hashers[algorithm] = getattr(hashlib, algorithm)()
-
-        self.file.close()
-        self.file.open(mode="ab")  # mode = append+binary
-        while True:
-            subchunk = chunk.read(2000000)
-            if not subchunk:
-                break
-            self.file.write(subchunk)
-            for algorithm in Artifact.DIGEST_FIELDS:
-                hashers[algorithm].update(subchunk)
-
-        if chunk_size is not None:
-            self.offset += chunk_size
-        elif hasattr(chunk, "size"):
-            self.offset += chunk.size
-        else:
-            self.offset = self.file.size
-        if save:
-            self.save()
-        self.file.close()  # Flush
-        for algorithm in Artifact.DIGEST_FIELDS:
-            setattr(self, algorithm, hashers[algorithm].hexdigest())
 
 
 def _gen_secret():
