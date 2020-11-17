@@ -151,15 +151,17 @@ class PullContentTestCase(unittest.TestCase):
 
         authenticate_header = content_response.headers["Www-Authenticate"]
         queries = AuthenticationHeaderQueries(authenticate_header)
-        content_response = self.client.get(
+        content_response = requests.get(
             queries.realm, params={"service": queries.service, "scope": queries.scope}
         )
+        content_response.raise_for_status()
         token = content_response.json()["token"]
-        content_response = self.client.get(
+        content_response = requests.get(
             latest_image_url,
             auth=BearerTokenAuth(token),
             headers={"Accept": MEDIA_TYPE.MANIFEST_V1},
         )
+        content_response.raise_for_status()
         base_content_type = content_response.headers["Content-Type"].split(";")[0]
         self.assertIn(base_content_type, {MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1_SIGNED})
 

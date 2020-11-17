@@ -3,6 +3,7 @@
 import unittest
 
 from urllib.parse import urljoin
+import requests
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
@@ -86,16 +87,18 @@ class RepositoriesListTestCase(unittest.TestCase):
         repositories_list_endpoint = urljoin(self.cfg.get_base_url(), "/v2/_catalog")
 
         with self.assertRaises(HTTPError) as cm:
-            self.client.get(repositories_list_endpoint)
+            requests.get(repositories_list_endpoint).raise_for_status()
         content_response = cm.exception.response
         authenticate_header = content_response.headers["Www-Authenticate"]
 
         queries = AuthenticationHeaderQueries(authenticate_header)
         self.assertFalse(hasattr(queries, "scope"))
-        content_response = self.client.get(queries.realm, params={"service": queries.service})
-        repositories = self.client.get(
-            repositories_list_endpoint, auth=BearerTokenAuth(content_response["token"])
+        content_response = requests.get(queries.realm, params={"service": queries.service})
+        content_response.raise_for_status()
+        repositories = requests.get(
+            repositories_list_endpoint, auth=BearerTokenAuth(content_response.json()["token"])
         )
+        repositories.raise_for_status()
 
         repositories_names = [self.distribution1.base_path, self.distribution2.base_path]
-        self.assertEqual(repositories, {"repositories": repositories_names})
+        self.assertEqual(repositories.json(), {"repositories": repositories_names})
