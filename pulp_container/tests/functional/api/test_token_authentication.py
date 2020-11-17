@@ -3,6 +3,7 @@
 import unittest
 
 from urllib.parse import urljoin
+import requests
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, cli
@@ -87,22 +88,26 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
         with self.assertRaises(HTTPError) as cm:
-            self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V2})
+            requests.get(
+                latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V2}
+            ).raise_for_status()
 
         content_response = cm.exception.response
         self.assertEqual(content_response.status_code, 401)
 
         authenticate_header = content_response.headers["Www-Authenticate"]
         queries = AuthenticationHeaderQueries(authenticate_header)
-        content_response = self.client.get(
+        content_response = requests.get(
             queries.realm, params={"service": queries.service, "scope": queries.scope}
         )
-        content_response = self.client.get(
+        content_response.raise_for_status()
+        content_response = requests.get(
             latest_image_url,
-            auth=BearerTokenAuth(content_response["token"]),
+            auth=BearerTokenAuth(content_response.json()["token"]),
             headers={"Accept": MEDIA_TYPE.MANIFEST_V2},
         )
-        self.compare_config_blob_digests(content_response["config"]["digest"])
+        content_response.raise_for_status()
+        self.compare_config_blob_digests(content_response.json()["config"]["digest"])
 
     def test_pull_image_with_real_container_client(self):
         """
