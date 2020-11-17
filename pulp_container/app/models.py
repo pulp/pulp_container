@@ -197,7 +197,11 @@ class ContainerNamespace(BaseModel):
         unique_together = (("name",),)
 
 
-class ContainerRepository(Repository):
+class ContainerRepository(
+    Repository,
+    AutoAddObjPermsMixin,
+    AutoDeleteObjPermsMixin,
+):
     """
     Repository for "container" content.
 
@@ -208,9 +212,15 @@ class ContainerRepository(Repository):
     TYPE = "container"
     CONTENT_TYPES = [Blob, Manifest, Tag]
     PUSH_ENABLED = False
+    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            ("sync_containerrepository", "Can start a sync task"),
+            ("modify_content_containerrepository", "Can modify content in a repository"),
+            ("build_image_containerrepository", "Can use the image builder in a repository"),
+        ]
 
     def finalize_new_version(self, new_version):
         """

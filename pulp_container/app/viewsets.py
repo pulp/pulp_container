@@ -10,6 +10,7 @@ from django.db import IntegrityError
 from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
+from rest_framework.decorators import action
 
 from pulpcore.plugin.access_policy import AccessPolicyFromDB
 from pulpcore.plugin.serializers import (
@@ -32,7 +33,6 @@ from pulpcore.plugin.viewsets import (
     RepositoryVersionViewSet,
     OperationPostponedResponse,
 )
-from rest_framework.decorators import action
 
 from pulp_container.app import models, serializers, tasks
 
@@ -201,6 +201,80 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
     endpoint_name = "container"
     queryset = models.ContainerRepository.objects.all()
     serializer_class = serializers.ContainerRepositorySerializer
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_permission = "container.view_containerrepository"
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_perms:container.add_containerrepository",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.view_containerrepository",
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.delete_containerrepository",
+            },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.change_containerrepository",
+            },
+            {
+                "action": ["sync"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.sync_containerrepository",
+                    "has_remote_param_model_or_obj_perms:container.view_containerremote",
+                ],
+            },
+            {
+                "action": ["add", "remove", "tag", "untag", "copy_tags", "copy_manifests"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.modify_content_containerrepository",
+                ],
+            },
+            {
+                "action": ["build_image"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.build_image_containerrepository",
+                ],
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "add_for_object_creator",
+                "parameters": None,
+                "permissions": [
+                    "container.view_containerrepository",
+                    "container.change_containerrepository",
+                    "container.delete_containerrepository",
+                    "container.sync_containerrepository",
+                    "container.modify_content_containerrepository",
+                    "container.build_image_containerrepository",
+                ],
+            },
+        ],
+    }
 
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.
