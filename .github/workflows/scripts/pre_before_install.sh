@@ -1,18 +1,27 @@
+# make sure this script runs at the repo root
+cd "$(dirname "$(realpath -e "$0")")"/../../..
+
 set -mveuo pipefail
 
-
-update_docker_configuration() {
+if [ -f "/etc/docker/daemon.json" ]
+then
   echo "INFO:
   Updating docker configuration
   "
 
-  echo '{
-  "registry-mirrors": ["https://mirror.gcr.io"],
-  "insecure-registries" : ["pulp:80"],
-  "mtu": 1460
-}' | sudo tee /etc/docker/daemon.json
-  sudo service docker restart
-}
+  echo "$(cat /etc/docker/daemon.json | jq -s '.[0] + {
+  "insecure-registries" : ["pulp.example.com", "pulp"]
+  }')" | sudo tee /etc/docker/daemon.json
+  sudo service docker restart || true
+fi
 
+if [ -f "/etc/containers/registries.conf" ]
+then
+  echo "INFO:
+  Updating registries configuration
+  "
+  echo "[registries.insecure]
+  registries = ['pulp.example.com', 'pulp']
+  " | sudo tee -a /etc/containers/registries.conf
+fi
 
-update_docker_configuration

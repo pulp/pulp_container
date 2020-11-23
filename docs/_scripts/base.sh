@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 echo "Setting environment variables for default hostname/port for the API and the Content app"
-export BASE_ADDR=${BASE_ADDR:-http://localhost:24817}
-export CONTENT_ADDR=${CONTENT_ADDR:-http://localhost:24816}
-
-# Necessary for `django-admin`
-export DJANGO_SETTINGS_MODULE=pulpcore.app.settings
+BASE_ADDR=${BASE_ADDR:-http://localhost:24817}
 
 # Poll a Pulp task until it is finished.
 wait_until_task_finished() {
     echo "Polling the task until it has reached a final state."
     local task_url=$1
-    while true
+    local timeout=10
+    while [ "$timeout" -gt 0 ]
     do
         local response=$(http $task_url)
         local state=$(jq -r .state <<< ${response})
-        jq . <<< "${response}"
+        jq . <<< "${response}" || exit 1
         case ${state} in
             failed|canceled)
                 echo "Task in final state: ${state}"
@@ -27,6 +24,7 @@ wait_until_task_finished() {
             *)
                 echo "Still waiting..."
                 sleep 2
+	        timeout=$(($timeout-1))
                 ;;
         esac
     done
