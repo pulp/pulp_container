@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euv
 
 # This script will execute the component scripts and ensure that the documented examples
 # work as expected.

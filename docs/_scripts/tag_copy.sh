@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo "Create a task to copy a tag to the repo."
-export TASK_HREF=$(http POST $BASE_ADDR$REPO_HREF'copy_tags/' \
+TASK_HREF=$(http POST $BASE_ADDR$SECOND_REPO_HREF'copy_tags/' \
   source_repository=$REPO_HREF \
   names:="[\"manifest_a\"]" \
   | jq -r '.task')
@@ -10,7 +10,7 @@ export TASK_HREF=$(http POST $BASE_ADDR$REPO_HREF'copy_tags/' \
 wait_until_task_finished $BASE_ADDR$TASK_HREF
 
 # After the task is complete, it gives us a new repository version
-export TAG_COPY_VERSION=$(http $BASE_ADDR$TASK_HREF | jq -r '.created_resources | first')
+TAG_COPY_VERSION=$(http $BASE_ADDR$TASK_HREF | jq -r '.created_resources | first')
 
 echo "Inspect RepositoryVersion."
 http $BASE_ADDR$TAG_COPY_VERSION
