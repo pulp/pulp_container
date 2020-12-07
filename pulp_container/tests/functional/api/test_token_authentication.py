@@ -66,7 +66,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         distribution_response = cls.distributions_api.create(
             ContainerContainerDistribution(**distribution_data)
         )
-        created_resources = monitor_task(distribution_response.task)
+        created_resources = monitor_task(distribution_response.task).created_resources
         cls.distribution = cls.distributions_api.read(created_resources[0])
 
     @classmethod

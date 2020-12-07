@@ -89,7 +89,7 @@ class PullContentTestCase(unittest.TestCase):
             distribution_response = cls.distributions_api.create(
                 ContainerContainerDistribution(**gen_distribution(repository=cls.repo.pulp_href))
             )
-            created_resources = monitor_task(distribution_response.task)
+            created_resources = monitor_task(distribution_response.task).created_resources
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
@@ -102,7 +102,7 @@ class PullContentTestCase(unittest.TestCase):
                     **gen_distribution(repository_version=cls.repo.latest_version_href)
                 )
             )
-            created_resources = monitor_task(distribution_response.task)
+            created_resources = monitor_task(distribution_response.task).created_resources
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
@@ -304,7 +304,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
             distribution_response = cls.distributions_api.create(
                 ContainerContainerDistribution(**gen_distribution(repository=cls.repo.pulp_href))
             )
-            created_resources = monitor_task(distribution_response.task)
+            created_resources = monitor_task(distribution_response.task).created_resources
 
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo = cls.distributions_api.read(distribution.pulp_href)
@@ -318,7 +318,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
                     **gen_distribution(repository_version=cls.repo.latest_version_href)
                 )
             )
-            created_resources = monitor_task(distribution_response.task)
+            created_resources = monitor_task(distribution_response.task).created_resources
             distribution = cls.distributions_api.read(created_resources[0])
             cls.distribution_with_repo_version = cls.distributions_api.read(distribution.pulp_href)
             cls.teardown_cleanups.append(
