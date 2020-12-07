@@ -11,6 +11,7 @@ from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 
+from pulpcore.plugin.access_policy import AccessPolicyFromDB
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositorySyncURLSerializer,
@@ -143,6 +144,53 @@ class ContainerRemoteViewSet(RemoteViewSet):
     endpoint_name = "container"
     queryset = models.ContainerRemote.objects.all()
     serializer_class = serializers.ContainerRemoteSerializer
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_permission = "container.view_containerremote"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_perms:container.add_containerremote",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.view_containerremote",
+            },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.change_containerremote",
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.delete_containerremote",
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "add_for_object_creator",
+                "parameters": None,
+                "permissions": [
+                    "container.view_containerremote",
+                    "container.change_containerremote",
+                    "container.delete_containerremote",
+                ],
+            },
+        ],
+    }
 
 
 class ContainerRepositoryViewSet(RepositoryViewSet):

@@ -12,6 +12,8 @@ from django.shortcuts import redirect
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
+    AutoAddObjPermsMixin,
+    AutoDeleteObjPermsMixin,
     BaseModel,
     Content,
     ContentGuard,
@@ -249,7 +251,7 @@ class ContainerPushRepository(Repository):
         validate_repo_version(new_version)
 
 
-class ContainerRemote(Remote):
+class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     """
     A Remote for ContainerContent.
 
@@ -265,6 +267,7 @@ class ContainerRemote(Remote):
     exclude_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
 
     TYPE = "container"
+    ACCESS_POLICY_VIEWSET_NAME = "remotes/container/container"
 
     @property
     def download_factory(self):
