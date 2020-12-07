@@ -57,14 +57,14 @@ class RepositoriesListTestCase(unittest.TestCase):
         distribution_response = cls.distributions_api.create(
             ContainerContainerDistribution(**distribution_data)
         )
-        created_resources = monitor_task(distribution_response.task)
+        created_resources = monitor_task(distribution_response.task).created_resources
         cls.distribution1 = cls.distributions_api.read(created_resources[0])
 
         distribution_data = gen_distribution(repository=cls.repository.pulp_href)
         distribution_response = cls.distributions_api.create(
             ContainerContainerDistribution(**distribution_data)
         )
-        created_resources = monitor_task(distribution_response.task)
+        created_resources = monitor_task(distribution_response.task).created_resources
         cls.distribution2 = cls.distributions_api.read(created_resources[0])
 
     @classmethod

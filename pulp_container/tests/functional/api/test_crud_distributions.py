@@ -36,7 +36,7 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
         body = gen_distribution()
         distribution_data = ContainerContainerDistribution(**body)
         distribution_response = self.distribution_api.create(distribution_data)
-        created_resources = monitor_task(distribution_response.task)
+        created_resources = monitor_task(distribution_response.task).created_resources
 
         distribution_obj = self.distribution_api.read(created_resources[0])
         self.distribution.update(distribution_obj.to_dict())
@@ -192,7 +192,7 @@ class DistributionBasePathTestCase(unittest.TestCase):
         body["base_path"] = body["base_path"].replace("-", "/")
         distribution_data = ContainerContainerDistribution(**body)
         distribution_response = cls.distribution_api.create(distribution_data)
-        created_resources = monitor_task(distribution_response.task)
+        created_resources = monitor_task(distribution_response.task).created_resources
 
         cls.distribution = cls.distribution_api.read(created_resources[0])
 

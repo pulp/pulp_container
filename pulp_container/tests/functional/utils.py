@@ -107,8 +107,7 @@ def populate_pulp(url=REGISTRY_V2_FEED_URL):
     container_repository = repositories_api.create(gen_repo())
     sync_response = repositories_api.sync(container_repository.pulp_href, sync_data)
 
-    created_resources = monitor_task(sync_response.task)
-    return created_resources
+    return monitor_task(sync_response.task).created_resources
 
 
 class BearerTokenAuth(AuthBase):

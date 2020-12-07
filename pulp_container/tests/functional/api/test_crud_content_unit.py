@@ -49,7 +49,7 @@ class ContentUnitTestCase(unittest.TestCase):
         # FIXME: Currently, it is not possible to create or update a content unit via an
         #  ordinary content type's endpoint. One must use a repository's endpoint for this.
         response = self.container_content_api.create(**attrs)
-        created_resources = monitor_task(response.task)
+        created_resources = monitor_task(response.task).created_resources
         content_unit = self.container_content_api.read(created_resources[0])
         self.content_unit.update(content_unit.to_dict())
         for key, val in attrs.items():
