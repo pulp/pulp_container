@@ -13,6 +13,51 @@ Changelog
 
 .. towncrier release notes start
 
+2.2.0 (2020-12-09)
+==================
+
+
+Features
+--------
+
+- Added namespaces to group repositories and distributions.
+  `#7089 <https://pulp.plan.io/issues/7089>`_
+- Refactored the registry's push API to not store uploaded chunks in /var/lib/pulp, but rather
+  in the shared storage.
+  `#7218 <https://pulp.plan.io/issues/7218>`_
+
+
+Bugfixes
+--------
+
+- Fixed the value of registry_path in a container distribution.
+  `#7385 <https://pulp.plan.io/issues/7385>`_
+- Added validation for tags' names.
+  `#7506 <https://pulp.plan.io/issues/7506>`_
+- Fixed Renderer to handle properly Manifest and Blob responses.
+  `#7620 <https://pulp.plan.io/issues/7620>`_
+- Updated models fields to not use settings directly.
+  `#7728 <https://pulp.plan.io/issues/7728>`_
+- Fixed a bug where Artifacts were missing sha224 checksum after `podman push`.
+  `#7774 <https://pulp.plan.io/issues/7774>`_
+
+
+Improved Documentation
+----------------------
+
+- Updated scripts to correctly show the workflows.
+  `#7547 <https://pulp.plan.io/issues/7547>`_
+
+
+Misc
+----
+
+- `#7649 <https://pulp.plan.io/issues/7649>`_
+
+
+----
+
+
 2.1.0 (2020-09-23)
 ==================
 
