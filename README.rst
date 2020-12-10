@@ -9,5 +9,5 @@ This is the ``pulp_container`` Plugin for `Pulp Project
 images, similar to the pulp_docker plugin for Pulp 2.
 
 For more information, please see the `documentation
-<http://pulp-container.readthedocs.io/en/latest/>`_ or the `Pulp project page
+<https://docs.pulpproject.org/pulp_container/>`_ or the `Pulp project page
 <https://pulpproject.org>`_.
