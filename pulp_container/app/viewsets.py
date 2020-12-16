@@ -618,3 +618,43 @@ class ContainerNamespaceViewSet(
     endpoint_name = "pulp_container/namespaces"
     queryset = models.ContainerNamespace.objects.all()
     serializer_class = serializers.ContainerNamespaceSerializer
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_permission = "container.view_containernamespace"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_perms:container.add_containernamespace",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.view_containernamespace",
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.delete_containernamespace",
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "add_for_object_creator",
+                "parameters": None,
+                "permissions": [
+                    "container.view_containernamespace",
+                    "container.delete_containernamespace",
+                ],
+            },
+        ],
+    }
