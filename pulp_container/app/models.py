@@ -186,12 +186,13 @@ class Tag(Content):
         unique_together = (("name", "tagged_manifest"),)
 
 
-class ContainerNamespace(BaseModel):
+class ContainerNamespace(BaseModel, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     """
     Namespace for the container registry.
     """
 
     name = models.CharField(max_length=255, db_index=True)
+    ACCESS_POLICY_VIEWSET_NAME = "pulp_container/namespaces"
 
     class Meta:
         unique_together = (("name",),)
