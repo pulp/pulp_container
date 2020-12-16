@@ -72,16 +72,16 @@ class TaggingTestCase(unittest.TestCase):
         created_tag = self.tags_api.list(
             repository_version_added=new_repository_version_href
         ).results[0]
-        self.assertEqual(created_tag.name, "new_tag", created_tag.name)
+        self.assertEqual(created_tag.name, "new_tag")
 
         repository_version = self.versions_api.read(new_repository_version_href)
 
         added_content = repository_version.content_summary.added
         added_tags = added_content["container.tag"]["count"]
-        self.assertEqual(added_tags, 1, added_content)
+        self.assertEqual(added_tags, 1)
 
         removed_content = repository_version.content_summary.removed
-        self.assertEqual(removed_content, {}, removed_content)
+        self.assertEqual(removed_content, {})
 
     def test_02_tag_first_image_with_same_tag(self):
         """
@@ -119,28 +119,28 @@ class TaggingTestCase(unittest.TestCase):
         created_tag = self.tags_api.list(
             repository_version_added=new_repository_version_href
         ).results[0]
-        self.assertEqual(created_tag.name, "new_tag", created_tag.name)
+        self.assertEqual(created_tag.name, "new_tag")
 
         created_tag_manifest = self.manifests_api.read(created_tag.tagged_manifest)
-        self.assertEqual(created_tag_manifest, manifest_b, created_tag_manifest)
+        self.assertEqual(created_tag_manifest, manifest_b)
 
         removed_tag = self.tags_api.list(
             repository_version_removed=new_repository_version_href
         ).results[0]
-        self.assertEqual(removed_tag.name, "new_tag", removed_tag.name)
+        self.assertEqual(removed_tag.name, "new_tag")
 
         removed_tag_manifest = self.manifests_api.read(removed_tag.tagged_manifest)
-        self.assertEqual(removed_tag_manifest, manifest_a, removed_tag_manifest)
+        self.assertEqual(removed_tag_manifest, manifest_a)
 
         repository_version = self.versions_api.read(new_repository_version_href)
 
         added_content = repository_version.content_summary.added
         added_tags = added_content["container.tag"]["count"]
-        self.assertEqual(added_tags, 1, added_content)
+        self.assertEqual(added_tags, 1)
 
         removed_content = repository_version.content_summary.removed
         removed_tags = removed_content["container.tag"]["count"]
-        self.assertEqual(removed_tags, 1, removed_content)
+        self.assertEqual(removed_tags, 1)
 
     def test_04_untag_second_image(self):
         """Untag the manifest and check if the tag was added in a new repository version."""
@@ -159,15 +159,15 @@ class TaggingTestCase(unittest.TestCase):
 
         removed_content = repository_version.content_summary.removed
         removed_tags = removed_content["container.tag"]["href"]
-        self.assertEqual(removed_tags, removed_tags_href, removed_tags)
+        self.assertEqual(removed_tags, removed_tags_href)
 
         added_content = repository_version.content_summary.added
-        self.assertEqual(added_content, {}, added_content)
+        self.assertEqual(added_content, {})
 
         removed_tag = self.tags_api.list(
             repository_version_removed=new_repository_version_href
         ).results[0]
-        self.assertEqual(removed_tag.name, "new_tag", removed_tag)
+        self.assertEqual(removed_tag.name, "new_tag")
 
     def test_05_untag_second_image_again(self):
         """Untag the manifest that was already untagged."""
