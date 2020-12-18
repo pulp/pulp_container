@@ -351,12 +351,15 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         default_related_name = "%(app_label)s_%(model_name)s"
 
 
-class ContainerDistribution(RepositoryVersionDistribution):
+class ContainerDistribution(
+    RepositoryVersionDistribution, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin
+):
     """
     A container distribution defines how a repository version is distributed by Pulp's webserver.
     """
 
     TYPE = "container"
+    ACCESS_POLICY_VIEWSET_NAME = "distributions/container/container"
 
     namespace = models.ForeignKey(
         ContainerNamespace,
