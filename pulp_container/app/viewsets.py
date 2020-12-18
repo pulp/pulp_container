@@ -34,7 +34,7 @@ from pulpcore.plugin.viewsets import (
     OperationPostponedResponse,
 )
 
-from pulp_container.app import models, serializers, tasks
+from pulp_container.app import access_policy, models, serializers, tasks
 
 
 log = logging.getLogger(__name__)
@@ -568,6 +568,65 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
     filterset_class = ContainerDistributionFilter
+    permission_classes = (access_policy.DistributionAccessPolicyFromDB,)
+    queryset_filtering_required_permission = "container.view_containerdistribution"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_perms:container.add_containerdistribution",
+                    "has_add_namespace_perms",
+                ],
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.view_containerdistribution",
+                    "has_view_namespace_perms",
+                ],
+            },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.change_containerdistribution",
+                    "has_view_namespace_perms",
+                ],
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containerdistribution",
+                    "has_view_namespace_perms",
+                ],
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "add_for_object_creator",
+                "parameters": None,
+                "permissions": [
+                    "container.view_containerdistribution",
+                    "container.delete_containerdistribution",
+                    "container.change_containerdistribution",
+                ],
+            },
+        ],
+    }
 
     @extend_schema(
         description="Trigger an asynchronous delete task",
