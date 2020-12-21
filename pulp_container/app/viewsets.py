@@ -533,7 +533,12 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
     parent_viewset = ContainerRepositoryViewSet
 
 
-class ContainerPushRepositoryViewSet(ImmutableRepositoryViewSet):
+class ContainerPushRepositoryViewSet(
+    NamedModelViewSet,
+    mixins.RetrieveModelMixin,
+    mixins.ListModelMixin,
+    AsyncRemoveMixin,
+):
     """
     ViewSet for a container push repository.
     """
