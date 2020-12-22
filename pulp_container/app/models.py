@@ -196,6 +196,9 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin, AutoDeleteObjPermsMixi
 
     class Meta:
         unique_together = (("name",),)
+        permissions = [
+            ("manage_namespace_distributions", "Can manage distributions in a namespace"),
+        ]
 
 
 class ContainerRepository(

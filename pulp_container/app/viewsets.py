@@ -584,7 +584,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_perms:container.add_containerdistribution",
-                    "has_add_namespace_perms",
+                    "has_manage_namespace_dist_perms:container.manage_namespace_distributions",
                 ],
             },
             {
@@ -593,7 +593,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.view_containerdistribution",
-                    "has_view_namespace_perms",
+                    # "has_namespace_obj_perms:container.view_containernamespace",
                 ],
             },
             {
@@ -602,7 +602,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.change_containerdistribution",
-                    "has_view_namespace_perms",
+                    "has_namespace_obj_perms:container.manage_namespace_distributions",
                 ],
             },
             {
@@ -611,7 +611,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.delete_containerdistribution",
-                    "has_view_namespace_perms",
+                    "has_namespace_obj_perms:container.manage_namespace_distributions",
                 ],
             },
         ],
@@ -713,6 +713,7 @@ class ContainerNamespaceViewSet(
                 "permissions": [
                     "container.view_containernamespace",
                     "container.delete_containernamespace",
+                    "container.manage_namespace_distributions",
                 ],
             },
         ],
