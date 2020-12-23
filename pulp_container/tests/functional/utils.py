@@ -7,7 +7,7 @@ from functools import partial
 from unittest import SkipTest
 from tempfile import NamedTemporaryFile
 
-from pulp_smash import selectors, config
+from pulp_smash import cli, config, selectors, utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import (
     gen_remote,
@@ -35,7 +35,59 @@ from pulpcore.client.pulp_container import (
 )
 
 cfg = config.get_config()
+cli_client = cli.Client(cfg)
 configuration = cfg.get_bindings_config()
+
+
+CREATE_USER_CMD = [
+    "from django.contrib.auth import get_user_model",
+    "from django.contrib.auth.models import Permission",
+    "",
+    "user = get_user_model().objects.create(username='{username}')",
+    "user.set_password('{password}')",
+    "user.save()",
+    "for permission in {permissions!r}:",
+    "    if '.' in permission:",
+    "        app_label, codename = permission.split('.', maxsplit=1)",
+    "        perm = Permission.objects.get(codename=codename, content_type__app_label=app_label)",
+    "    else:",
+    "        perm = Permission.objects.get(codename=permission)",
+    "    user.user_permissions.add(perm)",
+]
+
+
+DELETE_USER_CMD = [
+    "from django.contrib.auth import get_user_model",
+    "get_user_model().objects.get(username='{username}').delete()",
+]
+
+
+def gen_user(permissions):
+    """Create a user with a set of permissions in the pulp database."""
+    user = {
+        "username": utils.uuid4(),
+        "password": utils.uuid4(),
+        "permissions": permissions,
+    }
+    utils.execute_pulpcore_python(
+        cli_client,
+        "\n".join(CREATE_USER_CMD).format(**user),
+    )
+
+    api_config = cfg.get_bindings_config()
+    api_config.username = user["username"]
+    api_config.password = user["password"]
+    user["api_client"] = ContainerApiClient(api_config)
+    user["remote_api"] = RemotesContainerApi(user["api_client"])
+    return user
+
+
+def del_user(user):
+    """Delete a user from the pulp database."""
+    utils.execute_pulpcore_python(
+        cli_client,
+        "\n".join(DELETE_USER_CMD).format(**user),
+    )
 
 
 def gen_container_client():
