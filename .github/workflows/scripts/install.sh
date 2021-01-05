@@ -72,7 +72,7 @@ VARSYAML
 fi
 
 cat >> vars/main.yaml << VARSYAML
-pulp_settings: {}
+pulp_settings: {"allowed_content_checksums": ["sha1", "sha224", "sha256", "sha384", "sha512"]}
 VARSYAML
 
 if [ "$TEST" = "s3" ]; then
