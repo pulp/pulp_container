@@ -256,12 +256,16 @@ class ContainerRegistryApiMixin:
             distribution = models.ContainerDistribution.objects.get(base_path=path)
         except models.ContainerDistribution.DoesNotExist:
             raise RepositoryNotFound(name=path)
+
+        self.check_permissions("container.view_containerdistribution", distribution)
+
         if distribution.repository:
             repository_version = distribution.repository.latest_version()
         elif distribution.repository_version:
             repository_version = distribution.repository_version
         else:
             raise RepositoryNotFound(name=path)
+
         return distribution, distribution.repository, repository_version
 
     def get_dr_push(self, request, path, create=False):
@@ -274,6 +278,7 @@ class ContainerRegistryApiMixin:
             distribution = models.ContainerDistribution.objects.get(base_path=path)
         except models.ContainerDistribution.DoesNotExist:
             if create:
+                self.check_namespace_permissions(path)
                 try:
                     with transaction.atomic():
                         repo_serializer = serializers.ContainerPushRepositorySerializer(
@@ -302,7 +307,49 @@ class ContainerRegistryApiMixin:
                     raise RepositoryInvalid(name=path, message="Repository is read-only.")
             else:
                 raise RepositoryNotFound(name=path)
+
+        # ensure that the user has permission to view the created distribution
+        self.check_permissions("container.view_containerdistribution", distribution)
+
         return distribution, repository
+
+    def check_permissions(self, permission, obj=None):
+        """
+        Check whether the user has the required permission.
+
+        If the user does not have the permission, the exception PermissionDenied is raised. Note
+        that passing the parameter 'obj' results in checking the object-level permissions when
+        the user has not the model-level permission.
+        """
+        if not self.request.user.has_perm(permission):
+            if obj and not self.request.user.has_perm(permission, obj):
+                raise PermissionDenied()
+
+    def check_namespace_permissions(self, path):
+        """
+        Check permissions required for creating a new distribution.
+
+        This method tests whether the user has the permission for managing the corresponding
+        namespace and can create a distribution within the given namespace.
+        """
+        user = self.request.user
+        if not user.has_perm("container.add_containerdistribution"):
+            raise PermissionDenied()
+
+        namespace = path.split("/")[0]
+        try:
+            namespace = models.ContainerNamespace.objects.get(name=namespace)
+        except models.ContainerNamespace.DoesNotExist:
+            # check model permissions for namespace creation
+            has_permission = user.has_perm("container.add_containernamespace")
+        else:
+            # existing namespace
+            has_permission = user.has_perm(
+                "container.manage_namespace_distributions"
+            ) or user.has_perm("container.manage_namespace_distributions", namespace)
+
+        if not has_permission:
+            raise PermissionDenied()
 
 
 class BearerTokenView(APIView):
