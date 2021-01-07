@@ -79,6 +79,7 @@ def gen_user(permissions):
     api_config.password = user["password"]
     user["api_client"] = ContainerApiClient(api_config)
     user["remote_api"] = RemotesContainerApi(user["api_client"])
+    user["repository_api"] = RepositoriesContainerApi(user["api_client"])
     return user
 
 
