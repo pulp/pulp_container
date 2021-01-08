@@ -314,23 +314,18 @@ class BearerTokenView(APIView):
     # Allow everyone to access but still value authenticated users.
     permission_classes = []
 
-    ANONYMOUS_USER = ""
     EMPTY_ACCESS_SCOPE = "::"
 
     def get(self, request):
         """Handles GET requests for the /token/ endpoint."""
-        account = request.query_params.get("account", self.ANONYMOUS_USER)
         try:
             service = request.query_params["service"]
         except KeyError:
             raise ParseError(detail="No service name provided.")
         scope = request.query_params.get("scope", self.EMPTY_ACCESS_SCOPE)
 
-        if account != self.ANONYMOUS_USER:
-            if not request.user.is_authenticated:
-                raise ParseError(detail="Authentication failed.")
-            if account != request.user.username:
-                raise ParseError(detail="Username mismatch.")
+        # the user is already authenticated; the anonymous user has the blank username by default
+        account = self.request.user.username
 
         data = AuthorizationService().generate_token(account, service, scope)
         return Response(data=data)
