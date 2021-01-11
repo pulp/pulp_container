@@ -324,10 +324,8 @@ class BearerTokenView(APIView):
             raise ParseError(detail="No service name provided.")
         scope = request.query_params.get("scope", self.EMPTY_ACCESS_SCOPE)
 
-        # the user is already authenticated; the anonymous user has the blank username by default
-        account = self.request.user.username
-
-        data = AuthorizationService().generate_token(account, service, scope)
+        authorization_service = AuthorizationService(self.request.user, service, scope)
+        data = authorization_service.generate_token()
         return Response(data=data)
 
 

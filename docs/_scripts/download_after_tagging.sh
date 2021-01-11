@@ -18,4 +18,5 @@ REGISTRY_PATH=$(http $BASE_ADDR$DISTRIBUTION_HREF \
   | jq -r '.registry_path')
 
 echo "Running ${REGISTRY_PATH}:${TAG_NAME}."
+sudo docker login -u admin -p password $REGISTRY_PATH
 sudo docker run $REGISTRY_PATH:$TAG_NAME

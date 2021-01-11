@@ -2,6 +2,8 @@
 """Tests that verify that images can be pushed to Pulp."""
 import unittest
 
+from urllib.parse import urlparse
+
 from pulp_smash import cli, config, exceptions
 
 from pulp_container.tests.functional.utils import gen_container_client
@@ -23,8 +25,7 @@ class PushContentTestCase(unittest.TestCase):
     def test_push_using_registry_client(self):
         """Test push with official registry client"""
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
-        # TODO better handling of the "http://"
-        registry_name = cfg.get_base_url()[7:]
+        registry_name = urlparse(cfg.get_base_url()).netloc
         local_url = "/".join([registry_name, "foo/bar:1.0"])
         # Be sure to not being logged in
         try:
@@ -44,8 +45,6 @@ class PushContentTestCase(unittest.TestCase):
         registry.push(local_url)
         # Pull while logged in
         registry.pull(local_url)
-        # Log out
-        registry.logout(registry_name)
         # Untag local copy
         registry.rmi(local_url)
         # Pull while logged out
