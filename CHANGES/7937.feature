@@ -1,1 +1,1 @@
-Added access policy for ContainerDistributionViewSet.
+Added access policy for ContainerDistributionViewSet and the Registry API.
