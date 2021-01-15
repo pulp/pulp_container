@@ -6,13 +6,13 @@ from pulp_smash import cli, config, exceptions
 
 from pulp_container.tests.functional.utils import gen_container_client
 
-from pulpcore.client.pulp_container import RepositoriesContainerPushApi
+from pulpcore.client.pulp_container import DistributionsContainerApi
 
 
 cfg = config.get_config()
 
 api_client = gen_container_client()
-push_repositories_api = RepositoriesContainerPushApi(api_client)
+distributions_api = DistributionsContainerApi(api_client)
 
 registry = cli.RegistryClient(cfg)
 
@@ -51,5 +51,5 @@ class PushContentTestCase(unittest.TestCase):
         # Pull while logged out
         registry.pull(local_url)
         # cleanup
-        repository = push_repositories_api.list(name="foo/bar").results[0]
-        self.addCleanup(push_repositories_api.delete, repository.pulp_href)
+        distribution = distributions_api.list(name="foo/bar").results[0]
+        self.addCleanup(distributions_api.delete, distribution.pulp_href)

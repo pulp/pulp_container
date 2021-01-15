@@ -1,0 +1,2 @@
+POST and DELETE requests are no longer available for `/pulp/api/v3/repositories/container/container-push/`.
+Push repositories are still automatically created via docker/podman push and deleted through container distributions.

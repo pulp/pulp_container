@@ -24,9 +24,9 @@ from pulpcore.plugin.viewsets import (
     ContentFilter,
     ContentGuardViewSet,
     # TODO: DistributionFilter,
-    ImmutableRepositoryViewSet,
     NamedModelViewSet,
     ReadOnlyContentViewSet,
+    ReadOnlyRepositoryViewSet,
     RemoteViewSet,
     RepositoryViewSet,
     RepositoryVersionViewSet,
@@ -459,36 +459,18 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
     parent_viewset = ContainerRepositoryViewSet
 
 
-class ContainerPushRepositoryViewSet(ImmutableRepositoryViewSet):
+class ContainerPushRepositoryViewSet(ReadOnlyRepositoryViewSet):
     """
     ViewSet for a container push repository.
+
+    POST and DELETE are disallowed because a push repository is tightly coupled with a
+    ContainerDistribution which handles it automatically.
+    Created - during push operation, removed - with ContainerDistribution removal
     """
 
     endpoint_name = "container-push"
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
-
-    @extend_schema(
-        description="Trigger an asynchronous delete task",
-        responses={202: AsyncOperationResponseSerializer},
-    )
-    def destroy(self, request, pk, **kwargs):
-        """
-        Delete a push repository with its distribution
-        """
-        repository = self.get_object()
-        distribution = models.ContainerDistribution.objects.get(repository_id=repository.pk)
-        async_result = enqueue_with_reservation(
-            tasks.general_multi_delete,
-            [distribution, repository],
-            args=(
-                [
-                    (distribution.pk, "container", "ContainerDistributionSerializer"),
-                    (distribution.repository.pk, "container", "ContainerPushRepositorySerializer"),
-                ],
-            ),
-        )
-        return OperationPostponedResponse(async_result, request)
 
 
 class ContainerPushRepositoryVersionViewSet(RepositoryVersionViewSet):
