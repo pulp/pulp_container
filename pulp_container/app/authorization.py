@@ -152,14 +152,15 @@ class AuthorizationService:
         """
         Check if the user has permissions to pull from the repository specified by the path.
         """
-        if self.user.has_perm("container.pull_containerdistribution"):
-            return True
-
         try:
             distribution = ContainerDistribution.objects.get(base_path=path)
         except ContainerDistribution.DoesNotExist:
             return False
+        if not distribution.private:
+            return True
         if self.user.has_perm("container.pull_containerdistribution", distribution):
+            return True
+        if self.user.has_perm("container.pull_containerdistribution"):
             return True
 
         return False

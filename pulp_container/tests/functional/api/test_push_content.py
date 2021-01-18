@@ -5,6 +5,7 @@ import unittest
 from urllib.parse import urlparse
 
 from pulp_smash import cli, config, exceptions
+from pulp_smash.pulp3.bindings import monitor_task
 
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import del_user, gen_container_client, gen_user
@@ -235,4 +236,49 @@ class PushRepoTestCase(unittest.TestCase):
 
         # cleanup, namespace removal also removes related distributions
         namespace = self.namespace_api.list(name="team").results[0]
+        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
+
+    def test_private_repository(self):
+        """
+        Test that you can create a private distribution and push to it.
+        Test that the same user can pull, but another cannot.
+        Test that the other user can pull after marking it non-private.
+        """
+        # cleanup, namespace removal also removes related distributions
+        try:
+            namespace = self.namespace_api.list(name="test").results[0]
+            namespace_response = self.namespace_api.delete(namespace.pulp_href)
+            monitor_task(namespace_response.task)
+        except Exception:
+            pass
+
+        repo_name = "test/private"
+        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
+        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+
+        distribution = {"name": "test/private", "base_path": "test/private", "private": True}
+        distribution_response = self.user_creator["distribution_api"].create(distribution)
+        created_resources = monitor_task(distribution_response.task).created_resources
+        distribution = self.user_creator["distribution_api"].read(created_resources[0])
+
+        self._push(image_path, local_url, self.user_creator)
+
+        self._pull(local_url, self.user_creator)
+        self._pull(local_url, self.user_dist_consumer)
+        with self.assertRaises(exceptions.CalledProcessError):
+            self._pull(local_url, self.user_reader)
+        with self.assertRaises(exceptions.CalledProcessError):
+            self._pull(local_url, self.user_helpless)
+
+        distribution.private = False
+        distribution_response = self.user_creator["distribution_api"].partial_update(
+            distribution.pulp_href, {"private": False}
+        )
+        monitor_task(distribution_response.task)
+
+        self._pull(local_url, self.user_reader)
+        self._pull(local_url, self.user_helpless)
+
+        # cleanup, namespace removal also removes related distributions
+        namespace = self.namespace_api.list(name="test").results[0]
         self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
