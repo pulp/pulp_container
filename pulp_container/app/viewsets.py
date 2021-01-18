@@ -9,8 +9,10 @@ import logging
 from gettext import gettext as _
 
 from django.db import IntegrityError
+from django.db.models import Q
 from django.http import Http404
 from django_filters import CharFilter, MultipleChoiceFilter
+from guardian.shortcuts import get_objects_for_user
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 from rest_framework.decorators import action
@@ -634,7 +636,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
     endpoint_name = "container-push"
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
-    permission_classes = (AccessPolicyFromDB,)
+    permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
     queryset_filtering_required_permission = "container.view_containerpushrepository"
 
     DEFAULT_ACCESS_POLICY = {
@@ -648,28 +650,75 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.view_containerpushrepository",
+                "condition": "has_namespace_or_obj_perms:container.view_containerpushrepository",
             },
             {
                 "action": ["tag", "untag"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.modify_content_containerpushrepository",
+                    "has_namespace_or_obj_perms:container.modify_content_containerpushrepository",
                 ],
             },
         ],
         "permissions_assignment": [
             {
-                "function": "add_for_object_creator",
-                "parameters": None,
+                "function": "add_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "owners",
+                    "add_user_to_group": True,
+                },
                 "permissions": [
                     "container.view_containerpushrepository",
                     "container.modify_content_containerpushrepository",
                 ],
             },
+            {
+                "function": "add_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "add_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "consumers",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                ],
+            },
         ],
     }
+
+    def get_queryset(self):
+        """
+        Returns a queryset by filtering by namespace permission to view distributions and
+        distribution level permissions.
+        """
+
+        qs = models.ContainerPushRepository.objects.all()
+        namespaces = get_objects_for_user(self.request.user, "container.view_containernamespace")
+        ns_repository_pks = models.ContainerDistribution.objects.filter(
+            namespace__in=namespaces
+        ).values_list("repository")
+        dist_repository_pks = get_objects_for_user(
+            self.request.user, "container.view_containerdistribution"
+        ).values_list("repository")
+        public_repository_pks = models.ContainerDistribution.objects.filter(
+            private=False
+        ).values_list("repository")
+        return qs.filter(
+            Q(pk__in=ns_repository_pks)
+            | Q(pk__in=dist_repository_pks)
+            | Q(pk__in=public_repository_pks)
+        )
 
 
 class ContainerPushRepositoryVersionViewSet(
@@ -719,7 +768,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
     filterset_class = ContainerDistributionFilter
-    permission_classes = (access_policy.DistributionAccessPolicyFromDB,)
+    permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
     queryset_filtering_required_permission = "container.view_containerdistribution"
 
     DEFAULT_ACCESS_POLICY = {
@@ -738,17 +787,14 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": [
-                    "has_model_perms:container.add_containerdistribution",
-                    "has_manage_namespace_dist_perms:container.manage_namespace_distributions",
-                ],
+                "condition": "has_model_perms:container.add_containerdistribution",
             },
             {
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.view_containerdistribution",
+                    "has_namespace_or_obj_perms:container.view_containerdistribution",
                 ],
             },
             {
@@ -764,7 +810,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.pull_containerdistribution",
+                    "has_namespace_or_obj_perms:container.pull_containerdistribution",
                 ],
             },
             {
@@ -780,7 +826,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.push_containerdistribution",
+                    "has_namespace_or_obj_perms:container.push_containerdistribution",
                     "obj_exists",
                 ],
             },
@@ -789,8 +835,8 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_perms:container.add_containerdistribution",
-                    "has_manage_namespace_dist_perms:container.manage_namespace_distributions",
+                    "has_namespace_or_obj_perms:container.add_containerdistribution",
+                    "has_namespace_or_obj_perms:container.push_containerdistribution",
                 ],
             },
             {
@@ -798,21 +844,75 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.delete_containerdistribution",
-                    "has_namespace_obj_perms:container.manage_namespace_distributions",
+                    "has_namespace_or_obj_perms:container.delete_containerdistribution",
                 ],
             },
         ],
         "permissions_assignment": [
             {
-                "function": "add_for_object_creator",
-                "parameters": None,
+                "function": "create_distribution_group",
+                "parameters": {
+                    "group_type": "owners",
+                    "add_user_to_group": True,
+                },
                 "permissions": [
                     "container.view_containerdistribution",
                     "container.pull_containerdistribution",
                     "container.push_containerdistribution",
                     "container.delete_containerdistribution",
                     "container.change_containerdistribution",
+                ],
+            },
+            {
+                "function": "add_push_repository_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "owners",
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_distribution_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerdistribution",
+                    "container.pull_containerdistribution",
+                    "container.push_containerdistribution",
+                ],
+            },
+            {
+                "function": "add_push_repository_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_distribution_group",
+                "parameters": {
+                    "group_type": "consumers",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerdistribution",
+                    "container.pull_containerdistribution",
+                ],
+            },
+            {
+                "function": "add_push_repository_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "consumers",
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
                 ],
             },
         ],
@@ -896,15 +996,68 @@ class ContainerNamespaceViewSet(
                 "effect": "allow",
                 "condition": "has_model_or_obj_perms:container.delete_containernamespace",
             },
+            {
+                "action": ["create_distribution"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.namespace_add_containerdistribution",
+            },
+            {
+                "action": ["view_distribution"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.namespace_view_containerdistribution",  # noqa: E501
+            },
         ],
         "permissions_assignment": [
             {
-                "function": "add_for_object_creator",
-                "parameters": None,
+                "function": "create_namespace_group",
+                "parameters": {
+                    "group_type": "owners",
+                    "add_user_to_group": True,
+                },
                 "permissions": [
                     "container.view_containernamespace",
                     "container.delete_containernamespace",
-                    "container.manage_namespace_distributions",
+                    "container.namespace_add_containerdistribution",
+                    "container.namespace_delete_containerdistribution",
+                    "container.namespace_view_containerdistribution",
+                    "container.namespace_pull_containerdistribution",
+                    "container.namespace_push_containerdistribution",
+                    "container.namespace_change_containerdistribution",
+                    "container.namespace_view_containerpushrepository",
+                    "container.namespace_modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_namespace_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containernamespace",
+                    "container.namespace_add_containerdistribution",
+                    "container.namespace_delete_containerdistribution",
+                    "container.namespace_view_containerdistribution",
+                    "container.namespace_pull_containerdistribution",
+                    "container.namespace_push_containerdistribution",
+                    "container.namespace_change_containerdistribution",
+                    "container.namespace_view_containerpushrepository",
+                    "container.namespace_modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_namespace_group",
+                "parameters": {
+                    "group_type": "consumers",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containernamespace",
+                    "container.namespace_view_containerdistribution",
+                    "container.namespace_pull_containerdistribution",
+                    "container.namespace_view_containerpushrepository",
                 ],
             },
         ],
