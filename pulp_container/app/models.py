@@ -1,3 +1,5 @@
+from gettext import gettext as _
+
 import hashlib
 import os
 import re
@@ -370,6 +372,13 @@ class ContainerDistribution(
         on_delete=models.CASCADE,
         related_name="container_distributions",
         null=True,
+    )
+    private = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Restrict pull access to explicitly authorized users. "
+            "Defaults to unrestricted pull access."
+        ),
     )
 
     def get_repository_version(self):

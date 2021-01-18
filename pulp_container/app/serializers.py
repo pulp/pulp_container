@@ -265,18 +265,20 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
                         "repository version."
                     )
                 )
-        base_path = validated_data["base_path"]
-        namespace_name = base_path.split("/")[0]
 
-        if "namespace" in validated_data:
-            if validated_data["namespace"].name != namespace_name:
-                raise serializers.ValidationError(
-                    _("Selected namespace does not match first component of base_path.")
+        if "base_path" in validated_data:
+            base_path = validated_data["base_path"]
+            namespace_name = base_path.split("/")[0]
+
+            if "namespace" in validated_data:
+                if validated_data["namespace"].name != namespace_name:
+                    raise serializers.ValidationError(
+                        _("Selected namespace does not match first component of base_path.")
+                    )
+            else:
+                validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
+                    {"name": namespace_name}
                 )
-        else:
-            validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
-                {"name": namespace_name}
-            )
         return validated_data
 
     class Meta:
@@ -284,6 +286,7 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
         fields = tuple(set(RepositoryVersionDistributionSerializer.Meta.fields) - {"base_url"}) + (
             "registry_path",
             "namespace",
+            "private",
         )
 
 
