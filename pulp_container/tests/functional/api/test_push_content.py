@@ -8,7 +8,13 @@ from pulp_smash import cli, config, exceptions
 from pulp_smash.pulp3.bindings import monitor_task
 
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
-from pulp_container.tests.functional.utils import del_user, gen_container_client, gen_user
+from pulp_container.tests.functional.utils import (
+    add_user_to_distribution_group,
+    add_user_to_namespace_group,
+    del_user,
+    gen_container_client,
+    gen_user,
+)
 
 from pulpcore.client.pulp_container import (
     PulpContainerNamespacesApi,
@@ -24,10 +30,6 @@ class PushRepoTestCase(unittest.TestCase):
         """
         Define APIs to use and pull images needed later in tests
         """
-        api_client = gen_container_client()
-        cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
-        cls.namespace_api = PulpContainerNamespacesApi(api_client)
-
         cfg = config.get_config()
         cls.registry = cli.RegistryClient(cfg)
         cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
@@ -36,35 +38,20 @@ class PushRepoTestCase(unittest.TestCase):
         admin_user, admin_password = cfg.pulp_auth
         cls.user_admin = {"username": admin_user, "password": admin_password}
         cls.user_creator = gen_user(
-            [
-                "container.add_containerdistribution",
-                "container.add_containernamespace",
-            ]
+            ["container.add_containernamespace", "container.add_containerdistribution"]
         )
-        cls.user_dist_collaborator = gen_user(
-            [
-                "container.pull_containerdistribution",
-                "container.push_containerdistribution",
-                "container.view_containerpushrepository",
-            ]
-        )
-        cls.user_dist_consumer = gen_user(
-            [
-                "container.pull_containerdistribution",
-                "container.view_containerpushrepository",
-            ]
-        )
-        cls.user_namespace_collaborator = gen_user(
-            [
-                "container.add_containerdistribution",
-                "container.pull_containerdistribution",
-                "container.push_containerdistribution",
-                "container.view_containerpushrepository",
-                "container.manage_namespace_distributions",
-            ]
-        )
-        cls.user_reader = gen_user(["container.view_containerpushrepository"])
+        cls.user_dist_collaborator = gen_user([])
+        cls.user_dist_consumer = gen_user([])
+        cls.user_namespace_collaborator = gen_user([])
+        cls.user_reader = gen_user([])
         cls.user_helpless = gen_user([])
+
+        # View push repositories, distributions, and namespaces using user_creator.
+        api_client = gen_container_client()
+        api_client.configuration.username = cls.user_admin["username"]
+        api_client.configuration.password = cls.user_admin["password"]
+        cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
+        cls.namespace_api = PulpContainerNamespacesApi(api_client)
 
         cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a")
         cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b")
@@ -156,6 +143,29 @@ class PushRepoTestCase(unittest.TestCase):
         image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
         self._push(image_path, local_url, self.user_creator)
 
+        distributions = self.user_creator["distribution_api"].list(name="test/perms")
+        add_user_to_distribution_group(
+            self.user_dist_collaborator,
+            distributions.results[0],
+            "collaborators",
+            self.user_creator,
+        )
+
+        distributions = self.user_creator["distribution_api"].list(name="test/perms")
+        add_user_to_distribution_group(
+            self.user_dist_consumer,
+            distributions.results[0],
+            "consumers",
+            self.user_creator,
+        )
+
+        add_user_to_namespace_group(
+            self.user_namespace_collaborator,
+            "test",
+            "collaborators",
+            self.user_creator,
+        )
+
         self.assertEqual(self.pushrepository_api.list(name=repo_name).count, 1)
         self.assertEqual(self.user_creator["pushrepository_api"].list(name=repo_name).count, 1)
         self.assertEqual(
@@ -167,8 +177,8 @@ class PushRepoTestCase(unittest.TestCase):
         self.assertEqual(
             self.user_namespace_collaborator["pushrepository_api"].list(name=repo_name).count, 1
         )
+
         self.assertEqual(self.user_reader["pushrepository_api"].list(name=repo_name).count, 1)
-        self.assertEqual(self.user_helpless["pushrepository_api"].list(name=repo_name).count, 0)
 
         # cleanup, namespace removal also removes related distributions
         namespace = self.namespace_api.list(name="test").results[0]
@@ -218,6 +228,15 @@ class PushRepoTestCase(unittest.TestCase):
         image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
         self._push(image_path, local_url, self.user_creator)
 
+        # Add user_dist_collaborator to the collaborator group
+        distributions = self.user_creator["distribution_api"].list(name="team/owner")
+        add_user_to_distribution_group(
+            self.user_dist_collaborator,
+            distributions.results[0],
+            "collaborators",
+            self.user_creator,
+        )
+
         collab_repo_name = "team/owner"
         local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
         image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b"
@@ -228,6 +247,10 @@ class PushRepoTestCase(unittest.TestCase):
         image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_d"
         with self.assertRaises(exceptions.CalledProcessError):
             self._push(image_path, local_url, self.user_dist_collaborator)
+
+        add_user_to_namespace_group(
+            self.user_namespace_collaborator, "team", "collaborators", self.user_creator
+        )
 
         collab_repo_name = "team/collab"
         local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
@@ -264,6 +287,11 @@ class PushRepoTestCase(unittest.TestCase):
         self._push(image_path, local_url, self.user_creator)
 
         self._pull(local_url, self.user_creator)
+
+        add_user_to_distribution_group(
+            self.user_dist_consumer, distribution, "consumers", self.user_creator
+        )
+
         self._pull(local_url, self.user_dist_consumer)
         with self.assertRaises(exceptions.CalledProcessError):
             self._pull(local_url, self.user_reader)
