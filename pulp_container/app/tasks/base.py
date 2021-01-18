@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from pulpcore.app.apps import get_plugin_config
+from pulpcore.plugin.models import MasterModel
 
 
 def general_multi_delete(instance_ids):
@@ -15,7 +16,10 @@ def general_multi_delete(instance_ids):
     instances = []
     for instance_id, app_label, serializer_name in instance_ids:
         serializer_class = get_plugin_config(app_label).named_serializers[serializer_name]
-        instances.append(serializer_class.Meta.model.objects.get(pk=instance_id).cast())
+        instance = serializer_class.Meta.model.objects.get(pk=instance_id)
+        if isinstance(instance, MasterModel):
+            instance = instance.cast()
+        instances.append(instance)
     with transaction.atomic():
         for instance in instances:
             instance.delete()
