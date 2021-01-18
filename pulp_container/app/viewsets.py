@@ -21,11 +21,13 @@ from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
+    BaseFilterSet,
     CharInFilter,
     ContentFilter,
     ContentGuardViewSet,
     # TODO: DistributionFilter,
     NamedModelViewSet,
+    NAME_FILTER_OPTIONS,
     ReadOnlyContentViewSet,
     ReadOnlyRepositoryViewSet,
     RemoteViewSet,
@@ -98,6 +100,18 @@ class ContainerDistributionFilter(BaseDistributionViewSet.filterset_class):
     class Meta:
         model = models.ContainerDistribution
         fields = BaseDistributionViewSet.filterset_class.Meta.fields
+
+
+class ContainerNamespaceFilter(BaseFilterSet):
+    """
+    FilterSet for ContainerNamespaces
+    """
+
+    class Meta:
+        model = models.ContainerNamespace
+        fields = {
+            "name": NAME_FILTER_OPTIONS,
+        }
 
 
 class TagViewSet(ReadOnlyContentViewSet):
@@ -539,12 +553,39 @@ class ContainerPushRepositoryViewSet(ReadOnlyRepositoryViewSet):
 
     POST and DELETE are disallowed because a push repository is tightly coupled with a
     ContainerDistribution which handles it automatically.
-    Created - during push operation, removed - with ContainerDistribution removal
+    Created - during push operation, removed - with ContainerDistribution removal.
     """
 
     endpoint_name = "container-push"
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_permission = "container.view_containerpushrepository"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.view_containerpushrepository",
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "add_for_object_creator",
+                "parameters": None,
+                "permissions": [
+                    "container.view_containerpushrepository",
+                ],
+            },
+        ],
+    }
 
 
 class ContainerPushRepositoryVersionViewSet(RepositoryVersionViewSet):
@@ -677,6 +718,7 @@ class ContainerNamespaceViewSet(
     endpoint_name = "pulp_container/namespaces"
     queryset = models.ContainerNamespace.objects.all()
     serializer_class = serializers.ContainerNamespaceSerializer
+    filterset_class = ContainerNamespaceFilter
     permission_classes = (AccessPolicyFromDB,)
     queryset_filtering_required_permission = "container.view_containernamespace"
 
