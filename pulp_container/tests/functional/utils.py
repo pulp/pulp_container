@@ -31,6 +31,7 @@ from pulpcore.client.pulp_container import (
     ApiClient as ContainerApiClient,
     RemotesContainerApi,
     RepositoriesContainerApi,
+    RepositoriesContainerPushApi,
     RepositorySyncURL,
 )
 
@@ -80,6 +81,7 @@ def gen_user(permissions):
     user["api_client"] = ContainerApiClient(api_config)
     user["remote_api"] = RemotesContainerApi(user["api_client"])
     user["repository_api"] = RepositoriesContainerApi(user["api_client"])
+    user["pushrepository_api"] = RepositoriesContainerPushApi(user["api_client"])
     return user
 
 

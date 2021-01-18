@@ -2,7 +2,7 @@
 """Tests for token authentication."""
 import unittest
 
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 import requests
 from requests.exceptions import HTTPError
 
@@ -121,6 +121,10 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
         image_url = urljoin(self.cfg.get_base_url(), self.distribution.base_path)
         image_with_tag = f"{image_url}:manifest_a"
+
+        registry_name = urlparse(self.cfg.get_base_url()).netloc
+        admin_user, admin_password = self.cfg.pulp_auth
+        registry.login("-u", admin_user, "-p", admin_password, registry_name)
         registry.pull(image_with_tag)
 
         image = registry.inspect(image_with_tag)

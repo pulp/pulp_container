@@ -237,7 +237,7 @@ class ContainerRepository(
         validate_repo_version(new_version)
 
 
-class ContainerPushRepository(Repository):
+class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     """
     Repository for "container" content.
 
@@ -250,6 +250,7 @@ class ContainerPushRepository(Repository):
     TYPE = "container-push"
     CONTENT_TYPES = [Blob, Manifest, Tag]
     PUSH_ENABLED = True
+    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container-push"
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
