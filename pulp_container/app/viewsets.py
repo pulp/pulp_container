@@ -776,3 +776,37 @@ class ContainerNamespaceViewSet(
             },
         ],
     }
+
+    @extend_schema(
+        description="Trigger an asynchronous delete task",
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    def destroy(self, request, pk, **kwargs):
+        """
+        Delete a Namespace with all distributions.
+        If a push repository is associated to any of its distributions, delete it as well.
+        """
+        namespace = self.get_object()
+        reservations = []
+        instance_ids = []
+
+        for distribution in namespace.container_distributions.all():
+
+            reservations.append(distribution)
+            instance_ids.append(
+                (distribution.pk, "container", "ContainerDistributionSerializer"),
+            )
+            if distribution.repository and distribution.repository.cast().PUSH_ENABLED:
+                reservations.append(distribution.repository)
+                instance_ids.append(
+                    (distribution.repository.pk, "container", "ContainerPushRepositorySerializer"),
+                )
+
+        reservations.append(namespace)
+        instance_ids.append(
+            (namespace.pk, "container", "ContainerNamespaceSerializer"),
+        )
+        async_result = enqueue_with_reservation(
+            tasks.general_multi_delete, reservations, args=(instance_ids,)
+        )
+        return OperationPostponedResponse(async_result, request)

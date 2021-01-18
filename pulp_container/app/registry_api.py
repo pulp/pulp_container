@@ -301,6 +301,15 @@ class ContainerRegistryApiMixin:
                 repository = repository.cast()
                 if not repository.PUSH_ENABLED:
                     raise RepositoryInvalid(name=path, message="Repository is read-only.")
+            elif create:
+                with transaction.atomic():
+                    repo_serializer = serializers.ContainerPushRepositorySerializer(
+                        data={"name": path}, context={"request": request}
+                    )
+                    repo_serializer.is_valid(raise_exception=True)
+                    repository = repo_serializer.create(repo_serializer.validated_data)
+                    distribution.repository = repository
+                    distribution.save()
             else:
                 raise RepositoryNotFound(name=path)
         return distribution, repository
