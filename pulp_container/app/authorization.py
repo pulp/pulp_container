@@ -15,7 +15,7 @@ from rest_framework.request import Request
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
-from pulp_container.app.models import ContainerDistribution
+from pulp_container.app.models import ContainerDistribution, ContainerNamespace
 from pulp_container.app.access_policy import RegistryAccessPolicy
 
 TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
@@ -151,6 +151,18 @@ class AuthorizationService:
 
         return {"type": typ, "name": name, "actions": list(permitted_actions)}
 
+    def has_permission(self, obj, method, action, data):
+        """Check if user has permission to perform action."""
+
+        # Fake the request
+        request = Request(HttpRequest())
+        request.method = method
+        request.user = self.user
+        request._full_data = data
+        # Fake the corresponding view
+        view = namedtuple("FakeView", ["action", "get_object"])(action, lambda: obj)
+        return self.access_policy.has_permission(request, view)
+
     def has_pull_permissions(self, path):
         """
         Check if the user has permissions to pull from the repository specified by the path.
@@ -158,16 +170,18 @@ class AuthorizationService:
         try:
             distribution = ContainerDistribution.objects.get(base_path=path)
         except ContainerDistribution.DoesNotExist:
-            return False
+            namespace_name = path.split("/")[0]
+            try:
+                namespace = ContainerNamespace.objects.get(name=namespace_name)
+            except ContainerNamespace.DoesNotExist:
+                # Check if user is allowed to create a new namespace
+                return self.has_permission(None, "POST", "create", {"name": namespace_name})
+            # Check if user is allowed to view distributions in the namespace
+            return self.has_permission(
+                namespace, "GET", "view_distribution", {"name": namespace_name}
+            )
 
-        # Fake the request
-        request = Request(HttpRequest())
-        request.method = "GET"
-        request.user = self.user
-        request._full_data = {"base_path": path}
-        # Fake the corresponding view
-        view = namedtuple("FakeView", ["action", "get_object"])("pull", lambda: distribution)
-        return self.access_policy.has_permission(request, view)
+        return self.has_permission(distribution, "GET", "pull", {"base_path": path})
 
     def has_push_permissions(self, path):
         """
@@ -176,16 +190,16 @@ class AuthorizationService:
         try:
             distribution = ContainerDistribution.objects.get(base_path=path)
         except ContainerDistribution.DoesNotExist:
-            distribution = None
+            namespace_name = path.split("/")[0]
+            try:
+                namespace = ContainerNamespace.objects.get(name=namespace_name)
+            except ContainerNamespace.DoesNotExist:
+                # Check if user is allowed to create a new namespace
+                return self.has_permission(None, "POST", "create", {"name": namespace_name})
+            # Check if user is allowed to create a new distribution in the namespace
+            return self.has_permission(namespace, "POST", "create_distribution", {})
 
-        # Fake the request
-        request = Request(HttpRequest())
-        request.method = "POST"
-        request.user = self.user
-        request._full_data = {"base_path": path}
-        # Fake the corresponding view
-        view = namedtuple("FakeView", ["action", "get_object"])("push", lambda: distribution)
-        return self.access_policy.has_permission(request, view)
+        return self.has_permission(distribution, "POST", "push", {"base_path": path})
 
     def has_view_catalog_permissions(self, path):
         """

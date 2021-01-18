@@ -1,4 +1,7 @@
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+
+from django_currentuser.middleware import _set_current_user
 
 from pulp_container.app.serializers import ContainerDistributionSerializer, TagOperationSerializer
 from pulp_container.app.models import ContainerPushRepository, ContainerRepository
@@ -21,6 +24,14 @@ class TestContainerDistributionSerializer(TestCase):
         self.push_repository_href = "/pulp/api/v3/repositories/container/container-push/{}/".format(
             self.push_repository.pk
         )
+        self.user = get_user_model().objects.create(username="user1", is_staff=False)
+        _set_current_user(self.user)
+
+    def tearDown(self):
+        """Delete the user."""
+        super().tearDown()
+        self.user.delete()
+        _set_current_user(None)
 
     def test_valid_mirror_data(self):
         """Test that the ContainerDistributionSerializer accepts valid data."""
