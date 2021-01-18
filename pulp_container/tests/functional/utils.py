@@ -25,6 +25,8 @@ from pulp_container.tests.functional.constants import (
 from pulpcore.client.pulpcore import (
     ApiClient as CoreApiClient,
     ArtifactsApi,
+    GroupsApi,
+    GroupsUsersApi,
     TasksApi,
 )
 from pulpcore.client.pulp_container import (
@@ -80,6 +82,9 @@ def gen_user(permissions):
     api_config = cfg.get_bindings_config()
     api_config.username = user["username"]
     api_config.password = user["password"]
+    user["core_api_client"] = CoreApiClient(api_config)
+    user["groups_api"] = GroupsApi(user["core_api_client"])
+    user["group_users_api"] = GroupsUsersApi(user["core_api_client"])
     user["api_client"] = ContainerApiClient(api_config)
     user["distribution_api"] = DistributionsContainerApi(user["api_client"])
     user["remote_api"] = RemotesContainerApi(user["api_client"])
@@ -94,6 +99,30 @@ def del_user(user):
     utils.execute_pulpcore_python(
         cli_client,
         "\n".join(DELETE_USER_CMD).format(**user),
+    )
+
+
+def add_user_to_distribution_group(user, distribution, group_type, as_user):
+    """Add the user to either owner, collaborator, or consumer group of a distribution."""
+    distribution_pk = distribution.pulp_href.split("/")[-2]
+    collaborator_group = (
+        as_user["groups_api"]
+        .list(name="container.distribution.{}.{}".format(group_type, distribution_pk))
+        .results[0]
+    )
+    as_user["group_users_api"].create(collaborator_group.pulp_href, {"username": user["username"]})
+
+
+def add_user_to_namespace_group(user, namespace_name, group_type, as_user):
+    """Add the user to either owner, collaborator, or consumer group of a namespace."""
+    namespace_collaborator_group = (
+        as_user["groups_api"]
+        .list(name="container.namespace.{}.{}".format(group_type, namespace_name))
+        .results[0]
+    )
+    as_user["group_users_api"].create(
+        namespace_collaborator_group.pulp_href,
+        {"username": user["username"]},
     )
 
 
