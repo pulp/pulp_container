@@ -634,7 +634,14 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.view_containerdistribution",
-                    # "has_namespace_obj_perms:container.view_containernamespace",
+                ],
+            },
+            {
+                "action": [],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.pull_containerdistribution",
                 ],
             },
             {
@@ -643,7 +650,14 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.change_containerdistribution",
-                    "has_namespace_obj_perms:container.manage_namespace_distributions",
+                ],
+            },
+            {
+                "action": [],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.push_containerdistribution",
                 ],
             },
             {
@@ -662,6 +676,8 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "parameters": None,
                 "permissions": [
                     "container.view_containerdistribution",
+                    "container.pull_containerdistribution",
+                    "container.push_containerdistribution",
                     "container.delete_containerdistribution",
                     "container.change_containerdistribution",
                 ],
