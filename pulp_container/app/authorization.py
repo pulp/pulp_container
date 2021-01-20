@@ -133,6 +133,14 @@ class AuthorizationService:
         actions = set(actions.split(","))
 
         permitted_actions = set()
+        if "push" in actions:
+            actions.remove("push")
+            has_permission = self.actions_permissions["push"](name)
+            if has_permission:
+                permitted_actions.add("push")
+                permitted_actions.add("pull")
+                actions.discard("pull")
+
         for action in actions:
             has_permission = self.actions_permissions[action](name)
             if has_permission:
@@ -144,14 +152,14 @@ class AuthorizationService:
         """
         Check if the user has permissions to pull from the repository specified by the path.
         """
-        if self.user.has_perm("container.view_containerdistribution"):
+        if self.user.has_perm("container.pull_containerdistribution"):
             return True
 
         try:
             distribution = ContainerDistribution.objects.get(base_path=path)
         except ContainerDistribution.DoesNotExist:
             return False
-        if self.user.has_perm("container.view_containerdistribution", distribution):
+        if self.user.has_perm("container.pull_containerdistribution", distribution):
             return True
 
         return False
@@ -160,19 +168,29 @@ class AuthorizationService:
         """
         Check if the user has permissions to push to the repository specified by the path.
         """
-        if not self.user.has_perm("container.add_containerdistribution"):
-            return False
 
-        namespace = path.split("/")[0]
-        return NamespacePermissionsChecker.has_permissions(
-            namespace, self.user, "container.manage_namespace_distributions"
-        )
+        try:
+            distribution = ContainerDistribution.objects.get(base_path=path)
+        except ContainerDistribution.DoesNotExist:
+            # distribution does not exist, need to create a new one
+            if not self.user.has_perm("container.add_containerdistribution"):
+                return False
+            namespace = path.split("/")[0]
+            return NamespacePermissionsChecker.has_permissions(
+                namespace, self.user, "container.manage_namespace_distributions"
+            )
+        # this is an existing distribution. User should have model or object perms
+        if self.user.has_perm("container.push_containerdistribution") or self.user.has_perm(
+            "container.push_containerdistribution", distribution
+        ):
+            return True
+        return False
 
     def has_view_catalog_permissions(self, path):
         """
         Check if the authenticated user is an administrator and is requesting the catalog endpoint.
         """
-        if path == "catalog" and self.user.username == "admin":
+        if path == "catalog" and self.user.is_staff:
             return True
         else:
             return False
