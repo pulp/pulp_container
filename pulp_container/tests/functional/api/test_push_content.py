@@ -37,30 +37,39 @@ class PushRepoTestCase(unittest.TestCase):
         cls.user_creator = gen_user(
             [
                 "container.add_containerdistribution",
-                "container.view_containerdistribution",
                 "container.add_containernamespace",
             ]
         )
-        cls.user_collaborator = gen_user(
+        cls.user_dist_collaborator = gen_user(
+            [
+                "container.pull_containerdistribution",
+                "container.push_containerdistribution",
+                "container.view_containerpushrepository",
+            ]
+        )
+        cls.user_namespace_collaborator = gen_user(
             [
                 "container.add_containerdistribution",
-                "container.view_containerdistribution",
-                "container.manage_namespace_distributions",
+                "container.pull_containerdistribution",
+                "container.push_containerdistribution",
                 "container.view_containerpushrepository",
+                "container.manage_namespace_distributions",
             ]
         )
         cls.user_reader = gen_user(["container.view_containerpushrepository"])
         cls.user_helpless = gen_user([])
 
-        cls._pull("centos:7")
         cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a")
         cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b")
+        cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_c")
+        cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_d")
 
     @classmethod
     def tearDownClass(cls):
         """Delete api users."""
         del_user(cls.user_creator)
-        del_user(cls.user_collaborator)
+        del_user(cls.user_dist_collaborator)
+        del_user(cls.user_namespace_collaborator)
         del_user(cls.user_reader)
         del_user(cls.user_helpless)
 
@@ -110,7 +119,7 @@ class PushRepoTestCase(unittest.TestCase):
 
     def test_push_using_registry_client_admin(self):
         """Test push with official registry client and logged in as admin."""
-        image_path = "centos:7"
+        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
         local_url = "/".join([self.registry_name, "foo/bar:1.0"])
 
         self._push(image_path, local_url, self.user_admin)
@@ -141,7 +150,12 @@ class PushRepoTestCase(unittest.TestCase):
 
         self.assertEqual(self.pushrepository_api.list(name=repo_name).count, 1)
         self.assertEqual(self.user_creator["pushrepository_api"].list(name=repo_name).count, 1)
-        self.assertEqual(self.user_collaborator["pushrepository_api"].list(name=repo_name).count, 1)
+        self.assertEqual(
+            self.user_dist_collaborator["pushrepository_api"].list(name=repo_name).count, 1
+        )
+        self.assertEqual(
+            self.user_namespace_collaborator["pushrepository_api"].list(name=repo_name).count, 1
+        )
         self.assertEqual(self.user_reader["pushrepository_api"].list(name=repo_name).count, 1)
         self.assertEqual(self.user_helpless["pushrepository_api"].list(name=repo_name).count, 0)
 
@@ -173,7 +187,10 @@ class PushRepoTestCase(unittest.TestCase):
         """
         Test the push to existing namespace with collaborator permissions.
 
-        Container distribution perms and manage-namespace one should be enough.
+        Container distribution perms and manage-namespace one should be enough
+        to push a new distribution.
+        Container distribution perms shouls be enough to push to the existing
+        distribution.
         """
         repo_name = "team/owner"
         local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
@@ -183,7 +200,18 @@ class PushRepoTestCase(unittest.TestCase):
         collab_repo_name = "team/owner"
         local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
         image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b"
-        self._push(image_path, local_url, self.user_collaborator)
+        self._push(image_path, local_url, self.user_dist_collaborator)
+
+        collab_repo_name = "team/collab"
+        local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
+        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_d"
+        with self.assertRaises(exceptions.CalledProcessError):
+            self._push(image_path, local_url, self.user_dist_collaborator)
+
+        collab_repo_name = "team/collab"
+        local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
+        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_c"
+        self._push(image_path, local_url, self.user_namespace_collaborator)
 
         # cleanup, namespace removal also removes related distributions
         namespace = self.namespace_api.list(name="team").results[0]
