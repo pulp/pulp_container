@@ -393,6 +393,10 @@ class ContainerDistribution(
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            ("pull_containerdistribution", "Can pull from a registry repo"),
+            ("push_containerdistribution", "Can push into the registry repo"),
+        ]
 
 
 INCOMPLETE_EXT = ".part"
