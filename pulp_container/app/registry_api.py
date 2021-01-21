@@ -8,6 +8,7 @@ import json
 import logging
 import hashlib
 import re
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
 from django.core.files.storage import default_storage as storage
@@ -27,9 +28,13 @@ from rest_framework.exceptions import (
     ParseError,
     ValidationError,
 )
+from rest_framework.generics import ListAPIView
+from rest_framework.pagination import BasePagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
+from rest_framework.serializers import ModelSerializer
+from rest_framework.settings import api_settings
 from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
 
@@ -378,36 +383,134 @@ class VersionView(ContainerRegistryApiMixin, APIView):
         return Response(data={})
 
 
-class CatalogView(ContainerRegistryApiMixin, APIView):
+class ContainerCatalogSerializer(ModelSerializer):
+    """
+    Serializer for Distributions in the _catalog endpoint of the registry.
+    """
+
+    class Meta:
+        model = models.ContainerDistribution
+        fields = ["base_path"]
+
+
+class ContainerCatalogPagination(BasePagination):
+    """
+    Pagination class to paginate repositories by names according to the registry api specification.
+    """
+
+    def paginate_queryset(self, queryset, request, view=None):
+        """
+        Analyse the pagination parameters and prepare the queryset.
+        """
+        try:
+            self.n = int(request.query_params.get("n"))
+        except Exception:
+            self.n = api_settings.PAGE_SIZE
+        else:
+            if self.n > 10 * api_settings.PAGE_SIZE:
+                self.n = 10 * api_settings.PAGE_SIZE
+        last = request.query_params.get("last")
+        self.url = request.build_absolute_uri()
+
+        if last:
+            queryset = queryset.filter(base_path__gt=last)
+        return queryset.order_by("base_path")[: self.n]
+
+    def get_paginated_response(self, data):
+        """
+        Prepare the paginated container _catalog response.
+        """
+        headers = {}
+        repositories_names = [repo["base_path"] for repo in data]
+        if len(repositories_names) == self.n:
+            # There's a high chance we haven't gotten all entries here.
+            parsed_url = list(urlparse(self.url))
+            query_params = parse_qs(parsed_url[4])
+            query_params["n"] = str(self.n)
+            query_params["last"] = repositories_names[-1]
+            parsed_url[4] = urlencode(query_params)
+            url = urlunparse(parsed_url)
+            headers["Link"] = f'<{url}>; rel="next"'
+        return Response(headers=headers, data={"repositories": repositories_names})
+
+
+class CatalogView(ContainerRegistryApiMixin, ListAPIView):
     """
     Handles requests to the /v2/_catalog endpoint
     """
 
-    def get(self, request):
-        """Handles GET requests for the /v2/_catalog endpoint."""
-        repositories_names = models.ContainerDistribution.objects.values_list(
-            "base_path", flat=True
-        )
-        return Response(data={"repositories": list(repositories_names)})
+    queryset = models.ContainerDistribution.objects.all().only("base_path")
+    serializer_class = ContainerCatalogSerializer
+    pagination_class = ContainerCatalogPagination
 
 
-class TagsListView(ContainerRegistryApiMixin, APIView):
+class ContainerTagListSerializer(ModelSerializer):
+    """
+    Serializer for Tags in the tags list endpoint of the registry.
+    """
+
+    class Meta:
+        model = models.Tag
+        fields = ["name"]
+
+
+class ContainerTagListPagination(BasePagination):
+    """
+    Pagination class to paginate tags by names according to the registry api specification.
+    """
+
+    def paginate_queryset(self, queryset, request, view=None):
+        """
+        Analyse the pagination parameters and prepare the queryset.
+        """
+        try:
+            self.n = int(request.query_params.get("n"))
+        except Exception:
+            self.n = api_settings.PAGE_SIZE
+        else:
+            if self.n > 10 * api_settings.PAGE_SIZE:
+                self.n = 10 * api_settings.PAGE_SIZE
+        last = request.query_params.get("last")
+        self.url = request.build_absolute_uri()
+        self.path = request.resolver_match.kwargs["path"]
+
+        if last:
+            queryset = queryset.filter(name__gt=last)
+        return queryset.order_by("name")[: self.n]
+
+    def get_paginated_response(self, data):
+        """
+        Prepare the paginated container _catalog response.
+        """
+        headers = {}
+        tag_names = [tag["name"] for tag in data]
+        if len(tag_names) == self.n:
+            # There's a high chance we haven't gotten all entries here.
+            parsed_url = list(urlparse(self.url))
+            query_params = parse_qs(parsed_url[4])
+            query_params["n"] = str(self.n)
+            query_params["last"] = tag_names[-1]
+            parsed_url[4] = urlencode(query_params)
+            url = urlunparse(parsed_url)
+            headers["Link"] = f'<{url}>; rel="next"'
+        return Response(headers=headers, data={"name": self.path, "tags": tag_names})
+
+
+class TagsListView(ContainerRegistryApiMixin, ListAPIView):
     """
     Handles requests to the /v2/<repo>/tags/list endpoint
     """
 
-    def get(self, request, path):
+    serializer_class = ContainerTagListSerializer
+    pagination_class = ContainerTagListPagination
+
+    def get_queryset(self):
         """
         Handles GET requests to the /v2/<repo>/tags/list endpoint
         """
+        path = self.request.resolver_match.kwargs["path"]
         _, _, repository_version = self.get_drv_pull(path)
-        tags = {"name": path, "tags": set()}
-        for c in repository_version.content:
-            c = c.cast()
-            if isinstance(c, models.Tag):
-                tags["tags"].add(c.name)
-        tags["tags"] = list(tags["tags"])
-        return Response(data=tags)
+        return models.Tag.objects.filter(pk__in=repository_version.content).only("name")
 
 
 class BlobUploads(ContainerRegistryApiMixin, ViewSet):

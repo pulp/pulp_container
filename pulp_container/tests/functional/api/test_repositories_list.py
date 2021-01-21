@@ -101,5 +101,5 @@ class RepositoriesListTestCase(unittest.TestCase):
         )
         repositories.raise_for_status()
 
-        repositories_names = [self.distribution1.base_path, self.distribution2.base_path]
+        repositories_names = sorted([self.distribution1.base_path, self.distribution2.base_path])
         self.assertEqual(repositories.json(), {"repositories": repositories_names})
