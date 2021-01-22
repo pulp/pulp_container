@@ -31,16 +31,14 @@ class Schema2toSchema1ConverterWrapper:
     def convert(self):
         """Convert a manifest to schema 1."""
         if self.tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V2:
-            converted_schema = self._convert_schema(self.tag.tagged_manifest)
-            return converted_schema, True, self.tag.tagged_manifest.digest
+            return self._convert_schema(self.tag.tagged_manifest)
         elif self.tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_LIST:
             legacy = self._get_legacy_manifest()
             if legacy.media_type in self.accepted_media_types:
                 # return legacy without conversion
                 return legacy, False, legacy.digest
             elif legacy.media_type == MEDIA_TYPE.MANIFEST_V2:
-                converted_schema = self._convert_schema(legacy)
-                return converted_schema, True, legacy.digest
+                return self._convert_schema(legacy)
             else:
                 raise RuntimeError()
 
@@ -54,7 +52,14 @@ class Schema2toSchema1ConverterWrapper:
             )
         except ValueError:
             raise RuntimeError()
-        return converter.convert()
+
+        converted_schema, schema_with_signature = converter.convert()
+
+        # According to the docs https://docs.docker.com/registry/spec/api/#content-digests,
+        # the digest header is deduced from the manifest body without the signature content.
+        # Therefore, the digest is computed from the formatted and converted manifest here.
+        digest = compute_digest(converted_schema)
+        return schema_with_signature, True, digest
 
     def _get_legacy_manifest(self):
         ml = self.tag.tagged_manifest.listed_manifests.all()
@@ -107,10 +112,12 @@ class Schema2toSchema1Converter:
             fsLayers=self.fs_layers,
             history=self.history,
         )
+
         key = jwk.ECKey().load_key(ecc.P256)
         key.kid = getKeyId(key)
-        manifData = sign(manifest, key)
-        return manifData
+        manifest_data = _jsonDumps(manifest)
+        signed_manifest_data = sign(manifest_data, key)
+        return manifest_data, signed_manifest_data
 
     def compute_layers(self):
         """
@@ -210,23 +217,19 @@ def _jsonDumpsCompact(data):
 
 def sign(data, key):
     """
-    Sign the JSON document with a elliptic curve key
+    Sign the JSON data with the passed key.
     """
-    jdata = _jsonDumps(data)
     now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     header = dict(alg="ES256", jwk=key.serialize())
-    protected = dict(
-        formatLength=len(jdata) - 2, formatTail=jws.b64encode_item(jdata[-2:]), time=now
-    )
-    _jws = jws.JWS(jdata, **header)
+    protected = dict(formatLength=len(data) - 2, formatTail=jws.b64encode_item(data[-2:]), time=now)
+    _jws = jws.JWS(data, **header)
     protectedHeader, payload, signature = _jws.sign_compact([key], protected=protected).split(".")
     signatures = [dict(header=header, signature=signature, protected=protectedHeader)]
     jsig = _jsonDumps(dict(signatures=signatures))[1:-2]
-    arr = [jdata[:-2], ",", jsig, jdata[-2:]]
-    # Add the signature block at the end of the json string, keeping the
-    # formatting
-    jdata2 = "".join(arr)
-    return jdata2
+    arr = [data[:-2], ",", jsig, data[-2:]]
+    # Add the signature block at the end of the json string, keeping the formatting
+    data_with_signature = "".join(arr)
+    return data_with_signature
 
 
 def getKeyId(key):
@@ -274,6 +277,13 @@ def number2string(num, order):
     # Zero-pad to the left so the length of the resulting unhexified string is order
     nhex = nhex.rjust(2 * order, "0")
     return binascii.unhexlify(nhex)
+
+
+def compute_digest(manifest_data):
+    """
+    Compute the digest from the passed manifest data.
+    """
+    return hashlib.sha256(manifest_data.encode("utf-8")).hexdigest()
 
 
 def _get_config_dict(manifest):
