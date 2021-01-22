@@ -1,4 +1,5 @@
 import base64
+import json
 
 from django.test import TestCase
 
@@ -15,7 +16,8 @@ class Test(TestCase):
         cnv = schema_convert.Schema2toSchema1Converter(
             MANIFEST, CONFIG_LAYER, "test-repo", "tes-tag"
         )
-        signed_mf = cnv.convert()
+        converted_mf, signed_mf = cnv.convert()
+        compare_manifests(converted_mf, signed_mf)
         validate_signature(signed_mf)
 
         empty = dict(blobSum=cnv.EMPTY_LAYER)
@@ -69,6 +71,18 @@ class Test(TestCase):
                 "v1Compatibility": '{"container_config":{"Cmd":"/bin/sh -c #(nop) ADD file:FILE_CHECKSUM in / "},"created":"2018-03-06T00:48:12.077095981Z","id":"cb48c1db9c0a1ede7c85c85351856fc3e40e750931295c8fac837c63b403586a"}'  # noqa
             },
         ] == cnv.history
+
+
+def compare_manifests(converted_mf, signed_mf):
+    """
+    Compare the manifests without signatures.
+    """
+    converted_mf_json = json.loads(converted_mf)
+    signed_mf_json = json.loads(signed_mf)
+
+    signed_mf_json.pop("signatures")
+
+    assert converted_mf_json == signed_mf_json
 
 
 def validate_signature(signed_mf):
