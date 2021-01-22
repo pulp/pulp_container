@@ -36,6 +36,7 @@ from pulp_container.app import models, serializers
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.redirects import FileStorageRedirects, S3StorageRedirects
 from pulp_container.app.token_verification import TokenAuthentication, TokenPermission
+from pulp_container.app.utils import get_accepted_media_types
 
 
 log = logging.getLogger(__name__)
@@ -550,6 +551,9 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             else:
                 manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
         except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
+            raise ManifestNotFound(reference=pk)
+
+        if manifest.media_type not in get_accepted_media_types(request.headers):
             raise ManifestNotFound(reference=pk)
 
         return ManifestResponse(manifest, path, request)

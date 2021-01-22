@@ -1,6 +1,8 @@
 # coding=utf-8
 """Tests that verify that images served by Pulp can be pulled."""
 import contextlib
+import hashlib
+import json
 import requests
 import unittest
 from urllib.parse import urljoin
@@ -162,6 +164,17 @@ class PullContentTestCase(unittest.TestCase):
         )
         base_content_type = content_response.headers["Content-Type"].split(";")[0]
         self.assertIn(base_content_type, {MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1_SIGNED})
+
+        header_digest = content_response.headers["Docker-Content-Digest"]
+        converted_manifest = json.loads(content_response.content)
+        converted_manifest.pop("signatures")
+        manifest_string = json.dumps(
+            converted_manifest, indent=3, sort_keys=True, separators=(",", ": ")
+        ).encode("utf-8")
+        # the header digest should be equal to the SHA256 hash computed from
+        # a manifest without signatures
+        computed_digest = hashlib.sha256(manifest_string).hexdigest()
+        self.assertEqual(computed_digest, header_digest, "The manifest digests are not equal")
 
     def test_pull_image_from_repository(self):
         """Verify that a client can pull the image from Pulp.
