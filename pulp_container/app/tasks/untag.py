@@ -1,11 +1,12 @@
-from pulp_container.app.models import ContainerRepository, Tag
+from pulpcore.plugin.models import Repository
+from pulp_container.app.models import Tag
 
 
 def untag_image(tag, repository_pk):
     """
     Create a new repository version without a specified manifest's tag name.
     """
-    repository = ContainerRepository.objects.get(pk=repository_pk)
+    repository = Repository.objects.get(pk=repository_pk).cast()
     latest_version = repository.latest_version()
 
     tags_in_latest_repository = latest_version.content.filter(pulp_type="container.tag")

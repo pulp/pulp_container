@@ -207,7 +207,66 @@ class ContainerRemoteViewSet(RemoteViewSet):
     }
 
 
-class ContainerRepositoryViewSet(RepositoryViewSet):
+class TagOperationsMixin:
+    """
+    A mixin that adds functionality for creating and deleting tags.
+    """
+
+    @extend_schema(
+        description="Trigger an asynchronous task to tag an image in the repository",
+        summary="Create a Tag",
+        responses={202: AsyncOperationResponseSerializer},
+        request=serializers.TagImageSerializer,
+    )
+    @action(detail=True, methods=["post"], serializer_class=serializers.TagImageSerializer)
+    def tag(self, request, pk):
+        """
+        Create a task which is responsible for creating a new tag.
+        """
+        repository = self.get_object()
+        request.data["repository"] = repository
+
+        serializer = serializers.TagImageSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        manifest = serializer.validated_data["manifest"]
+        tag = serializer.validated_data["tag"]
+
+        result = enqueue_with_reservation(
+            tasks.tag_image,
+            [repository, manifest],
+            kwargs={"manifest_pk": manifest.pk, "tag": tag, "repository_pk": repository.pk},
+        )
+        return OperationPostponedResponse(result, request)
+
+    @extend_schema(
+        description="Trigger an asynchronous task to untag an image in the repository",
+        summary="Delete a tag",
+        responses={202: AsyncOperationResponseSerializer},
+        request=serializers.UnTagImageSerializer,
+    )
+    @action(detail=True, methods=["post"], serializer_class=serializers.UnTagImageSerializer)
+    def untag(self, request, pk):
+        """
+        Create a task which is responsible for untagging an image.
+        """
+        repository = self.get_object()
+        request.data["repository"] = repository
+
+        serializer = serializers.UnTagImageSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        tag = serializer.validated_data["tag"]
+
+        result = enqueue_with_reservation(
+            tasks.untag_image, [repository], kwargs={"tag": tag, "repository_pk": repository.pk}
+        )
+        return OperationPostponedResponse(result, request)
+
+
+class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
     """
     ViewSet for container repo.
     """
@@ -314,59 +373,6 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
             tasks.synchronize,
             [repository, remote],
             kwargs={"remote_pk": remote.pk, "repository_pk": repository.pk, "mirror": mirror},
-        )
-        return OperationPostponedResponse(result, request)
-
-    @extend_schema(
-        description="Trigger an asynchronous task to tag an image in the repository",
-        summary="Create a Tag",
-        responses={202: AsyncOperationResponseSerializer},
-        request=serializers.TagImageSerializer,
-    )
-    @action(detail=True, methods=["post"], serializer_class=serializers.TagImageSerializer)
-    def tag(self, request, pk):
-        """
-        Create a task which is responsible for creating a new tag.
-        """
-        repository = self.get_object()
-        request.data["repository"] = repository
-
-        serializer = serializers.TagImageSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-
-        manifest = serializer.validated_data["manifest"]
-        tag = serializer.validated_data["tag"]
-
-        result = enqueue_with_reservation(
-            tasks.tag_image,
-            [repository, manifest],
-            kwargs={"manifest_pk": manifest.pk, "tag": tag, "repository_pk": repository.pk},
-        )
-        return OperationPostponedResponse(result, request)
-
-    @extend_schema(
-        description="Trigger an asynchronous task to untag an image in the repository",
-        summary="Delete a tag",
-        responses={202: AsyncOperationResponseSerializer},
-        request=serializers.UnTagImageSerializer,
-    )
-    @action(detail=True, methods=["post"], serializer_class=serializers.UnTagImageSerializer)
-    def untag(self, request, pk):
-        """
-        Create a task which is responsible for untagging an image.
-        """
-        repository = self.get_object()
-        request.data["repository"] = repository
-
-        serializer = serializers.UnTagImageSerializer(
-            data=request.data, context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-
-        tag = serializer.validated_data["tag"]
-
-        result = enqueue_with_reservation(
-            tasks.untag_image, [repository], kwargs={"tag": tag, "repository_pk": repository.pk}
         )
         return OperationPostponedResponse(result, request)
 
@@ -547,7 +553,7 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
     parent_viewset = ContainerRepositoryViewSet
 
 
-class ContainerPushRepositoryViewSet(ReadOnlyRepositoryViewSet):
+class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewSet):
     """
     ViewSet for a container push repository.
 
@@ -574,6 +580,14 @@ class ContainerPushRepositoryViewSet(ReadOnlyRepositoryViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": "has_model_or_obj_perms:container.view_containerpushrepository",
+            },
+            {
+                "action": ["tag", "untag"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.modify_content_containerrepository",
+                ],
             },
         ],
         "permissions_assignment": [
