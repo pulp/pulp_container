@@ -634,6 +634,11 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
             },
             {
+                "action": ["catalog"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
@@ -651,7 +656,15 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 ],
             },
             {
-                "action": [],
+                "action": ["pull"],
+                "principal": "*",
+                "effect": "allow",
+                "condition": [
+                    "not is_private",
+                ],
+            },
+            {
+                "action": ["pull"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -667,11 +680,21 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 ],
             },
             {
-                "action": [],
+                "action": ["push"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.push_containerdistribution",
+                    "obj_exists",
+                ],
+            },
+            {
+                "action": ["push"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_perms:container.add_containerdistribution",
+                    "has_manage_namespace_dist_perms:container.manage_namespace_distributions",
                 ],
             },
             {
