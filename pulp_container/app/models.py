@@ -226,6 +226,7 @@ class ContainerRepository(
             ("sync_containerrepository", "Can start a sync task"),
             ("modify_content_containerrepository", "Can modify content in a repository"),
             ("build_image_containerrepository", "Can use the image builder in a repository"),
+            ("delete_containerrepository_versions", "Can delete repository versions"),
         ]
 
     def finalize_new_version(self, new_version):
