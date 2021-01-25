@@ -16,6 +16,7 @@ from pulp_container.constants import MEDIA_TYPE
 log = logging.getLogger(__name__)
 
 FS_Layer = namedtuple("FS_Layer", "layer_id uncompressed_digest history")
+ConversionResult = namedtuple("ConversionResult", "text digest content_type")
 
 
 class Schema2toSchema1ConverterWrapper:
@@ -29,16 +30,29 @@ class Schema2toSchema1ConverterWrapper:
         self.name = path
 
     def convert(self):
-        """Convert a manifest to schema 1."""
+        """Convert a manifest to schema 1.
+
+        Raises:
+            RuntimeError: If the conversion was not successful.
+
+        Returns:
+            ConversionResult: A converted manifest, corresponding digest, and content type.
+
+        """
         if self.tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V2:
-            return self._convert_schema(self.tag.tagged_manifest)
+            schema_with_signature, digest = self._convert_schema(self.tag.tagged_manifest)
+            return ConversionResult(schema_with_signature, digest, MEDIA_TYPE.MANIFEST_V1_SIGNED)
         elif self.tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_LIST:
             legacy = self._get_legacy_manifest()
             if legacy.media_type in self.accepted_media_types:
                 # return legacy without conversion
-                return legacy, False, legacy.digest
+                legacy_schema = _jsonDumps(_get_manifest_dict(legacy))
+                return ConversionResult(legacy_schema, legacy.digest, legacy.media_type)
             elif legacy.media_type == MEDIA_TYPE.MANIFEST_V2:
-                return self._convert_schema(legacy)
+                schema_with_signature, digest = self._convert_schema(legacy)
+                return ConversionResult(
+                    schema_with_signature, digest, MEDIA_TYPE.MANIFEST_V1_SIGNED
+                )
             else:
                 raise RuntimeError()
 
@@ -59,7 +73,7 @@ class Schema2toSchema1ConverterWrapper:
         # the digest header is deduced from the manifest body without the signature content.
         # Therefore, the digest is computed from the formatted and converted manifest here.
         digest = compute_digest(converted_schema)
-        return schema_with_signature, True, digest
+        return schema_with_signature, digest
 
     def _get_legacy_manifest(self):
         ml = self.tag.tagged_manifest.listed_manifests.all()
