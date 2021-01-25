@@ -1,5 +1,5 @@
-from pulpcore.plugin.models import ContentArtifact, CreatedResource
-from pulp_container.app.models import ContainerRepository, Manifest, Tag
+from pulpcore.plugin.models import ContentArtifact, CreatedResource, Repository
+from pulp_container.app.models import Manifest, Tag
 
 
 def tag_image(manifest_pk, tag, repository_pk):
@@ -15,7 +15,7 @@ def tag_image(manifest_pk, tag, repository_pk):
     manifest = Manifest.objects.get(pk=manifest_pk)
     artifact = manifest._artifacts.all()[0]
 
-    repository = ContainerRepository.objects.get(pk=repository_pk)
+    repository = Repository.objects.get(pk=repository_pk).cast()
     latest_version = repository.latest_version()
 
     tags_to_remove = Tag.objects.filter(pk__in=latest_version.content.all(), name=tag).exclude(
