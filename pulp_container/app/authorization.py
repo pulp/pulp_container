@@ -5,16 +5,18 @@ import uuid
 
 import jwt
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from datetime import datetime
 
 from django.conf import settings
+from django.http import HttpRequest
+from rest_framework.request import Request
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 from pulp_container.app.models import ContainerDistribution
-from pulp_container.app.access_policy import NamespacePermissionsChecker
+from pulp_container.app.access_policy import RegistryAccessPolicy
 
 TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
 
@@ -43,6 +45,7 @@ class AuthorizationService:
         self.user = user
         self.service = service
         self.scope = scope
+        self.access_policy = RegistryAccessPolicy()
 
         self.actions_permissions = defaultdict(
             lambda: lambda *args: False,
@@ -156,45 +159,51 @@ class AuthorizationService:
             distribution = ContainerDistribution.objects.get(base_path=path)
         except ContainerDistribution.DoesNotExist:
             return False
-        if not distribution.private:
-            return True
-        if self.user.has_perm("container.pull_containerdistribution", distribution):
-            return True
-        if self.user.has_perm("container.pull_containerdistribution"):
-            return True
 
-        return False
+        # Fake the request
+        request = Request(HttpRequest())
+        request.method = "GET"
+        request.user = self.user
+        request._full_data = {"base_path": path}
+        # Fake the corresponding view
+        view = namedtuple("FakeView", ["action", "get_object"])("pull", lambda: distribution)
+        return self.access_policy.has_permission(request, view)
 
     def has_push_permissions(self, path):
         """
         Check if the user has permissions to push to the repository specified by the path.
         """
-
         try:
             distribution = ContainerDistribution.objects.get(base_path=path)
         except ContainerDistribution.DoesNotExist:
-            # distribution does not exist, need to create a new one
-            if not self.user.has_perm("container.add_containerdistribution"):
-                return False
-            namespace = path.split("/")[0]
-            return NamespacePermissionsChecker.has_permissions(
-                namespace, self.user, "container.manage_namespace_distributions"
-            )
-        # this is an existing distribution. User should have model or object perms
-        if self.user.has_perm("container.push_containerdistribution") or self.user.has_perm(
-            "container.push_containerdistribution", distribution
-        ):
-            return True
-        return False
+            distribution = None
+
+        # Fake the request
+        request = Request(HttpRequest())
+        request.method = "POST"
+        request.user = self.user
+        request._full_data = {"base_path": path}
+        # Fake the corresponding view
+        view = namedtuple("FakeView", ["action", "get_object"])("push", lambda: distribution)
+        return self.access_policy.has_permission(request, view)
 
     def has_view_catalog_permissions(self, path):
         """
         Check if the authenticated user is an administrator and is requesting the catalog endpoint.
         """
-        if path == "catalog" and self.user.is_staff:
-            return True
-        else:
-            return False
+        try:
+            distribution = ContainerDistribution.objects.get(base_path=path)
+        except ContainerDistribution.DoesNotExist:
+            distribution = None
+
+        # Fake the request
+        request = Request(HttpRequest())
+        request.method = "GET"
+        request.user = self.user
+        request._full_data = {"base_path": path}
+        # Fake the corresponding view
+        view = namedtuple("FakeView", ["action", "get_object"])("catalog", lambda: distribution)
+        return self.access_policy.has_permission(request, view)
 
     @staticmethod
     def generate_claim_set(issuer, issued_at, subject, audience, access):
