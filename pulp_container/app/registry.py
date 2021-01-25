@@ -188,18 +188,16 @@ class Registry(Handler):
         """
         schema1_converter = Schema2toSchema1ConverterWrapper(tag, accepted_media_types, path)
         try:
-            schema, converted, digest = schema1_converter.convert()
+            result = schema1_converter.convert()
         except RuntimeError:
             raise PathNotResolved(tag.name)
+
         response_headers = {
-            "Docker-Content-Digest": digest,
-            "Content-Type": MEDIA_TYPE.MANIFEST_V1_SIGNED,
+            "Docker-Content-Digest": result.digest,
+            "Content-Type": result.content_type,
             "Docker-Distribution-API-Version": "registry/2.0",
         }
-        if not converted:
-            raise PathNotResolved(tag.name)
-
-        return web.Response(text=schema, headers=response_headers)
+        return web.Response(text=result.text, headers=response_headers)
 
     async def get_by_digest(self, request):
         """
