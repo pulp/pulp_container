@@ -26,6 +26,7 @@ from rest_framework.exceptions import (
     NotFound,
     ParseError,
     ValidationError,
+    Throttled,
 )
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
@@ -53,6 +54,24 @@ class RepositoryNotFound(NotFound):
                         "code": "NAME_UNKNOWN",
                         "message": "Repository not found.",
                         "detail": {"name": name},
+                    }
+                ]
+            }
+        )
+
+class TooManyrequests(Throttled):
+    """Exception to render a 429 with the code 'TOOMANYREQUESTS'"""
+
+    def __init__(self, message=None):
+        """Initialize the exception."""
+        message = message or "Too many requests"
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "TOOMANYREQUESTS",
+                        "message": message,
+                        "detail": message,
                     }
                 ]
             }
@@ -262,6 +281,12 @@ class ContainerRegistryApiMixin:
             repository_version = distribution.repository_version
         else:
             raise RepositoryNotFound(name=path)
+        # query Reserved resources for repo and distribution
+        # construct a pulp_href
+        # query  ReservedResource.objects.filter(resource=pulp_href)
+        # if found raise 429
+        #raise TooManyrequests(message="Try again later")
+
         return distribution, distribution.repository, repository_version
 
     def get_dr_push(self, request, path, create=False):
@@ -302,6 +327,8 @@ class ContainerRegistryApiMixin:
                     raise RepositoryInvalid(name=path, message="Repository is read-only.")
             else:
                 raise RepositoryNotFound(name=path)
+        # query ReservedResources for distibution and repo
+        # issue 429 if locks found
         return distribution, repository
 
 
@@ -459,7 +486,9 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             except IntegrityError:
                 pass
 
+            # wrap into a transaction
             with repository.new_version() as new_version:
+                # query ReservedResource
                 new_version.add_content(models.Blob.objects.filter(pk=blob.pk))
 
             upload.delete()
@@ -604,7 +633,9 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             tag.save()
         except IntegrityError:
             pass
+        # wrap into a transaction
         with repository.new_version() as new_version:
+            # query ReservedResource
             new_version.add_content(models.Manifest.objects.filter(digest=manifest.digest))
             new_version.remove_content(models.Tag.objects.filter(name=tag.name))
             new_version.add_content(
