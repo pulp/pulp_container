@@ -2,6 +2,9 @@
 """Tests for tagging and untagging images."""
 import unittest
 
+from urllib.parse import urlparse
+
+from pulp_smash import cli, config, exceptions
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo
 
@@ -21,6 +24,7 @@ from pulpcore.client.pulp_container import (
     ContentManifestsApi,
     ContentTagsApi,
     RepositoriesContainerApi,
+    RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
     RepositorySyncURL,
     RemotesContainerApi,
@@ -29,8 +33,37 @@ from pulpcore.client.pulp_container import (
 )
 
 
-class TaggingTestCase(unittest.TestCase):
-    """Test case for tagging and untagging images."""
+class TaggingTestCommons:
+    """Common utilities for tagging and untagging images."""
+
+    def get_manifest_by_tag(self, tag_name):
+        """Fetch a manifest by the tag name."""
+        latest_version_href = self.repositories_api.read(
+            self.repository.pulp_href
+        ).latest_version_href
+
+        manifest_href = (
+            self.tags_api.list(name=tag_name, repository_version=latest_version_href)
+            .results[0]
+            .tagged_manifest
+        )
+        return self.manifests_api.read(manifest_href)
+
+    def tag_image(self, manifest, tag_name):
+        """Perform a tagging operation."""
+        tag_data = TagImage(tag=tag_name, digest=manifest.digest)
+        tag_response = self.repositories_api.tag(self.repository.pulp_href, tag_data)
+        monitor_task(tag_response.task)
+
+    def untag_image(self, tag_name):
+        """Perform an untagging operation."""
+        untag_data = UnTagImage(tag=tag_name)
+        untag_response = self.repositories_api.untag(self.repository.pulp_href, untag_data)
+        monitor_task(untag_response.task)
+
+
+class RepositoryTaggingTestCase(TaggingTestCommons, unittest.TestCase):
+    """A test case for standard a container repository."""
 
     @classmethod
     def setUpClass(cls):
@@ -174,27 +207,70 @@ class TaggingTestCase(unittest.TestCase):
         with self.assertRaises(ApiException):
             self.untag_image("new_tag")
 
-    def get_manifest_by_tag(self, tag_name):
-        """Fetch a manifest by the tag name."""
-        latest_version_href = self.repositories_api.read(
-            self.repository.pulp_href
-        ).latest_version_href
 
-        manifest_a_href = (
-            self.tags_api.list(name=tag_name, repository_version=latest_version_href)
-            .results[0]
-            .tagged_manifest
-        )
-        return self.manifests_api.read(manifest_a_href)
+class PushRepositoryTaggingTestCase(TaggingTestCommons, unittest.TestCase):
+    """A test case for a container push repository."""
 
-    def tag_image(self, manifest, tag_name):
-        """Perform a tagging operation."""
-        tag_data = TagImage(tag=tag_name, digest=manifest.digest)
-        tag_response = self.repositories_api.tag(self.repository.pulp_href, tag_data)
-        monitor_task(tag_response.task)
+    @classmethod
+    def setUpClass(cls):
+        """Define APIs to use and pull images needed later in tests."""
+        api_client = gen_container_client()
+        cls.tags_api = ContentTagsApi(api_client)
+        cls.manifests_api = ContentManifestsApi(api_client)
+        cls.repositories_api = RepositoriesContainerPushApi(api_client)
 
-    def untag_image(self, tag_name):
-        """Perform an untagging operation."""
-        untag_data = UnTagImage(tag=tag_name)
-        untag_response = self.repositories_api.untag(self.repository.pulp_href, untag_data)
-        monitor_task(untag_response.task)
+        cfg = config.get_config()
+        cls.registry = cli.RegistryClient(cfg)
+        cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
+        cls.registry_name = urlparse(cfg.get_base_url()).netloc
+
+        cls.repository_name = "namespace/tags"
+        cls.registry_repository_name = f"{cls.registry_name}/{cls.repository_name}"
+        manifest_a = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        tagged_registry_manifest_a = f"{cls.registry_repository_name}:manifest_a"
+        manifest_b = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b"
+        tagged_registry_manifest_b = f"{cls.registry_repository_name}:manifest_b"
+
+        cls.registry.pull(manifest_a)
+        cls.registry.pull(manifest_b)
+        cls.registry.tag(manifest_a, tagged_registry_manifest_a)
+        cls.registry.tag(manifest_b, tagged_registry_manifest_b)
+        cls.registry.login("-u", "admin", "-p", "password", cls.registry_name)
+        cls.registry.push(tagged_registry_manifest_a)
+        cls.registry.push(tagged_registry_manifest_b)
+
+        cls.repository = cls.repositories_api.list(name=cls.repository_name).results[0]
+
+    def test_01_tag_first_image(self):
+        """Check if a tag was created and correctly pulled from a repository."""
+        manifest_a = self.get_manifest_by_tag("manifest_a")
+        self.tag_image(manifest_a, "new_tag")
+
+        tagged_image = f"{self.registry_repository_name}:new_tag"
+        self.registry.pull(tagged_image)
+        self.registry.rmi(tagged_image)
+
+    def test_02_tag_second_image_with_same_tag(self):
+        """Check if the existing tag correctly references a new manifest."""
+        tagged_image = f"{self.registry_repository_name}:manifest_b"
+        self.registry.pull(tagged_image)
+        local_image_b = self.registry.inspect(tagged_image)
+        self.registry.rmi(tagged_image)
+
+        manifest_b = self.get_manifest_by_tag("manifest_b")
+        self.tag_image(manifest_b, "new_tag")
+        tagged_image = f"{self.registry_repository_name}:new_tag"
+        self.registry.pull(tagged_image)
+        local_image_b_tagged = self.registry.inspect(tagged_image)
+
+        self.assertEqual(local_image_b[0]["Id"], local_image_b_tagged[0]["Id"])
+
+        self.registry.rmi(tagged_image)
+
+    def test_03_remove_tag(self):
+        """Check if the client cannot pull by the removed tag."""
+        self.untag_image("new_tag")
+
+        non_existing_tagged_image = f"{self.registry_repository_name}:new_tag"
+        with self.assertRaises(exceptions.CalledProcessError):
+            self.registry.pull(non_existing_tagged_image)
