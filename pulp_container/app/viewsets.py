@@ -6,7 +6,10 @@ Check `Plugin Writer's Guide`_ for more details.
 """
 import logging
 
+from gettext import gettext as _
+
 from django.db import IntegrityError
+from django.http import Http404
 from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
@@ -266,6 +269,35 @@ class TagOperationsMixin:
         return OperationPostponedResponse(result, request)
 
 
+class RepositoryVersionQuerySetMixin:
+    """
+    A mixin which provides with a custom `get_queryset` method for repository version viewsets.
+    """
+
+    def get_queryset(self):
+        """
+        Gets a QuerySet based on the current request.
+
+        Filtered by a permission for a corresponding repository.
+
+        Returns:
+            django.db.models.query.QuerySet: The queryset returned by the superclass filtered by
+                the permission for a corresponding repository.
+
+        """
+        qs = super().get_queryset()
+        try:
+            perm = self.queryset_filtering_required_repo_permission
+        except AttributeError:
+            pass
+        else:
+            repo_version = qs.first()
+            repo = repo_version.repository.cast()
+            if not (self.request.user.has_perm(perm) or self.request.user.has_perm(perm, repo)):
+                raise Http404(_("detail not found"))
+        return qs
+
+
 class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
     """
     ViewSet for container repo.
@@ -341,6 +373,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                     "container.view_containerrepository",
                     "container.change_containerrepository",
                     "container.delete_containerrepository",
+                    "container.delete_containerrepository_versions",
                     "container.sync_containerrepository",
                     "container.modify_content_containerrepository",
                     "container.build_image_containerrepository",
@@ -545,12 +578,48 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         return OperationPostponedResponse(result, request)
 
 
-class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
+class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, RepositoryVersionViewSet):
     """
     ContainerRepositoryVersion represents a single container repository version.
     """
 
     parent_viewset = ContainerRepositoryViewSet
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_repo_permission = "container.view_containerrepository"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_repo_attr_model_or_obj_perms:container.delete_containerrepository_versions",  # noqa
+                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_repo_attr_model_or_obj_perms:container.delete_containerrepository",
+                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+        ],
+    }
 
 
 class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewSet):
@@ -603,12 +672,38 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
     }
 
 
-class ContainerPushRepositoryVersionViewSet(RepositoryVersionViewSet):
+class ContainerPushRepositoryVersionViewSet(
+    RepositoryVersionQuerySetMixin,
+    RepositoryVersionViewSet,
+):
     """
     ContainerPushRepositoryVersion represents a single container push repository version.
+
+    Repository versions of a push repository are not allowed to be deleted. Versioning of such
+    repositories, as well as creation/removal, happens automatically without explicit user actions.
+    Users could make a repository not functional by accident if allowed to delete repository
+    versions.
     """
 
     parent_viewset = ContainerPushRepositoryViewSet
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_repo_permission = "container.view_containerpushrepository"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_repo_attr_model_or_obj_perms:container.view_containerpushrepository",  # noqa
+            },
+        ],
+    }
 
 
 class ContainerDistributionViewSet(BaseDistributionViewSet):
