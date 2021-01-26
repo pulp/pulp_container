@@ -31,6 +31,9 @@ from pulpcore.client.pulpcore import (
 )
 from pulpcore.client.pulp_container import (
     ApiClient as ContainerApiClient,
+    ContentBlobsApi,
+    ContentManifestsApi,
+    ContentTagsApi,
     RemotesContainerApi,
     DistributionsContainerApi,
     RepositoriesContainerApi,
@@ -91,6 +94,9 @@ def gen_user(permissions):
     user["repository_api"] = RepositoriesContainerApi(user["api_client"])
     user["pushrepository_api"] = RepositoriesContainerPushApi(user["api_client"])
     user["repo_version_api"] = RepositoriesContainerVersionsApi(user["api_client"])
+    user["tags_api"] = ContentTagsApi(user["api_client"])
+    user["manifests_api"] = ContentManifestsApi(user["api_client"])
+    user["blobs_api"] = ContentBlobsApi(user["api_client"])
     return user
 
 
