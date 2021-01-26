@@ -8,16 +8,21 @@ import logging
 
 from gettext import gettext as _
 
+from collections import namedtuple
+
 from django.db import IntegrityError
 from django.db.models import Q
 from django.http import Http404
+
 from django_filters import CharFilter, MultipleChoiceFilter
-from guardian.shortcuts import get_objects_for_user
 from drf_spectacular.utils import extend_schema
+from guardian.shortcuts import get_objects_for_user
+
 from rest_framework import mixins
 from rest_framework.decorators import action
 
 from pulpcore.plugin.access_policy import AccessPolicyFromDB
+from pulpcore.plugin.models import RepositoryVersion
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositorySyncURLSerializer,
@@ -119,7 +124,99 @@ class ContainerNamespaceFilter(BaseFilterSet):
         }
 
 
-class TagViewSet(ReadOnlyContentViewSet):
+Repo = namedtuple("Repo", "push_perm, mirror_perm, push_type, mirror_type")
+repo_info = Repo(
+    "container.view_containerpushrepository",
+    "container.view_containerrepository",
+    "container.container-push",
+    "container.container",
+)
+
+
+class ContainerContentQuerySetMixin:
+    """
+    A mixin that provides container content models with querying utilities.
+    """
+
+    def _repo_query_params(self, request, view, repo_info):
+        """
+        Checks if the requests' query_params contain repository_version.
+
+        This is used in the quryset scoping for content.
+
+        Args:
+            request (rest_framework.request.Request): The request being made.
+            view (subclass rest_framework.viewsets.GenericViewSet): The view being checked for
+                authorization.
+            action (str): The action being performed, e.g. "destroy".
+            repo_info (tuple): Tuple that contains repo type and  Permissions to
+                be checked.
+
+        Returns:
+            List of repositories pk that the current user can view
+
+        """
+        repo_pks = []
+        for key, param in request.query_params.items():
+            if "repository_version" in key:
+                rv = view.get_resource(param, RepositoryVersion)
+                repo = rv.repository.cast()
+                if (
+                    request.user.has_perm(repo_info.push_perm)
+                    and repo.pulp_type == repo_info.push_type
+                ):
+                    repo_pks.append(repo.pk)
+                elif (
+                    request.user.has_perm(repo_info.mirror_perm)
+                    and repo.pulp_type == repo_info.mirror_type
+                ):
+                    repo_pks.append(repo.pk)
+                elif request.user.has_perm(repo_info.push_perm, repo) or request.user.has_perm(
+                    repo_info.mirror_perm, repo
+                ):
+                    repo_pks.append(repo.pk)
+        return repo_pks
+
+    def get_queryset(self):
+        """
+        Gets a QuerySet based on the current request.
+
+        Filters and retuns the only the repo's content user is allowed to see.
+
+        Returns:
+            django.db.models.query.QuerySet: The queryset returned contains content the user is
+            allowed to see based on the repo permissions.
+
+        """
+        qs = super().get_queryset()
+        has_model_push_repo = self.request.user.has_perm(repo_info.push_perm)
+        has_model_repo = self.request.user.has_perm(repo_info.mirror_perm)
+        # this will show also orphaned content
+        if has_model_push_repo and has_model_repo:
+            return qs
+        query_params = self.request.query_params
+        if query_params and "repository_version" in query_params:
+            repo_pks = self._repo_query_params(self.request, self, repo_info)
+            content_qs = qs.model.objects.filter(repositories__in=repo_pks)
+        else:
+            allowed_push_repos = get_objects_for_user(
+                self.request.user,
+                repo_info.push_perm,
+                klass=models.ContainerPushRepository,
+            ).only("pk")
+            allowed_mirror_repos = get_objects_for_user(
+                self.request.user,
+                repo_info.mirror_perm,
+                klass=models.ContainerRepository,
+            ).only("pk")
+            content_qs = qs.model.objects.filter(
+                Q(repositories__in=allowed_push_repos) | Q(repositories__in=allowed_mirror_repos)
+            )
+
+        return content_qs
+
+
+class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     """
     ViewSet for Tag.
     """
@@ -128,9 +225,25 @@ class TagViewSet(ReadOnlyContentViewSet):
     queryset = models.Tag.objects.all()
     serializer_class = serializers.TagSerializer
     filterset_class = TagFilter
+    permission_classes = (AccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
 
 
-class ManifestViewSet(ReadOnlyContentViewSet):
+class ManifestViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     """
     ViewSet for Manifest.
     """
@@ -139,9 +252,25 @@ class ManifestViewSet(ReadOnlyContentViewSet):
     queryset = models.Manifest.objects.all()
     serializer_class = serializers.ManifestSerializer
     filterset_class = ManifestFilter
+    permission_classes = (AccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
 
 
-class BlobViewSet(ReadOnlyContentViewSet):
+class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     """
     ViewSet for Blobs.
     """
@@ -150,6 +279,22 @@ class BlobViewSet(ReadOnlyContentViewSet):
     queryset = models.Blob.objects.all()
     serializer_class = serializers.BlobSerializer
     filterset_class = BlobFilter
+    permission_classes = (AccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
 
 
 class ContainerRemoteViewSet(RemoteViewSet):

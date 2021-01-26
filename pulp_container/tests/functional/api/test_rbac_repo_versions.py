@@ -4,12 +4,13 @@ import unittest
 
 from urllib.parse import urlparse
 
-from pulp_smash import cli, config, exceptions
+from pulp_smash import cli, config
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import delete_orphans, gen_repo
 
 from pulpcore.client.pulp_container.exceptions import ApiException
 
+from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import (
     del_user,
@@ -152,7 +153,7 @@ class RepoVersionTestCase(unittest.TestCase, TaggingTestCommons):
         monitor_task(response.task)
 
 
-class PushRepoVersionTestCase(unittest.TestCase):
+class PushRepoVersionTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
     """Verify RBAC for repo versions of a ContainerPushRepository."""
 
     @classmethod
@@ -198,50 +199,6 @@ class PushRepoVersionTestCase(unittest.TestCase):
         del_user(cls.user_creator)
         del_user(cls.user_reader)
         del_user(cls.user_helpless)
-
-    @classmethod
-    def _pull(cls, image_path, user=None):
-        """
-        Pull using specified user.
-
-        Ensure we login with a user if specified and logout after the pull.
-
-        If user is not specified, ensure that no other user is logged in and pull is performed
-        anonymously.
-        """
-        if user:
-            cls.registry.login("-u", user["username"], "-p", user["password"], cls.registry_name)
-        else:
-            # Ensure logout
-            try:
-                cls.registry.logout(cls.registry_name)
-            except exceptions.CalledProcessError:
-                pass
-
-        cls.registry.pull(image_path)
-
-        if user:
-            cls.registry.logout(cls.registry_name)
-
-    @classmethod
-    def _push(cls, image_path, local_url, user):
-        """
-        Tag and push an image to Pulp registry using specified user.
-
-        Ensure we login with a specified user and logout after the push.
-        A local tag is removed for cleanup purposes.
-        """
-        # Tag it to registry under test
-        cls.registry.tag(image_path, local_url)
-        # Log in
-        cls.registry.login("-u", user["username"], "-p", user["password"], cls.registry_name)
-        try:
-            cls.registry.push(local_url)
-        finally:
-            # Untag local copy
-            cls.registry.rmi(local_url)
-
-            cls.registry.logout(cls.registry_name)
 
     def test_repov_list(self):
         """
