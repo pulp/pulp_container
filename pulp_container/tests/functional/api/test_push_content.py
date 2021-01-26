@@ -6,7 +6,9 @@ from urllib.parse import urlparse
 
 from pulp_smash import cli, config, exceptions
 from pulp_smash.pulp3.bindings import monitor_task
+from pulp_smash.pulp3.utils import delete_orphans
 
+from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import (
     add_user_to_distribution_group,
@@ -22,7 +24,7 @@ from pulpcore.client.pulp_container import (
 )
 
 
-class PushRepoTestCase(unittest.TestCase):
+class PushRepoTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
     """Verify whether images can be pushed to pulp."""
 
     @classmethod
@@ -67,50 +69,7 @@ class PushRepoTestCase(unittest.TestCase):
         del_user(cls.user_namespace_collaborator)
         del_user(cls.user_reader)
         del_user(cls.user_helpless)
-
-    @classmethod
-    def _pull(cls, image_path, user=None):
-        """
-        Pull using specified user.
-
-        Ensure we login with a user if specified and logout after the pull.
-
-        If user is not specified, ensure that no other user is logged in and pull is performed
-        anonymously.
-        """
-        if user:
-            cls.registry.login("-u", user["username"], "-p", user["password"], cls.registry_name)
-        else:
-            # Ensure logout
-            try:
-                cls.registry.logout(cls.registry_name)
-            except exceptions.CalledProcessError:
-                pass
-
-        cls.registry.pull(image_path)
-
-        if user:
-            cls.registry.logout(cls.registry_name)
-
-    @classmethod
-    def _push(cls, image_path, local_url, user):
-        """
-        Tag and push an image to Pulp registry using specified user.
-
-        Ensure we login with a specified user and logout after the push.
-        A local tag is removed for cleanup purposes.
-        """
-        # Tag it to registry under test
-        cls.registry.tag(image_path, local_url)
-        # Log in
-        cls.registry.login("-u", user["username"], "-p", user["password"], cls.registry_name)
-        try:
-            cls.registry.push(local_url)
-        finally:
-            # Untag local copy
-            cls.registry.rmi(local_url)
-
-            cls.registry.logout(cls.registry_name)
+        delete_orphans()
 
     def test_push_using_registry_client_admin(self):
         """Test push with official registry client and logged in as admin."""
