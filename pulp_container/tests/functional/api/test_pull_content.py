@@ -70,6 +70,8 @@ class PullContentTestCase(unittest.TestCase):
 
         cls.teardown_cleanups = []
 
+        delete_orphans()
+
         with contextlib.ExitStack() as stack:
             # ensure tearDownClass runs if an error occurs here
             stack.callback(cls.tearDownClass)
