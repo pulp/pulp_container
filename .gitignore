@@ -105,3 +105,5 @@ venv.bak/
 .vscode/
 .idea/
 
+# A generated API schema
+docs/_static/api.json
