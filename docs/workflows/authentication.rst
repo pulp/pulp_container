@@ -46,6 +46,9 @@ The token authentication requires users also to define the following settings:
               * group: pulp (the group of the account that pulp runs under)
 
 
+In addition to that, the administrator can configure the duration of the validity of issued tokens
+via the setting ``TOKEN_EXPIRATION_TIME``. The default expiration time is ``300`` seconds.
+
 Below is provided an example of the settings file:
 
 .. code-block:: python

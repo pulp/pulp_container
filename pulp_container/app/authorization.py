@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives import serialization
 from pulp_container.app.models import ContainerDistribution
 from pulp_container.app.access_policy import NamespacePermissionsChecker
 
-TOKEN_EXPIRATION_TIME = 300
+TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
 
 
 class AuthorizationService:
