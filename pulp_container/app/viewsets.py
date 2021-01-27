@@ -586,7 +586,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.modify_content_containerrepository",
+                    "has_model_or_obj_perms:container.modify_content_containerpushrepository",
                 ],
             },
         ],
@@ -596,6 +596,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                 "parameters": None,
                 "permissions": [
                     "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
                 ],
             },
         ],
