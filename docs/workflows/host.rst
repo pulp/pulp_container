@@ -41,6 +41,12 @@ Pull and run an image from Pulp
 Once a distribution is configured to host a repository with Container
 images in it, that content can be consumed by container clients.
 
+.. note::
+    An administrator is expected to configure the environment in advance to enable users to consume
+    content with authorized access. Otherwise, the registry will not be able to serve the requested
+    content flawlessly. In Pulp, the token authentication is enabled by default and does not come
+    pre-configured out of the box. Lean more at :ref:`authentication`.
+
 Podman
 ^^^^^^
 

@@ -10,7 +10,7 @@ user's privileges and current scope.
 The feature is enabled by default. However, it is possible to disable it from the settings by declaring
 ``TOKEN_AUTH_DISABLED=True``.
 
-The token authentication requires users also to define the following settings:
+The token authentication requires an administrator to define the following settings:
 
     - **A fully qualified domain name of a token server with an associated port number**. The token server is
       responsible for generating Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file
