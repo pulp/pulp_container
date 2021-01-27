@@ -11,9 +11,9 @@ Recommended Tools
 -----------------
 
 **httpie**:
-The REST API examples here use `httpie <https://httpie.org/doc>`_ to perform the requests.
-The ``httpie`` commands below assume that the user executing the commands has a ``.netrc`` file
-in the home directory. The ``.netrc`` should have the following configuration:
+The REST API examples provided in this documentation use `httpie <https://httpie.org/doc>`_. A user
+executing the commands via ``httpie`` is expected to have created the file ``.netrc`` in the home
+directory. The file ``.netrc`` should have the following configuration:
 
 .. code-block:: bash
 
@@ -21,11 +21,10 @@ in the home directory. The ``.netrc`` should have the following configuration:
     login admin
     password admin
 
-One should observe that ``httpie`` uses the configuration retrieved from ``.netrc`` by default.
-Due to this, a custom Authorization header is always overwritten by the Basic Authorization with
-the provided login and password. In order to send HTTP requests which contain JWT Authorization
-headers, ensure yourself that the plugin `JWTAuth plugin <https://github.com/teracyhq/httpie-jwt-auth>`_
-was already installed.
+By default, ``httpie`` uses the configuration retrieved from ``.netrc``. Due to this, a custom
+Authorization header is always overwritten by the Basic Authorization with the provided login and
+password. In order to send HTTP requests which contain JWT Authorization headers, ensure yourself
+that the plugin `JWTAuth plugin <https://github.com/teracyhq/httpie-jwt-auth>`_ is installed.
 
 If you configured the ``admin`` user with a different password, adjust the configuration
 accordingly. If you prefer to specify the username and password with each request, please see
