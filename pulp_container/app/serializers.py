@@ -242,6 +242,9 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
         view_name="pulp_container/namespaces-detail",
         help_text=_("Namespace this distribution belongs to."),
     )
+    description = serializers.CharField(
+        help_text=_("An optional description."), required=False, allow_null=True
+    )
 
     def validate(self, data):
         """
@@ -287,6 +290,7 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
             "registry_path",
             "namespace",
             "private",
+            "description",
         )
 
 
