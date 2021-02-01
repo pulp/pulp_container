@@ -466,6 +466,7 @@ class ContainerDistribution(RepositoryVersionDistribution, AutoAddObjPermsMixin)
             "Defaults to unrestricted pull access."
         ),
     )
+    description = models.TextField(null=True)
 
     def get_repository_version(self):
         """
