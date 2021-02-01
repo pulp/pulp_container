@@ -53,11 +53,11 @@ class DistributionAccessPolicyMixin:
         """
         return view.get_object() is not None
 
-    def is_private(self, request, view, action):
+    def is_public(self, request, view, action):
         """
         Check if the distribution is marked private.
         """
-        return view.get_object().private
+        return not view.get_object().private
 
 
 class DistributionAccessPolicyFromDB(AccessPolicyFromDB, DistributionAccessPolicyMixin):

@@ -660,7 +660,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "principal": "*",
                 "effect": "allow",
                 "condition": [
-                    "not is_private",
+                    "is_public",
                 ],
             },
             {
