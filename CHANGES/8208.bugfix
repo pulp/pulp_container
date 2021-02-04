@@ -1,0 +1,1 @@
+Fixed bug experienced when pulling using docker 20.10 client.

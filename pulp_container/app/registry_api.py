@@ -169,7 +169,7 @@ class ManifestResponse(Response):
             "Location": "/v2/{path}/manifests/{digest}".format(path=path, digest=manifest.digest),
             "Content-Length": size,
         }
-        super().__init__(headers=headers, status=status)
+        super().__init__(headers=headers, status=status, content_type=manifest.media_type)
 
 
 class BlobResponse(Response):
@@ -508,12 +508,7 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to HEAD requests about blobs
         """
-        _, _, repository_version = self.get_drv_pull(path)
-        try:
-            blob = models.Blob.objects.get(digest=pk, pk__in=repository_version.content)
-        except models.Blob.DoesNotExist:
-            raise BlobNotFound(digest=pk)
-        return BlobResponse(blob, path, 200, request)
+        return self.get(request, path, pk=pk)
 
     def get(self, request, path, pk=None):
         """Handles GET requests for Blobs."""
@@ -540,17 +535,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to HEAD requests about manifests by reference
         """
-        _, _, repository_version = self.get_drv_pull(path)
-        try:
-            if pk[:7] != "sha256:":
-                tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
-                manifest = tag.tagged_manifest
-            else:
-                manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
-        except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
-            raise ManifestNotFound(reference=pk)
-
-        return ManifestResponse(manifest, path, request)
+        return self.get(request, path, pk=pk)
 
     def get(self, request, path, pk=None):
         """
