@@ -637,7 +637,6 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
     permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
-    queryset_filtering_required_permission = "container.view_containerpushrepository"
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -769,7 +768,6 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     serializer_class = serializers.ContainerDistributionSerializer
     filterset_class = ContainerDistributionFilter
     permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
-    queryset_filtering_required_permission = "container.view_containerdistribution"
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -917,6 +915,22 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
             },
         ],
     }
+
+    def get_queryset(self):
+        """
+        Returns a queryset of distributions filtered by namespace permissions and public status.
+        """
+
+        public_qs = models.ContainerDistribution.objects.filter(private=False)
+        obj_perm_qs = get_objects_for_user(
+            self.request.user, "container.view_containerdistribution"
+        )
+        namespaces = get_objects_for_user(self.request.user, "container.view_containernamespace")
+        namespaces |= get_objects_for_user(
+            self.request.user, "container.namespace_view_containerdistribution"
+        )
+        ns_qs = models.ContainerDistribution.objects.filter(namespace__in=namespaces)
+        return public_qs | obj_perm_qs | ns_qs
 
     @extend_schema(
         description="Trigger an asynchronous delete task",
