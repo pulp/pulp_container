@@ -54,6 +54,7 @@ Container Workflows
    installation
    workflows/index
    restapi/index
+   role-based-access-control
    tech-preview
    changes
    contributing
