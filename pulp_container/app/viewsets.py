@@ -334,13 +334,19 @@ class ContainerRemoteViewSet(RemoteViewSet):
                 "action": ["update", "partial_update"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.change_containerremote",
+                "condition": [
+                    "has_model_or_obj_perms:container.change_containerremote",
+                    "has_model_or_obj_perms:container.view_containerremote",
+                ],
             },
             {
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.delete_containerremote",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containerremote",
+                    "has_model_or_obj_perms:container.view_containerremote",
+                ],
             },
         ],
         "permissions_assignment": [
@@ -478,13 +484,19 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.delete_containerrepository",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
+                ],
             },
             {
                 "action": ["update", "partial_update"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.change_containerrepository",
+                "condition": [
+                    "has_model_or_obj_perms:container.change_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
+                ],
             },
             {
                 "action": ["sync"],
@@ -493,6 +505,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                 "condition": [
                     "has_model_or_obj_perms:container.sync_containerrepository",
                     "has_remote_param_model_or_obj_perms:container.view_containerremote",
+                    "has_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -501,6 +514,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.modify_content_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -509,6 +523,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.build_image_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
         ],
@@ -802,6 +817,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                 "effect": "allow",
                 "condition": [
                     "has_namespace_or_obj_perms:container.modify_content_containerpushrepository",
+                    "has_namespace_or_obj_perms:container.view_containerpushrepository",
                 ],
             },
         ],
@@ -962,6 +978,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_model_or_obj_perms:container.change_containerdistribution",
+                    "has_namespace_or_obj_perms:container.view_containerdistribution",
                 ],
             },
             {
@@ -988,6 +1005,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
                 "condition": [
                     "has_namespace_or_obj_perms:container.delete_containerdistribution",
+                    "has_namespace_or_obj_perms:container.view_containerdistribution",
                 ],
             },
         ],
@@ -1153,7 +1171,10 @@ class ContainerNamespaceViewSet(
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.delete_containernamespace",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containernamespace",
+                    "has_model_or_obj_perms:container.view_containernamespace",
+                ],
             },
             {
                 "action": ["create_distribution"],
