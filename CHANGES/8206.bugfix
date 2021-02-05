@@ -1,0 +1,1 @@
+Adjusted the queryset filtering of ``ContainerDistribution`` to include ``private`` and ``Namespace`` permissions.
