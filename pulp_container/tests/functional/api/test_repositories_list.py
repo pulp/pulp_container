@@ -93,8 +93,10 @@ class RepositoriesListTestCase(unittest.TestCase):
         authenticate_header = content_response.headers["Www-Authenticate"]
 
         queries = AuthenticationHeaderQueries(authenticate_header)
-        self.assertFalse(hasattr(queries, "scope"))
-        content_response = requests.get(queries.realm, params={"service": queries.service})
+        self.assertEqual(queries.scope, "registry:catalog:*")
+        content_response = requests.get(
+            queries.realm, params={"service": queries.service, "scope": queries.scope}
+        )
         content_response.raise_for_status()
         repositories = requests.get(
             repositories_list_endpoint, auth=BearerTokenAuth(content_response.json()["token"])

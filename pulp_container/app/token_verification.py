@@ -1,6 +1,8 @@
 import jwt
 import logging
 
+from collections import namedtuple
+
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
@@ -9,6 +11,7 @@ from rest_framework.authentication import BaseAuthentication, BasicAuthenticatio
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+Scope = namedtuple("Scope", "resource_type, name, action")
 User = get_user_model()
 
 
@@ -32,31 +35,15 @@ def _decode_token(encoded_token, request):
     return decoded_token
 
 
-def _access_scope(request):
-    repository_path = request.resolver_match.kwargs.get("path", "")
-
-    if request.method in SAFE_METHODS:
-        access_action = "pull"
-    else:
-        access_action = "push"
-
-    return repository_path, access_action
-
-
-def _contains_accessible_actions(decoded_token, repository_path, access_action):
+def _contains_accessible_actions(decoded_token, scope):
     """
-    Check if a client has an access permission to execute the pull/push operation.
-
-    When a client targets the root endpoint, the verifier does not necessary need to
-    check for the pull or push access permission, therefore, it is granted automatically.
-
+    Check if a client has permission to perform operations within the current scope
     """
     for access in decoded_token["access"]:
-        if repository_path == access["name"]:
-            if access_action in access["actions"]:
+        if scope.resource_type == access["type"] and scope.name == access["name"]:
+            if scope.action in access["actions"]:
                 return True
-            if not repository_path:
-                return True
+
     return False
 
 
@@ -121,21 +108,34 @@ class TokenAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         """
-        Build a formatted authenticate string.
+        Initialize the Wwww-Authenticate header.
 
         For example, a created string will be the in following format:
         realm="http://localhost:123/token",service="docker.io",scope="repository:app:push"
-        and will be used in the "WWW-Authenticate" header.
+        and will be used in the header.
         """
         realm = settings.TOKEN_SERVER
-        repository_path, access_action = _access_scope(request)
-
         authenticate_string = f'{self.keyword} realm="{realm}",service="{request.get_host()}"'
 
-        if repository_path:
-            scope = f"repository:{repository_path}:{access_action}"
-            authenticate_string += f',scope="{scope}"'
+        scope = get_scope(request)
+        if scope is not None:
+            authenticate_string += f',scope="{scope.resource_type}:{scope.name}:{scope.action}"'
+
         return authenticate_string
+
+
+def get_scope(request):
+    """
+    Return an initialized scope object based on the passed request's data.
+    """
+    path = request.resolver_match.kwargs.get("path", "")
+    if path:
+        action = "pull" if request.method in SAFE_METHODS else "push"
+        return Scope("repository", path, action)
+    elif request.path == "/v2/_catalog":
+        return Scope("registry", "catalog", "*")
+    elif request.path == "/v2/":
+        return None
 
 
 class RegistryPermission(BasePermission):
@@ -168,11 +168,17 @@ class TokenPermission(BasePermission):
         """
         Decide upon permission based on token
         """
-        try:
-            decoded_token = request.auth
-            if _contains_accessible_actions(decoded_token, *_access_scope(request)):
-                return True
-        except Exception:
+        decoded_token = request.auth
+        if decoded_token is None:
             raise NotAuthenticated()
+
+        scope = get_scope(request)
+        if scope is None:
+            is_requesting_root_endpoint = len(decoded_token["access"]) == 0
+            if is_requesting_root_endpoint:
+                return True
+        else:
+            if _contains_accessible_actions(decoded_token, scope):
+                return True
 
         raise AuthenticationFailed(detail="Insufficient permissions", code="insufficient_scope")
