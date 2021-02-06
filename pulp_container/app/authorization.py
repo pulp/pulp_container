@@ -29,9 +29,6 @@ class AuthorizationService:
     according to a user's scope.
     """
 
-    ANONYMOUS_USER = "AnonymousUser"
-    VALID_ACTIONS = ["pull", "push", "*"]
-
     def __init__(self, user, service, scope):
         """
         Store class-wide variables and initialize a dictionary used for determining permissions.
@@ -75,7 +72,7 @@ class AuthorizationService:
         access = self.determine_access()
         token_server = getattr(settings, "TOKEN_SERVER", "")
         claim_set = self.generate_claim_set(
-            access=[access],
+            access=access,
             audience=self.service,
             issued_at=int(current_datetime.timestamp()),
             issuer=token_server,
@@ -129,9 +126,14 @@ class AuthorizationService:
         The determination is based on role based access control.
 
         Returns:
-            list: An intersected set of the requested and the allowed access.
+            list: An intersected set of the requested and the allowed access if the scope was
+                specified. Otherwise, returns an empty list indicating permission for the root
+                endpoint.
 
         """
+        if not self.scope:
+            return []
+
         typ, name, actions = self.scope.split(":")
         actions = set(actions.split(","))
 
@@ -149,7 +151,7 @@ class AuthorizationService:
             if has_permission:
                 permitted_actions.add(action)
 
-        return {"type": typ, "name": name, "actions": list(permitted_actions)}
+        return [{"type": typ, "name": name, "actions": list(permitted_actions)}]
 
     def has_permission(self, obj, method, action, data):
         """Check if user has permission to perform action."""
@@ -205,19 +207,10 @@ class AuthorizationService:
         """
         Check if the authenticated user is an administrator and is requesting the catalog endpoint.
         """
-        try:
-            distribution = ContainerDistribution.objects.get(base_path=path)
-        except ContainerDistribution.DoesNotExist:
-            distribution = None
-
-        # Fake the request
-        request = Request(HttpRequest())
-        request.method = "GET"
-        request.user = self.user
-        request._full_data = {"base_path": path}
-        # Fake the corresponding view
-        view = namedtuple("FakeView", ["action", "get_object"])("catalog", lambda: distribution)
-        return self.access_policy.has_permission(request, view)
+        if path == "catalog" and self.user.is_staff:
+            return True
+        else:
+            return False
 
     @staticmethod
     def generate_claim_set(issuer, issued_at, subject, audience, access):

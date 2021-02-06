@@ -1,0 +1,1 @@
+Fixed the ``scope`` field returned by the registry when a user was accessing the catalong endpoint without a token. In addition to that, the field ``access`` returned by the token server for the root endpoint was fixed as well.

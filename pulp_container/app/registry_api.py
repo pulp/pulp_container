@@ -322,15 +322,13 @@ class BearerTokenView(APIView):
     # Allow everyone to access but still value authenticated users.
     permission_classes = []
 
-    EMPTY_ACCESS_SCOPE = "::"
-
     def get(self, request):
         """Handles GET requests for the /token/ endpoint."""
         try:
             service = request.query_params["service"]
         except KeyError:
             raise ParseError(detail="No service name provided.")
-        scope = request.query_params.get("scope", self.EMPTY_ACCESS_SCOPE)
+        scope = request.query_params.get("scope", "")
 
         authorization_service = AuthorizationService(self.request.user, service, scope)
         data = authorization_service.generate_token()

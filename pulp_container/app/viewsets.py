@@ -938,11 +938,6 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "effect": "allow",
             },
             {
-                "action": ["catalog"],
-                "principal": "authenticated",
-                "effect": "allow",
-            },
-            {
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",

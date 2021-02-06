@@ -8,49 +8,60 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
-def _decode_token(encoded_token, request):
+class HasNoScope(Exception):
     """
-    Decode the token and verify the signature with a public key.
-
-    If the token could not be decoded with a success, a client does not have
-    permission to operate with a registry.
+    The scope could not be determined from the referenced resource.
     """
-    JWT_DECODER_CONFIG = {
-        "algorithms": [settings.TOKEN_SIGNATURE_ALGORITHM],
-        "issuer": settings.TOKEN_SERVER,
-        "audience": request.get_host(),
-    }
-    with open(settings.PUBLIC_KEY_PATH, "rb") as public_key:
-        decoded_token = jwt.decode(encoded_token, public_key.read(), **JWT_DECODER_CONFIG)
-    return decoded_token
 
 
-def _access_scope(request):
-    repository_path = request.resolver_match.kwargs.get("path", "")
-
-    if request.method in SAFE_METHODS:
-        access_action = "pull"
-    else:
-        access_action = "push"
-
-    return repository_path, access_action
-
-
-def _contains_accessible_actions(decoded_token, repository_path, access_action):
+class RepositoryScope:
     """
-    Check if a client has an access permission to execute the pull/push operation.
-
-    When a client targets the root endpoint, the verifier does not necessary need to
-    check for the pull or push access permission, therefore, it is granted automatically.
-
+    A data class for repositories' scope.
     """
-    for access in decoded_token["access"]:
-        if repository_path == access["name"]:
-            if access_action in access["actions"]:
-                return True
-            if not repository_path:
-                return True
-    return False
+
+    def __init__(self, path, method):
+        """
+        Initialize common scope fields.
+        """
+        self.resource_type = "repository"
+        self.name = path
+        if method in SAFE_METHODS:
+            self.action = "pull"
+        else:
+            self.action = "push"
+
+
+class CatalogScope:
+    """
+    A data class for the catalog endpoint's scope.
+    """
+
+    def __init__(self):
+        """
+        Initialize common scope fields.
+        """
+        self.resource_type = "registry"
+        self.name = "catalog"
+        self.action = "*"
+
+
+class ScopeFactory:
+    """
+    A factory class that initializes the known scopes required for further evaluation.
+    """
+
+    @staticmethod
+    def from_request(request):
+        """
+        Return an initialized scope object based on the passed request's data.
+        """
+        path = request.resolver_match.kwargs.get("path", "")
+        if path:
+            return RepositoryScope(path, request.method)
+        elif request.path == "/v2/_catalog":
+            return CatalogScope()
+        elif request.path == "/v2/":
+            raise HasNoScope()
 
 
 class TokenAuthentication(BaseAuthentication):
@@ -99,21 +110,39 @@ class TokenAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         """
-        Build a formatted authenticate string.
+        Initialize the Wwww-Authenticate header.
 
         For example, a created string will be the in following format:
         realm="http://localhost:123/token",service="docker.io",scope="repository:app:push"
-        and will be used in the "WWW-Authenticate" header.
+        and will be used in the header.
         """
         realm = settings.TOKEN_SERVER
-        repository_path, access_action = _access_scope(request)
-
         authenticate_string = f'{self.keyword} realm="{realm}",service="{request.get_host()}"'
 
-        if repository_path:
-            scope = f"repository:{repository_path}:{access_action}"
-            authenticate_string += f',scope="{scope}"'
+        try:
+            scope = ScopeFactory.from_request(request)
+            authenticate_string += f",scope={scope.resource_type}:{scope.name}:{scope.action}"
+        except HasNoScope:
+            pass
+
         return authenticate_string
+
+
+def _decode_token(encoded_token, request):
+    """
+    Decode the token and verify the signature with a public key.
+
+    If the token could not be decoded with a success, a client does not have
+    permission to operate with a registry.
+    """
+    JWT_DECODER_CONFIG = {
+        "algorithms": [settings.TOKEN_SIGNATURE_ALGORITHM],
+        "issuer": settings.TOKEN_SERVER,
+        "audience": request.get_host(),
+    }
+    with open(settings.PUBLIC_KEY_PATH, "rb") as public_key:
+        decoded_token = jwt.decode(encoded_token, public_key.read(), **JWT_DECODER_CONFIG)
+    return decoded_token
 
 
 class TokenPermission(BasePermission):
@@ -127,10 +156,34 @@ class TokenPermission(BasePermission):
         """
         Decide upon permission based on token
         """
-        try:
-            decoded_token = request.auth
-            return decoded_token is True or _contains_accessible_actions(
-                decoded_token, *_access_scope(request)
-            )
-        except Exception:
+        decoded_token = request.auth
+        if decoded_token is True:
+            return True
+        elif decoded_token is None:
             return False
+
+        try:
+            scope = ScopeFactory.from_request(request)
+        except HasNoScope:
+            return is_requesting_root_endpoint(decoded_token)
+        else:
+            return contains_accessible_actions(decoded_token, scope)
+
+
+def is_requesting_root_endpoint(decoded_token):
+    """
+    Returns True if no access type was detected.
+    """
+    return len(decoded_token["access"]) == 0
+
+
+def contains_accessible_actions(decoded_token, scope):
+    """
+    Check if a client has permission to perform operations within the current scope
+    """
+    for access in decoded_token["access"]:
+        if scope.resource_type == access["type"] and scope.name == access["name"]:
+            if scope.action in access["actions"]:
+                return True
+
+    return False
