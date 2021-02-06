@@ -20,6 +20,8 @@ from pulp_container.app.access_policy import RegistryAccessPolicy
 
 TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
 
+FakeView = namedtuple("FakeView", ["action", "get_object"])
+
 
 class AuthorizationService:
     """
@@ -28,9 +30,6 @@ class AuthorizationService:
     This class represents a token server which manages and grants permissions
     according to a user's scope.
     """
-
-    ANONYMOUS_USER = "AnonymousUser"
-    VALID_ACTIONS = ["pull", "push", "*"]
 
     def __init__(self, user, service, scope):
         """
@@ -75,7 +74,7 @@ class AuthorizationService:
         access = self.determine_access()
         token_server = getattr(settings, "TOKEN_SERVER", "")
         claim_set = self.generate_claim_set(
-            access=[access],
+            access=access,
             audience=self.service,
             issued_at=int(current_datetime.timestamp()),
             issuer=token_server,
@@ -129,9 +128,14 @@ class AuthorizationService:
         The determination is based on role based access control.
 
         Returns:
-            list: An intersected set of the requested and the allowed access.
+            list: An intersected set of the requested and the allowed access if the scope was
+                specified. Otherwise, returns an empty list indicating permission for the root
+                endpoint.
 
         """
+        if not self.scope:
+            return []
+
         typ, name, actions = self.scope.split(":")
         actions = set(actions.split(","))
 
@@ -149,7 +153,7 @@ class AuthorizationService:
             if has_permission:
                 permitted_actions.add(action)
 
-        return {"type": typ, "name": name, "actions": list(permitted_actions)}
+        return [{"type": typ, "name": name, "actions": list(permitted_actions)}]
 
     def has_permission(self, obj, method, action, data):
         """Check if user has permission to perform action."""
@@ -160,7 +164,7 @@ class AuthorizationService:
         request.user = self.user
         request._full_data = data
         # Fake the corresponding view
-        view = namedtuple("FakeView", ["action", "get_object"])(action, lambda: obj)
+        view = FakeView(action, lambda: obj)
         return self.access_policy.has_permission(request, view)
 
     def has_pull_permissions(self, path):
@@ -203,20 +207,17 @@ class AuthorizationService:
 
     def has_view_catalog_permissions(self, path):
         """
-        Check if the authenticated user is an administrator and is requesting the catalog endpoint.
+        Check if the authenticated user has permission to access the catalog endpoint.
         """
-        try:
-            distribution = ContainerDistribution.objects.get(base_path=path)
-        except ContainerDistribution.DoesNotExist:
-            distribution = None
+        if path != "catalog":
+            return False
 
         # Fake the request
         request = Request(HttpRequest())
         request.method = "GET"
         request.user = self.user
-        request._full_data = {"base_path": path}
-        # Fake the corresponding view
-        view = namedtuple("FakeView", ["action", "get_object"])("catalog", lambda: distribution)
+        # Fake the view
+        view = FakeView("catalog", lambda: ContainerDistribution())
         return self.access_policy.has_permission(request, view)
 
     @staticmethod
