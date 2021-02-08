@@ -13,6 +13,73 @@ Changelog
 
 .. towncrier release notes start
 
+2.3.0 (2021-02-08)
+==================
+
+
+Features
+--------
+
+- Added access policy and permission management to container repositories.
+  `#7706 <https://pulp.plan.io/issues/7706>`_
+- Added access policy and permission management to the container remotes.
+  `#7707 <https://pulp.plan.io/issues/7707>`_
+- Added access policy for ContainerDistributionViewSet and the Registry API.
+  `#7937 <https://pulp.plan.io/issues/7937>`_
+- Added access policy and permission management to the container namespaces.
+  `#7967 <https://pulp.plan.io/issues/7967>`_
+- Added RBAC to the push repository endpoint.
+  `#7968 <https://pulp.plan.io/issues/7968>`_
+- Add RBAC to the repository version endpoints.
+  `#8017 <https://pulp.plan.io/issues/8017>`_
+- Made the push and pull permission granting use the ``ContainerDistribution`` access policy.
+  `#8075 <https://pulp.plan.io/issues/8075>`_
+- Added Owner, Collaborator, and Consumer groups and permissions for Namespaces and Repositories.
+  `#8101 <https://pulp.plan.io/issues/8101>`_
+- Added a private flag to mark distributions global read accessability.
+  `#8102 <https://pulp.plan.io/issues/8102>`_
+- Added support for tagging and untagging manifests for push repositories.
+  `#8104 <https://pulp.plan.io/issues/8104>`_
+- Added RBAC for container content.
+  `#8142 <https://pulp.plan.io/issues/8142>`_
+- Made the token expiration time configurable via the setting 'TOKEN_EXPIRATION_TIME'.
+  `#8147 <https://pulp.plan.io/issues/8147>`_
+- Decoupled permissions for registry live api and pulp api.
+  `#8153 <https://pulp.plan.io/issues/8153>`_
+- Add description field to the ContainerDistribution.
+  `#8168 <https://pulp.plan.io/issues/8168>`_
+
+
+Bugfixes
+--------
+
+- Fixed a bug that caused the registry to advertise an invalid digest of a converted manifest.
+  `#7923 <https://pulp.plan.io/issues/7923>`_
+- Fixed the way how the plugin verifies authenticated users in the token authentication.
+  `#8057 <https://pulp.plan.io/issues/8057>`_
+- Adjusted the queryset filtering of ``ContainerDistribution`` to include ``private`` and ``Namespace`` permissions.
+  `#8206 <https://pulp.plan.io/issues/8206>`_
+- Fixed bug experienced when pulling using docker 20.10 client.
+  `#8208 <https://pulp.plan.io/issues/8208>`_
+
+
+Deprecations and Removals
+-------------------------
+
+- POST and DELETE requests are no longer available for `/pulp/api/v3/repositories/container/container-push/`.
+  Push repositories are still automatically created via docker/podman push and deleted through container distributions.
+  `#8014 <https://pulp.plan.io/issues/8014>`_
+
+
+Misc
+----
+
+- `#7936 <https://pulp.plan.io/issues/7936>`_
+
+
+----
+
+
 2.2.0 (2020-12-09)
 ==================
 
