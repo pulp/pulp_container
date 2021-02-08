@@ -2,13 +2,13 @@
 """Tests for token authentication."""
 import unittest
 
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 import requests
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, cli
 from pulp_smash.pulp3.bindings import monitor_task
-from pulp_smash.pulp3.utils import gen_repo, gen_distribution
+from pulp_smash.pulp3.utils import delete_orphans, gen_repo, gen_distribution
 
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
@@ -75,6 +75,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         cls.repositories_api.delete(cls.repository.pulp_href)
         cls.remotes_api.delete(cls.remote.pulp_href)
         cls.distributions_api.delete(cls.distribution.pulp_href)
+        delete_orphans()
 
     def test_pull_image_with_raw_http_requests(self):
         """
@@ -121,6 +122,10 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
         image_url = urljoin(self.cfg.get_base_url(), self.distribution.base_path)
         image_with_tag = f"{image_url}:manifest_a"
+
+        registry_name = urlparse(self.cfg.get_base_url()).netloc
+        admin_user, admin_password = self.cfg.pulp_auth
+        registry.login("-u", admin_user, "-p", admin_password, registry_name)
         registry.pull(image_with_tag)
 
         image = registry.inspect(image_with_tag)
