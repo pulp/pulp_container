@@ -36,7 +36,6 @@ from pulp_container.app import models, serializers
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.redirects import FileStorageRedirects, S3StorageRedirects
 from pulp_container.app.token_verification import TokenAuthentication, TokenPermission
-from pulp_container.app.utils import get_accepted_media_types
 
 
 log = logging.getLogger(__name__)
@@ -170,7 +169,7 @@ class ManifestResponse(Response):
             "Location": "/v2/{path}/manifests/{digest}".format(path=path, digest=manifest.digest),
             "Content-Length": size,
         }
-        super().__init__(headers=headers, status=status)
+        super().__init__(headers=headers, status=status, content_type=manifest.media_type)
 
 
 class BlobResponse(Response):
@@ -301,6 +300,15 @@ class ContainerRegistryApiMixin:
                 repository = repository.cast()
                 if not repository.PUSH_ENABLED:
                     raise RepositoryInvalid(name=path, message="Repository is read-only.")
+            elif create:
+                with transaction.atomic():
+                    repo_serializer = serializers.ContainerPushRepositorySerializer(
+                        data={"name": path}, context={"request": request}
+                    )
+                    repo_serializer.is_valid(raise_exception=True)
+                    repository = repo_serializer.create(repo_serializer.validated_data)
+                    distribution.repository = repository
+                    distribution.save()
             else:
                 raise RepositoryNotFound(name=path)
         return distribution, repository
@@ -314,25 +322,18 @@ class BearerTokenView(APIView):
     # Allow everyone to access but still value authenticated users.
     permission_classes = []
 
-    ANONYMOUS_USER = ""
     EMPTY_ACCESS_SCOPE = "::"
 
     def get(self, request):
         """Handles GET requests for the /token/ endpoint."""
-        account = request.query_params.get("account", self.ANONYMOUS_USER)
         try:
             service = request.query_params["service"]
         except KeyError:
             raise ParseError(detail="No service name provided.")
         scope = request.query_params.get("scope", self.EMPTY_ACCESS_SCOPE)
 
-        if account != self.ANONYMOUS_USER:
-            if not request.user.is_authenticated:
-                raise ParseError(detail="Authentication failed.")
-            if account != request.user.username:
-                raise ParseError(detail="Username mismatch.")
-
-        data = AuthorizationService().generate_token(account, service, scope)
+        authorization_service = AuthorizationService(self.request.user, service, scope)
+        data = authorization_service.generate_token()
         return Response(data=data)
 
 
@@ -507,12 +508,7 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to HEAD requests about blobs
         """
-        _, _, repository_version = self.get_drv_pull(path)
-        try:
-            blob = models.Blob.objects.get(digest=pk, pk__in=repository_version.content)
-        except models.Blob.DoesNotExist:
-            raise BlobNotFound(digest=pk)
-        return BlobResponse(blob, path, 200, request)
+        return self.get(request, path, pk=pk)
 
     def get(self, request, path, pk=None):
         """Handles GET requests for Blobs."""
@@ -539,20 +535,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to HEAD requests about manifests by reference
         """
-        _, _, repository_version = self.get_drv_pull(path)
-        try:
-            if pk[:7] != "sha256:":
-                tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
-                manifest = tag.tagged_manifest
-            else:
-                manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
-        except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
-            raise ManifestNotFound(reference=pk)
 
-        if manifest.media_type not in get_accepted_media_types(request.headers):
-            raise ManifestNotFound(reference=pk)
-
-        return ManifestResponse(manifest, path, request)
+        return self.get(request, path, pk=pk)
 
     def get(self, request, path, pk=None):
         """

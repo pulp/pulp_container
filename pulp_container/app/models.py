@@ -1,3 +1,5 @@
+from gettext import gettext as _
+
 import hashlib
 import os
 import re
@@ -7,8 +9,15 @@ from url_normalize import url_normalize
 from urllib.parse import urlparse
 
 from django.db import models
+from django.contrib.auth.models import Group
 from django.contrib.postgres import fields
 from django.shortcuts import redirect
+
+from django_currentuser.middleware import get_current_authenticated_user
+from django_lifecycle import hook
+
+from guardian.models.models import GroupObjectPermission, UserObjectPermission
+from guardian.shortcuts import assign_perm
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
@@ -186,18 +195,75 @@ class Tag(Content):
         unique_together = (("name", "tagged_manifest"),)
 
 
-class ContainerNamespace(BaseModel):
+class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
     """
     Namespace for the container registry.
     """
 
     name = models.CharField(max_length=255, db_index=True)
+    ACCESS_POLICY_VIEWSET_NAME = "pulp_container/namespaces"
+
+    def create_namespace_group(self, permissions, parameters):
+        """
+        Creates a namespace group and optionally adds the current user to it.
+
+        The parameters are specified as a dictionary with the following keys:
+
+        "group_type" - the type of group - owners, collaborators, or consumers
+        "add_user_to_group" - a boolean that specifies if the current user should be added to the
+                              group.
+
+        The permissions are object level permissions assigned to the group.
+        """
+
+        group_type = parameters["group_type"]
+        add_user_to_group = parameters["add_user_to_group"]
+        group = Group.objects.create(
+            name="{}.{}.{}".format("container.namespace", group_type, self.name)
+        )
+        current_user = get_current_authenticated_user()
+        owners_group = Group.objects.get(
+            name="{}.{}".format("container.namespace.owners", self.name)
+        )
+        assign_perm("auth.change_group", owners_group, group)
+        assign_perm("auth.view_group", owners_group, group)
+        if add_user_to_group:
+            current_user.groups.add(group)
+        self.add_for_groups(permissions, group.name)
+
+    @hook("before_delete")
+    def delete_groups_and_user_obj_perms(self):
+        """
+        Delete all auto created groups associated with this Namespace and user object
+        permissions.
+        """
+        group_name_regex = r"container.namespace.(.*).{}".format(self.name)
+        Group.objects.filter(name__regex=group_name_regex).delete()
+        UserObjectPermission.objects.filter(object_pk=self.pk).delete()
+        GroupObjectPermission.objects.filter(object_pk=self.pk).delete()
 
     class Meta:
         unique_together = (("name",),)
+        permissions = [
+            ("namespace_add_containerdistribution", "Add any distribution to a namespace"),
+            ("namespace_delete_containerdistribution", "Delete any distribution from a namespace"),
+            ("namespace_view_containerdistribution", "View any distribution in a namespace"),
+            ("namespace_pull_containerdistribution", "Pull from any distribution in a namespace"),
+            ("namespace_push_containerdistribution", "Push to any distribution in a namespace"),
+            ("namespace_change_containerdistribution", "Change any distribution in a namespace"),
+            ("namespace_view_containerpushrepository", "View any push repository in a namespace"),
+            (
+                "namespace_modify_content_containerpushrepository",
+                "Modify content in any push repository in a namespace",
+            ),
+        ]
 
 
-class ContainerRepository(Repository):
+class ContainerRepository(
+    Repository,
+    AutoAddObjPermsMixin,
+    AutoDeleteObjPermsMixin,
+):
     """
     Repository for "container" content.
 
@@ -208,9 +274,16 @@ class ContainerRepository(Repository):
     TYPE = "container"
     CONTENT_TYPES = [Blob, Manifest, Tag]
     PUSH_ENABLED = False
+    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            ("sync_containerrepository", "Can start a sync task"),
+            ("modify_content_containerrepository", "Can modify content in a repository"),
+            ("build_image_containerrepository", "Can use the image builder in a repository"),
+            ("delete_containerrepository_versions", "Can delete repository versions"),
+        ]
 
     def finalize_new_version(self, new_version):
         """
@@ -223,7 +296,7 @@ class ContainerRepository(Repository):
         validate_repo_version(new_version)
 
 
-class ContainerPushRepository(Repository):
+class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     """
     Repository for "container" content.
 
@@ -236,9 +309,41 @@ class ContainerPushRepository(Repository):
     TYPE = "container-push"
     CONTENT_TYPES = [Blob, Manifest, Tag]
     PUSH_ENABLED = True
+    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container-push"
+
+    def add_perms_to_distribution_group(self, permissions, parameters):
+        """
+        Adds push repository object permissions to a distribution group.
+
+        The parameters are specified as a dictionary with the following keys:
+
+        "group_type" - the type of group - owners, collaborators, or consumers
+        "add_user_to_group" - a boolean that specifies if the current user should be added to the
+                              group.
+
+        The permissions are object level permissions assigned to the group.
+        """
+
+        group_type = parameters["group_type"]
+        add_user_to_group = parameters["add_user_to_group"]
+        try:
+            suffix = ContainerDistribution.objects.get(repository=self).pk
+        except ContainerDistribution.DoesNotExist:
+            # The distribution has not been created yet
+            return
+        group = Group.objects.get(
+            name="{}.{}.{}".format("container.distribution", group_type, suffix)
+        )
+        current_user = get_current_authenticated_user()
+        if add_user_to_group:
+            current_user.groups.add(group)
+        self.add_for_groups(permissions, group.name)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            ("modify_content_containerpushrepository", "Can modify content in a push repository")
+        ]
 
     def finalize_new_version(self, new_version):
         """
@@ -340,12 +445,13 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         default_related_name = "%(app_label)s_%(model_name)s"
 
 
-class ContainerDistribution(RepositoryVersionDistribution):
+class ContainerDistribution(RepositoryVersionDistribution, AutoAddObjPermsMixin):
     """
     A container distribution defines how a repository version is distributed by Pulp's webserver.
     """
 
     TYPE = "container"
+    ACCESS_POLICY_VIEWSET_NAME = "distributions/container/container"
 
     namespace = models.ForeignKey(
         ContainerNamespace,
@@ -353,6 +459,14 @@ class ContainerDistribution(RepositoryVersionDistribution):
         related_name="container_distributions",
         null=True,
     )
+    private = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Restrict pull access to explicitly authorized users. "
+            "Defaults to unrestricted pull access."
+        ),
+    )
+    description = models.TextField(null=True)
 
     def get_repository_version(self):
         """
@@ -373,8 +487,71 @@ class ContainerDistribution(RepositoryVersionDistribution):
             url = self.content_guard.cast().preauthenticate_url(url)
         return redirect(url)
 
+    def create_distribution_group(self, permissions, parameters):
+        """
+        Creates a distribution group and optionally adds the current user to it.
+
+        The parameters are specified as a dictionary with the following keys:
+
+        "group_type" - the type of group - owners, collaborators, or consumers
+        "add_user_to_group" - a boolean that specifies if the current user should be added to the
+                              group.the "model_field" for the instance.
+
+        The permissions are object level permissions assigned to the group.
+        """
+
+        group_type = parameters["group_type"]
+        add_user_to_group = parameters["add_user_to_group"]
+
+        group = Group.objects.create(
+            name="{}.{}.{}".format("container.distribution", group_type, self.pk)
+        )
+        current_user = get_current_authenticated_user()
+        owners_group = Group.objects.get(
+            name="{}.{}".format("container.distribution.owners", self.pk)
+        )
+        assign_perm("auth.change_group", owners_group, group)
+        assign_perm("auth.view_group", owners_group, group)
+        if add_user_to_group:
+            current_user.groups.add(group)
+        self.add_for_groups(permissions, group.name)
+
+    def add_push_repository_perms_to_distribution_group(self, permissions, parameters):
+        """
+        Adds permissions related to ContainerPushRepository to a distribution group.
+
+        The parameters are specified as a dictionary with the following keys:
+
+        "group_type" - the type of group - owners, collaborators, or consumers
+
+        The permissions are ContainerPushRepository object level permissions assigned to the
+        group. The repository is the one that is associated with the ContainerDistribution.
+        """
+
+        group_type = parameters["group_type"]
+        group = Group.objects.get(
+            name="{}.{}.{}".format("container.distribution", group_type, self.pk)
+        )
+        if isinstance(self.repository, ContainerPushRepository):
+            self.repository.add_for_groups(permissions, group.name)
+
+    @hook("before_delete")
+    def delete_groups_and_user_obj_perms(self):
+        """
+        Delete all auto created groups associated with this Distribution and user object
+        permissions.
+        """
+        group_name_regex = r"container.distribution.(.*).{}".format(self.pk)
+        Group.objects.filter(name__regex=group_name_regex).delete()
+        UserObjectPermission.objects.filter(object_pk=self.pk).delete()
+        GroupObjectPermission.objects.filter(object_pk=self.pk).delete()
+
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            ("pull_containerdistribution", "Can pull from a registry repo"),
+            ("push_containerdistribution", "Can push into the registry repo"),
+        ]
 
 
 INCOMPLETE_EXT = ".part"

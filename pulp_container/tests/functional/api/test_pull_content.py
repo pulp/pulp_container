@@ -5,7 +5,7 @@ import hashlib
 import json
 import requests
 import unittest
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from pulp_smash import api, cli, config, exceptions
 from pulp_smash.pulp3.bindings import monitor_task
@@ -60,6 +60,7 @@ class PullContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
+        cls.registry_name = urlparse(cls.cfg.get_base_url()).netloc
 
         cls.client = api.Client(cls.cfg, api.code_handler)
         client_api = gen_container_client()
@@ -68,6 +69,8 @@ class PullContentTestCase(unittest.TestCase):
         cls.distributions_api = DistributionsContainerApi(client_api)
 
         cls.teardown_cleanups = []
+
+        delete_orphans()
 
         with contextlib.ExitStack() as stack:
             # ensure tearDownClass runs if an error occurs here
@@ -127,7 +130,7 @@ class PullContentTestCase(unittest.TestCase):
         2. Call dockerhub API and get blobsums for synced image.
         3. Compare the checksums.
         """
-        # Get local checksums for content synced from remote registy
+        # Get local checksums for content synced from the remote registry
         checksums = [
             content["digest"]
             for content in get_content(self.repo.to_dict())[CONTAINER_CONTENT_NAME]
@@ -188,6 +191,7 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
+        registry.login("-u", "admin", "-p", "password", self.registry_name)
 
         local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
 
@@ -211,6 +215,7 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
+        registry.login("-u", "admin", "-p", "password", self.registry_name)
 
         local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo_version.base_path)
 
@@ -234,6 +239,7 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
+        registry.login("-u", "admin", "-p", "password", self.registry_name)
 
         local_url = (
             urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
@@ -258,6 +264,7 @@ class PullContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
+        registry.login("-u", "admin", "-p", "password", self.registry_name)
 
         local_url = urljoin(self.cfg.get_base_url(), "inexistentimagename")
         with self.assertRaises(exceptions.CalledProcessError):
@@ -282,6 +289,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
+        cls.registry_name = urlparse(cls.cfg.get_base_url()).netloc
 
         client_api = gen_container_client()
         cls.repositories_api = RepositoriesContainerApi(client_api)
@@ -378,6 +386,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
+        registry.login("-u", "admin", "-p", "password", self.registry_name)
 
         local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
 
@@ -405,6 +414,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
+        registry.login("-u", "admin", "-p", "password", self.registry_name)
 
         local_url = urljoin(self.cfg.get_base_url(), self.distribution_with_repo_version.base_path)
 
@@ -428,6 +438,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(unittest.SkipTest, "Test requires podman/docker")
+        registry.login("-u", "admin", "-p", "password", self.registry_name)
 
         local_url = (
             urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)

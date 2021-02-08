@@ -7,7 +7,7 @@ from functools import partial
 from unittest import SkipTest
 from tempfile import NamedTemporaryFile
 
-from pulp_smash import selectors, config
+from pulp_smash import cli, config, selectors, utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import (
     gen_remote,
@@ -25,17 +25,111 @@ from pulp_container.tests.functional.constants import (
 from pulpcore.client.pulpcore import (
     ApiClient as CoreApiClient,
     ArtifactsApi,
+    GroupsApi,
+    GroupsUsersApi,
     TasksApi,
 )
 from pulpcore.client.pulp_container import (
     ApiClient as ContainerApiClient,
+    ContentBlobsApi,
+    ContentManifestsApi,
+    ContentTagsApi,
     RemotesContainerApi,
+    DistributionsContainerApi,
     RepositoriesContainerApi,
+    RepositoriesContainerPushApi,
+    RepositoriesContainerVersionsApi,
     RepositorySyncURL,
 )
 
 cfg = config.get_config()
+cli_client = cli.Client(cfg)
 configuration = cfg.get_bindings_config()
+
+
+CREATE_USER_CMD = [
+    "from django.contrib.auth import get_user_model",
+    "from django.contrib.auth.models import Permission",
+    "",
+    "user = get_user_model().objects.create(username='{username}')",
+    "user.set_password('{password}')",
+    "user.save()",
+    "for permission in {permissions!r}:",
+    "    if '.' in permission:",
+    "        app_label, codename = permission.split('.', maxsplit=1)",
+    "        perm = Permission.objects.get(codename=codename, content_type__app_label=app_label)",
+    "    else:",
+    "        perm = Permission.objects.get(codename=permission)",
+    "    user.user_permissions.add(perm)",
+]
+
+
+DELETE_USER_CMD = [
+    "from django.contrib.auth import get_user_model",
+    "get_user_model().objects.get(username='{username}').delete()",
+]
+
+
+def gen_user(permissions):
+    """Create a user with a set of permissions in the pulp database."""
+    user = {
+        "username": utils.uuid4(),
+        "password": utils.uuid4(),
+        "permissions": permissions,
+    }
+    utils.execute_pulpcore_python(
+        cli_client,
+        "\n".join(CREATE_USER_CMD).format(**user),
+    )
+
+    api_config = cfg.get_bindings_config()
+    api_config.username = user["username"]
+    api_config.password = user["password"]
+    user["core_api_client"] = CoreApiClient(api_config)
+    user["groups_api"] = GroupsApi(user["core_api_client"])
+    user["group_users_api"] = GroupsUsersApi(user["core_api_client"])
+    user["api_client"] = ContainerApiClient(api_config)
+    user["distribution_api"] = DistributionsContainerApi(user["api_client"])
+    user["remote_api"] = RemotesContainerApi(user["api_client"])
+    user["repository_api"] = RepositoriesContainerApi(user["api_client"])
+    user["pushrepository_api"] = RepositoriesContainerPushApi(user["api_client"])
+    user["repo_version_api"] = RepositoriesContainerVersionsApi(user["api_client"])
+    user["tags_api"] = ContentTagsApi(user["api_client"])
+    user["manifests_api"] = ContentManifestsApi(user["api_client"])
+    user["blobs_api"] = ContentBlobsApi(user["api_client"])
+    return user
+
+
+def del_user(user):
+    """Delete a user from the pulp database."""
+    utils.execute_pulpcore_python(
+        cli_client,
+        "\n".join(DELETE_USER_CMD).format(**user),
+    )
+
+
+def add_user_to_distribution_group(user, distribution, group_type, as_user):
+    """Add the user to either owner, collaborator, or consumer group of a distribution."""
+    distribution_pk = distribution.pulp_href.split("/")[-2]
+    collaborator_group = (
+        as_user["groups_api"]
+        .list(name="container.distribution.{}.{}".format(group_type, distribution_pk))
+        .results[0]
+    )
+    as_user["group_users_api"].create(collaborator_group.pulp_href, {"username": user["username"]})
+
+
+def add_user_to_namespace_group(user, namespace_name, group_type, as_user):
+    """Add the user to either owner, collaborator, or consumer group of a namespace."""
+    namespace_collaborator_group = (
+        as_user["groups_api"]
+        .list(name="container.namespace.{}.{}".format(group_type, namespace_name))
+        .results[0]
+    )
+    as_user["group_users_api"].create(
+        namespace_collaborator_group.pulp_href,
+        {"username": user["username"]},
+    )
 
 
 def gen_container_client():

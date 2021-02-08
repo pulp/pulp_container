@@ -10,7 +10,7 @@ user's privileges and current scope.
 The feature is enabled by default. However, it is possible to disable it from the settings by declaring
 ``TOKEN_AUTH_DISABLED=True``.
 
-The token authentication requires users also to define the following settings:
+The token authentication requires an administrator to define the following settings:
 
     - **A fully qualified domain name of a token server with an associated port number**. The token server is
       responsible for generating Bearer tokens. Append the constant ``TOKEN_SERVER`` to the settings file
@@ -45,6 +45,9 @@ The token authentication requires users also to define the following settings:
               * owner: pulp (the account that pulp runs under)
               * group: pulp (the group of the account that pulp runs under)
 
+
+In addition to that, the administrator can configure the duration of the validity of issued tokens
+via the setting ``TOKEN_EXPIRATION_TIME``. The default expiration time is ``300`` seconds.
 
 Below is provided an example of the settings file:
 

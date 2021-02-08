@@ -6,12 +6,23 @@ Check `Plugin Writer's Guide`_ for more details.
 """
 import logging
 
+from gettext import gettext as _
+
+from collections import namedtuple
+
 from django.db import IntegrityError
+from django.db.models import Q
+from django.http import Http404
+
 from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
+from guardian.shortcuts import get_objects_for_user
+
 from rest_framework import mixins
+from rest_framework.decorators import action
 
 from pulpcore.plugin.access_policy import AccessPolicyFromDB
+from pulpcore.plugin.models import RepositoryVersion
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositorySyncURLSerializer,
@@ -20,11 +31,13 @@ from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
+    BaseFilterSet,
     CharInFilter,
     ContentFilter,
     ContentGuardViewSet,
     # TODO: DistributionFilter,
     NamedModelViewSet,
+    NAME_FILTER_OPTIONS,
     ReadOnlyContentViewSet,
     ReadOnlyRepositoryViewSet,
     RemoteViewSet,
@@ -32,9 +45,8 @@ from pulpcore.plugin.viewsets import (
     RepositoryVersionViewSet,
     OperationPostponedResponse,
 )
-from rest_framework.decorators import action
 
-from pulp_container.app import models, serializers, tasks
+from pulp_container.app import access_policy, models, serializers, tasks
 
 
 log = logging.getLogger(__name__)
@@ -100,7 +112,111 @@ class ContainerDistributionFilter(BaseDistributionViewSet.filterset_class):
         fields = BaseDistributionViewSet.filterset_class.Meta.fields
 
 
-class TagViewSet(ReadOnlyContentViewSet):
+class ContainerNamespaceFilter(BaseFilterSet):
+    """
+    FilterSet for ContainerNamespaces
+    """
+
+    class Meta:
+        model = models.ContainerNamespace
+        fields = {
+            "name": NAME_FILTER_OPTIONS,
+        }
+
+
+Repo = namedtuple("Repo", "push_perm, mirror_perm, push_type, mirror_type")
+repo_info = Repo(
+    "container.view_containerpushrepository",
+    "container.view_containerrepository",
+    "container.container-push",
+    "container.container",
+)
+
+
+class ContainerContentQuerySetMixin:
+    """
+    A mixin that provides container content models with querying utilities.
+    """
+
+    def _repo_query_params(self, request, view, repo_info):
+        """
+        Checks if the requests' query_params contain repository_version.
+
+        This is used in the quryset scoping for content.
+
+        Args:
+            request (rest_framework.request.Request): The request being made.
+            view (subclass rest_framework.viewsets.GenericViewSet): The view being checked for
+                authorization.
+            action (str): The action being performed, e.g. "destroy".
+            repo_info (tuple): Tuple that contains repo type and  Permissions to
+                be checked.
+
+        Returns:
+            List of repositories pk that the current user can view
+
+        """
+        repo_pks = []
+        for key, param in request.query_params.items():
+            if "repository_version" in key:
+                rv = view.get_resource(param, RepositoryVersion)
+                repo = rv.repository.cast()
+                if (
+                    request.user.has_perm(repo_info.push_perm)
+                    and repo.pulp_type == repo_info.push_type
+                ):
+                    repo_pks.append(repo.pk)
+                elif (
+                    request.user.has_perm(repo_info.mirror_perm)
+                    and repo.pulp_type == repo_info.mirror_type
+                ):
+                    repo_pks.append(repo.pk)
+                elif request.user.has_perm(repo_info.push_perm, repo) or request.user.has_perm(
+                    repo_info.mirror_perm, repo
+                ):
+                    repo_pks.append(repo.pk)
+        return repo_pks
+
+    def get_queryset(self):
+        """
+        Gets a QuerySet based on the current request.
+
+        Filters and retuns the only the repo's content user is allowed to see.
+
+        Returns:
+            django.db.models.query.QuerySet: The queryset returned contains content the user is
+            allowed to see based on the repo permissions.
+
+        """
+        qs = super().get_queryset()
+        has_model_push_repo = self.request.user.has_perm(repo_info.push_perm)
+        has_model_repo = self.request.user.has_perm(repo_info.mirror_perm)
+        # this will show also orphaned content
+        if has_model_push_repo and has_model_repo:
+            return qs
+        query_params = self.request.query_params
+        if query_params and "repository_version" in query_params:
+            repo_pks = self._repo_query_params(self.request, self, repo_info)
+            content_qs = qs.model.objects.filter(repositories__in=repo_pks)
+        else:
+            allowed_push_repos = get_objects_for_user(
+                self.request.user,
+                repo_info.push_perm,
+                klass=models.ContainerPushRepository,
+            ).only("pk")
+            allowed_mirror_repos = get_objects_for_user(
+                self.request.user,
+                repo_info.mirror_perm,
+                klass=models.ContainerRepository,
+            ).only("pk")
+            content_qs = qs.model.objects.filter(
+                Q(repositories__in=allowed_push_repos) | Q(repositories__in=allowed_mirror_repos)
+            )
+
+        return content_qs
+
+
+class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     """
     ViewSet for Tag.
     """
@@ -109,9 +225,25 @@ class TagViewSet(ReadOnlyContentViewSet):
     queryset = models.Tag.objects.all()
     serializer_class = serializers.TagSerializer
     filterset_class = TagFilter
+    permission_classes = (AccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
 
 
-class ManifestViewSet(ReadOnlyContentViewSet):
+class ManifestViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     """
     ViewSet for Manifest.
     """
@@ -120,9 +252,25 @@ class ManifestViewSet(ReadOnlyContentViewSet):
     queryset = models.Manifest.objects.all()
     serializer_class = serializers.ManifestSerializer
     filterset_class = ManifestFilter
+    permission_classes = (AccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
 
 
-class BlobViewSet(ReadOnlyContentViewSet):
+class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     """
     ViewSet for Blobs.
     """
@@ -131,6 +279,22 @@ class BlobViewSet(ReadOnlyContentViewSet):
     queryset = models.Blob.objects.all()
     serializer_class = serializers.BlobSerializer
     filterset_class = BlobFilter
+    permission_classes = (AccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
 
 
 class ContainerRemoteViewSet(RemoteViewSet):
@@ -170,13 +334,19 @@ class ContainerRemoteViewSet(RemoteViewSet):
                 "action": ["update", "partial_update"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.change_containerremote",
+                "condition": [
+                    "has_model_or_obj_perms:container.change_containerremote",
+                    "has_model_or_obj_perms:container.view_containerremote",
+                ],
             },
             {
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.delete_containerremote",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containerremote",
+                    "has_model_or_obj_perms:container.view_containerremote",
+                ],
             },
         ],
         "permissions_assignment": [
@@ -193,41 +363,10 @@ class ContainerRemoteViewSet(RemoteViewSet):
     }
 
 
-class ContainerRepositoryViewSet(RepositoryViewSet):
+class TagOperationsMixin:
     """
-    ViewSet for container repo.
+    A mixin that adds functionality for creating and deleting tags.
     """
-
-    endpoint_name = "container"
-    queryset = models.ContainerRepository.objects.all()
-    serializer_class = serializers.ContainerRepositorySerializer
-
-    # This decorator is necessary since a sync operation is asyncrounous and returns
-    # the id and href of the sync task.
-    @extend_schema(
-        description="Trigger an asynchronous task to sync content.",
-        summary="Sync from a remote",
-        responses={202: AsyncOperationResponseSerializer},
-    )
-    @action(detail=True, methods=["post"], serializer_class=RepositorySyncURLSerializer)
-    def sync(self, request, pk):
-        """
-        Synchronizes a repository. The ``repository`` field has to be provided.
-        """
-        repository = self.get_object()
-        serializer = RepositorySyncURLSerializer(data=request.data, context={"request": request})
-
-        # Validate synchronously to return 400 errors.
-        serializer.is_valid(raise_exception=True)
-        remote = serializer.validated_data.get("remote")
-        mirror = serializer.validated_data.get("mirror")
-
-        result = enqueue_with_reservation(
-            tasks.synchronize,
-            [repository, remote],
-            kwargs={"remote_pk": remote.pk, "repository_pk": repository.pk, "mirror": mirror},
-        )
-        return OperationPostponedResponse(result, request)
 
     @extend_schema(
         description="Trigger an asynchronous task to tag an image in the repository",
@@ -279,6 +418,156 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
 
         result = enqueue_with_reservation(
             tasks.untag_image, [repository], kwargs={"tag": tag, "repository_pk": repository.pk}
+        )
+        return OperationPostponedResponse(result, request)
+
+
+class RepositoryVersionQuerySetMixin:
+    """
+    A mixin which provides with a custom `get_queryset` method for repository version viewsets.
+    """
+
+    def get_queryset(self):
+        """
+        Gets a QuerySet based on the current request.
+
+        Filtered by a permission for a corresponding repository.
+
+        Returns:
+            django.db.models.query.QuerySet: The queryset returned by the superclass filtered by
+                the permission for a corresponding repository.
+
+        """
+        qs = super().get_queryset()
+        try:
+            perm = self.queryset_filtering_required_repo_permission
+        except AttributeError:
+            pass
+        else:
+            repo_version = qs.first()
+            repo = repo_version.repository.cast()
+            if not (self.request.user.has_perm(perm) or self.request.user.has_perm(perm, repo)):
+                raise Http404(_("detail not found"))
+        return qs
+
+
+class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
+    """
+    ViewSet for container repo.
+    """
+
+    endpoint_name = "container"
+    queryset = models.ContainerRepository.objects.all()
+    serializer_class = serializers.ContainerRepositorySerializer
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_permission = "container.view_containerrepository"
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_perms:container.add_containerrepository",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.view_containerrepository",
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.change_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+            {
+                "action": ["sync"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.sync_containerrepository",
+                    "has_remote_param_model_or_obj_perms:container.view_containerremote",
+                    "has_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+            {
+                "action": ["add", "remove", "tag", "untag", "copy_tags", "copy_manifests"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.modify_content_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+            {
+                "action": ["build_image"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.build_image_containerrepository",
+                    "has_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "add_for_object_creator",
+                "parameters": None,
+                "permissions": [
+                    "container.view_containerrepository",
+                    "container.change_containerrepository",
+                    "container.delete_containerrepository",
+                    "container.delete_containerrepository_versions",
+                    "container.sync_containerrepository",
+                    "container.modify_content_containerrepository",
+                    "container.build_image_containerrepository",
+                ],
+            },
+        ],
+    }
+
+    # This decorator is necessary since a sync operation is asyncrounous and returns
+    # the id and href of the sync task.
+    @extend_schema(
+        description="Trigger an asynchronous task to sync content.",
+        summary="Sync from a remote",
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    @action(detail=True, methods=["post"], serializer_class=RepositorySyncURLSerializer)
+    def sync(self, request, pk):
+        """
+        Synchronizes a repository. The ``repository`` field has to be provided.
+        """
+        repository = self.get_object()
+        serializer = RepositorySyncURLSerializer(data=request.data, context={"request": request})
+
+        # Validate synchronously to return 400 errors.
+        serializer.is_valid(raise_exception=True)
+        remote = serializer.validated_data.get("remote")
+        mirror = serializer.validated_data.get("mirror")
+
+        result = enqueue_with_reservation(
+            tasks.synchronize,
+            [repository, remote],
+            kwargs={"remote_pk": remote.pk, "repository_pk": repository.pk, "mirror": mirror},
         )
         return OperationPostponedResponse(result, request)
 
@@ -451,34 +740,179 @@ class ContainerRepositoryViewSet(RepositoryViewSet):
         return OperationPostponedResponse(result, request)
 
 
-class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
+class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, RepositoryVersionViewSet):
     """
     ContainerRepositoryVersion represents a single container repository version.
     """
 
     parent_viewset = ContainerRepositoryViewSet
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_repo_permission = "container.view_containerrepository"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_repo_attr_model_or_obj_perms:container.delete_containerrepository_versions",  # noqa
+                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_repo_attr_model_or_obj_perms:container.delete_containerrepository",
+                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
+        ],
+    }
 
 
-class ContainerPushRepositoryViewSet(ReadOnlyRepositoryViewSet):
+class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewSet):
     """
     ViewSet for a container push repository.
 
     POST and DELETE are disallowed because a push repository is tightly coupled with a
     ContainerDistribution which handles it automatically.
-    Created - during push operation, removed - with ContainerDistribution removal
+    Created - during push operation, removed - with ContainerDistribution removal.
     """
 
     endpoint_name = "container-push"
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
+    permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_namespace_or_obj_perms:container.view_containerpushrepository",
+            },
+            {
+                "action": ["tag", "untag"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.modify_content_containerpushrepository",
+                    "has_namespace_or_obj_perms:container.view_containerpushrepository",
+                ],
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "add_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "owners",
+                    "add_user_to_group": True,
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "add_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "add_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "consumers",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                ],
+            },
+        ],
+    }
+
+    def get_queryset(self):
+        """
+        Returns a queryset by filtering by namespace permission to view distributions and
+        distribution level permissions.
+        """
+
+        qs = models.ContainerPushRepository.objects.all()
+        namespaces = get_objects_for_user(self.request.user, "container.view_containernamespace")
+        ns_repository_pks = models.ContainerDistribution.objects.filter(
+            namespace__in=namespaces
+        ).values_list("repository")
+        dist_repository_pks = get_objects_for_user(
+            self.request.user, "container.view_containerdistribution"
+        ).values_list("repository")
+        public_repository_pks = models.ContainerDistribution.objects.filter(
+            private=False
+        ).values_list("repository")
+        return qs.filter(
+            Q(pk__in=ns_repository_pks)
+            | Q(pk__in=dist_repository_pks)
+            | Q(pk__in=public_repository_pks)
+        )
 
 
-class ContainerPushRepositoryVersionViewSet(RepositoryVersionViewSet):
+class ContainerPushRepositoryVersionViewSet(
+    RepositoryVersionQuerySetMixin,
+    RepositoryVersionViewSet,
+):
     """
     ContainerPushRepositoryVersion represents a single container push repository version.
+
+    Repository versions of a push repository are not allowed to be deleted. Versioning of such
+    repositories, as well as creation/removal, happens automatically without explicit user actions.
+    Users could make a repository not functional by accident if allowed to delete repository
+    versions.
     """
 
     parent_viewset = ContainerPushRepositoryViewSet
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_repo_permission = "container.view_containerpushrepository"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_repo_attr_model_or_obj_perms:container.view_containerpushrepository",  # noqa
+            },
+        ],
+    }
 
 
 class ContainerDistributionViewSet(BaseDistributionViewSet):
@@ -494,6 +928,172 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
     filterset_class = ContainerDistributionFilter
+    permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["catalog"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_perms:container.add_containerdistribution",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.view_containerdistribution",
+                ],
+            },
+            {
+                "action": ["pull"],
+                "principal": "*",
+                "effect": "allow",
+                "condition": [
+                    "not is_private",
+                ],
+            },
+            {
+                "action": ["pull"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.pull_containerdistribution",
+                ],
+            },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.change_containerdistribution",
+                    "has_namespace_or_obj_perms:container.view_containerdistribution",
+                ],
+            },
+            {
+                "action": ["push"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.push_containerdistribution",
+                    "obj_exists",
+                ],
+            },
+            {
+                "action": ["push"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.add_containerdistribution",
+                    "has_namespace_or_obj_perms:container.push_containerdistribution",
+                ],
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.delete_containerdistribution",
+                    "has_namespace_or_obj_perms:container.view_containerdistribution",
+                ],
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "create_distribution_group",
+                "parameters": {
+                    "group_type": "owners",
+                    "add_user_to_group": True,
+                },
+                "permissions": [
+                    "container.view_containerdistribution",
+                    "container.pull_containerdistribution",
+                    "container.push_containerdistribution",
+                    "container.delete_containerdistribution",
+                    "container.change_containerdistribution",
+                ],
+            },
+            {
+                "function": "add_push_repository_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "owners",
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_distribution_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerdistribution",
+                    "container.pull_containerdistribution",
+                    "container.push_containerdistribution",
+                ],
+            },
+            {
+                "function": "add_push_repository_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                    "container.modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_distribution_group",
+                "parameters": {
+                    "group_type": "consumers",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containerdistribution",
+                    "container.pull_containerdistribution",
+                ],
+            },
+            {
+                "function": "add_push_repository_perms_to_distribution_group",
+                "parameters": {
+                    "group_type": "consumers",
+                },
+                "permissions": [
+                    "container.view_containerpushrepository",
+                ],
+            },
+        ],
+    }
+
+    def get_queryset(self):
+        """
+        Returns a queryset of distributions filtered by namespace permissions and public status.
+        """
+
+        public_qs = models.ContainerDistribution.objects.filter(private=False)
+        obj_perm_qs = get_objects_for_user(
+            self.request.user, "container.view_containerdistribution"
+        )
+        namespaces = get_objects_for_user(self.request.user, "container.view_containernamespace")
+        namespaces |= get_objects_for_user(
+            self.request.user, "container.namespace_view_containerdistribution"
+        )
+        ns_qs = models.ContainerDistribution.objects.filter(namespace__in=namespaces)
+        return public_qs | obj_perm_qs | ns_qs
 
     @extend_schema(
         description="Trigger an asynchronous delete task",
@@ -544,3 +1144,135 @@ class ContainerNamespaceViewSet(
     endpoint_name = "pulp_container/namespaces"
     queryset = models.ContainerNamespace.objects.all()
     serializer_class = serializers.ContainerNamespaceSerializer
+    filterset_class = ContainerNamespaceFilter
+    permission_classes = (AccessPolicyFromDB,)
+    queryset_filtering_required_permission = "container.view_containernamespace"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_perms:container.add_containernamespace",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.view_containernamespace",
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containernamespace",
+                    "has_model_or_obj_perms:container.view_containernamespace",
+                ],
+            },
+            {
+                "action": ["create_distribution"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.namespace_add_containerdistribution",
+            },
+            {
+                "action": ["view_distribution"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.namespace_view_containerdistribution",  # noqa: E501
+            },
+        ],
+        "permissions_assignment": [
+            {
+                "function": "create_namespace_group",
+                "parameters": {
+                    "group_type": "owners",
+                    "add_user_to_group": True,
+                },
+                "permissions": [
+                    "container.view_containernamespace",
+                    "container.delete_containernamespace",
+                    "container.namespace_add_containerdistribution",
+                    "container.namespace_delete_containerdistribution",
+                    "container.namespace_view_containerdistribution",
+                    "container.namespace_pull_containerdistribution",
+                    "container.namespace_push_containerdistribution",
+                    "container.namespace_change_containerdistribution",
+                    "container.namespace_view_containerpushrepository",
+                    "container.namespace_modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_namespace_group",
+                "parameters": {
+                    "group_type": "collaborators",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containernamespace",
+                    "container.namespace_add_containerdistribution",
+                    "container.namespace_delete_containerdistribution",
+                    "container.namespace_view_containerdistribution",
+                    "container.namespace_pull_containerdistribution",
+                    "container.namespace_push_containerdistribution",
+                    "container.namespace_change_containerdistribution",
+                    "container.namespace_view_containerpushrepository",
+                    "container.namespace_modify_content_containerpushrepository",
+                ],
+            },
+            {
+                "function": "create_namespace_group",
+                "parameters": {
+                    "group_type": "consumers",
+                    "add_user_to_group": False,
+                },
+                "permissions": [
+                    "container.view_containernamespace",
+                    "container.namespace_view_containerdistribution",
+                    "container.namespace_pull_containerdistribution",
+                    "container.namespace_view_containerpushrepository",
+                ],
+            },
+        ],
+    }
+
+    @extend_schema(
+        description="Trigger an asynchronous delete task",
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    def destroy(self, request, pk, **kwargs):
+        """
+        Delete a Namespace with all distributions.
+        If a push repository is associated to any of its distributions, delete it as well.
+        """
+        namespace = self.get_object()
+        reservations = []
+        instance_ids = []
+
+        for distribution in namespace.container_distributions.all():
+
+            reservations.append(distribution)
+            instance_ids.append(
+                (distribution.pk, "container", "ContainerDistributionSerializer"),
+            )
+            if distribution.repository and distribution.repository.cast().PUSH_ENABLED:
+                reservations.append(distribution.repository)
+                instance_ids.append(
+                    (distribution.repository.pk, "container", "ContainerPushRepositorySerializer"),
+                )
+
+        reservations.append(namespace)
+        instance_ids.append(
+            (namespace.pk, "container", "ContainerNamespaceSerializer"),
+        )
+        async_result = enqueue_with_reservation(
+            tasks.general_multi_delete, reservations, args=(instance_ids,)
+        )
+        return OperationPostponedResponse(async_result, request)

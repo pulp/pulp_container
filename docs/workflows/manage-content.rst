@@ -9,10 +9,6 @@ There are multiple ways that users can manage Container content in repositories:
    2. Recursively :ref:`add<recursive-add>` or :ref:`remove<recursive-remove>` Container content.
    3. Copy :ref:`tags<tag-copy>` or :ref:`manifests <manifest-copy>` from source repository.
 
-.. note::
-   In a push repository it is not possible to perform any tagging, additon or removal of content via the Pulp API.
-   However, it is possible to use a push repository as a source repository in copy operations.
-
 Each of these workflows kicks off a task, and when the task is complete,
 a new repository version will have been created.
 

@@ -3,7 +3,7 @@
 import unittest
 
 from pulp_smash.pulp3.bindings import monitor_task
-from pulp_smash.pulp3.utils import gen_repo
+from pulp_smash.pulp3.utils import delete_orphans, gen_repo
 
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
@@ -63,6 +63,7 @@ class TestRecursiveRemove(unittest.TestCase):
         """Delete things made in setUpClass. addCleanup feature does not work with setupClass."""
         cls.repositories_api.delete(cls.from_repo.pulp_href)
         cls.remotes_api.delete(cls.remote.pulp_href)
+        delete_orphans()
 
     def test_repository_only_no_latest_version(self):
         """Do not create a new version, when there is nothing to remove."""

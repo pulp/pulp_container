@@ -29,5 +29,5 @@ repositories::
     For the sake of simplicity, there is missing a part that requires a user to authenticate via
     a Bearer token. The token authentication is enabled by default and does not come pre-configured
     out of the box. An administrator needs to to set up the environment in advance to enable
-    users to consume content with an authorized access. Lean more at :ref:`authentication`.
+    users to consume content with authorized access. Lean more at :ref:`authentication`.
 

@@ -5,13 +5,20 @@ import uuid
 
 import jwt
 
+from collections import defaultdict, namedtuple
 from datetime import datetime
 
 from django.conf import settings
+from django.http import HttpRequest
+from rest_framework.request import Request
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
-TOKEN_EXPIRATION_TIME = 300
+from pulp_container.app.models import ContainerDistribution, ContainerNamespace
+from pulp_container.app.access_policy import RegistryAccessPolicy
+
+TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
 
 
 class AuthorizationService:
@@ -22,17 +29,39 @@ class AuthorizationService:
     according to a user's scope.
     """
 
-    def generate_token(self, username, service, scope):
+    ANONYMOUS_USER = "AnonymousUser"
+    VALID_ACTIONS = ["pull", "push", "*"]
+
+    def __init__(self, user, service, scope):
+        """
+        Store class-wide variables and initialize a dictionary used for determining permissions.
+
+        Args:
+            user (django.contrib.auth.models.User): Requesting user.
+            service (str): Name of the service access is granted to.
+            scope (str): Scope of the resource that is to be accessed.
+
+        """
+        self.user = user
+        self.service = service
+        self.scope = scope
+        self.access_policy = RegistryAccessPolicy()
+
+        self.actions_permissions = defaultdict(
+            lambda: lambda *args: False,
+            {
+                "pull": self.has_pull_permissions,
+                "push": self.has_push_permissions,
+                "*": self.has_view_catalog_permissions,
+            },
+        )
+
+    def generate_token(self):
         """
         Generate a Bearer token.
 
         A signed JSON web token is generated in this method. The structure of the token is
         adjusted according the documentation https://docs.docker.com/registry/spec/auth/jwt/.
-
-        Args:
-            username (str): Requesting user.
-            service (str): Name of the service access is granted to.
-            scope (str): Scope of the resource that is to be accessed.
 
         Returns:
             dict: A newly generated Bearer token.
@@ -43,14 +72,14 @@ class AuthorizationService:
 
         current_datetime = datetime.now()
 
-        access = self.determine_access(username, scope)
+        access = self.determine_access()
         token_server = getattr(settings, "TOKEN_SERVER", "")
-        claim_set = self._generate_claim_set(
+        claim_set = self.generate_claim_set(
             access=[access],
-            audience=service,
+            audience=self.service,
             issued_at=int(current_datetime.timestamp()),
             issuer=token_server,
-            subject=username,
+            subject=self.user.username,
         )
 
         with open(settings.PRIVATE_KEY_PATH, "rb") as private_key:
@@ -92,32 +121,109 @@ class AuthorizationService:
                 kid += char
         return kid
 
-    def determine_access(self, user, scope):
+    def determine_access(self):
         """
         Determine access permissions for a corresponding user.
 
         This method determines whether the user has a valid access permission or not.
-        The determination is based on role based access control. For now, the access
-        is given out to anybody because the role based access control is not implemented
-        yet.
-
-        Args:
-            user (str): A name of the user who is trying to access a registry.
-            scope (str): A requested scope.
+        The determination is based on role based access control.
 
         Returns:
             list: An intersected set of the requested and the allowed access.
 
         """
-        typ, name, actions = scope.split(":")
-        actions_list = actions.split(",")
-        permissions = {"pull"}
-        if user == "admin":
-            permissions.add("push")
-        permitted_actions = list(set(actions_list).intersection(permissions))
-        return {"type": typ, "name": name, "actions": permitted_actions}
+        typ, name, actions = self.scope.split(":")
+        actions = set(actions.split(","))
 
-    def _generate_claim_set(self, issuer, issued_at, subject, audience, access):
+        permitted_actions = set()
+        if "push" in actions:
+            actions.remove("push")
+            has_permission = self.actions_permissions["push"](name)
+            if has_permission:
+                permitted_actions.add("push")
+                permitted_actions.add("pull")
+                actions.discard("pull")
+
+        for action in actions:
+            has_permission = self.actions_permissions[action](name)
+            if has_permission:
+                permitted_actions.add(action)
+
+        return {"type": typ, "name": name, "actions": list(permitted_actions)}
+
+    def has_permission(self, obj, method, action, data):
+        """Check if user has permission to perform action."""
+
+        # Fake the request
+        request = Request(HttpRequest())
+        request.method = method
+        request.user = self.user
+        request._full_data = data
+        # Fake the corresponding view
+        view = namedtuple("FakeView", ["action", "get_object"])(action, lambda: obj)
+        return self.access_policy.has_permission(request, view)
+
+    def has_pull_permissions(self, path):
+        """
+        Check if the user has permissions to pull from the repository specified by the path.
+        """
+        try:
+            distribution = ContainerDistribution.objects.get(base_path=path)
+        except ContainerDistribution.DoesNotExist:
+            namespace_name = path.split("/")[0]
+            try:
+                namespace = ContainerNamespace.objects.get(name=namespace_name)
+            except ContainerNamespace.DoesNotExist:
+                # Check if user is allowed to create a new namespace
+                return self.has_permission(None, "POST", "create", {"name": namespace_name})
+            # Check if user is allowed to view distributions in the namespace
+            return self.has_permission(
+                namespace, "GET", "view_distribution", {"name": namespace_name}
+            )
+
+        return self.has_permission(distribution, "GET", "pull", {"base_path": path})
+
+    def has_push_permissions(self, path):
+        """
+        Check if the user has permissions to push to the repository specified by the path.
+        """
+        try:
+            distribution = ContainerDistribution.objects.get(base_path=path)
+        except ContainerDistribution.DoesNotExist:
+            namespace_name = path.split("/")[0]
+            try:
+                namespace = ContainerNamespace.objects.get(name=namespace_name)
+            except ContainerNamespace.DoesNotExist:
+                # Check if user is allowed to create a new namespace
+                return self.has_permission(None, "POST", "create", {"name": namespace_name})
+            # Check if user is allowed to create a new distribution in the namespace
+            return self.has_permission(namespace, "POST", "create_distribution", {})
+
+        return self.has_permission(distribution, "POST", "push", {"base_path": path})
+
+    def has_view_catalog_permissions(self, path):
+        """
+        Check if the authenticated user is an administrator and is requesting the catalog endpoint.
+        """
+        try:
+            distribution = ContainerDistribution.objects.get(base_path=path)
+        except ContainerDistribution.DoesNotExist:
+            distribution = None
+
+        # Fake the request
+        request = Request(HttpRequest())
+        request.method = "GET"
+        request.user = self.user
+        request._full_data = {"base_path": path}
+        # Fake the corresponding view
+        view = namedtuple("FakeView", ["action", "get_object"])("catalog", lambda: distribution)
+        return self.access_policy.has_permission(request, view)
+
+    @staticmethod
+    def generate_claim_set(issuer, issued_at, subject, audience, access):
+        """
+        Generate the claim set that will be signed and dispatched back to the requesting subject.
+        """
         token_id = str(uuid.UUID(int=random.getrandbits(128), version=4))
         expiration = issued_at + TOKEN_EXPIRATION_TIME
         return {
