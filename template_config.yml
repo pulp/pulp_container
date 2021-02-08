@@ -8,7 +8,6 @@ bootstrap: false
 check_commit_message: true
 check_manifest: true
 check_stray_pulpcore_imports: true
-cherry_pick_automation: false
 coverage: false
 deploy_client_to_pypi: true
 deploy_client_to_rubygems: true
@@ -50,7 +49,6 @@ pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
 redmine_project: pulp_container
-stable_branch: None
 test: false
 test_bindings: false
 test_performance: false
