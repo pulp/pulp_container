@@ -27,6 +27,7 @@ from rest_framework.exceptions import (
     ParseError,
     ValidationError,
 )
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
@@ -35,7 +36,12 @@ from rest_framework.views import APIView
 from pulp_container.app import models, serializers
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.redirects import FileStorageRedirects, S3StorageRedirects
-from pulp_container.app.token_verification import TokenAuthentication, TokenPermission
+from pulp_container.app.token_verification import (
+    RegistryAuthentication,
+    TokenAuthentication,
+    RegistryPermission,
+    TokenPermission,
+)
 
 
 log = logging.getLogger(__name__)
@@ -211,9 +217,25 @@ class ContainerRegistryApiMixin:
     It sets token authentication and token permission.
     """
 
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [TokenPermission]
     schema = None
+
+    @property
+    def authentication_classes(self):
+        """
+        List of authentication classes to check for this view.
+        """
+        if settings.get("TOKEN_AUTH_DISABLED", False):
+            return [RegistryAuthentication]
+        return [TokenAuthentication]
+
+    @property
+    def permission_classes(self):
+        """
+        List of permission classes to check for this view.
+        """
+        if settings.get("TOKEN_AUTH_DISABLED", False):
+            return [RegistryPermission]
+        return [TokenPermission]
 
     @property
     def default_response_headers(self):
@@ -341,6 +363,15 @@ class VersionView(ContainerRegistryApiMixin, APIView):
     """
     Handles requests to the /v2/ endpoint.
     """
+
+    @property
+    def permission_classes(self):
+        """
+        List of permission classes to check for this view.
+        """
+        if settings.get("TOKEN_AUTH_DISABLED", False):
+            return [IsAuthenticated]
+        return [TokenPermission]
 
     def get(self, request):
         """Handles GET requests for the /v2/ endpoint."""

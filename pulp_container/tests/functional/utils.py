@@ -47,6 +47,9 @@ cli_client = cli.Client(cfg)
 configuration = cfg.get_bindings_config()
 
 
+TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
+
+
 CREATE_USER_CMD = [
     "from django.contrib.auth import get_user_model",
     "from django.contrib.auth.models import Permission",

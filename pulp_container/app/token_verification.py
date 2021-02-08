@@ -1,11 +1,15 @@
 import jwt
+import logging
 
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, User
 
-from rest_framework.authentication import BaseAuthentication
+from rest_framework.authentication import BaseAuthentication, BasicAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+
+
+log = logging.getLogger(__name__)
 
 
 def _decode_token(encoded_token, request):
@@ -53,6 +57,23 @@ def _contains_accessible_actions(decoded_token, repository_path, access_action):
     return False
 
 
+class RegistryAuthentication(BasicAuthentication):
+    """
+    A basic authentication class that accepts empty username and password as anonymous.
+    """
+
+    def authenticate(self, request):
+        """
+        Perform basic authentication with the exception to accept empty credentials.
+        For anonymous user, Podman sends 'Authorization': 'Basic Og=='.
+        This represents ":" in base64.
+        """
+        if request.headers.get("Authorization") == "Basic Og==":
+            return (AnonymousUser, None)
+
+        return super().authenticate(request)
+
+
 class TokenAuthentication(BaseAuthentication):
     """
     Token based authentication for Container Registry.
@@ -67,9 +88,6 @@ class TokenAuthentication(BaseAuthentication):
         """
         Check that the provided Bearer token specifies access.
         """
-        if settings.get("TOKEN_AUTH_DISABLED", False):
-            return (AnonymousUser(), True)
-
         try:
             authorization_header = request.headers["Authorization"]
         except KeyError:
@@ -116,6 +134,25 @@ class TokenAuthentication(BaseAuthentication):
         return authenticate_string
 
 
+class RegistryPermission(BasePermission):
+    """
+    Permission class to determine permissions based on the request user.
+    """
+
+    message = "Access to the requested resource is not authorized."
+
+    def has_permission(self, request, view):
+        """
+        Decide upon permission based on user.
+        """
+        if request.user.is_staff:
+            return True
+        if request.method in SAFE_METHODS:
+            return True
+
+        return False
+
+
 class TokenPermission(BasePermission):
     """
     Permission class to determine permissions based on the scope of a token.
@@ -129,8 +166,6 @@ class TokenPermission(BasePermission):
         """
         try:
             decoded_token = request.auth
-            return decoded_token is True or _contains_accessible_actions(
-                decoded_token, *_access_scope(request)
-            )
+            return _contains_accessible_actions(decoded_token, *_access_scope(request))
         except Exception:
             return False

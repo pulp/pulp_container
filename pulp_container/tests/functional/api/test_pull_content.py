@@ -17,6 +17,7 @@ from pulp_smash.pulp3.utils import (
 )
 
 from pulp_container.tests.functional.utils import (
+    TOKEN_AUTH_DISABLED,
     core_client,
     gen_container_client,
     gen_container_remote,
@@ -148,22 +149,26 @@ class PullContentTestCase(unittest.TestCase):
         image_path = "/v2/{}/manifests/{}".format(self.distribution_with_repo.base_path, "latest")
         latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
-        with self.assertRaises(requests.HTTPError) as cm:
-            self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V1})
+        if TOKEN_AUTH_DISABLED:
+            auth = ()
+        else:
+            with self.assertRaises(requests.HTTPError) as cm:
+                self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V1})
 
-        content_response = cm.exception.response
-        self.assertEqual(content_response.status_code, 401)
+            content_response = cm.exception.response
+            self.assertEqual(content_response.status_code, 401)
 
-        authenticate_header = content_response.headers["Www-Authenticate"]
-        queries = AuthenticationHeaderQueries(authenticate_header)
-        content_response = requests.get(
-            queries.realm, params={"service": queries.service, "scope": queries.scope}
-        )
-        content_response.raise_for_status()
-        token = content_response.json()["token"]
+            authenticate_header = content_response.headers["Www-Authenticate"]
+            queries = AuthenticationHeaderQueries(authenticate_header)
+            content_response = requests.get(
+                queries.realm, params={"service": queries.service, "scope": queries.scope}
+            )
+            content_response.raise_for_status()
+            token = content_response.json()["token"]
+            auth = BearerTokenAuth(token)
         content_response = requests.get(
             latest_image_url,
-            auth=BearerTokenAuth(token),
+            auth=auth,
             headers={"Accept": MEDIA_TYPE.MANIFEST_V1},
         )
         content_response.raise_for_status()
