@@ -6,7 +6,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
 
 from rest_framework.authentication import BaseAuthentication, BasicAuthentication
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 User = get_user_model()
@@ -106,6 +106,7 @@ class TokenAuthentication(BaseAuthentication):
             raise AuthenticationFailed(
                 detail="Access to the requested resource is not authorized. "
                 "The provided Bearer token is invalid.",
+                code="invalid_token",
             )
 
         username = decoded_token.get("sub")
@@ -169,6 +170,9 @@ class TokenPermission(BasePermission):
         """
         try:
             decoded_token = request.auth
-            return _contains_accessible_actions(decoded_token, *_access_scope(request))
+            if _contains_accessible_actions(decoded_token, *_access_scope(request)):
+                return True
         except Exception:
-            return False
+            raise NotAuthenticated()
+
+        raise AuthenticationFailed(detail="Insufficient permissions", code="insufficient_scope")

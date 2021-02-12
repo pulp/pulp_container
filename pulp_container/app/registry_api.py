@@ -218,6 +218,7 @@ class ContainerRegistryApiMixin:
     """
 
     schema = None
+    TOKEN_ERROR_CODES = ("invalid_token", "insufficient_scope")
 
     @property
     def authentication_classes(self):
@@ -268,7 +269,15 @@ class ContainerRegistryApiMixin:
             else:
                 code = "UNSUPPORTED"
             exc.detail = {"errors": [{"code": code, "message": detail, "detail": {}}]}
-        return super().handle_exception(exc)
+
+        response = super().handle_exception(exc)
+
+        # the auth header is available when the response object is initialized
+        error_code = getattr(detail, "code", "")
+        if error_code in self.TOKEN_ERROR_CODES:
+            response["Www-Authenticate"] += f',error="{error_code}"'
+
+        return response
 
     def get_drv_pull(self, path):
         """
