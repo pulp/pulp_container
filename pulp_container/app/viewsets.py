@@ -813,7 +813,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                 "condition": "has_namespace_or_obj_perms:container.view_containerpushrepository",
             },
             {
-                "action": ["tag", "untag"],
+                "action": ["tag", "untag", "remove_image"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -857,6 +857,38 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
             },
         ],
     }
+
+    @extend_schema(
+        description=(
+            "Trigger an asynchronous task to remove a manifest and all its associated "
+            "data by a digest"
+        ),
+        summary="Delete an image from a repository",
+        responses={202: AsyncOperationResponseSerializer},
+        request=serializers.RemoveImageSerializer,
+    )
+    @action(detail=True, methods=["post"], serializer_class=serializers.RemoveImageSerializer)
+    def remove_image(self, request, pk):
+        """
+        Create a task which deletes an image by the passed digest.
+        """
+        repository = self.get_object()
+        request.data["repository"] = repository
+
+        serializer = serializers.RemoveImageSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        content_units_to_remove = list(serializer.validated_data["tags_pks"])
+        content_units_to_remove.append(serializer.validated_data["manifest"].pk)
+
+        result = enqueue_with_reservation(
+            tasks.recursive_remove_content,
+            [repository],
+            kwargs={"repository_pk": repository.pk, "content_units": content_units_to_remove},
+        )
+        return OperationPostponedResponse(result, request)
 
     def get_queryset(self):
         """
