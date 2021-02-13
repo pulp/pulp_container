@@ -1,9 +1,8 @@
 from django.db.models import Q
-from pulpcore.plugin.models import Content
+from pulpcore.plugin.models import Content, Repository
 
 from pulp_container.app.models import (
     Blob,
-    ContainerRepository,
     Manifest,
     MEDIA_TYPE,
     Tag,
@@ -35,7 +34,7 @@ def recursive_remove_content(repository_pk, content_units):
             should be removed from the Repository.
 
     """
-    repository = ContainerRepository.objects.get(pk=repository_pk)
+    repository = Repository.objects.get(pk=repository_pk).cast()
     latest_version = repository.latest_version()
     latest_content = latest_version.content.all() if latest_version else Content.objects.none()
     if "*" in content_units:

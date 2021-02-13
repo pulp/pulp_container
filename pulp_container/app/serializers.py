@@ -335,7 +335,11 @@ class TagOperationSerializer(serializers.Serializer):
         latest_version = new_data["repository"].latest_version()
         if not latest_version:
             raise serializers.ValidationError(
-                _("The latest repository version of '{}' was not found".format(data["repository"]))
+                _(
+                    "The latest repository version of '{}' was not found".format(
+                        new_data["repository"]
+                    )
+                )
             )
 
         new_data["latest_version"] = latest_version
@@ -503,6 +507,56 @@ class ManifestCopySerializer(CopySerializer):
         required=False,
         help_text="A list of media_types to copy.",
     )
+
+
+class RemoveImageSerializer(serializers.Serializer):
+    """
+    A serializer for parsing and validating data associated with the image removal.
+    """
+
+    digest = serializers.CharField(help_text="sha256 of the Manifest file")
+
+    def validate(self, data):
+        """
+        Validate and extract the latest repository version, manifest, and tags from the passed data.
+        """
+        new_data = {}
+        new_data.update(self.initial_data)
+
+        latest_version = new_data["repository"].latest_version()
+        if not latest_version:
+            raise serializers.ValidationError(
+                _(
+                    "The latest repository version of '{}' was not found".format(
+                        new_data["repository"]
+                    )
+                )
+            )
+
+        new_data["latest_version"] = latest_version
+
+        try:
+            manifest = models.Manifest.objects.get(
+                pk__in=new_data["latest_version"].content.all(), digest=new_data["digest"]
+            )
+        except models.Manifest.DoesNotExist:
+            raise serializers.ValidationError(
+                _(
+                    "A manifest with the digest '{}' does not "
+                    "exist in the latest repository version '{}'".format(
+                        new_data["digest"], new_data["latest_version"]
+                    )
+                )
+            )
+
+        new_data["manifest"] = manifest
+
+        tags_pks = models.Tag.objects.filter(
+            pk__in=new_data["latest_version"].content.all(), tagged_manifest=new_data["manifest"]
+        ).values_list("pk", flat=True)
+        new_data["tags_pks"] = tags_pks
+
+        return new_data
 
 
 class OCIBuildImageSerializer(serializers.Serializer):

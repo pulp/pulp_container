@@ -2,9 +2,13 @@
 """Tests that recursively remove container content from repositories."""
 import unittest
 
+from urllib.parse import urlparse
+
+from pulp_smash import cli, config
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import delete_orphans, gen_repo
 
+from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
@@ -15,11 +19,17 @@ from pulpcore.client.pulp_container import (
     ApiException,
     ContainerContainerRemote,
     ContainerContainerRepository,
+    ContentManifestsApi,
     ContentTagsApi,
+    DistributionsContainerApi,
+    PulpContainerNamespacesApi,
+    RemoveImage,
     RemotesContainerApi,
     RepositoriesContainerApi,
+    RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
     RepositorySyncURL,
+    TagImage,
 )
 
 
@@ -372,3 +382,80 @@ class TestRecursiveRemove(unittest.TestCase):
         latest = self.versions_api.read(latest_version_href)
         for content_type in ["container.tag", "container.manifest", "container.blob"]:
             self.assertFalse(content_type in latest.content_summary.removed, msg=content_type)
+
+
+class TestRecursiveRemovePushRepo(unittest.TestCase, rbac_base.BaseRegistryTest):
+    """Test the image removal within a push repository."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Define class-wide variables and initialize a repository needed later in the tests."""
+        cfg = config.get_config()
+        cls.registry = cli.RegistryClient(cfg)
+        cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
+        cls.registry_name = urlparse(cfg.get_base_url()).netloc
+
+        admin_user, admin_password = cfg.pulp_auth
+        cls.user_admin = {"username": admin_user, "password": admin_password}
+
+        api_client = gen_container_client()
+        api_client.configuration.username = cls.user_admin["username"]
+        api_client.configuration.password = cls.user_admin["password"]
+
+        cls.repositories_api = RepositoriesContainerPushApi(api_client)
+        cls.versions_api = RepositoriesContainerVersionsApi(api_client)
+        cls.namespaces_api = PulpContainerNamespacesApi(api_client)
+        cls.manifests_api = ContentManifestsApi(api_client)
+        cls.distributions_api = DistributionsContainerApi(api_client)
+
+        # the image tagged as 'manifest_a' consists of 3 blobs, 1 manifest, and 1 tag
+        manifest_a_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        cls._pull(manifest_a_path)
+
+        local_url = "/".join([cls.registry_name, "foo/bar:tag"])
+        cls._push(manifest_a_path, local_url, cls.user_admin)
+
+        cls.repo = cls.repositories_api.list(name="foo/bar").results[0]
+        cls.distribution = cls.distributions_api.list(name="foo/bar").results[0]
+        cls.namespace = cls.namespaces_api.list(name="foo").results[0]
+
+        # create a new tag to test if all tags pointing to the same manifest will be removed
+        cls.manifest_a = cls.manifests_api.list().results[0]
+        tag_data = TagImage(tag="new_tag", digest=cls.manifest_a.digest)
+        tag_response = cls.repositories_api.tag(cls.repo.pulp_href, tag_data)
+        monitor_task(tag_response.task)
+
+        latest_version_href = cls.repositories_api.read(cls.repo.pulp_href).latest_version_href
+        cls.content_to_remove = cls.versions_api.read(latest_version_href).content_summary.present
+
+    @classmethod
+    def tearDownClass(cls):
+        """Delete the created namespace."""
+        cls.namespaces_api.delete(cls.namespace.pulp_href)
+        delete_orphans()
+
+    def test_remove_image(self):
+        """Remove the 'manifest_a' image along with the related blobs, manifest, and tags."""
+        remove_response = self.repositories_api.remove_image(
+            self.repo.pulp_href, RemoveImage(digest=self.manifest_a.digest)
+        )
+        monitor_task(remove_response.task)
+
+        latest_version_href = self.repositories_api.read(self.repo.pulp_href).latest_version_href
+        content_summary = self.versions_api.read(latest_version_href).content_summary
+
+        self.assertEqual(content_summary.present, {})
+        self.assertEqual(content_summary.added, {})
+
+        self.assertEqual(
+            content_summary.removed["container.blob"]["count"],
+            self.content_to_remove["container.blob"]["count"],
+        )
+        self.assertEqual(
+            content_summary.removed["container.manifest"]["count"],
+            self.content_to_remove["container.manifest"]["count"],
+        )
+        self.assertEqual(
+            content_summary.removed["container.tag"]["count"],
+            self.content_to_remove["container.tag"]["count"],
+        )
