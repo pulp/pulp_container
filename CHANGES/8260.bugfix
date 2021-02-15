@@ -1,1 +1,0 @@
-Use ``get_user_model()`` to prevent pulp_container from crashing when running alongside other pulp plugins that override the default user authentication models. 
