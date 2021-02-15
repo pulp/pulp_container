@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.3.1 (2021-02-15)
+==================
+
+
+Bugfixes
+--------
+
+- Use ``get_user_model()`` to prevent pulp_container from crashing when running alongside other pulp plugins that override the default user authentication models.
+  `#8260 <https://pulp.plan.io/issues/8260>`_
+
+
+----
+
+
 2.3.0 (2021-02-08)
 ==================
 
