@@ -73,7 +73,7 @@ def recursive_add_content(repository_pk, content_units):
 
     latest_version = repository.latest_version()
     if latest_version:
-        tags_in_repo = latest_version.content.filter(pulp_type="container.tag")
+        tags_in_repo = latest_version.content.filter(pulp_type=Tag.get_pulp_type())
         tags_to_replace = Tag.objects.filter(
             pk__in=tags_in_repo, name__in=tags_to_add.values_list("name", flat=True)
         )

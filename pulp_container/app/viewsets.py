@@ -646,7 +646,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         serializer.is_valid(raise_exception=True)
         repository = self.get_object()
         source_latest = serializer.validated_data["source_repository_version"]
-        content_tags_in_repo = source_latest.content.filter(pulp_type="container.tag")
+        content_tags_in_repo = source_latest.content.filter(pulp_type=models.Tag.get_pulp_type())
         tags_in_repo = models.Tag.objects.filter(pk__in=content_tags_in_repo)
         if names is None:
             tags_to_add = tags_in_repo
@@ -678,7 +678,9 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         serializer.is_valid(raise_exception=True)
         repository = self.get_object()
         source_latest = serializer.validated_data["source_repository_version"]
-        content_manifests_in_repo = source_latest.content.filter(pulp_type="container.manifest")
+        content_manifests_in_repo = source_latest.content.filter(
+            pulp_type=models.Manifest.get_pulp_type()
+        )
         manifests_in_repo = models.Manifest.objects.filter(pk__in=content_manifests_in_repo)
         digests = request.data.get("digests")
         media_types = request.data.get("media_types")

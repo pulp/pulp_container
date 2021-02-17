@@ -63,7 +63,7 @@ class ContainerFirstStage(Stage):
         total_blobs = []
 
         with ProgressReport(
-            message="Downloading tag list", code="downloading.tag_list", total=1
+            message="Downloading tag list", code="sync.downloading.tag_list", total=1
         ) as pb:
             repo_name = self.remote.namespaced_upstream_name
             relative_url = "/v2/{name}/tags/list".format(name=repo_name)
@@ -91,7 +91,7 @@ class ContainerFirstStage(Stage):
 
         pb_parsed_tags = ProgressReport(
             message="Processing Tags",
-            code="processing.tag",
+            code="sync.processing.tag",
             state=TASK_STATES.RUNNING,
             total=len(tag_list),
         )

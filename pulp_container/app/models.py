@@ -301,7 +301,7 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
     Repository for "container" content.
 
     This repository type is designed for the read and write registry usecase. It will be
-    automatically instanciated on authorised push to nonexisting repositories.
+    automatically instantiated on authorised push to nonexisting repositories.
     With this repository type, all but the latest repository_version are solely of historical
     interest.
     """
