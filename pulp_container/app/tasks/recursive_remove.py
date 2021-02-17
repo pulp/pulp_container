@@ -42,8 +42,8 @@ def recursive_remove_content(repository_pk, content_units):
         with repository.new_version() as new_version:
             new_version.remove_content(latest_content)
     else:
-        tags_in_repo = Q(pk__in=latest_content.filter(pulp_type="container.tag"))
-        manifests_in_repo = Q(pk__in=latest_content.filter(pulp_type="container.manifest"))
+        tags_in_repo = Q(pk__in=latest_content.filter(pulp_type=Tag.get_pulp_type()))
+        manifests_in_repo = Q(pk__in=latest_content.filter(pulp_type=Manifest.get_pulp_type()))
         user_provided_content = Q(pk__in=content_units)
         type_manifest_list = Q(media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI])
         manifest_media_types = [
@@ -52,7 +52,7 @@ def recursive_remove_content(repository_pk, content_units):
             MEDIA_TYPE.MANIFEST_OCI,
         ]
         type_manifest = Q(media_type__in=manifest_media_types)
-        blobs_in_repo = Q(pk__in=latest_content.filter(pulp_type="container.blob"))
+        blobs_in_repo = Q(pk__in=latest_content.filter(pulp_type=Blob.get_pulp_type()))
 
         # Tags do not have must_remain because they are the highest level content.
         tags_to_remove = Tag.objects.filter(user_provided_content & tags_in_repo)

@@ -9,7 +9,7 @@ def untag_image(tag, repository_pk):
     repository = Repository.objects.get(pk=repository_pk).cast()
     latest_version = repository.latest_version()
 
-    tags_in_latest_repository = latest_version.content.filter(pulp_type="container.tag")
+    tags_in_latest_repository = latest_version.content.filter(pulp_type=Tag.get_pulp_type())
 
     tags_to_remove = Tag.objects.filter(pk__in=tags_in_latest_repository, name=tag)
 
