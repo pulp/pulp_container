@@ -797,7 +797,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
     endpoint_name = "container-push"
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
-    permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
+    permission_classes = (access_policy.NamespacedAccessPolicyFromDB,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -961,7 +961,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
     filterset_class = ContainerDistributionFilter
-    permission_classes = (access_policy.NamespaceAccessPolicyFromDB,)
+    permission_classes = (access_policy.NamespacedAccessPolicyFromDB,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -1178,7 +1178,7 @@ class ContainerNamespaceViewSet(
     queryset = models.ContainerNamespace.objects.all()
     serializer_class = serializers.ContainerNamespaceSerializer
     filterset_class = ContainerNamespaceFilter
-    permission_classes = (AccessPolicyFromDB,)
+    permission_classes = (access_policy.NamespaceAccessPolicy,)
     queryset_filtering_required_permission = "container.view_containernamespace"
 
     DEFAULT_ACCESS_POLICY = {
@@ -1193,6 +1193,12 @@ class ContainerNamespaceViewSet(
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": "has_model_perms:container.add_containernamespace",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "namespace_is_username",
             },
             {
                 "action": ["retrieve"],

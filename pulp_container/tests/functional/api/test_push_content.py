@@ -269,3 +269,22 @@ class PushRepoTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         # cleanup, namespace removal also removes related distributions
         namespace = self.namespace_api.list(name="test").results[0]
         self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
+
+    def test_matching_username(self):
+        """
+        Test that you can push to a nonexisting nameespace that matches your username.
+        """
+        namespace_name = self.user_helpless["username"]
+        repo_name = f"{namespace_name}/matching"
+        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
+        invalid_local_url = "/".join([self.registry_name, f"other/{repo_name}:2.0"])
+        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+
+        self._push(image_path, local_url, self.user_helpless)
+
+        with self.assertRaises(exceptions.CalledProcessError):
+            self._push(image_path, invalid_local_url, self.user_helpless)
+
+        # cleanup, namespace removal also removes related distributions
+        namespace = self.namespace_api.list(name=namespace_name).results[0]
+        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)

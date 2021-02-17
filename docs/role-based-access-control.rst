@@ -30,9 +30,10 @@ repositories. Namespaces provide a naming convention for container repositories.
 the ``foo`` namespace are named ``foo/something`` and ``foo/something-else``.
 
 The default access policy for ``pulp_container/namespaces`` requires a user to have the
-``container.add_containernamespace`` permission to create a new namespace. The new namespace can be
-created by pushing an image using ``podman`` or ``docker`` client. This same permission allows the user
-of Pulp's API to create a new namespace.
+``container.add_containernamespace`` permission to create a new namespace. Alternatively a user is
+allowed to create a namespace that matches his username if it did not exist before. The new
+namespace can be created by pushing an image using ``podman`` or ``docker`` client. This same
+permissions allow the user of Pulp's API to create a new namespace.
 
 The creation of a new namespace creates three user groups that can access the namespace:
 Owners, Collaborators, and Consumers. The user that creates the namespace is automatically added to

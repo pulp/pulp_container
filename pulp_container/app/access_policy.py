@@ -6,7 +6,7 @@ from pulpcore.plugin.access_policy import AccessPolicyFromDB
 from pulp_container.app import models
 
 
-class NamespaceAccessPolicyMixin:
+class NamespacedAccessPolicyMixin:
     """
     Access policy mixin for ContainerDistributionViewSet and ContainerPushRepositoryViewSet which
     handles namespace permissions.
@@ -21,7 +21,7 @@ class NamespaceAccessPolicyMixin:
         if type(obj) == models.ContainerDistribution:
             namespace = obj.namespace
             return request.user.has_perm(permission, namespace)
-        else:
+        elif type(obj) == models.ContainerPushRepository:
             dists_qs = models.ContainerDistribution.objects.filter(repository=obj)
             for dist in dists_qs:
                 if request.user.has_perm(permission, dist.namespace):
@@ -51,14 +51,26 @@ class NamespaceAccessPolicyMixin:
         return view.get_object().private
 
 
-class NamespaceAccessPolicyFromDB(AccessPolicyFromDB, NamespaceAccessPolicyMixin):
+class NamespacedAccessPolicyFromDB(AccessPolicyFromDB, NamespacedAccessPolicyMixin):
     """
     Access policy for ContainerDistributionViewSet and ContainerPushRepositoryViewSet which handles
     namespace permissions.
     """
 
 
-class RegistryAccessPolicy(AccessPolicy, NamespaceAccessPolicyMixin):
+class NamespaceAccessPolicy(AccessPolicyFromDB):
+    """
+    Access policy for ContainerNamespaceViewSet.
+    """
+
+    def namespace_is_username(self, request, view, action):
+        """
+        Check if the namespace in the request matches the username.
+        """
+        return request.data.get("name") == request.user.username
+
+
+class RegistryAccessPolicy(AccessPolicy, NamespacedAccessPolicyMixin):
     """
     An AccessPolicy that loads statements from the ContainerDistribution, ContainerNamespace,
     and ContainerPushRepository viewsets.
@@ -85,3 +97,9 @@ class RegistryAccessPolicy(AccessPolicy, NamespaceAccessPolicyMixin):
                 viewset_name="pulp_container/namespaces"
             )
         return access_policy_obj.statements
+
+    def namespace_is_username(self, request, view, action):
+        """
+        Check if the namespace in the request matches the username.
+        """
+        return request.data.get("name") == request.user.username
