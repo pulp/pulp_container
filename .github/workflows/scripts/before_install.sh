@@ -34,7 +34,8 @@ else
 fi
 mkdir .ci/ansible/vars || true
 echo "---" > .ci/ansible/vars/main.yaml
-echo "component_name: pulp_container" >> .ci/ansible/vars/main.yaml
+echo "legacy_component_name: pulp_container" >> .ci/ansible/vars/main.yaml
+echo "component_name: container" >> .ci/ansible/vars/main.yaml
 echo "component_version: '${COMPONENT_VERSION}'" >> .ci/ansible/vars/main.yaml
 
 export PRE_BEFORE_INSTALL=$PWD/.github/workflows/scripts/pre_before_install.sh
