@@ -3,16 +3,21 @@
 Push content to a Repository
 =============================
 
-Users can push a container image to the repositories hosted by the Container Registry
+Users can push images to the repositories hosted by the Container Registry. Only the users who are
+logged in to the registry are allowed to perform such an action. Find below a complete example of
+pushing a tagged image.
 
 .. note::
-   If token auth is enabled admin credentials will be required during the push operation.
-   Provide them in the login to the registry or in each API call.
+    Having disabled the token authentication, only users with staff privileges (i.e.,
+    administrators) are allowed to push content to the registry.
+
 
 ::
 
         $ podman tag d21d863f69b5 localhost:24817/test/this:mytag1.8
-        $ push d21d863f69b5 localhost:24817/test/this:mytag1.8
+        $ podman login -u user -p password localhost:24817
+          Login Succeeded!
+        $ podman push d21d863f69b5 localhost:24817/test/this:mytag1.8
           Getting image source signatures
           Copying blob 210dda196ec1 done
           Copying config d21d863f69 done
@@ -40,8 +45,8 @@ Users can push a container image to the repositories hosted by the Container Reg
 
 
 .. note::
-   Content is pushed to a push repository type. A push repository supports neither mirroring of the
-   remote content nor addition or removal of the content via Pulp API.
+   Content is pushed to a push repository type. A push repository does not support mirroring of the
+   remote content via the Pulp API.
 
 .. note::
    Rollback to the previous repository versions is not possible with a push repository. Its latest version will always be served.
