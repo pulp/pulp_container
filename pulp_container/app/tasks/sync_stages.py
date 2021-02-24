@@ -195,7 +195,7 @@ class ContainerFirstStage(Stage):
             total_blobs.append(blob_dc)
         layer = content_data.get("config", None)
         if layer:
-            blob_dc = self.create_blob(man, layer)
+            blob_dc = self.create_blob(man, layer, deferred_download=False)
             blob_dc.extra_data["config_relation"] = man
             total_blobs.append(blob_dc)
 
@@ -309,13 +309,15 @@ class ContainerFirstStage(Stage):
         )
         return man_dc
 
-    def create_blob(self, man_dc, blob_data):
+    def create_blob(self, man_dc, blob_data, deferred_download=True):
         """
         Create blob.
 
         Args:
             man_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ImageManifest
             blob_data (dict): Data about a blob
+            deferred_download (bool): boolean that indicates whether not to download a blob
+                immediatly. Config blob is downloaded regardless of the remote's settings
 
         """
         digest = blob_data.get("digest") or blob_data.get("blobSum")
@@ -330,7 +332,7 @@ class ContainerFirstStage(Stage):
             url=blob_url,
             relative_path=digest,
             remote=self.remote,
-            deferred_download=self.deferred_download,
+            deferred_download=deferred_download and self.deferred_download,
         )
         blob_dc = DeclarativeContent(content=blob, d_artifacts=[da])
 
