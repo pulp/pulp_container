@@ -327,7 +327,7 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
         group_type = parameters["group_type"]
         add_user_to_group = parameters["add_user_to_group"]
         try:
-            suffix = ContainerDistribution.objects.get(repository=self).pk
+            suffix = ContainerDistribution.objects.get(pk__in=self.distributions.all()).pk
         except ContainerDistribution.DoesNotExist:
             # The distribution has not been created yet
             return

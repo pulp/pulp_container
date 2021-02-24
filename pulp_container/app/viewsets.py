@@ -898,15 +898,17 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
 
         qs = models.ContainerPushRepository.objects.all()
         namespaces = get_objects_for_user(self.request.user, "container.view_containernamespace")
-        ns_repository_pks = models.ContainerDistribution.objects.filter(
-            namespace__in=namespaces
-        ).values_list("repository")
-        dist_repository_pks = get_objects_for_user(
-            self.request.user, "container.view_containerdistribution"
-        ).values_list("repository")
-        public_repository_pks = models.ContainerDistribution.objects.filter(
-            private=False
-        ).values_list("repository")
+        ns_repository_pks = [
+            d.repository
+            for d in models.ContainerDistribution.objects.filter(namespace__in=namespaces)
+        ]
+        dist_repository_pks = [
+            d.repository
+            for d in get_objects_for_user(self.request.user, "container.view_containerdistribution")
+        ]
+        public_repository_pks = [
+            d.repository for d in models.ContainerDistribution.objects.filter(private=False)
+        ]
         return qs.filter(
             Q(pk__in=ns_repository_pks)
             | Q(pk__in=dist_repository_pks)
