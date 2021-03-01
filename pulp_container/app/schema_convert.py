@@ -193,9 +193,12 @@ class Schema2toSchema1Converter:
             config.pop("history", None)
             config.pop("rootfs", None)
         else:
+            # both `created` and `created_by` are optional according to the OCI specs
+            container_config = dict(Cmd=[fs_layer.history.get("created_by", "")])
+            created = fs_layer.history.get("created", "")
             config = dict(
-                created=fs_layer.history["created"],
-                container_config=dict(Cmd=fs_layer.history["created_by"]),
+                created=created,
+                container_config=container_config,
             )
         if fs_layer.uncompressed_digest is None:
             config["throwaway"] = True
