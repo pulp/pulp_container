@@ -9,6 +9,8 @@ import logging
 import hashlib
 import re
 from collections import namedtuple
+import time
+
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
@@ -21,14 +23,16 @@ from django.conf import settings
 
 from guardian.shortcuts import get_objects_for_user
 
-from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
+from pulpcore.plugin.models import Artifact, ContentArtifact, Task, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
+from pulpcore.plugin.tasking import add_and_remove, enqueue_with_reservation
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
     PermissionDenied,
     NotFound,
     ParseError,
+    Throttled,
     ValidationError,
 )
 from rest_framework.generics import ListAPIView
@@ -205,7 +209,6 @@ class BlobResponse(Response):
         artifact = blob._artifacts.get()
         size = artifact.size
 
-        log.info("digest: {digest}".format(digest=blob.digest))
         headers = {
             "Docker-Content-Digest": blob.digest,
             "Location": "/v2/{path}/blobs/{digest}".format(path=path, digest=blob.digest),
@@ -612,7 +615,35 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         _, repository = self.get_dr_push(request, path)
 
         digest = request.query_params["digest"]
-        upload = models.Upload.objects.get(pk=pk, repository=repository)
+        # Try to see if the client came back after we told it to backoff with the ``Throttled``
+        # exception. In that case we answer based on the task state, or make it backoff again.
+        # This mechanism seems to work with podman but not with docker. However we let the task run
+        # anyway, since all clients will look with a HEAD request before attemting to upload a blob
+        # again.
+        try:
+            upload = models.Upload.objects.get(pk=pk, repository=repository)
+        except models.Upload.DoesNotExist as e_upload:
+            # Upload has been deleted => task has started or even finished
+            try:
+                task = Task.objects.filter(
+                    name__endswith="add_and_remove",
+                    reserved_resources_record__resource=f"upload:{pk}",
+                ).last()
+            except Task.DoesNotExist:
+                # No upload and no task for it => the upload probably never existed
+                # return 404
+                raise e_upload
+
+            if task.state == "completed":
+                task.delete()
+                blob = models.Blob.objects.get(digest=digest)
+                return BlobResponse(blob, path, 201, request)
+            elif task.state in ["waiting", "running"]:
+                raise Throttled(wait=5)
+            else:
+                task.delete()
+                raise Exception("Failed.")
+
         chunks = UploadChunk.objects.filter(upload=upload).order_by("offset")
 
         with NamedTemporaryFile("ab") as temp_file:
@@ -641,12 +672,31 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             except IntegrityError:
                 pass
 
-            with repository.new_version() as new_version:
-                new_version.add_content(models.Blob.objects.filter(pk=blob.pk))
-
             upload.delete()
 
-            return BlobResponse(blob, path, 201, request)
+            job = enqueue_with_reservation(
+                add_and_remove,
+                [f"upload:{pk}", repository],
+                kwargs={
+                    "repository_pk": repository.pk,
+                    "add_content_units": [blob.pk],
+                    "remove_content_units": [],
+                },
+            )
+
+            # Wait a small amount of time
+            for dummy in range(3):
+                time.sleep(1)
+                task = Task.objects.get(pk=job.id)
+                if task.state == "completed":
+                    task.delete()
+                    return BlobResponse(blob, path, 201, request)
+                elif task.state in ["waiting", "running"]:
+                    continue
+                else:
+                    task.delete()
+                    raise Exception("Failed.")
+            raise Throttled(wait=5)
         else:
             raise Exception("The digest did not match")
 
@@ -771,14 +821,34 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         try:
             tag.save()
         except IntegrityError:
-            pass
-        with repository.new_version() as new_version:
-            new_version.add_content(models.Manifest.objects.filter(digest=manifest.digest))
-            new_version.remove_content(models.Tag.objects.filter(name=tag.name))
-            new_version.add_content(
-                models.Tag.objects.filter(name=tag.name, tagged_manifest=manifest)
-            )
-        return ManifestResponse(manifest, path, request, status=201)
+            tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
+
+        tags_to_remove = models.Tag.objects.filter(
+            pk__in=repository.latest_version().content.all(), name=tag
+        ).exclude(tagged_manifest=manifest)
+        job = enqueue_with_reservation(
+            add_and_remove,
+            [repository],
+            kwargs={
+                "repository_pk": repository.pk,
+                "add_content_units": [tag.pk, manifest.pk],
+                "remove_content_units": tags_to_remove.values_list("pk"),
+            },
+        )
+
+        # Wait a small amount of time
+        for dummy in range(3):
+            time.sleep(1)
+            task = Task.objects.get(pk=job.id)
+            if task.state == "completed":
+                task.delete()
+                return ManifestResponse(manifest, path, request, status=201)
+            elif task.state in ["waiting", "running"]:
+                continue
+            else:
+                task.delete()
+                raise Exception("Failed.")
+        raise Throttled(wait=5)
 
     def receive_artifact(self, chunk):
         """Handles assembling of Manifest as it's being uploaded."""
