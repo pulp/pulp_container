@@ -416,6 +416,8 @@ class ContainerCatalogPagination(BasePagination):
         else:
             if self.n > 10 * api_settings.PAGE_SIZE:
                 self.n = 10 * api_settings.PAGE_SIZE
+            if self.n < 0:
+                self.n = 0
         last = request.query_params.get("last")
         self.url = request.build_absolute_uri()
 
@@ -429,7 +431,7 @@ class ContainerCatalogPagination(BasePagination):
         """
         headers = {}
         repositories_names = [repo["base_path"] for repo in data]
-        if len(repositories_names) == self.n:
+        if self.n and len(repositories_names) == self.n:
             # There's a high chance we haven't gotten all entries here.
             parsed_url = list(urlparse(self.url))
             query_params = parse_qs(parsed_url[4])
@@ -477,6 +479,8 @@ class ContainerTagListPagination(BasePagination):
         else:
             if self.n > 10 * api_settings.PAGE_SIZE:
                 self.n = 10 * api_settings.PAGE_SIZE
+            if self.n < 0:
+                self.n = 0
         last = request.query_params.get("last")
         self.url = request.build_absolute_uri()
         self.path = request.resolver_match.kwargs["path"]
@@ -491,7 +495,7 @@ class ContainerTagListPagination(BasePagination):
         """
         headers = {}
         tag_names = [tag["name"] for tag in data]
-        if len(tag_names) == self.n:
+        if self.n and len(tag_names) == self.n:
             # There's a high chance we haven't gotten all entries here.
             parsed_url = list(urlparse(self.url))
             query_params = parse_qs(parsed_url[4])
