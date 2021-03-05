@@ -1,2 +1,2 @@
 Fixed a bug that caused the registry to fail during the schema conversion when there was not
-provided the field ``created_by``.
+provided the field ``created_by``. (Backported from https://pulp.plan.io/issues/8299)

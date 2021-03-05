@@ -1,0 +1,1 @@
+Fixed Renderer to handle properly Manifest and Blob responses. (Backported from https://pulp.plan.io/issues/7620)
