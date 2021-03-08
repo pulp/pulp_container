@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, cli
-from pulp_smash.pulp3.utils import gen_repo, gen_distribution
+from pulp_smash.pulp3.utils import delete_orphans, gen_repo, gen_distribution
 
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
@@ -74,6 +74,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         cls.repositories_api.delete(cls.repository.pulp_href)
         cls.remotes_api.delete(cls.remote.pulp_href)
         cls.distributions_api.delete(cls.distribution.pulp_href)
+        delete_orphans()
 
     def test_pull_image_with_raw_http_requests(self):
         """

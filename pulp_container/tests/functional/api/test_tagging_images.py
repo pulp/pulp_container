@@ -2,7 +2,7 @@
 """Tests for tagging and untagging images."""
 import unittest
 
-from pulp_smash.pulp3.utils import gen_repo
+from pulp_smash.pulp3.utils import delete_orphans, gen_repo
 
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
@@ -56,6 +56,7 @@ class TaggingTestCase(unittest.TestCase):
         """Clean generated resources."""
         cls.repositories_api.delete(cls.repository.pulp_href)
         cls.remotes_api.delete(cls.remote.pulp_href)
+        delete_orphans()
 
     def test_01_tag_first_image(self):
         """

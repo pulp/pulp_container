@@ -37,7 +37,6 @@ class TestManifestCopy(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Sync pulp/test-fixture-1 so we can copy content from it."""
-        delete_orphans()
         api_client = gen_container_client()
         cls.repositories_api = RepositoriesContainerApi(api_client)
         cls.versions_api = RepositoriesContainerVersionsApi(api_client)
@@ -62,12 +61,14 @@ class TestManifestCopy(unittest.TestCase):
         """Create an empty repository to copy into."""
         self.to_repo = self.repositories_api.create(ContainerContainerRepository(**gen_repo()))
         self.addCleanup(self.repositories_api.delete, self.to_repo.pulp_href)
+        delete_orphans()
 
     @classmethod
     def tearDownClass(cls):
         """Delete things made in setUpClass. addCleanup feature does not work with setupClass."""
         cls.repositories_api.delete(cls.from_repo.pulp_href)
         cls.repositories_api.delete(cls.remote.pulp_href)
+        delete_orphans()
 
     def test_missing_repository_argument(self):
         """Ensure source_repository or source_repository_version is required."""
@@ -152,8 +153,8 @@ class TestManifestCopy(unittest.TestCase):
         ).content_summary.present
         self.assertFalse("container.tag" in to_repo_content)
         self.assertEqual(to_repo_content["container.manifest"]["count"], 1)
-        # manifest_a has 2 blobs
-        self.assertEqual(to_repo_content["container.blob"]["count"], 2)
+        # each manifest (non-list) has 3 blobs, 1 blob is shared
+        self.assertEqual(to_repo_content["container.blob"]["count"], 3)
 
     def test_copy_manifest_by_digest_and_media_type(self):
         """Specify a single manifest by digest to copy."""
@@ -179,8 +180,9 @@ class TestManifestCopy(unittest.TestCase):
         ).content_summary.present
         self.assertFalse("container.tag" in to_repo_content)
         self.assertEqual(to_repo_content["container.manifest"]["count"], 1)
-        # manifest_a has 2 blobs
-        self.assertEqual(to_repo_content["container.blob"]["count"], 2)
+        # manifest_a has 3 blobs
+        # 3rd blob is the parent blob from apline repo
+        self.assertEqual(to_repo_content["container.blob"]["count"], 3)
 
     def test_copy_all_manifest_lists_by_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
@@ -200,8 +202,9 @@ class TestManifestCopy(unittest.TestCase):
         self.assertFalse("container.tag" in to_repo_content)
         # Fixture has 4 manifest lists, which combined reference 5 manifests
         self.assertEqual(to_repo_content["container.manifest"]["count"], 9)
-        # each manifest (non-list) has 2 blobs
-        self.assertEqual(to_repo_content["container.blob"]["count"], 10)
+        # each manifest (non-list) has 3 blobs, 1 blob is shared
+        # 11th blob is the parent blob from alpine repo, which is shared by all other manifests
+        self.assertEqual(to_repo_content["container.blob"]["count"], 11)
 
     def test_copy_all_manifests_by_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
@@ -221,8 +224,9 @@ class TestManifestCopy(unittest.TestCase):
         self.assertFalse("container.tag" in to_repo_content)
         # Fixture has 5 manifests that aren't manifest lists
         self.assertEqual(to_repo_content["container.manifest"]["count"], 5)
-        # each manifest (non-list) has 2 blobs
-        self.assertEqual(to_repo_content["container.blob"]["count"], 10)
+        # each manifest (non-list) has 3 blobs, 1 blob is shared
+        # 11th blob is the parent blob from alpine repo, which is shared by all other manifests
+        self.assertEqual(to_repo_content["container.blob"]["count"], 11)
 
     def test_fail_to_copy_invalid_manifest_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
@@ -291,8 +295,9 @@ class TestManifestCopy(unittest.TestCase):
         self.assertFalse("container.tag" in to_repo_content)
         # each manifest list is a manifest and references 2 other manifests
         self.assertEqual(to_repo_content["container.manifest"]["count"], 6)
-        # each referenced manifest has 2 blobs
-        self.assertEqual(to_repo_content["container.blob"]["count"], 8)
+        # each manifest (non-list) has 3 blobs, 1 blob is shared
+        # 9th blob is the parent blob from apline repo, which is shared by all other manifests
+        self.assertEqual(to_repo_content["container.blob"]["count"], 9)
 
     def test_copy_manifests_by_digest_empty_list(self):
         """Passing an empty list copies no manifests."""
@@ -341,6 +346,7 @@ class TestTagCopy(unittest.TestCase):
         """Delete things made in setUpClass. addCleanup feature does not work with setupClass."""
         cls.repositories_api.delete(cls.from_repo.pulp_href)
         cls.remotes_api.delete(cls.remote.pulp_href)
+        delete_orphans()
 
     def test_missing_repository_argument(self):
         """Ensure source_repository or source_repository_version is required."""
@@ -532,9 +538,9 @@ class TestRecursiveAdd(unittest.TestCase):
         # No tags added
         self.assertFalse("container.manifest-tag" in latest.content_summary.added)
 
-        # manifest a has 2 blobs
+        # each manifest (non-list) has 3 blobs, 1 blob is shared
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
 
     def test_manifest_list_recursion(self):
         """Add a Manifest List, related manifests, and related blobs."""
@@ -568,9 +574,10 @@ class TestRecursiveAdd(unittest.TestCase):
         latest_version_href = self.repositories_api.read(self.to_repo.pulp_href).latest_version_href
         latest = self.versions_api.read(latest_version_href)
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 1)
-        # 1 manifest list 2 manifests
+        # each manifest (non-list) has 3 blobs, 1 blob is shared
+        # 5th blob is the parent blob from apline repo, which is shared by all other manifests
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 3)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 4)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 5)
 
     def test_tagged_manifest_recursion(self):
         """Add a tagged manifest and its related blobs."""
@@ -588,7 +595,7 @@ class TestRecursiveAdd(unittest.TestCase):
 
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 1)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
 
     def test_tag_replacement(self):
         """Add a tagged manifest to a repo with a tag of that name already in place."""
@@ -659,4 +666,4 @@ class TestRecursiveAdd(unittest.TestCase):
 
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 4)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 9)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 10)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 11)

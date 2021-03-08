@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
-from pulp_smash.pulp3.utils import gen_distribution, gen_repo
+from pulp_smash.pulp3.utils import delete_orphans, gen_distribution, gen_repo
 
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 
@@ -74,6 +74,7 @@ class RepositoriesListTestCase(unittest.TestCase):
 
         cls.distributions_api.delete(cls.distribution1.pulp_href)
         cls.distributions_api.delete(cls.distribution2.pulp_href)
+        delete_orphans()
 
     def test_listing_repositories(self):
         """
