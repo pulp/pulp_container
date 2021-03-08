@@ -139,6 +139,27 @@ Misc
 ----
 
 
+2.1.1 (2021-03-08)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed Renderer to handle properly Manifest and Blob responses. (Backported from https://pulp.plan.io/issues/7620)
+  `#8346 <https://pulp.plan.io/issues/8346>`_
+- Fixed a bug that caused the registry to advertise an invalid digest of a converted manifest. (Backported from https://pulp.plan.io/issues/7923)
+  `#8347 <https://pulp.plan.io/issues/8347>`_
+- Fixed a bug that caused the registry to fail during the schema conversion when there was not
+  provided the field ``created_by``. (Backported from https://pulp.plan.io/issues/8299)
+  `#8348 <https://pulp.plan.io/issues/8348>`_
+- Fixed bug experienced when pulling using docker 20.10 client. (Backported from https://pulp.plan.io/issues/8208)
+  `#8366 <https://pulp.plan.io/issues/8366>`_
+
+
+----
+
+
 2.1.0 (2020-09-23)
 ==================
 
