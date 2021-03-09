@@ -4,6 +4,7 @@ CONTAINER_TAG='manifest_a'
 
 echo "Setting REGISTRY_PATH, which can be used directly with the Docker Client."
 REGISTRY_PATH=$(http $BASE_ADDR$DISTRIBUTION_HREF | jq -r '.registry_path')
+REGISTRY_PATH="pulp.example.com/test"
 echo "Next we pull and run the image from pulp"
 echo "$REGISTRY_PATH:$CONTAINER_TAG"
 sudo docker run $REGISTRY_PATH:$CONTAINER_TAG
