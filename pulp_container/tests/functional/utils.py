@@ -52,18 +52,20 @@ TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
 
 CREATE_USER_CMD = [
     "from django.contrib.auth import get_user_model",
-    "from django.contrib.auth.models import Permission",
+    "from django.urls import resolve",
+    "from guardian.shortcuts import assign_perm",
     "",
     "user = get_user_model().objects.create(username='{username}')",
     "user.set_password('{password}')",
     "user.save()",
-    "for permission in {permissions!r}:",
-    "    if '.' in permission:",
-    "        app_label, codename = permission.split('.', maxsplit=1)",
-    "        perm = Permission.objects.get(codename=codename, content_type__app_label=app_label)",
-    "    else:",
-    "        perm = Permission.objects.get(codename=permission)",
-    "    user.user_permissions.add(perm)",
+    "",
+    "for permission in {model_permissions!r}:",
+    "    assign_perm(permission, user)",
+    "",
+    "for permission, obj_url in {object_permissions!r}:",
+    "    func, _, kwargs = resolve(obj_url)",
+    "    obj = func.cls.queryset.get(pk=kwargs['pk'])",
+    "    assign_perm(permission, user, obj)",
 ]
 
 
@@ -73,12 +75,19 @@ DELETE_USER_CMD = [
 ]
 
 
-def gen_user(permissions):
+def gen_user(model_permissions=None, object_permissions=None):
     """Create a user with a set of permissions in the pulp database."""
+    if model_permissions is None:
+        model_permissions = []
+
+    if object_permissions is None:
+        object_permissions = []
+
     user = {
         "username": utils.uuid4(),
         "password": utils.uuid4(),
-        "permissions": permissions,
+        "model_permissions": model_permissions,
+        "object_permissions": object_permissions,
     }
     utils.execute_pulpcore_python(
         cli_client,

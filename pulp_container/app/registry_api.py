@@ -8,6 +8,7 @@ import json
 import logging
 import hashlib
 import re
+from collections import namedtuple
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
@@ -17,6 +18,8 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 
 from django.conf import settings
+
+from guardian.shortcuts import get_objects_for_user
 
 from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
@@ -39,6 +42,7 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
 
 from pulp_container.app import models, serializers
+from pulp_container.app.access_policy import RegistryAccessPolicy
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.redirects import FileStorageRedirects, S3StorageRedirects
 from pulp_container.app.token_verification import (
@@ -48,6 +52,7 @@ from pulp_container.app.token_verification import (
     TokenPermission,
 )
 
+FakeView = namedtuple("FakeView", ["action", "get_object"])
 
 log = logging.getLogger(__name__)
 
@@ -451,6 +456,29 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
     queryset = models.ContainerDistribution.objects.all().only("base_path")
     serializer_class = ContainerCatalogSerializer
     pagination_class = ContainerCatalogPagination
+    access_policy_class = RegistryAccessPolicy()
+
+    def get_queryset(self, *args, **kwargs):
+        """Filter the queryset based on public repositories and assigned permissions."""
+        queryset = super().get_queryset()
+
+        distribution_permission = "container.pull_containerdistribution"
+        namespace_permission = "container.namespace_pull_containerdistribution"
+
+        public_repositories = queryset.filter(private=False)
+        repositories_by_distribution = get_objects_for_user(
+            self.request.user, distribution_permission, queryset
+        )
+
+        namespace_refs = queryset.values_list("namespace", flat=True)
+        namespaces = models.ContainerNamespace.objects.filter(pk__in=namespace_refs)
+        repositories_by_namespace = get_objects_for_user(
+            self.request.user, namespace_permission, namespaces
+        )
+        repositories_by_namespace = queryset.filter(namespace__in=repositories_by_namespace)
+
+        accessible_repositories = repositories_by_distribution & repositories_by_namespace
+        return (public_repositories | accessible_repositories).distinct()
 
 
 class ContainerTagListSerializer(ModelSerializer):
