@@ -6,4 +6,4 @@ SECOND_REPO_HREF=$(http POST $BASE_ADDR/pulp/api/v3/repositories/container/conta
   | jq -r '.pulp_href')
 
 echo "Inspect repository."
-http $BASE_ADDR$DEST_REPO_HREF
+http $BASE_ADDR$SECOND_REPO_HREF

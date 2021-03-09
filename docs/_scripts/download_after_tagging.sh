@@ -16,6 +16,7 @@ DISTRIBUTION_HREF=$(http $BASE_ADDR$TASK_URL \
   | jq -r '.created_resources | first')
 REGISTRY_PATH=$(http $BASE_ADDR$DISTRIBUTION_HREF \
   | jq -r '.registry_path')
+REGISTRY_PATH="pulp.example.com/${DIST_BASE_PATH}"
 
 echo "Running ${REGISTRY_PATH}:${TAG_NAME}."
 sudo docker run $REGISTRY_PATH:$TAG_NAME
