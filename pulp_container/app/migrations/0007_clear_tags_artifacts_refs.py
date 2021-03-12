@@ -3,10 +3,17 @@
 from django.db import migrations
 
 
-def remove_tag_artifacts(apps, schema_editor):
+def remove_tag_artifacts_up(apps, schema_editor):
     Tag = apps.get_model('container', 'Tag')
     for tag in Tag.objects.all():
         tag._artifacts.clear()
+
+
+def remove_tag_artifacts_down(apps, schema_editor):
+    Tag = apps.get_model('container', 'Tag')
+    for tag in Tag.objects.all():
+        if tag.tagged_manifest:
+            tag._artifacts.add(tag.tagged_manifest._artifacts.get())
 
 
 class Migration(migrations.Migration):
@@ -16,5 +23,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(remove_tag_artifacts)
+        migrations.RunPython(remove_tag_artifacts_up, remove_tag_artifacts_down)
     ]
