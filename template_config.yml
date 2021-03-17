@@ -38,8 +38,8 @@ plugin_name: pulp_container
 plugin_snake: pulp_container
 publish_docs_to_pulpprojectdotorg: true
 pulp_settings: {}
-pulpcore_branch: master
-pulpcore_pip_version_specifier: null
+pulpcore_branch: "3.9"
+pulpcore_pip_version_specifier: "~=3.9.0"
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
