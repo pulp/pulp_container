@@ -389,7 +389,7 @@ class TagOperationsMixin:
 
         result = enqueue_with_reservation(
             tasks.tag_image,
-            [repository, manifest],
+            [repository],
             kwargs={"manifest_pk": manifest.pk, "tag": tag, "repository_pk": repository.pk},
         )
         return OperationPostponedResponse(result, request)
