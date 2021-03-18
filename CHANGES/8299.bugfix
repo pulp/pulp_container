@@ -1,2 +1,0 @@
-Fixed a bug that caused the registry to fail during the schema conversion when there was not
-provided the field ``created_by``.
