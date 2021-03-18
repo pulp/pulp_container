@@ -13,6 +13,25 @@ Changelog
 
 .. towncrier release notes start
 
+2.2.1 (2021-03-18)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed a bug that caused the registry to fail during the schema conversion when there was not
+  provided the field ``created_by``. (Backported from https://pulp.plan.io/issues/8299)
+  `#8349 <https://pulp.plan.io/issues/8349>`_
+- Fixed a bug that caused the registry to advertise an invalid digest of a converted manifest. (Backported from https://pulp.plan.io/issues/7923)
+  `#8350 <https://pulp.plan.io/issues/8350>`_
+- Fixed bug experienced when pulling using docker 20.10 client. (Backported from https://pulp.plan.io/issues/8208)
+  `#8367 <https://pulp.plan.io/issues/8367>`_
+
+
+----
+
+
 2.2.0 (2020-12-09)
 ==================
 

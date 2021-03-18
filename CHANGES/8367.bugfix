@@ -1,1 +1,0 @@
-Fixed bug experienced when pulling using docker 20.10 client. (Backported from https://pulp.plan.io/issues/8208)
