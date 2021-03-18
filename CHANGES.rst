@@ -13,6 +13,41 @@ Changelog
 
 .. towncrier release notes start
 
+2.4.0 (2021-03-18)
+==================
+
+
+Features
+--------
+
+- Added pagination to the _catalog and the tags/list endpoint in the registry API.
+  `#7974 <https://pulp.plan.io/issues/7974>`_
+- Added a fall back to use BasicAuth if TOKEN_AUTH_DISABLED is set.
+  `#8074 <https://pulp.plan.io/issues/8074>`_
+- Added a new API endpoint that allows users to remove an image by a digest from a push repository.
+  `#8105 <https://pulp.plan.io/issues/8105>`_
+- Added a `namespace_is_username` helper to decide whether the namespace matches the username of the requests user.
+  Changed the namespace access_policy to allow users without permissions to create the namespace that matches their username.
+  `#8197 <https://pulp.plan.io/issues/8197>`_
+
+
+Bugfixes
+--------
+
+- Fixed the ``scope`` field returned by the registry when a user was accessing the catalong endpoint without a token. In addition to that, the field ``access`` returned by the token server for the root endpoint was fixed as well.
+  `#8045 <https://pulp.plan.io/issues/8045>`_
+- Added missing error code that should be returned in the WWW-Authenticate header.
+  `#8046 <https://pulp.plan.io/issues/8046>`_
+- Fixed a bug that caused the registry to fail during the schema conversion when there was not
+  provided the field ``created_by``.
+  `#8299 <https://pulp.plan.io/issues/8299>`_
+- Prevent the registry pagination classes to fail if a negative page size is requested.
+  `#8318 <https://pulp.plan.io/issues/8318>`_
+
+
+----
+
+
 2.3.1 (2021-02-15)
 ==================
 

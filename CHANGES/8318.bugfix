@@ -1,1 +1,0 @@
-Prevent the registry pagination classes to fail if a negative page size is requested.
