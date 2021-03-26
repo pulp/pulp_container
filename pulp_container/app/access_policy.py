@@ -17,6 +17,8 @@ class NamespacedAccessPolicyMixin:
         Check if a user has object-level perms on the namespace associated with the distribution
         or repository.
         """
+        if request.user.has_perm(permission):
+            return True
         obj = view.get_object()
         if type(obj) == models.ContainerDistribution:
             namespace = obj.namespace
@@ -36,7 +38,9 @@ class NamespacedAccessPolicyMixin:
         if self.has_namespace_obj_perms(request, view, action, ns_perm):
             return True
         else:
-            return request.user.has_perm(permission, view.get_object())
+            return request.user.has_perm(permission) or request.user.has_perm(
+                permission, view.get_object()
+            )
 
     def obj_exists(self, request, view, action):
         """
