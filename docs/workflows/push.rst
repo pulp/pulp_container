@@ -50,3 +50,10 @@ pushing a tagged image.
 
 .. note::
    Rollback to the previous repository versions is not possible with a push repository. Its latest version will always be served.
+
+.. warning::
+   Image that has been pulled from a registry and then subsequently pushed to another registy can lead to the blobs digest change.
+   Most image layers on registries are compressed. Pull operation decompresses them to get an uncompressed stream, and extracts it
+   to create the local filesystem. Push creates an uncompressed tarball from the local filesystem and recompresses it during upload.
+   The recompression is not at all guaranteed to be reproducible, it is client implementation dependent — push with different
+   compression implementation than the original author used is more likely to result in a different blob digest.
