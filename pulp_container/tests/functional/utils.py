@@ -46,6 +46,7 @@ cfg = config.get_config()
 cli_client = cli.Client(cfg)
 configuration = cfg.get_bindings_config()
 
+BOGUS_CHANGE = "DO NOT MERGE THIS PR"  # noqa
 
 TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
 
