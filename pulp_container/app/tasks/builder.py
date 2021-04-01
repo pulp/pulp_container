@@ -1,3 +1,10 @@
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+from uuid import uuid4
+
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -7,13 +14,6 @@ from pulp_container.app.models import (
 )
 from pulp_container.constants import MEDIA_TYPE
 from pulpcore.plugin.models import Artifact, ContentArtifact
-from pulpcore.plugin.tasking import WorkingDirectory
-
-import json
-import os
-import shutil
-import subprocess
-from uuid import uuid4
 
 
 def get_or_create_blob(layer_json, manifest, path):
@@ -113,7 +113,7 @@ def build_image_from_containerfile(
     containerfile = Artifact.objects.get(pk=containerfile_pk)
     repository = ContainerRepository.objects.get(pk=repository_pk)
     name = str(uuid4())
-    with WorkingDirectory() as working_directory:
+    with tempfile.TemporaryDirectory(".") as working_directory:
         path = "{}/".format(working_directory.path)
         for key, val in artifacts.items():
             artifact = Artifact.objects.get(pk=key)
