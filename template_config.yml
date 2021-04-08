@@ -2,6 +2,7 @@
 # were not present before running plugin-template have been added with their default values.
 
 additional_plugins: []
+additional_repos: []
 all: false
 black: true
 bootstrap: false
@@ -27,6 +28,7 @@ exclude_deploy_to_pypi: false
 exclude_docs_test: false
 exclude_mariadb_test: false
 exclude_test_bindings: false
+issue_tracker: redmine
 plugin_app_label: container
 plugin_camel: PulpContainer
 plugin_camel_short: Container
