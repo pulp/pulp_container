@@ -13,6 +13,36 @@ Changelog
 
 .. towncrier release notes start
 
+2.5.0 (2021-04-08)
+==================
+
+
+Features
+--------
+
+- Updated the catalog endpoint to show only repositories that users have permissions to pull from.
+  `#8068 <https://pulp.plan.io/issues/8068>`_
+- Config blob is downloaded always, regardless of the remote's settings.
+  `#8319 <https://pulp.plan.io/issues/8319>`_
+
+
+Bugfixes
+--------
+
+- Wrapped the repository version creation during blob upload commit in a task that will be waited on by issuing 429.
+  `#8151 <https://pulp.plan.io/issues/8151>`_
+
+
+Improved Documentation
+----------------------
+
+- Released container RBAC from tech-preview.
+  `#8527 <https://pulp.plan.io/issues/8527>`_
+
+
+----
+
+
 2.4.0 (2021-03-18)
 ==================
 
