@@ -161,7 +161,7 @@ class UploadResponse(Response):
         headers = {
             "Docker-Upload-UUID": upload.pk,
             "Location": f"/v2/{path}/blobs/uploads/{upload.pk}",
-            "Range": f"0-{upload.size}",
+            "Range": "0-{offset}".format(offset=int(upload.size - 1)),
             "Content-Length": content_length,
         }
         super().__init__(headers=headers, status=202)
