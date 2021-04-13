@@ -13,6 +13,21 @@ Changelog
 
 .. towncrier release notes start
 
+2.5.1 (2021-04-13)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed a bug where image push of the same tag with docker client ended up in the different manifest upload.
+  Updated Range header in the blob upload response so it is inclusive. (Backported from https://pulp.plan.io/issues/8543)
+  `#8545 <https://pulp.plan.io/issues/8545>`_
+
+
+----
+
+
 2.5.0 (2021-04-08)
 ==================
 
