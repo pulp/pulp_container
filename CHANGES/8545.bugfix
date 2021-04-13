@@ -1,2 +1,0 @@
-Fixed a bug where image push of the same tag with docker client ended up in the different manifest upload.
-Updated Range header in the blob upload response so it is inclusive. (Backported from https://pulp.plan.io/issues/8543)
