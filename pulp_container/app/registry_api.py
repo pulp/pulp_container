@@ -336,6 +336,14 @@ class ContainerRegistryApiMixin:
                         distribution = dist_serializer.create(dist_serializer.validated_data)
                 except ValidationError:
                     raise RepositoryInvalid(name=path)
+                except IntegrityError:
+                    # Seems like another process created our stuff already. Retry fetching it.
+                    distribution = models.ContainerDistribution.objects.get(base_path=path)
+                    repository = distribution.repository
+                    if repository:
+                        repository = repository.cast()
+                        if not repository.PUSH_ENABLED:
+                            raise RepositoryInvalid(name=path, message="Repository is read-only.")
             else:
                 raise RepositoryNotFound(name=path)
         else:
@@ -345,14 +353,25 @@ class ContainerRegistryApiMixin:
                 if not repository.PUSH_ENABLED:
                     raise RepositoryInvalid(name=path, message="Repository is read-only.")
             elif create:
-                with transaction.atomic():
-                    repo_serializer = serializers.ContainerPushRepositorySerializer(
-                        data={"name": path}, context={"request": request}
-                    )
-                    repo_serializer.is_valid(raise_exception=True)
-                    repository = repo_serializer.create(repo_serializer.validated_data)
-                    distribution.repository = repository
-                    distribution.save()
+                try:
+                    with transaction.atomic():
+                        repo_serializer = serializers.ContainerPushRepositorySerializer(
+                            data={"name": path}, context={"request": request}
+                        )
+                        repo_serializer.is_valid(raise_exception=True)
+                        repository = repo_serializer.create(repo_serializer.validated_data)
+                        distribution.repository = repository
+                        distribution.save()
+                except IntegrityError:
+                    # Seems like another process created our stuff already. Retry fetching it.
+                    distribution = models.ContainerDistribution.objects.get(pk=distribution.pk)
+                    repository = distribution.repository
+                    if repository:
+                        repository = repository.cast()
+                        if not repository.PUSH_ENABLED:
+                            raise RepositoryInvalid(name=path, message="Repository is read-only.")
+                    else:
+                        raise RepositoryNotFound(name=path)
             else:
                 raise RepositoryNotFound(name=path)
         return distribution, repository
