@@ -28,14 +28,14 @@ from pulpcore.plugin.serializers import (
     RepositorySyncURLSerializer,
 )
 from pulpcore.plugin.models import Artifact, Content
-from pulpcore.plugin.tasking import enqueue_with_reservation
+from pulpcore.plugin.tasking import dispatch
 from pulpcore.plugin.viewsets import (
-    BaseDistributionViewSet,
+    DistributionViewSet,
     BaseFilterSet,
     CharInFilter,
     ContentFilter,
     ContentGuardViewSet,
-    DistributionFilter,
+    NewDistributionFilter,
     NamedModelViewSet,
     NAME_FILTER_OPTIONS,
     ReadOnlyContentViewSet,
@@ -99,7 +99,7 @@ class BlobFilter(ContentFilter):
         }
 
 
-class ContainerDistributionFilter(DistributionFilter):
+class ContainerDistributionFilter(NewDistributionFilter):
     """
     FilterSet for ContainerDistributions
     """
@@ -108,7 +108,7 @@ class ContainerDistributionFilter(DistributionFilter):
 
     class Meta:
         model = models.ContainerDistribution
-        fields = DistributionFilter.Meta.fields
+        fields = NewDistributionFilter.Meta.fields
 
 
 class ContainerNamespaceFilter(BaseFilterSet):
@@ -387,10 +387,14 @@ class TagOperationsMixin:
         manifest = serializer.validated_data["manifest"]
         tag = serializer.validated_data["tag"]
 
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.tag_image,
             [repository],
-            kwargs={"manifest_pk": manifest.pk, "tag": tag, "repository_pk": repository.pk},
+            kwargs={
+                "manifest_pk": str(manifest.pk),
+                "tag": tag,
+                "repository_pk": str(repository.pk),
+            },
         )
         return OperationPostponedResponse(result, request)
 
@@ -415,8 +419,10 @@ class TagOperationsMixin:
 
         tag = serializer.validated_data["tag"]
 
-        result = enqueue_with_reservation(
-            tasks.untag_image, [repository], kwargs={"tag": tag, "repository_pk": repository.pk}
+        result = dispatch(
+            tasks.untag_image,
+            [repository],
+            kwargs={"tag": tag, "repository_pk": str(repository.pk)},
         )
         return OperationPostponedResponse(result, request)
 
@@ -563,10 +569,14 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         remote = serializer.validated_data.get("remote")
         mirror = serializer.validated_data.get("mirror")
 
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.synchronize,
             [repository, remote],
-            kwargs={"remote_pk": remote.pk, "repository_pk": repository.pk, "mirror": mirror},
+            kwargs={
+                "remote_pk": str(remote.pk),
+                "repository_pk": str(repository.pk),
+                "mirror": mirror,
+            },
         )
         return OperationPostponedResponse(result, request)
 
@@ -589,12 +599,12 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         if "content_units" in request.data:
             for url in request.data["content_units"]:
                 content = NamedModelViewSet.get_resource(url, Content)
-                add_content_units.append(content.pk)
+                add_content_units.append(str(content.pk))
 
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.recursive_add_content,
             [repository],
-            kwargs={"repository_pk": repository.pk, "content_units": add_content_units},
+            kwargs={"repository_pk": str(repository.pk), "content_units": add_content_units},
         )
         return OperationPostponedResponse(result, request)
 
@@ -621,12 +631,12 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                     break
 
                 content = NamedModelViewSet.get_resource(url, Content)
-                remove_content_units.append(content.pk)
+                remove_content_units.append(str(content.pk))
 
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.recursive_remove_content,
             [repository],
-            kwargs={"repository_pk": repository.pk, "content_units": remove_content_units},
+            kwargs={"repository_pk": str(repository.pk), "content_units": remove_content_units},
         )
         return OperationPostponedResponse(result, request)
 
@@ -653,12 +663,12 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         else:
             tags_to_add = tags_in_repo.filter(name__in=names)
 
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.recursive_add_content,
             [repository],
             kwargs={
-                "repository_pk": repository.pk,
-                "content_units": tags_to_add.values_list("pk", flat=True),
+                "repository_pk": str(repository.pk),
+                "content_units": [str(pk) for pk in tags_to_add.values_list("pk", flat=True)],
             },
         )
         return OperationPostponedResponse(result, request)
@@ -690,10 +700,13 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         if media_types is not None:
             filters["media_type__in"] = media_types
         manifests_to_add = manifests_in_repo.filter(**filters)
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.recursive_add_content,
             [repository],
-            kwargs={"repository_pk": repository.pk, "content_units": manifests_to_add},
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "content_units": [str(manifest.pk) for manifest in manifests_to_add],
+            },
         )
         return OperationPostponedResponse(result, request)
 
@@ -728,13 +741,13 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         artifacts = serializer.validated_data["artifacts"]
 
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.build_image_from_containerfile,
             [repository],
             kwargs={
-                "containerfile_pk": containerfile.pk,
+                "containerfile_pk": str(containerfile.pk),
                 "tag": tag,
-                "repository_pk": repository.pk,
+                "repository_pk": str(repository.pk),
                 "artifacts": artifacts,
             },
         )
@@ -883,10 +896,13 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
         content_units_to_remove = list(serializer.validated_data["tags_pks"])
         content_units_to_remove.append(serializer.validated_data["manifest"].pk)
 
-        result = enqueue_with_reservation(
+        result = dispatch(
             tasks.recursive_remove_content,
             [repository],
-            kwargs={"repository_pk": repository.pk, "content_units": content_units_to_remove},
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "content_units": [str(pk) for pk in content_units_to_remove],
+            },
         )
         return OperationPostponedResponse(result, request)
 
@@ -948,7 +964,7 @@ class ContainerPushRepositoryVersionViewSet(
     }
 
 
-class ContainerDistributionViewSet(BaseDistributionViewSet):
+class ContainerDistributionViewSet(DistributionViewSet):
     """
     The Container Distribution will serve the latest version of a Repository if
     ``repository`` is specified. The Container Distribution will serve a specific
@@ -1139,17 +1155,15 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
         distribution = self.get_object()
         reservations = [distribution]
         instance_ids = [
-            (distribution.pk, "container", "ContainerDistributionSerializer"),
+            (str(distribution.pk), "container", "ContainerDistributionSerializer"),
         ]
         if distribution.repository and distribution.repository.cast().PUSH_ENABLED:
             reservations.append(distribution.repository)
             instance_ids.append(
-                (distribution.repository.pk, "container", "ContainerPushRepositorySerializer"),
+                (str(distribution.repository.pk), "container", "ContainerPushRepositorySerializer"),
             )
 
-        async_result = enqueue_with_reservation(
-            tasks.general_multi_delete, reservations, args=(instance_ids,)
-        )
+        async_result = dispatch(tasks.general_multi_delete, reservations, args=(instance_ids,))
         return OperationPostponedResponse(async_result, request)
 
 
@@ -1299,19 +1313,21 @@ class ContainerNamespaceViewSet(
 
             reservations.append(distribution)
             instance_ids.append(
-                (distribution.pk, "container", "ContainerDistributionSerializer"),
+                (str(distribution.pk), "container", "ContainerDistributionSerializer"),
             )
             if distribution.repository and distribution.repository.cast().PUSH_ENABLED:
                 reservations.append(distribution.repository)
                 instance_ids.append(
-                    (distribution.repository.pk, "container", "ContainerPushRepositorySerializer"),
+                    (
+                        str(distribution.repository.pk),
+                        "container",
+                        "ContainerPushRepositorySerializer",
+                    ),
                 )
 
         reservations.append(namespace)
         instance_ids.append(
-            (namespace.pk, "container", "ContainerNamespaceSerializer"),
+            (str(namespace.pk), "container", "ContainerNamespaceSerializer"),
         )
-        async_result = enqueue_with_reservation(
-            tasks.general_multi_delete, reservations, args=(instance_ids,)
-        )
+        async_result = dispatch(tasks.general_multi_delete, reservations, args=(instance_ids,))
         return OperationPostponedResponse(async_result, request)

@@ -25,7 +25,7 @@ from guardian.shortcuts import get_objects_for_user
 
 from pulpcore.plugin.models import Artifact, ContentArtifact, Task, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
-from pulpcore.plugin.tasking import add_and_remove, enqueue_with_reservation
+from pulpcore.plugin.tasking import add_and_remove, dispatch
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
@@ -693,12 +693,12 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
             upload.delete()
 
-            job = enqueue_with_reservation(
+            job = dispatch(
                 add_and_remove,
                 [f"upload:{pk}", repository],
                 kwargs={
-                    "repository_pk": repository.pk,
-                    "add_content_units": [blob.pk],
+                    "repository_pk": str(repository.pk),
+                    "add_content_units": [str(blob.pk)],
                     "remove_content_units": [],
                 },
             )
@@ -845,13 +845,13 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         tags_to_remove = models.Tag.objects.filter(
             pk__in=repository.latest_version().content.all(), name=tag
         ).exclude(tagged_manifest=manifest)
-        job = enqueue_with_reservation(
+        job = dispatch(
             add_and_remove,
             [repository],
             kwargs={
-                "repository_pk": repository.pk,
-                "add_content_units": [tag.pk, manifest.pk],
-                "remove_content_units": tags_to_remove.values_list("pk"),
+                "repository_pk": str(repository.pk),
+                "add_content_units": [str(tag.pk), str(manifest.pk)],
+                "remove_content_units": [str(pk) for pk in tags_to_remove.values_list("pk")],
             },
         )
 

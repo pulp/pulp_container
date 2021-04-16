@@ -28,7 +28,7 @@ from pulpcore.plugin.models import (
     ContentGuard,
     Remote,
     Repository,
-    RepositoryVersionDistribution,
+    Distribution,
     Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
@@ -445,7 +445,7 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         default_related_name = "%(app_label)s_%(model_name)s"
 
 
-class ContainerDistribution(RepositoryVersionDistribution, AutoAddObjPermsMixin):
+class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
     """
     A container distribution defines how a repository version is distributed by Pulp's webserver.
     """

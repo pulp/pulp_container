@@ -21,7 +21,8 @@ from pulpcore.plugin.serializers import (
     RelatedField,
     RemoteSerializer,
     RepositorySerializer,
-    RepositoryVersionDistributionSerializer,
+    DistributionSerializer,
+    RepositoryVersionRelatedField,
     SingleArtifactContentSerializer,
     validate_unknown_fields,
 )
@@ -216,7 +217,7 @@ class ContainerRemoteSerializer(RemoteSerializer):
         model = models.ContainerRemote
 
 
-class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
+class ContainerDistributionSerializer(DistributionSerializer):
     """
     A serializer for ContainerDistribution.
     """
@@ -244,6 +245,9 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
     )
     description = serializers.CharField(
         help_text=_("An optional description."), required=False, allow_null=True
+    )
+    repository_version = RepositoryVersionRelatedField(
+        required=False, help_text=_("RepositoryVersion to be served"), allow_null=True
     )
 
     def validate(self, data):
@@ -286,7 +290,8 @@ class ContainerDistributionSerializer(RepositoryVersionDistributionSerializer):
 
     class Meta:
         model = models.ContainerDistribution
-        fields = tuple(set(RepositoryVersionDistributionSerializer.Meta.fields) - {"base_url"}) + (
+        fields = tuple(set(DistributionSerializer.Meta.fields) - {"base_url"}) + (
+            "repository_version",
             "registry_path",
             "namespace",
             "private",
