@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.5.2 (2021-04-19)
+==================
+
+
+Bugfixes
+--------
+
+- Add a fix to prevent server errors on push of new repositories including multiple layers. (Backported from https://pulp.plan.io/issues/8565)
+  `#8591 <https://pulp.plan.io/issues/8591>`_
+
+
+----
+
+
 2.5.1 (2021-04-13)
 ==================
 
