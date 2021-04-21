@@ -658,7 +658,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 blob = models.Blob.objects.get(digest=digest)
                 return BlobResponse(blob, path, 201, request)
             elif task.state in ["waiting", "running"]:
-                raise Throttled(wait=5)
+                raise Throttled()
             else:
                 task.delete()
                 raise Exception("Failed.")
@@ -715,7 +715,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 else:
                     task.delete()
                     raise Exception("Failed.")
-            raise Throttled(wait=5)
+            raise Throttled()
         else:
             raise Exception("The digest did not match")
 
@@ -867,7 +867,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             else:
                 task.delete()
                 raise Exception("Failed.")
-        raise Throttled(wait=5)
+        raise Throttled()
 
     def receive_artifact(self, chunk):
         """Handles assembling of Manifest as it's being uploaded."""
