@@ -12,7 +12,7 @@ Features
 
 * :ref:`Synchronize <sync-workflow>` container image repositories hosted on Docker-hub, Google Container Registry,
   Quay.io, etc., in mirror or additive mode
-* :ref:`Create Versioned Repositories <versioned-repo-created>` so every operation is a restorable snapshot
+* Automatically :ref:`Creates Versioned Repositories <versioned-repo-created>` so every operation is a restorable snapshot
 * :ref:`Download content on-demand <create-remote>` when requested by clients to reduce disk space
 * :ref:`Perform docker/podman pull <host>` from a container distribution served by Pulp
 * :ref:`Perform docker/podman push <push-workflow>` to the Pulp Registry
