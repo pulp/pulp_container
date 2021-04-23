@@ -1010,7 +1010,7 @@ class ContainerDistributionViewSet(BaseDistributionViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.change_containerdistribution",
+                    "has_namespace_or_obj_perms:container.change_containerdistribution",
                     "has_namespace_or_obj_perms:container.view_containerdistribution",
                 ],
             },
