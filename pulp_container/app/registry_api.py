@@ -693,7 +693,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
             upload.delete()
 
-            job = dispatch(
+            dispatched_task = dispatch(
                 add_and_remove,
                 [f"upload:{pk}", repository],
                 kwargs={
@@ -706,7 +706,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             # Wait a small amount of time
             for dummy in range(3):
                 time.sleep(1)
-                task = Task.objects.get(pk=job.id)
+                task = Task.objects.get(pk=dispatched_task.pk)
                 if task.state == "completed":
                     task.delete()
                     return BlobResponse(blob, path, 201, request)
@@ -845,7 +845,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         tags_to_remove = models.Tag.objects.filter(
             pk__in=repository.latest_version().content.all(), name=tag
         ).exclude(tagged_manifest=manifest)
-        job = dispatch(
+        dispatched_task = dispatch(
             add_and_remove,
             [repository],
             kwargs={
@@ -858,7 +858,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         # Wait a small amount of time
         for dummy in range(3):
             time.sleep(1)
-            task = Task.objects.get(pk=job.id)
+            task = Task.objects.get(pk=dispatched_task.pk)
             if task.state == "completed":
                 task.delete()
                 return ManifestResponse(manifest, path, request, status=201)
