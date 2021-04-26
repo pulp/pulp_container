@@ -300,7 +300,10 @@ def compute_digest(manifest_data):
     """
     Compute the digest from the passed manifest data.
     """
-    return hashlib.sha256(manifest_data.encode("utf-8")).hexdigest()
+
+    hexdigest = hashlib.sha256(manifest_data.encode("utf-8")).hexdigest()
+    digest = "sha256:{}".format(hexdigest)
+    return digest
 
 
 def _get_config_dict(manifest):
