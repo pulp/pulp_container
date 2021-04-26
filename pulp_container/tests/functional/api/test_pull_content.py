@@ -174,7 +174,9 @@ class PullContentTestCase(unittest.TestCase):
         # the header digest should be equal to the SHA256 hash computed from
         # a manifest without signatures
         computed_digest = hashlib.sha256(manifest_string).hexdigest()
-        self.assertEqual(computed_digest, header_digest, "The manifest digests are not equal")
+        self.assertEqual(
+            computed_digest, header_digest.split(":")[1], "The manifest digests are not equal"
+        )
 
     def test_pull_image_from_repository(self):
         """Verify that a client can pull the image from Pulp.
