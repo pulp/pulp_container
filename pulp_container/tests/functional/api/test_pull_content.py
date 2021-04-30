@@ -30,7 +30,7 @@ from pulp_container.tests.functional.constants import (
     REPO_UPSTREAM_NAME,
     REPO_UPSTREAM_TAG,
 )
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import EMPTY_BLOB, MEDIA_TYPE
 
 from pulpcore.client.pulp_container import (
     ContainerContainerDistribution,
@@ -187,6 +187,37 @@ class PullContentTestCase(unittest.TestCase):
         self.assertEqual(
             computed_digest, header_digest.split(":")[1], "The manifest digests are not equal"
         )
+
+    def test_create_empty_blob_on_the_fly(self):
+        """
+        Test if empty blob getscreated and served on the fly.
+        """
+        blob_path = "/v2/{}/blobs/{}".format(self.distribution_with_repo.base_path, EMPTY_BLOB)
+        empty_blob_url = urljoin(self.cfg.get_base_url(), blob_path)
+
+        if TOKEN_AUTH_DISABLED:
+            auth = ()
+        else:
+            with self.assertRaises(requests.HTTPError) as cm:
+                requests.get(empty_blob_url).raise_for_status()
+
+            content_response = cm.exception.response
+            self.assertEqual(content_response.status_code, 401)
+
+            authenticate_header = content_response.headers["Www-Authenticate"]
+            queries = AuthenticationHeaderQueries(authenticate_header)
+            content_response = requests.get(
+                queries.realm, params={"service": queries.service, "scope": queries.scope}
+            )
+            content_response.raise_for_status()
+            auth = BearerTokenAuth(content_response.json()["token"])
+        content_response = requests.get(empty_blob_url, auth=auth)
+        content_response.raise_for_status()
+        # calculate digest of the payload
+        digest = hashlib.sha256(content_response.content).hexdigest()
+        # compare with the digest returned in the response header
+        header_digest = content_response.headers["docker-content-digest"].split(":")[1]
+        self.assertEqual(digest, header_digest)
 
     def test_pull_image_from_repository(self):
         """Verify that a client can pull the image from Pulp.
