@@ -11,7 +11,7 @@ from pulpcore.plugin.models import ContentArtifact
 from pulp_container.app.models import ContainerDistribution, Tag
 from pulp_container.app.schema_convert import Schema2toSchema1ConverterWrapper
 from pulp_container.app.utils import get_accepted_media_types
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import EMPTY_BLOB, MEDIA_TYPE
 
 log = logging.getLogger(__name__)
 
@@ -203,12 +203,13 @@ class Registry(Handler):
         """
         Return a response to the "GET" action.
         """
-
         path = request.match_info["path"]
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
         distribution = self._match_distribution(path)
         self._permit(request, distribution)
         repository_version = distribution.get_repository_version()
+        if digest == EMPTY_BLOB:
+            return await Registry._empty_blob()
         try:
             ca = ContentArtifact.objects.get(
                 content__in=repository_version.content, relative_path=digest
@@ -225,3 +226,19 @@ class Registry(Handler):
                 return await Registry._dispatch(artifact.file, headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
+
+    @staticmethod
+    async def _empty_blob():
+        # fmt: off
+        empty_tar = [
+            31, 139, 8, 0, 0, 9, 110, 136, 0, 255, 98, 24, 5, 163, 96, 20, 140, 88, 0, 8, 0, 0, 255,
+            255, 46, 175, 181, 239, 0, 4, 0, 0,
+        ]
+        # fmt: on
+        body = bytearray(empty_tar)
+        response_headers = {
+            "Docker-Content-Digest": EMPTY_BLOB,
+            "Content-Type": MEDIA_TYPE.REGULAR_BLOB,
+            "Docker-Distribution-API-Version": "registry/2.0",
+        }
+        return web.Response(body=body, headers=response_headers)

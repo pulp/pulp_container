@@ -8,7 +8,7 @@ from unittest import SkipTest
 from time import sleep
 from tempfile import NamedTemporaryFile
 
-from pulp_smash import selectors, config
+from pulp_smash import cli, config, selectors, utils
 from pulp_smash.pulp3.utils import (
     gen_remote,
     gen_repo,
@@ -35,7 +35,10 @@ from pulpcore.client.pulp_container import (
 )
 
 cfg = config.get_config()
+cli_client = cli.Client(cfg)
 configuration = cfg.get_bindings_config()
+
+TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
 
 
 def gen_container_client():
