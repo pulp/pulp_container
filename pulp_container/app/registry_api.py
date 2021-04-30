@@ -55,6 +55,7 @@ from pulp_container.app.token_verification import (
     RegistryPermission,
     TokenPermission,
 )
+from pulp_container.constants import EMPTY_BLOB
 
 FakeView = namedtuple("FakeView", ["action", "get_object"])
 
@@ -760,6 +761,8 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         try:
             blob = models.Blob.objects.get(digest=pk, pk__in=repository_version.content)
         except models.Blob.DoesNotExist:
+            if pk == EMPTY_BLOB:
+                return redirects.redirect_to_content_app("blobs", pk)
             raise BlobNotFound(digest=pk)
         return redirects.issue_blob_redirect(blob)
 
