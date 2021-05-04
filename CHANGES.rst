@@ -252,6 +252,24 @@ Misc
 ----
 
 
+2.1.2 (2021-05-04)
+==================
+
+
+Bugfixes
+--------
+
+- Create and return empty_blob on the fly (Backported from https://pulp.plan.io/issues/8631)
+  `#8654 <https://pulp.plan.io/issues/8654>`_
+- Fixed compution of the digest string during the manifest conversion so it also contains the algorithm (Backported from https://pulp.plan.io/issues/8629).
+  `#8655 <https://pulp.plan.io/issues/8655>`_
+- Fixed "connection already closed" error in the Registry handler (Backported from https://pulp.plan.io/issues/8672).
+  `#8685 <https://pulp.plan.io/issues/8685>`_
+
+
+----
+
+
 2.1.1 (2021-03-08)
 ==================
 
