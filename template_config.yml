@@ -9,7 +9,7 @@ bootstrap: false
 check_commit_message: true
 check_gettext: false
 check_manifest: false
-check_openapi_schema: true
+check_openapi_schema: false
 check_stray_pulpcore_imports: false
 cherry_pick_automation: false
 coverage: false
