@@ -1,1 +1,0 @@
-Fixed "connection already closed" error in the Registry handler (Backported from https://pulp.plan.io/issues/8672).
