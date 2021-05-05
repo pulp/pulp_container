@@ -97,6 +97,8 @@ class Registry(Handler):
                 streamed back to the client.
 
         """
+        self._reset_db_connection()
+
         path = request.match_info["path"]
         tag_name = request.match_info["tag_name"]
         distribution = self._match_distribution(path)
@@ -203,6 +205,7 @@ class Registry(Handler):
         """
         Return a response to the "GET" action.
         """
+        self._reset_db_connection()
 
         path = request.match_info["path"]
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
