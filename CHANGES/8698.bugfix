@@ -1,0 +1,2 @@
+Fixed compution of the digest string during the manifest conversion so it also contains the algorithm.
+(backported from #8629)
