@@ -1,0 +1,2 @@
+Fixed "connection already closed" error in the Registry handler.
+(backported from #8672)
