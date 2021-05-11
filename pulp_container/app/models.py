@@ -259,103 +259,6 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
         ]
 
 
-class ContainerRepository(
-    Repository,
-    AutoAddObjPermsMixin,
-    AutoDeleteObjPermsMixin,
-):
-    """
-    Repository for "container" content.
-
-    This Repository type is designed for standard pulp operations, and can be distributed as a
-    read only registry.
-    """
-
-    TYPE = "container"
-    CONTENT_TYPES = [Blob, Manifest, Tag]
-    PUSH_ENABLED = False
-    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
-
-    class Meta:
-        default_related_name = "%(app_label)s_%(model_name)s"
-        permissions = [
-            ("sync_containerrepository", "Can start a sync task"),
-            ("modify_content_containerrepository", "Can modify content in a repository"),
-            ("build_image_containerrepository", "Can use the image builder in a repository"),
-            ("delete_containerrepository_versions", "Can delete repository versions"),
-        ]
-
-    def finalize_new_version(self, new_version):
-        """
-        Ensure no added content Tags contain the same `name`.
-        Args:
-            new_version (pulpcore.app.models.RepositoryVersion): The incomplete RepositoryVersion to
-                finalize.
-        """
-        remove_duplicates(new_version)
-        validate_repo_version(new_version)
-
-
-class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
-    """
-    Repository for "container" content.
-
-    This repository type is designed for the read and write registry usecase. It will be
-    automatically instantiated on authorised push to nonexisting repositories.
-    With this repository type, all but the latest repository_version are solely of historical
-    interest.
-    """
-
-    TYPE = "container-push"
-    CONTENT_TYPES = [Blob, Manifest, Tag]
-    PUSH_ENABLED = True
-    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container-push"
-
-    def add_perms_to_distribution_group(self, permissions, parameters):
-        """
-        Adds push repository object permissions to a distribution group.
-
-        The parameters are specified as a dictionary with the following keys:
-
-        "group_type" - the type of group - owners, collaborators, or consumers
-        "add_user_to_group" - a boolean that specifies if the current user should be added to the
-                              group.
-
-        The permissions are object level permissions assigned to the group.
-        """
-
-        group_type = parameters["group_type"]
-        add_user_to_group = parameters["add_user_to_group"]
-        try:
-            suffix = ContainerDistribution.objects.get(repository=self).pk
-        except ContainerDistribution.DoesNotExist:
-            # The distribution has not been created yet
-            return
-        group = Group.objects.get(
-            name="{}.{}.{}".format("container.distribution", group_type, suffix)
-        )
-        current_user = get_current_authenticated_user()
-        if add_user_to_group:
-            current_user.groups.add(group)
-        self.add_for_groups(permissions, group.name)
-
-    class Meta:
-        default_related_name = "%(app_label)s_%(model_name)s"
-        permissions = [
-            ("modify_content_containerpushrepository", "Can modify content in a push repository")
-        ]
-
-    def finalize_new_version(self, new_version):
-        """
-        Ensure no added content Tags contain the same `name`.
-        Args:
-            new_version (pulpcore.app.models.RepositoryVersion): The incomplete RepositoryVersion to
-                finalize.
-        """
-        remove_duplicates(new_version)
-        validate_repo_version(new_version)
-
-
 class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     """
     A Remote for ContainerContent.
@@ -443,6 +346,104 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+
+
+class ContainerRepository(
+    Repository,
+    AutoAddObjPermsMixin,
+    AutoDeleteObjPermsMixin,
+):
+    """
+    Repository for "container" content.
+
+    This Repository type is designed for standard pulp operations, and can be distributed as a
+    read only registry.
+    """
+
+    TYPE = "container"
+    CONTENT_TYPES = [Blob, Manifest, Tag]
+    REMOTE_TYPES = [ContainerRemote]
+    PUSH_ENABLED = False
+    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            ("sync_containerrepository", "Can start a sync task"),
+            ("modify_content_containerrepository", "Can modify content in a repository"),
+            ("build_image_containerrepository", "Can use the image builder in a repository"),
+            ("delete_containerrepository_versions", "Can delete repository versions"),
+        ]
+
+    def finalize_new_version(self, new_version):
+        """
+        Ensure no added content Tags contain the same `name`.
+        Args:
+            new_version (pulpcore.app.models.RepositoryVersion): The incomplete RepositoryVersion to
+                finalize.
+        """
+        remove_duplicates(new_version)
+        validate_repo_version(new_version)
+
+
+class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
+    """
+    Repository for "container" content.
+
+    This repository type is designed for the read and write registry usecase. It will be
+    automatically instantiated on authorised push to nonexisting repositories.
+    With this repository type, all but the latest repository_version are solely of historical
+    interest.
+    """
+
+    TYPE = "container-push"
+    CONTENT_TYPES = [Blob, Manifest, Tag]
+    PUSH_ENABLED = True
+    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container-push"
+
+    def add_perms_to_distribution_group(self, permissions, parameters):
+        """
+        Adds push repository object permissions to a distribution group.
+
+        The parameters are specified as a dictionary with the following keys:
+
+        "group_type" - the type of group - owners, collaborators, or consumers
+        "add_user_to_group" - a boolean that specifies if the current user should be added to the
+                              group.
+
+        The permissions are object level permissions assigned to the group.
+        """
+
+        group_type = parameters["group_type"]
+        add_user_to_group = parameters["add_user_to_group"]
+        try:
+            suffix = ContainerDistribution.objects.get(repository=self).pk
+        except ContainerDistribution.DoesNotExist:
+            # The distribution has not been created yet
+            return
+        group = Group.objects.get(
+            name="{}.{}.{}".format("container.distribution", group_type, suffix)
+        )
+        current_user = get_current_authenticated_user()
+        if add_user_to_group:
+            current_user.groups.add(group)
+        self.add_for_groups(permissions, group.name)
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            ("modify_content_containerpushrepository", "Can modify content in a push repository")
+        ]
+
+    def finalize_new_version(self, new_version):
+        """
+        Ensure no added content Tags contain the same `name`.
+        Args:
+            new_version (pulpcore.app.models.RepositoryVersion): The incomplete RepositoryVersion to
+                finalize.
+        """
+        remove_duplicates(new_version)
+        validate_repo_version(new_version)
 
 
 class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
