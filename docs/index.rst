@@ -27,6 +27,7 @@ Features
 * :ref:`Build an OCI format image from a Containerfile <build-Containerfile-workflow>` and make it available from the Pulp Registry
 * Host content either `locally or on S3 <https://docs.pulpproject.org/installation/storage.html>`_
 * De-duplication of all saved content
+* Support disconnected and air-gaped environments with pulp import/export facility for synced container repositories
 
 Tech Preview
 ------------
