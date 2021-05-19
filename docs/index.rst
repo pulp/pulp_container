@@ -1,8 +1,14 @@
 Pulp Container Plugin
 =====================
 
-The ``pulp_container`` plugin extends `pulpcore <https://pypi.python.org/pypi/pulpcore/>`__ to support
-hosting container images and container metadata, supporting ``pull`` and ``push`` operations.
+You can use the ``pulp_container`` plugin to extend Pulp so that you can host your own container registry and distribute containers in an on-prem environment.
+You can synchronize from a range of Docker Registry HTTP API V2-compatible registries.
+Depending on your needs, you can perform whole or partial syncs from these remote repositories, blend content from different sources, and distribute them throughout your organization using Pulp.
+You can also build OCI-compatible images with Pulp Container and push them to a repository in Pulp so you can distribute private containers.
+
+For information about why you might think about hosting your own container registry, see `5 reasons to host your container registry with Pulp <https://opensource.com/article/21/5/container-management-pulp/>`__.
+
+If you'd like to watch a recent talk about Pulp Container and see it in action, check out `Registry Native Delivery of Software Content <https://video.fosdem.org/2021/D.infra/registrynativedeliverysoftwarecontentpulp3.mp4/>`__.
 
 If you are just getting started, we recommend getting to know the :doc:`basic
 workflows<workflows/index>`.
