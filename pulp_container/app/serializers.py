@@ -164,7 +164,7 @@ class ContainerPushRepositorySerializer(RepositorySerializer):
     """
 
     class Meta:
-        fields = RepositorySerializer.Meta.fields
+        fields = tuple(set(RepositorySerializer.Meta.fields) - set(["remote"]))
         model = models.ContainerPushRepository
 
 

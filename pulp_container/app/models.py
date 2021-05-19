@@ -256,6 +256,10 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
                 "namespace_modify_content_containerpushrepository",
                 "Modify content in any push repository in a namespace",
             ),
+            (
+                "namespace_change_containerpushrepository",
+                "Update any existing push repository in a namespace",
+            ),
         ]
 
 
@@ -432,7 +436,7 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
         permissions = [
-            ("modify_content_containerpushrepository", "Can modify content in a push repository")
+            ("modify_content_containerpushrepository", "Can modify content in a push repository"),
         ]
 
     def finalize_new_version(self, new_version):
