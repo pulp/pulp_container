@@ -287,6 +287,24 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         with self.assertRaises(exceptions.CalledProcessError):
             self._push(image_path, invalid_local_url, self.user_helpless)
 
+        # test you can create distribution under the namespace that matches login
+        repo_name2 = f"{namespace_name}/matching2"
+        distribution = {"name": repo_name2, "base_path": repo_name2, "private": True}
+        distribution_response = self.user_helpless["distribution_api"].create(distribution)
+        created_resources = monitor_task(distribution_response.task).created_resources
+        distribution = self.user_helpless["distribution_api"].read(created_resources[0])
+
+        # cleanup, namespace removal also removes related distributions
+        namespace = self.namespace_api.list(name=namespace_name).results[0]
+        namespace_response = self.namespace_api.delete(namespace.pulp_href)
+        monitor_task(namespace_response.task)
+
+        # test you can create distribution if namespace does not exist but matches login
+        distribution = {"name": repo_name, "base_path": repo_name, "private": True}
+        distribution_response = self.user_helpless["distribution_api"].create(distribution)
+        created_resources = monitor_task(distribution_response.task).created_resources
+        distribution = self.user_helpless["distribution_api"].read(created_resources[0])
+
         # cleanup, namespace removal also removes related distributions
         namespace = self.namespace_api.list(name=namespace_name).results[0]
         self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
