@@ -30,6 +30,20 @@ class NamespacedAccessPolicyMixin:
                     return True
         return False
 
+    def has_namespace_perms(self, request, view, action, permission):
+        """
+        Check if a user has a namespace-level perms
+        """
+        ns_perm = "container.namespace_{}".format(permission.split(".", 1)[1])
+        base_path = request.data.get("base_path")
+        namespace = base_path.split("/")[0]
+        try:
+            namespace = models.ContainerNamespace.objects.get(name=namespace)
+        except models.ContainerNamespace.DoesNotExist:
+            return False
+        else:
+            return request.user.has_perm(permission) or request.user.has_perm(ns_perm, namespace)
+
     def has_namespace_or_obj_perms(self, request, view, action, permission):
         """
         Check if a user has a namespace-level perms or object-level permission
@@ -53,6 +67,22 @@ class NamespacedAccessPolicyMixin:
         Check if the distribution is marked private.
         """
         return view.get_object().private
+
+    def namespace_is_username(self, request, view, action):
+        """
+        Check if the namespace in the request matches the username.
+        """
+        base_path = request.data.get("base_path")
+        namespace = base_path.split("/")[0]
+        return namespace == request.user.username
+
+    def has_namespace_model_perms(self, request, view, action):
+        """
+        Check if the user can create namespaces.
+        """
+        if request.user.has_perm("container.add_containernamespace"):
+            return True
+        return False
 
 
 class NamespacedAccessPolicyFromDB(AccessPolicyFromDB, NamespacedAccessPolicyMixin):

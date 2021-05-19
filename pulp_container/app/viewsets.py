@@ -997,7 +997,19 @@ class ContainerDistributionViewSet(DistributionViewSet):
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_perms:container.add_containerdistribution",
+                "condition": "has_namespace_model_perms",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_namespace_perms:container.add_containerdistribution",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "namespace_is_username",
             },
             {
                 "action": ["retrieve"],
