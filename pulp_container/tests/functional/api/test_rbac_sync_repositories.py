@@ -1,5 +1,5 @@
 # coding=utf-8
-"""Tests that container repositories have RBAC."""
+"""Tests that container sync repositories have RBAC."""
 import unittest
 
 from pulp_smash import utils
@@ -14,8 +14,8 @@ from pulp_container.tests.functional.utils import (
 from pulpcore.client.pulp_container.exceptions import ApiException
 
 
-class RBACRepositoriesTestCase(unittest.TestCase):
-    """RBAC repositories."""
+class RBACSyncRepositoriesTestCase(unittest.TestCase):
+    """RBAC sync repositories."""
 
     @classmethod
     def setUpClass(cls):

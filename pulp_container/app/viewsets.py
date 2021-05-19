@@ -30,6 +30,7 @@ from pulpcore.plugin.serializers import (
 from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import dispatch
 from pulpcore.plugin.viewsets import (
+    AsyncUpdateMixin,
     DistributionViewSet,
     BaseFilterSet,
     CharInFilter,
@@ -809,7 +810,9 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, Reposito
     }
 
 
-class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewSet):
+class ContainerPushRepositoryViewSet(
+    TagOperationsMixin, ReadOnlyRepositoryViewSet, AsyncUpdateMixin
+):
     """
     ViewSet for a container push repository.
 
@@ -845,6 +848,15 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                     "has_namespace_or_obj_perms:container.view_containerpushrepository",
                 ],
             },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.change_containerpushrepository",
+                    "has_namespace_or_obj_perms:container.view_containerpushrepository",
+                ],
+            },
         ],
         "permissions_assignment": [
             {
@@ -856,6 +868,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                 "permissions": [
                     "container.view_containerpushrepository",
                     "container.modify_content_containerpushrepository",
+                    "container.change_containerpushrepository",
                 ],
             },
             {
@@ -867,6 +880,7 @@ class ContainerPushRepositoryViewSet(TagOperationsMixin, ReadOnlyRepositoryViewS
                 "permissions": [
                     "container.view_containerpushrepository",
                     "container.modify_content_containerpushrepository",
+                    "container.change_containerpushrepository",
                 ],
             },
             {
@@ -1104,6 +1118,7 @@ class ContainerDistributionViewSet(DistributionViewSet):
                 "permissions": [
                     "container.view_containerpushrepository",
                     "container.modify_content_containerpushrepository",
+                    "container.change_containerpushrepository",
                 ],
             },
             {
@@ -1126,6 +1141,7 @@ class ContainerDistributionViewSet(DistributionViewSet):
                 "permissions": [
                     "container.view_containerpushrepository",
                     "container.modify_content_containerpushrepository",
+                    "container.change_containerpushrepository",
                 ],
             },
             {
@@ -1283,6 +1299,7 @@ class ContainerNamespaceViewSet(
                     "container.namespace_change_containerdistribution",
                     "container.namespace_view_containerpushrepository",
                     "container.namespace_modify_content_containerpushrepository",
+                    "container.namespace_change_containerpushrepository",
                 ],
             },
             {
@@ -1301,6 +1318,7 @@ class ContainerNamespaceViewSet(
                     "container.namespace_change_containerdistribution",
                     "container.namespace_view_containerpushrepository",
                     "container.namespace_modify_content_containerpushrepository",
+                    "container.namespace_change_containerpushrepository",
                 ],
             },
             {
