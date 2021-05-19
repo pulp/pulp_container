@@ -1,6 +1,6 @@
 .. _host:
 
-Host and Consume a Container Repository 
+Host and Consume a Container Repository
 =======================================
 
 This section assumes that you have a repository with content in it. To do this, see the
@@ -33,7 +33,7 @@ Response:
 
 
 
-Reference: `Container Distribution Usage <../restapi.html#tag/distributions>`_
+Reference: `Container Distribution Usage <../restapi.html#tag/Distributions:-Container>`_
 
 Pull and run an image from Pulp
 -------------------------------

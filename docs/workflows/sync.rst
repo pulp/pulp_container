@@ -23,8 +23,8 @@ Repository GET Response::
        "name": "codzo"
    }
 
-Reference (pulpcore): `Repository API Usage
-<https://docs.pulpproject.org/restapi.html#tag/repositories>`_
+Reference: `Container Repository API Usage
+<../restapi.html#tag/Repositories:-Container>`_
 
 .. _create-remote:
 
@@ -67,7 +67,7 @@ Remote GET Response::
    matches defined criteria by leveraging wildcards.
 
 
-Reference: `Container Remote Usage <../restapi.html#tag/remotes>`_
+Reference: `Container Remote Usage <../restapi.html#tag/Remotes:-Container>`_
 
 .. _sync-repository:
 
@@ -91,7 +91,7 @@ sync with. You are telling pulp to fetch content from the remote and add to the 
    It is not posible to push content to a repository that has been used to mirror content.
 
 
-Reference: `Container Sync Usage <../restapi.html#operation/remotes_container_container_sync>`_
+Reference: `Container Sync Usage <../restapi.html#operation/repositories_container_container_sync>`_
 
 
 .. _versioned-repo-created:
@@ -147,5 +147,5 @@ Repository Version GET Response (when complete):
        "number": 1
    }
 
-Reference (pulpcore): `Repository Version API Usage
-<https://docs.pulpproject.org/restapi.html#operation/repositories_versions_read>`_
+Reference: `Container Repository Version API Usage
+<../restapi.html#operation/repositories_container_container_list>`_
