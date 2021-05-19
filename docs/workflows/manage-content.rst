@@ -40,7 +40,7 @@ a user is trying to tag an image with a same name but with a different
 digest, the tag associated with the old manifest is going to be
 eliminated in a new repository version.
 
-Reference: `Container Tagging Usage <../restapi.html#tag/container:-tag>`_
+Reference: `Container Tagging Usage <../restapi.html#tag/Content:-Tags>`_
 
 .. _untagging-workflow:
 
@@ -58,7 +58,7 @@ corresponding tag. The removed tag however still persists in a database.
 When a client tries to untag an image that was already untagged, a new
 repository version is created as well.
 
-Reference: `Container Untagging Usage <../restapi.html#tag/container:-untag>`_
+Reference: `Container Untagging Usage <../restapi.html#operation/repositories_container_container_push_untag>`_
 
 .. _recursive-add:
 
@@ -143,7 +143,7 @@ New Repository Version::
    Directly adding a manifest that happens to be tagged in another repo
    will **not** include its tags.
 
-Reference: `Container Recursive Add Usage <../restapi.html#tag/container:-recursive-add>`_
+Reference: `Container Recursive Add Usage <../restapi.html#operation/repositories_container_container_add>`_
 
 .. _recursive-remove:
 
@@ -210,7 +210,7 @@ New Repository Version::
 
    Users can remove all content from the repo by specifying '*' in the content_units
 
-Reference: `Container Recursive Remove Usage <../restapi.html#tag/container:-recursive-remove>`_
+Reference: `Container Recursive Remove Usage <../restapi.html#operation/repositories_container_container_remove>`_
 
 .. _tag-copy:
 
@@ -280,7 +280,7 @@ New Repository Version::
        "number": 1
    }
 
-Reference: `Container Copy Tags Usage <../restapi.html#operation/container_tags_copy_create>`_
+Reference: `Container Copy Tags Usage <../restapi.html#operation/repositories_container_container_copy_tags>`_
 
 .. _manifest-copy:
 
@@ -332,4 +332,4 @@ New Repository Version::
        "number": 2
    }
 
-Reference: `Container Copy Manifests Usage <../restapi.html#operation/container_manifests_copy_create>`_
+Reference: `Container Copy Manifests Usage <../restapi.html#operation/repositories_container_container_copy_manifests>`_
