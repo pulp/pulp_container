@@ -13,6 +13,55 @@ Changelog
 
 .. towncrier release notes start
 
+2.6.0 (2021-05-20)
+==================
+
+
+Features
+--------
+
+- Added ability for users to add a Remote to a Repository that is used by default when syncing.
+  `#7795 <https://pulp.plan.io/issues/7795>`_
+
+
+Bugfixes
+--------
+
+- Fixed a bug where image push of the same tag with docker client ended up in the different manifest upload.
+  Updated Range header in the blob upload response so it is inclusive.
+  `#8543 <https://pulp.plan.io/issues/8543>`_
+- Add a fix to prevent server errors on push of new repositories including multiple layers.
+  `#8565 <https://pulp.plan.io/issues/8565>`_
+- Fixed apache snippet config and removed scheme
+  `#8573 <https://pulp.plan.io/issues/8573>`_
+- Do not suggest a time to wait on 429 responses. This allows clients to decide to play nice and increase backoff times.
+  `#8576 <https://pulp.plan.io/issues/8576>`_
+- Fix a bug where users with container.namespace_change_containerdistribution couldn't change distributions.
+  `#8618 <https://pulp.plan.io/issues/8618>`_
+- Fixed compution of the digest string during the manifest conversion so it also contains the algorithm.
+  `#8629 <https://pulp.plan.io/issues/8629>`_
+- Create and return empty_blob on the fly.
+  `#8631 <https://pulp.plan.io/issues/8631>`_
+- Fixed "connection already closed" error in the Registry handler.
+  `#8672 <https://pulp.plan.io/issues/8672>`_
+
+
+Improved Documentation
+----------------------
+
+- Fixed broken links to API guide
+  `#8125 <https://pulp.plan.io/issues/8125>`_
+
+
+Misc
+----
+
+- `#8581 <https://pulp.plan.io/issues/8581>`_
+
+
+----
+
+
 2.5.2 (2021-04-19)
 ==================
 
