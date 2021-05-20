@@ -1,1 +1,0 @@
-Fix a bug where users with container.namespace_change_containerdistribution couldn't change distributions.
