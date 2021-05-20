@@ -65,5 +65,6 @@ travis: true
 travis_addtl_services: []
 travis_notifications: None
 update_redmine: true
+upgrade_range: []
 verbose: false
 
