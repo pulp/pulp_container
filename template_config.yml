@@ -9,6 +9,7 @@ bootstrap: false
 check_commit_message: true
 check_gettext: true
 check_manifest: true
+check_openapi_schema: true
 check_stray_pulpcore_imports: true
 coverage: false
 deploy_client_to_pypi: true
@@ -64,5 +65,6 @@ travis: true
 travis_addtl_services: []
 travis_notifications: None
 update_redmine: true
+upgrade_range: []
 verbose: false
 
