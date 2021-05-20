@@ -1,2 +1,0 @@
-Create and return empty_blob on the fly.
-(backported from #8631)

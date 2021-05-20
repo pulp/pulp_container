@@ -13,6 +13,29 @@ Changelog
 
 .. towncrier release notes start
 
+2.5.3 (2021-05-20)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed "connection already closed" error in the Registry handler.
+  (backported from #8672)
+  `#8697 <https://pulp.plan.io/issues/8697>`_
+- Fixed compution of the digest string during the manifest conversion so it also contains the algorithm.
+  (backported from #8629)
+  `#8698 <https://pulp.plan.io/issues/8698>`_
+- Create and return empty_blob on the fly.
+  (backported from #8631)
+  `#8699 <https://pulp.plan.io/issues/8699>`_
+- Do not suggest a time to wait on 429 responses. This allows clients to decide to play nice and increase backoff times (Backported from #8576).
+  `#8703 <https://pulp.plan.io/issues/8703>`_
+
+
+----
+
+
 2.5.2 (2021-04-19)
 ==================
 
