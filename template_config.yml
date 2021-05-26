@@ -2,11 +2,14 @@
 # were not present before running plugin-template have been added with their default values.
 
 additional_plugins: []
+additional_repos: []
 all: false
 black: true
 bootstrap: false
 check_commit_message: true
+check_gettext: true
 check_manifest: true
+check_openapi_schema: false
 check_stray_pulpcore_imports: true
 cherry_pick_automation: false
 coverage: false
@@ -27,6 +30,7 @@ exclude_deploy_to_pypi: false
 exclude_docs_test: false
 exclude_mariadb_test: false
 exclude_test_bindings: false
+issue_tracker: redmine
 plugin_app_label: container
 plugin_camel: PulpContainer
 plugin_camel_short: Container
@@ -34,12 +38,13 @@ plugin_caps: PULP_CONTAINER
 plugin_caps_short: CONTAINER
 plugin_dash: pulp-container
 plugin_dash_short: container
+plugin_default_branch: master
 plugin_name: pulp_container
 plugin_snake: pulp_container
 publish_docs_to_pulpprojectdotorg: true
 pulp_settings: {}
-pulpcore_branch: "3.9"
-pulpcore_pip_version_specifier: "~=3.9.0"
+pulpcore_branch: '3.9'
+pulpcore_pip_version_specifier: ~=3.9.0
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
@@ -47,6 +52,7 @@ redmine_project: pulp_container
 stable_branch: None
 test: false
 test_bindings: false
+test_cli: false
 test_performance: false
 test_released_plugin_with_next_pulpcore_release: true
 test_s3: true
@@ -54,5 +60,6 @@ travis: true
 travis_addtl_services: []
 travis_notifications: None
 update_redmine: true
+upgrade_range: []
 verbose: false
 
