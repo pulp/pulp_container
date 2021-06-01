@@ -48,6 +48,10 @@ pulp_settings:
   - sha256
   - sha384
   - sha512
+  allowed_export_paths:
+  - /tmp
+  allowed_import_paths:
+  - /tmp
 pulpcore_branch: master
 pulpcore_pip_version_specifier: null
 pulpprojectdotorg_key_id: aa499d7938ed
