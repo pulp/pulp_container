@@ -8,7 +8,7 @@ You can also build OCI-compatible images with Pulp Container and push them to a 
 
 For information about why you might think about hosting your own container registry, see `5 reasons to host your container registry with Pulp <https://opensource.com/article/21/5/container-management-pulp/>`__.
 
-If you'd like to watch a recent talk about Pulp Container and see it in action, check out `Registry Native Delivery of Software Content <https://video.fosdem.org/2021/D.infra/registrynativedeliverysoftwarecontentpulp3.mp4/>`__.
+If you'd like to watch a recent talk about Pulp Container and see it in action, check out `Registry Native Delivery of Software Content <https://video.fosdem.org/2021/D.infra/registrynativedeliverysoftwarecontentpulp3.mp4>`__.
 
 If you are just getting started, we recommend getting to know the :doc:`basic
 workflows<workflows/index>`.
