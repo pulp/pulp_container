@@ -661,8 +661,9 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             elif task.state in ["waiting", "running"]:
                 raise Throttled()
             else:
+                error = task.error
                 task.delete()
-                raise Exception("Failed.")
+                raise Exception(str(error))
 
         chunks = UploadChunk.objects.filter(upload=upload).order_by("offset")
 
@@ -714,8 +715,9 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 elif task.state in ["waiting", "running"]:
                     continue
                 else:
+                    error = task.error
                     task.delete()
-                    raise Exception("Failed.")
+                    raise Exception(str(error))
             raise Throttled()
         else:
             raise Exception("The digest did not match")
@@ -868,8 +870,9 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             elif task.state in ["waiting", "running"]:
                 continue
             else:
+                error = task.error
                 task.delete()
-                raise Exception("Failed.")
+                raise Exception(str(error))
         raise Throttled()
 
     def receive_artifact(self, chunk):
