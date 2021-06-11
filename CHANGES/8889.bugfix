@@ -1,0 +1,1 @@
+Fixed access policy for the container repository ``repair`` endpoint. (Backported from https://pulp.plan.io/issues/8884).
