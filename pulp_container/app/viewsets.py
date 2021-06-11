@@ -781,6 +781,15 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, Reposito
                     "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
+            {
+                "action": ["repair"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_repo_attr_model_or_obj_perms:container.sync_containerrepository",
+                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                ],
+            },
         ],
     }
 
