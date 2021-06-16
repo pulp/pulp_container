@@ -123,6 +123,7 @@ class PullContentTestCase(unittest.TestCase):
         """Clean class-wide variable."""
         for cleanup_function, args in reversed(cls.teardown_cleanups):
             cleanup_function(args)
+        delete_orphans()
 
     def test_api_returns_same_checksum(self):
         """Verify that pulp serves image with the same checksum of remote.
@@ -392,6 +393,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         """Clean class-wide variable."""
         for cleanup_function, args in reversed(cls.teardown_cleanups):
             cleanup_function(args)
+        delete_orphans()
 
     def test_api_returns_same_checksum(self):
         """Verify that pulp serves image with the same checksum of remote.
