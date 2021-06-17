@@ -3,8 +3,8 @@
 import unittest
 
 from pulp_smash import config
-from pulp_smash.pulp3.bindings import monitor_task, PulpTaskError
-from pulp_smash.pulp3.utils import delete_orphans, gen_repo
+from pulp_smash.pulp3.bindings import delete_orphans, monitor_task, PulpTaskError
+from pulp_smash.pulp3.utils import gen_repo
 
 from pulp_container.tests.functional.utils import (
     gen_container_client,

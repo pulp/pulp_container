@@ -5,8 +5,8 @@ import unittest
 from urllib.parse import urlparse
 
 from pulp_smash import cli, config
-from pulp_smash.pulp3.bindings import monitor_task
-from pulp_smash.pulp3.utils import delete_orphans, gen_repo
+from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
+from pulp_smash.pulp3.utils import gen_repo
 
 from pulpcore.client.pulp_container.exceptions import ApiException
 
