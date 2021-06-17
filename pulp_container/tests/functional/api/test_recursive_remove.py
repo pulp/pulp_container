@@ -5,7 +5,11 @@ import unittest
 from urllib.parse import urlparse
 
 from pulp_smash import cli, config
-from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
+from pulp_smash.pulp3.bindings import (
+    delete_orphans,
+    monitor_task,
+    PulpTestCase,
+)
 from pulp_smash.pulp3.utils import gen_repo
 
 from pulp_container.tests.functional.api import rbac_base
@@ -33,7 +37,7 @@ from pulpcore.client.pulp_container import (
 )
 
 
-class TestRecursiveRemove(unittest.TestCase):
+class TestRecursiveRemove(PulpTestCase):
     """
     Test recursively removing container content from a repository.
 
@@ -384,7 +388,7 @@ class TestRecursiveRemove(unittest.TestCase):
             self.assertFalse(content_type in latest.content_summary.removed, msg=content_type)
 
 
-class TestRecursiveRemovePushRepo(unittest.TestCase, rbac_base.BaseRegistryTest):
+class TestRecursiveRemovePushRepo(PulpTestCase, rbac_base.BaseRegistryTest):
     """Test the image removal within a push repository."""
 
     @classmethod
