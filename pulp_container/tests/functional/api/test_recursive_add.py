@@ -1,8 +1,10 @@
 # coding=utf-8
 """Tests that recursively add container content to repositories."""
-import unittest
-
-from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
+from pulp_smash.pulp3.bindings import (
+    delete_orphans,
+    monitor_task,
+    PulpTestCase,
+)
 from pulp_smash.pulp3.utils import gen_repo
 
 from pulp_container.tests.functional.utils import (
@@ -26,7 +28,7 @@ from pulpcore.client.pulp_container import (
 )
 
 
-class TestManifestCopy(unittest.TestCase):
+class TestManifestCopy(PulpTestCase):
     """
     Test recursive copy of Manifests into a repository.
 
@@ -307,7 +309,7 @@ class TestManifestCopy(unittest.TestCase):
         self.assertEqual(latest_to.latest_version_href, f"{self.to_repo.pulp_href}versions/0/")
 
 
-class TestTagCopy(unittest.TestCase):
+class TestTagCopy(PulpTestCase):
     """Test recursive copy of tags content to a repository."""
 
     @classmethod
@@ -472,7 +474,7 @@ class TestTagCopy(unittest.TestCase):
         self.assertEqual(to_repo_content.removed["container.tag"]["count"], 1)
 
 
-class TestRecursiveAdd(unittest.TestCase):
+class TestRecursiveAdd(PulpTestCase):
     """Test recursively adding container content to a repository."""
 
     @classmethod

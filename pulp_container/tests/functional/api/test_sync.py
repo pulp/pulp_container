@@ -1,11 +1,13 @@
 # coding=utf-8
 """Tests that sync container plugin repositories."""
-import unittest
-
 from pulp_smash import config
-from pulp_smash.pulp3.bindings import delete_orphans, monitor_task, PulpTaskError
+from pulp_smash.pulp3.bindings import (
+    delete_orphans,
+    monitor_task,
+    PulpTaskError,
+    PulpTestCase,
+)
 from pulp_smash.pulp3.utils import gen_repo
-
 from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_container_remote,
@@ -23,7 +25,7 @@ from pulpcore.client.pulp_container import (
 )
 
 
-class BasicSyncTestCase(unittest.TestCase):
+class BasicSyncTestCase(PulpTestCase):
     """Sync repositories with the container plugin."""
 
     maxDiff = None
@@ -75,7 +77,7 @@ class BasicSyncTestCase(unittest.TestCase):
         self.assertEqual(latest_version_href, repository.latest_version_href)
 
 
-class SyncInvalidURLTestCase(unittest.TestCase):
+class SyncInvalidURLTestCase(PulpTestCase):
     """Sync a repository with an invalid url on the Remote."""
 
     def test_all(self):
@@ -104,7 +106,7 @@ class SyncInvalidURLTestCase(unittest.TestCase):
         self.assertIsNotNone(context.exception.task.error["description"])
 
 
-class TestRepeatedSync(unittest.TestCase):
+class TestRepeatedSync(PulpTestCase):
     """Test behavior when a sync is repeated."""
 
     @classmethod
@@ -146,7 +148,7 @@ class TestRepeatedSync(unittest.TestCase):
         self.assertEqual(second_sync_tags_named_a.count, 1)
 
 
-class FilteredTagsSyncTestCase(unittest.TestCase):
+class FilteredTagsSyncTestCase(PulpTestCase):
     """A test case for syncing repositories with filtered tags."""
 
     @classmethod

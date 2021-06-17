@@ -5,8 +5,11 @@ import unittest
 from urllib.parse import urlparse
 
 from pulp_smash import cli, config, exceptions
-from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
-
+from pulp_smash.pulp3.bindings import (
+    delete_orphans,
+    monitor_task,
+    PulpTestCase,
+)
 from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import (
@@ -23,7 +26,7 @@ from pulpcore.client.pulp_container import (
 )
 
 
-class PushRepoTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
+class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
     """Verify whether images can be pushed to pulp."""
 
     @classmethod
