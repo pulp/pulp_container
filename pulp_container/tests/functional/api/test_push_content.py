@@ -5,8 +5,7 @@ import unittest
 from urllib.parse import urlparse
 
 from pulp_smash import cli, config, exceptions
-from pulp_smash.pulp3.bindings import monitor_task
-from pulp_smash.pulp3.utils import delete_orphans
+from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 
 from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
