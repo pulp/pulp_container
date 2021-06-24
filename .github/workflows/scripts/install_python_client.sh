@@ -9,43 +9,38 @@
 
 set -euv
 
-# make sure this script runs at the repo root
-cd "$(dirname "$(realpath -e "$0")")"/../..
-
 export PULP_URL="${PULP_URL:-http://pulp}"
 
-mkdir ~/.gem || true
-touch ~/.gem/credentials
-echo "---
-:rubygems_api_key: $RUBYGEMS_API_KEY" > ~/.gem/credentials
-sudo chmod 600 ~/.gem/credentials
+# make sure this script runs at the repo root
+cd "$(dirname "$(realpath -e "$0")")"/../../..
+
+pip install twine wheel
 
 export REPORTED_VERSION=$(http pulp/pulp/api/v3/status/ | jq --arg plugin container --arg legacy_plugin pulp_container -r '.versions[] | select(.component == $plugin or .component == $legacy_plugin) | .version')
 export DESCRIPTION="$(git describe --all --exact-match `git rev-parse HEAD`)"
 if [[ $DESCRIPTION == 'tags/'$REPORTED_VERSION ]]; then
   export VERSION=${REPORTED_VERSION}
 else
-  # Daily publishing of development version (ends in ".dev" reported as ".dev0")
-  if [ "${REPORTED_VERSION%.dev*}" == "${REPORTED_VERSION}" ]; then
-    echo "Refusing to publish bindings. $REPORTED_VERSION does not contain 'dev'."
-    exit 1
-  fi
   export EPOCH="$(date +%s)"
   export VERSION=${REPORTED_VERSION}${EPOCH}
 fi
 
-export response=$(curl --write-out %{http_code} --silent --output /dev/null https://rubygems.org/gems/pulp_container_client/versions/$VERSION)
+export response=$(curl --write-out %{http_code} --silent --output /dev/null https://pypi.org/project/pulp-container-client/$VERSION/)
 
 if [ "$response" == "200" ];
 then
-  echo "pulp_container $VERSION has already been released. Skipping."
+  echo "pulp_container client $VERSION has already been released. Installing from PyPI."
+  pip install pulp-container-client==$VERSION
+  mkdir -p dist
+  tar cvf python-client.tar ./dist
   exit
 fi
 
 cd ../pulp-openapi-generator
 
-./generate.sh pulp_container ruby $VERSION
+./generate.sh pulp_container python $VERSION
 cd pulp_container-client
-gem build pulp_container_client
-GEM_FILE="$(ls pulp_container_client-*)"
-gem push ${GEM_FILE}
+python setup.py sdist bdist_wheel --python-tag py3
+pip install dist/pulp_container_client-$VERSION-py3-none-any.whl
+tar cvf ../../pulp_container/python-client.tar ./dist
+exit $?
