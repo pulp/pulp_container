@@ -54,6 +54,7 @@ pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
 redmine_project: pulp_container
+release_user: pulpbot
 test: false
 test_bindings: false
 test_cli: true
