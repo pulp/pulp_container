@@ -3,13 +3,12 @@ from logging import getLogger
 from urllib import parse
 import aiohttp
 import asyncio
-import backoff
 import json
 import re
 
 from aiohttp.client_exceptions import ClientResponseError
 
-from pulpcore.plugin.download import http_giveup, HttpDownloader
+from pulpcore.plugin.download import HttpDownloader
 
 
 log = getLogger(__name__)
@@ -32,13 +31,13 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         self.remote = kwargs.pop("remote")
         super().__init__(*args, **kwargs)
 
-    @backoff.on_exception(backoff.expo, ClientResponseError, max_tries=10, giveup=http_giveup)
     async def _run(self, handle_401=True, extra_data=None):
         """
         Download, validate, and compute digests on the `url`. This is a coroutine.
 
-        This method is decorated with a backoff-and-retry behavior to retry HTTP 429 errors. It
-        retries with exponential backoff 10 times before allowing a final exception to be raised.
+        This method is externally wrapped with backoff-and-retry behavior for some errors.
+        It retries with exponential backoff some number of times before allowing a final
+        exception to be raised.
 
         This method provides the same return object type and documented in
         :meth:`~pulpcore.plugin.download.BaseDownloader._run`.
