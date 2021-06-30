@@ -37,7 +37,7 @@ then
 fi
 
 cd ../pulp-openapi-generator
-
+rm -rf pulp_container-client
 ./generate.sh pulp_container python $VERSION
 cd pulp_container-client
 python setup.py sdist bdist_wheel --python-tag py3
