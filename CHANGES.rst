@@ -13,6 +13,31 @@ Changelog
 
 .. towncrier release notes start
 
+2.7.0 (2021-07-01)
+==================
+
+
+Features
+--------
+
+- As a user I can update container push repositories.
+  `#8313 <https://pulp.plan.io/issues/8313>`_
+
+
+Bugfixes
+--------
+
+- Updated distribution creation policy.
+  `#8244 <https://pulp.plan.io/issues/8244>`_
+- Improved error logging on failed image push.
+  `#8879 <https://pulp.plan.io/issues/8879>`_
+- Fixed access policy for the container repository ``repair`` endpoint.
+  `#8884 <https://pulp.plan.io/issues/8884>`_
+
+
+----
+
+
 2.6.0 (2021-05-20)
 ==================
 
