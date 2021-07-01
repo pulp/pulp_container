@@ -37,7 +37,7 @@ jobs:
       - name: Install python dependencies
         run: |
           echo ::group::PYDEPS
-          pip install bandersnatch bump2version gitpython python-redmine towncrier wheel
+          pip install bandersnatch bump2version gitpython python-redmine towncrier==19.9.0 wheel
           echo ::endgroup::
 
       - name: Configure Git with pulpbot name and email
