@@ -36,7 +36,7 @@ from pulpcore.plugin.viewsets import (
     CharInFilter,
     ContentFilter,
     ContentGuardViewSet,
-    NewDistributionFilter,
+    DistributionFilter,
     NamedModelViewSet,
     NAME_FILTER_OPTIONS,
     ReadOnlyContentViewSet,
@@ -100,7 +100,7 @@ class BlobFilter(ContentFilter):
         }
 
 
-class ContainerDistributionFilter(NewDistributionFilter):
+class ContainerDistributionFilter(DistributionFilter):
     """
     FilterSet for ContainerDistributions
     """
@@ -109,7 +109,7 @@ class ContainerDistributionFilter(NewDistributionFilter):
 
     class Meta:
         model = models.ContainerDistribution
-        fields = NewDistributionFilter.Meta.fields
+        fields = DistributionFilter.Meta.fields
 
 
 class ContainerNamespaceFilter(BaseFilterSet):
