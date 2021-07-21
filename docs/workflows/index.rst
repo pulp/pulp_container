@@ -38,7 +38,7 @@ library with:
 
 ``$ sudo dnf install jq``
 
-**environtoment variables**:
+**environment variables**:
 To make these workflows copy/pastable, we make use of environment variables. The first variable to
 set is the hostname and port::
 
