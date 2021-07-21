@@ -12,6 +12,11 @@ on:
       release:
         description: "Release tag (e.g. 3.2.1)"
         required: true
+      before_script:
+        description: |
+          Bash code to run before script.sh is executed. This should only be used when re-running
+          a workflow to correct some aspect of the docs. e.g.: git checkout origin/3.14 CHANGES.rst
+        required: false
 
 env:
   RELEASE_WORKFLOW: true
@@ -32,7 +37,7 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.7"
+          python-version: "3.8"
 
       - name: Install python dependencies
         run: |
@@ -82,7 +87,7 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.7"
+          python-version: "3.8"
       - uses: actions/setup-ruby@v1
         with:
           ruby-version: "2.6"
@@ -139,6 +144,10 @@ jobs:
         if: ${{ env.TEST == 'bindings' || env.TEST == 'generate-bindings' }}
         run: .github/workflows/scripts/install_ruby_client.sh
 
+      - name: Additional before_script
+        run: ${{ github.event.inputs.before_script }}
+        shell: bash
+
       - name: Script
         if: ${{ env.TEST != 'generate-bindings' }}
         run: .github/workflows/scripts/script.sh
@@ -192,7 +201,7 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.7"
+          python-version: "3.8"
 
       - uses: actions/setup-ruby@v1
         with:
