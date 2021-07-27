@@ -1,9 +1,8 @@
 # This config represents the latest values used when running the plugin-template. Any settings that
 # were not present before running plugin-template have been added with their default values.
 
-# generated with plugin_template@2021.04.08-82-g8378090
+# generated with plugin_template@2021.04.08-85-gb17367d
 
-additional_plugins: []
 additional_repos: []
 all: false
 black: true
@@ -44,7 +43,7 @@ plugin_default_branch: master
 plugin_name: pulp_container
 plugin_snake: pulp_container
 publish_docs_to_pulpprojectdotorg: true
-pulp_scheme: http
+pulp_scheme: https
 pulp_settings:
   allowed_content_checksums:
   - sha1
@@ -61,6 +60,7 @@ pulpcore_pip_version_specifier: null
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
+python_version: '3.8'
 redmine_project: pulp_container
 release_user: pulpbot
 sync_ci: true
