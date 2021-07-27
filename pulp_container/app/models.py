@@ -55,6 +55,8 @@ class Blob(Content):
         manifest (models.ForeignKey): Many-to-one relationship with Manifest.
     """
 
+    PROTECTED_FROM_RECLAIM = False
+
     TYPE = "blob"
 
     BLOB_CHOICES = (
@@ -90,6 +92,8 @@ class Manifest(Content):
         listed_manifests (models.ManyToManyField): Many-to-many relationship with Manifest. This
             field is used only for a manifest-list type Manifests.
     """
+
+    PROTECTED_FROM_RECLAIM = False
 
     TYPE = "manifest"
 

@@ -315,7 +315,10 @@ def _get_config_dict(manifest):
 
 
 def _get_manifest_dict(manifest):
-    manifest_artifact = manifest._artifacts.get()
+    try:
+        manifest_artifact = manifest._artifacts.get()
+    except ObjectDoesNotExist:
+        raise RuntimeError()
     return _get_dict(manifest_artifact)
 
 

@@ -19,14 +19,6 @@ v2_headers = MultiDict()
 v2_headers["Docker-Distribution-API-Version"] = "registry/2.0"
 
 
-class ArtifactNotFound(Exception):
-    """
-    The artifact associated with a published-artifact does not exist.
-    """
-
-    pass
-
-
 class Registry(Handler):
     """
     A set of handlers for the Container Registry v2 API.
@@ -131,7 +123,7 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            return await Registry.dispatch_tag(tag, response_headers)
+            return await self.dispatch_tag(request, tag, response_headers)
 
         # return what was found in case media_type is accepted header (docker, oci)
         if tag.tagged_manifest.media_type in accepted_media_types:
@@ -140,17 +132,18 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            return await Registry.dispatch_tag(tag, response_headers)
+            return await self.dispatch_tag(request, tag, response_headers)
 
         # convert if necessary
         return await Registry.dispatch_converted_schema(tag, accepted_media_types, path)
 
-    @staticmethod
-    async def dispatch_tag(tag, response_headers):
+    async def dispatch_tag(self, request, tag, response_headers):
         """
-        Finds an artifact associated with a Tag and sends it to the client.
+        Finds an artifact associated with a Tag and sends it to the client, otherwise tries
+        to stream it.
 
         Args:
+            request(:class:`~aiohttp.web.Request`): The request to prepare a response for.
             tag: Tag
             response_headers (dict): dictionary that contains the 'Content-Type' header to send
                 with the response
@@ -163,7 +156,8 @@ class Registry(Handler):
         try:
             artifact = tag.tagged_manifest._artifacts.get()
         except ObjectDoesNotExist:
-            raise ArtifactNotFound(tag.name)
+            ca = tag.tagged_manifest.contentartifact_set.all()[0]
+            return await self._stream_content_artifact(request, web.StreamResponse(), ca)
         else:
             return await Registry._dispatch(artifact.file, response_headers)
 
