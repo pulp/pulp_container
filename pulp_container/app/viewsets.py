@@ -602,6 +602,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         if "content_units" in request.data:
             for url in request.data["content_units"]:
                 content = NamedModelViewSet.get_resource(url, Content)
+                content.touch()
                 add_content_units.append(str(content.pk))
 
         result = dispatch(
@@ -668,7 +669,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         result = dispatch(
             tasks.recursive_add_content,
-            [repository],
+            [repository, source_latest.repository],
             kwargs={
                 "repository_pk": str(repository.pk),
                 "content_units": [str(pk) for pk in tags_to_add.values_list("pk", flat=True)],
@@ -705,7 +706,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         manifests_to_add = manifests_in_repo.filter(**filters)
         result = dispatch(
             tasks.recursive_add_content,
-            [repository],
+            [repository, source_latest.repository],
             kwargs={
                 "repository_pk": str(repository.pk),
                 "content_units": [str(manifest.pk) for manifest in manifests_to_add],
@@ -740,9 +741,12 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
             containerfile.save()
         except IntegrityError:
             containerfile = Artifact.objects.get(sha256=containerfile.sha256)
+            containerfile.touch()
         tag = serializer.validated_data["tag"]
 
         artifacts = serializer.validated_data["artifacts"]
+        for artifact in artifacts:
+            artifact.touch()
 
         result = dispatch(
             tasks.build_image_from_containerfile,

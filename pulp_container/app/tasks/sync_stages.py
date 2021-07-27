@@ -107,6 +107,7 @@ class ContainerFirstStage(Stage):
             except IntegrityError:
                 del tag.artifact_attributes["file"]
                 saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
+                saved_artifact.touch()
 
             tag_name = tag.url.split("/")[-1]
             tag_dc = DeclarativeContent(Tag(name=tag_name))

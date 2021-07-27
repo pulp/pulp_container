@@ -31,6 +31,7 @@ def get_or_create_blob(layer_json, manifest, path):
     """
     try:
         blob = Blob.objects.get(digest=layer_json["digest"])
+        blob.touch()
     except Blob.DoesNotExist:
         layer_file_name = "{}{}".format(path, layer_json["digest"][7:])
         layer_artifact = Artifact.init_and_validate(layer_file_name)
