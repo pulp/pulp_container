@@ -680,11 +680,13 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 artifact.save()
             except IntegrityError:
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
+                artifact.touch()
             try:
                 blob = models.Blob(digest=digest, media_type=models.MEDIA_TYPE.REGULAR_BLOB)
                 blob.save()
             except IntegrityError:
                 blob = models.Blob.objects.get(digest=digest)
+                blob.touch()
             try:
                 blob_artifact = ContentArtifact(
                     artifact=artifact, content=blob, relative_path=digest
@@ -827,6 +829,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             manifest.save()
         except IntegrityError:
             manifest = models.Manifest.objects.get(digest=manifest.digest)
+            manifest.touch()
         ca = ContentArtifact(artifact=artifact, content=manifest, relative_path=manifest.digest)
         try:
             ca.save()
@@ -846,6 +849,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             tag.save()
         except IntegrityError:
             tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
+            tag.touch()
 
         tags_to_remove = models.Tag.objects.filter(
             pk__in=repository.latest_version().content.all(), name=tag
@@ -899,4 +903,5 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 artifact.save()
             except IntegrityError:
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
+                artifact.touch()
             return artifact

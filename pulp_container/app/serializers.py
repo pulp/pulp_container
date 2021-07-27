@@ -372,6 +372,7 @@ class TagImageSerializer(TagOperationSerializer):
             manifest = models.Manifest.objects.get(
                 pk__in=new_data["latest_version"].content.all(), digest=new_data["digest"]
             )
+            manifest.touch()
         except models.Manifest.DoesNotExist:
             raise serializers.ValidationError(
                 _(
@@ -608,7 +609,9 @@ class OCIBuildImageSerializer(serializers.Serializer):
                     _("Only one of 'containerfile' and 'containerfile_artifact' may be specified.")
                 )
             data["containerfile_artifact"] = Artifact.init_and_validate(data.pop("containerfile"))
-        elif "containerfile_artifact" not in data:
+        elif "containerfile_artifact" in data:
+            data["containerfile_artifact"].touch()
+        else:
             raise serializers.ValidationError(
                 _("'containerfile' or 'containerfile_artifact' must " "be specified.")
             )
@@ -627,6 +630,7 @@ class OCIBuildImageSerializer(serializers.Serializer):
                 )
                 try:
                     artifact = artifactfield.run_validation(data=url)
+                    artifact.touch()
                     artifacts[artifact.pk] = relative_path
                 except serializers.ValidationError as e:
                     # Append the URL of missing Artifact to the error message
