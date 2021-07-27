@@ -1,1 +1,0 @@
-Switched from ``condition`` element to ``condition_expression`` for boolean logic evaluation to support beaking changes introduced in drf-access-policy-1.0.0.
