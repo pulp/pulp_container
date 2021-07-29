@@ -1,4 +1,4 @@
-from pulpcore.plugin.models import ContentArtifact, CreatedResource, Repository
+from pulpcore.plugin.models import CreatedResource, Repository
 from pulp_container.app.models import Manifest, Tag
 
 
@@ -13,7 +13,6 @@ def tag_image(manifest_pk, tag, repository_pk):
     digest passed with POST request.
     """
     manifest = Manifest.objects.get(pk=manifest_pk)
-    artifact = manifest._artifacts.all()[0]
 
     repository = Repository.objects.get(pk=repository_pk).cast()
     latest_version = repository.latest_version()
@@ -27,10 +26,8 @@ def tag_image(manifest_pk, tag, repository_pk):
     if created:
         resource = CreatedResource(content_object=manifest_tag)
         resource.save()
-
-    ContentArtifact.objects.get_or_create(
-        artifact=artifact, content=manifest_tag, relative_path=tag
-    )
+    else:
+        manifest_tag.touch()
 
     tags_to_add = Tag.objects.filter(pk=manifest_tag.pk).exclude(
         pk__in=latest_version.content.all()

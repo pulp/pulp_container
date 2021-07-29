@@ -73,7 +73,6 @@ def add_image_from_directory_to_repository(path, repository, tag):
     ).save()
     tag = Tag(name=tag, tagged_manifest=manifest)
     tag.save()
-    ContentArtifact(artifact=manifest_artifact, content=tag, relative_path=tag.name).save()
     with repository.new_version() as new_repo_version:
         new_repo_version.add_content(Manifest.objects.filter(pk=manifest.pk))
         new_repo_version.add_content(Tag.objects.filter(pk=tag.pk))
