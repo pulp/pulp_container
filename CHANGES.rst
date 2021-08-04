@@ -13,6 +13,42 @@ Changelog
 
 .. towncrier release notes start
 
+2.8.0 (2021-08-04)
+==================
+
+
+Features
+--------
+
+- Add model resources to allow pulp import export handle pulp_container content units for synced container repositories.
+  `#6636 <https://pulp.plan.io/issues/6636>`_
+- Enable reclaim disk space feature for blobs and manifests.This feature is available with pulpcore 3.15+
+  `#9169 <https://pulp.plan.io/issues/9169>`_
+
+
+Bugfixes
+--------
+
+- Use proxy auth credentials when syncing content from a Remote.
+  `#9065 <https://pulp.plan.io/issues/9065>`_
+
+
+Deprecations and Removals
+-------------------------
+
+- Dropped support for Python 3.6 and 3.7. pulp_container now supports Python 3.8+.
+  `#9035 <https://pulp.plan.io/issues/9035>`_
+
+
+Misc
+----
+
+- `#9134 <https://pulp.plan.io/issues/9134>`_
+
+
+----
+
+
 2.7.1 (2021-07-21)
 ==================
 
