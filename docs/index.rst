@@ -6,7 +6,7 @@ You can synchronize from a range of Docker Registry HTTP API V2-compatible regis
 Depending on your needs, you can perform whole or partial syncs from these remote repositories, blend content from different sources, and distribute them throughout your organization using Pulp.
 You can also build OCI-compatible images with Pulp Container and push them to a repository in Pulp so you can distribute private containers.
 
-For information about why you might think about hosting your own container registry, see `5 reasons to host your container registry with Pulp <https://opensource.com/article/21/5/container-management-pulp/>`__.
+For information about why you might think about hosting your own container registry, see `5 reasons to host your container registry with Pulp <https://opensource.com/article/21/5/container-management-pulp/>`__. At the time of this article's publication, there was no native way to perform import and exports to disconnected or air-gapped environments. This has since been introduced and is available. 
 
 If you'd like to watch a recent talk about Pulp Container and see it in action, check out `Registry Native Delivery of Software Content <https://video.fosdem.org/2021/D.infra/registrynativedeliverysoftwarecontentpulp3.mp4>`__.
 
@@ -27,7 +27,7 @@ Features
 * :ref:`Build an OCI format image from a Containerfile <build-Containerfile-workflow>` and make it available from the Pulp Registry
 * Host content either `locally or on S3 <https://docs.pulpproject.org/installation/storage.html>`_
 * De-duplication of all saved content
-* Support disconnected and air-gaped environments with pulp import/export facility for synced container repositories
+* Support disconnected and air-gapped environments with pulp import/export facility for synced container repositories
 
 Tech Preview
 ------------
