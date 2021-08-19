@@ -36,6 +36,8 @@ class NamespacedAccessPolicyMixin:
         """
         ns_perm = "container.namespace_{}".format(permission.split(".", 1)[1])
         base_path = request.data.get("base_path")
+        if not base_path:
+            return False
         namespace = base_path.split("/")[0]
         try:
             namespace = models.ContainerNamespace.objects.get(name=namespace)
@@ -73,6 +75,8 @@ class NamespacedAccessPolicyMixin:
         Check if the namespace in the request matches the username.
         """
         base_path = request.data.get("base_path")
+        if not base_path:
+            return False
         namespace = base_path.split("/")[0]
         return namespace == request.user.username
 
