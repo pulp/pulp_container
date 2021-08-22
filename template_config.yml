@@ -1,13 +1,20 @@
 # This config represents the latest values used when running the plugin-template. Any settings that
 # were not present before running plugin-template have been added with their default values.
 
+# generated with plugin_template@2021.04.08-97-g74b81ba
+
 additional_plugins: []
+additional_repos: []
 all: false
 black: true
 bootstrap: false
 check_commit_message: true
+check_gettext: true
 check_manifest: true
+check_openapi_schema: true
 check_stray_pulpcore_imports: true
+ci_trigger: '{pull_request: {branches: [''*'']}}'
+core_import_allowed: []
 coverage: false
 deploy_client_to_pypi: true
 deploy_client_to_rubygems: true
@@ -26,6 +33,9 @@ exclude_deploy_to_pypi: false
 exclude_docs_test: false
 exclude_mariadb_test: false
 exclude_test_bindings: false
+flake8: true
+issue_tracker: redmine
+noissue_marker: '[noissue]'
 plugin_app_label: container
 plugin_camel: PulpContainer
 plugin_camel_short: Container
@@ -33,9 +43,13 @@ plugin_caps: PULP_CONTAINER
 plugin_caps_short: CONTAINER
 plugin_dash: pulp-container
 plugin_dash_short: container
+plugin_default_branch: master
 plugin_name: pulp_container
 plugin_snake: pulp_container
+post_job_template: null
+pre_job_template: null
 publish_docs_to_pulpprojectdotorg: true
+pulp_scheme: http
 pulp_settings:
   allowed_content_checksums:
   - sha1
@@ -48,7 +62,11 @@ pulpcore_pip_version_specifier: '>=3.10,<3.12'
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
+python_version: '3.6'
 redmine_project: pulp_container
+release_email: pulp-infra@redhat.com
+release_user: pulpbot
+sync_ci: true
 test: false
 test_bindings: false
 test_cli: false
@@ -59,5 +77,6 @@ travis: true
 travis_addtl_services: []
 travis_notifications: None
 update_redmine: true
+upgrade_range: []
 verbose: false
 
