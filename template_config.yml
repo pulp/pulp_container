@@ -43,7 +43,7 @@ pulp_settings:
   - sha256
   - sha384
   - sha512
-pulpcore_branch: '3.10'
+pulpcore_branch: '3.11'
 pulpcore_pip_version_specifier: '>=3.10,<3.12'
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
