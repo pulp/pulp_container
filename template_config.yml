@@ -83,6 +83,8 @@ travis: true
 travis_addtl_services: []
 travis_notifications: None
 update_redmine: true
-upgrade_range: []
+upgrade_range:
+- pulp_container_branch: 2.3
+  pulpcore_branch: 3.11
 verbose: false
 
