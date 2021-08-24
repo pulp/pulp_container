@@ -10,6 +10,8 @@ PULP_HOSTNAME=$(cat /etc/hosts | sed -En "s/pulp/pulp.example.com/p")
 echo $PULP_HOSTNAME | sudo tee -a /etc/hosts
 cat /etc/hosts | grep pulp
 
+echo $PULP_HOSTNAME | docker exec -i pulp bash -c "cat >> /etc/hosts"
+
 echo "machine pulp.example.com
 login admin
 password password
