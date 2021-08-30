@@ -61,8 +61,8 @@ pulp_settings:
   - /tmp
   allowed_import_paths:
   - /tmp
-pulpcore_branch: '3.14'
-pulpcore_pip_version_specifier: '>=3.14.0,<3.16.0'
+pulpcore_branch: master
+pulpcore_pip_version_specifier: null
 pulpcore_revision: null
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
