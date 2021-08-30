@@ -1,0 +1,1 @@
+Refactor sync pipeline to fix a race condition with multiple synchronous syncs.
