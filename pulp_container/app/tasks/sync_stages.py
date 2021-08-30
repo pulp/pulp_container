@@ -8,6 +8,7 @@ import logging
 from gettext import gettext as _
 from urllib.parse import urljoin, urlparse, urlunparse
 
+from asgiref.sync import sync_to_async
 from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
@@ -38,6 +39,17 @@ V2_ACCEPT_HEADERS = {
 }
 
 
+def _save_artifact_blocking(artifact_attributes):
+    saved_artifact = Artifact(**artifact_attributes)
+    try:
+        saved_artifact.save()
+    except IntegrityError:
+        del artifact_attributes["file"]
+        saved_artifact = Artifact.objects.get(**artifact_attributes)
+        saved_artifact.touch()
+    return saved_artifact
+
+
 class ContainerFirstStage(Stage):
     """
     The first stage of a pulp_container sync pipeline.
@@ -62,7 +74,7 @@ class ContainerFirstStage(Stage):
         to_download = []
         man_dcs = {}
 
-        with ProgressReport(
+        async with ProgressReport(
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
         ) as pb:
             repo_name = self.remote.namespaced_upstream_name
@@ -79,7 +91,7 @@ class ContainerFirstStage(Stage):
             link = list_downloader.response_headers.get("Link")
             await self.handle_pagination(link, repo_name, tag_list)
             tag_list = self.filter_tags(tag_list)
-            pb.increment()
+            await pb.aincrement()
 
         for tag_name in tag_list:
             relative_url = "/v2/{name}/manifests/{tag}".format(
@@ -89,7 +101,7 @@ class ContainerFirstStage(Stage):
             downloader = self.remote.get_downloader(url=url)
             to_download.append(downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS}))
 
-        with ProgressReport(
+        async with ProgressReport(
             message="Processing Tags",
             code="sync.processing.tag",
             state=TASK_STATES.RUNNING,
@@ -101,13 +113,9 @@ class ContainerFirstStage(Stage):
                 with open(tag.path, "rb") as content_file:
                     raw_data = content_file.read()
                 tag.artifact_attributes["file"] = tag.path
-                saved_artifact = Artifact(**tag.artifact_attributes)
-                try:
-                    saved_artifact.save()
-                except IntegrityError:
-                    del tag.artifact_attributes["file"]
-                    saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
-                    saved_artifact.touch()
+                saved_artifact = await sync_to_async(_save_artifact_blocking)(
+                    tag.artifact_attributes
+                )
 
                 tag_name = tag.url.split("/")[-1]
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
@@ -133,7 +141,7 @@ class ContainerFirstStage(Stage):
                     tag_dc.extra_data["tagged_manifest_dc"] = man_dc
                     await self.handle_blobs(man_dc, content_data)
                 tag_dcs.append(tag_dc)
-                pb_parsed_tags.increment()
+                await pb_parsed_tags.aincrement()
 
         for manifest_future in future_manifests:
             man = await manifest_future.resolution()
@@ -455,11 +463,13 @@ class InterrelateContent(Stage):
                     config_blob = self.relate_config_blob(dc)
                     config_blob_list.append(config_blob)
 
-            ManifestListManifest.objects.bulk_create(
+            await sync_to_async(ManifestListManifest.objects.bulk_create)(
                 objs=manifest_to_list_list, ignore_conflicts=True, batch_size=1000
             )
-            BlobManifest.objects.bulk_create(objs=blob_list, ignore_conflicts=True, batch_size=1000)
-            Manifest.objects.bulk_update(
+            await sync_to_async(BlobManifest.objects.bulk_create)(
+                objs=blob_list, ignore_conflicts=True, batch_size=1000
+            )
+            await sync_to_async(Manifest.objects.bulk_update)(
                 objs=config_blob_list, fields=["config_blob"], batch_size=1000
             )
 
