@@ -41,7 +41,7 @@ image:
   tag: "${TAG}"
 plugins:
   - name: pulpcore
-    source: pulpcore>=3.14.0,<3.16.0
+    source: pulpcore
   - name: pulp_container
     source:  "${PLUGIN_NAME}"
 services:
