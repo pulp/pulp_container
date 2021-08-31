@@ -149,3 +149,8 @@ Repository Version GET Response (when complete):
 
 Reference: `Container Repository Version API Usage
 <../restapi.html#operation/repositories_container_container_list>`_
+
+.. note::
+
+    To set up a regular sync task, use one of the external tools that deal with periodic background jobs.
+    Learn more about scheduling tasks `here <https://docs.pulpproject.org/pulpcore/workflows/scheduling-tasks.html>`_.
