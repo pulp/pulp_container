@@ -46,6 +46,8 @@ jobs:
           echo ::endgroup::
           echo "TEST=${{ matrix.env.TEST }}" >> $GITHUB_ENV
           echo "HTTPIE_CONFIG_DIR=$GITHUB_WORKSPACE/.ci/assets/httpie/" >> $GITHUB_ENV
+          echo "FROM_PULP_CONTAINER_BRANCH=${{ matrix.FROM_PULP_CONTAINER_BRANCH }}" >> $GITHUB_ENV
+          echo "FROM_PULPCORE_BRANCH=${{ matrix.FROM_PULPCORE_BRANCH }}" >> $GITHUB_ENV
 
       - name: Before Install
         
@@ -188,6 +190,8 @@ jobs:
           echo ::endgroup::
           echo "TEST=${{ matrix.env.TEST }}" >> $GITHUB_ENV
           echo "HTTPIE_CONFIG_DIR=$GITHUB_WORKSPACE/.ci/assets/httpie/" >> $GITHUB_ENV
+          echo "FROM_PULP_CONTAINER_BRANCH=${{ matrix.FROM_PULP_CONTAINER_BRANCH }}" >> $GITHUB_ENV
+          echo "FROM_PULPCORE_BRANCH=${{ matrix.FROM_PULPCORE_BRANCH }}" >> $GITHUB_ENV
 
       - name: Install python dependencies
         run: |
@@ -229,7 +233,7 @@ jobs:
         shell: bash
 
       - name: Install Ruby client
-        if: ${{ env.TEST == 'bindings' || env.TEST == 'generate-bindings' }}
+        
         run: .github/workflows/scripts/install_ruby_client.sh
         shell: bash
 
@@ -257,7 +261,7 @@ jobs:
       - name: Download Ruby client
         uses: actions/download-artifact@v2
         with:
-          name: python-client.tar
+          name: ruby-client.tar
 
       - name: Untar Ruby client packages
         run: tar -xvf ruby-client.tar

@@ -104,7 +104,7 @@ if [[ "$TEST" == "upgrade" ]]; then
   sed -i "/require_pulp_plugins(/d" pulp_container/tests/functional/utils.py
 
   # Running pre upgrade tests:
-  pytest -v -r sx --color=yes --pyargs -capture=no pulp_container.tests.upgrade.pre
+  pytest -v -r sx --color=yes --pyargs --capture=no pulp_container.tests.upgrade.pre
 
   # Checking out ci_upgrade_test branch and upgrading plugins
   cmd_prefix bash -c "cd pulpcore; git checkout -f ci_upgrade_test; pip install --upgrade --force-reinstall ."
@@ -145,7 +145,7 @@ if [[ "$TEST" == "upgrade" ]]; then
 
   # Running post upgrade tests
   git checkout ci_upgrade_test -- pulp_container/tests/
-  pytest -vv -r sx --color=yes --pyargs --capture=no --durations=0 pulp_container.tests.upgrade.post
+  pytest -v -r sx --color=yes --pyargs --capture=no pulp_container.tests.upgrade.post
   exit
 fi
 
