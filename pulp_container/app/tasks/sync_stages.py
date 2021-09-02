@@ -58,9 +58,9 @@ class ContainerFirstStage(Stage):
         """
         future_manifests = []
         tag_list = []
+        tag_dcs = []
         to_download = []
         man_dcs = {}
-        total_blobs = []
 
         with ProgressReport(
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
@@ -89,52 +89,51 @@ class ContainerFirstStage(Stage):
             downloader = self.remote.get_downloader(url=url)
             to_download.append(downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS}))
 
-        pb_parsed_tags = ProgressReport(
+        with ProgressReport(
             message="Processing Tags",
             code="sync.processing.tag",
             state=TASK_STATES.RUNNING,
             total=len(tag_list),
-        )
+        ) as pb_parsed_tags:
 
-        for download_tag in asyncio.as_completed(to_download):
-            tag = await download_tag
-            with open(tag.path, "rb") as content_file:
-                raw_data = content_file.read()
-            tag.artifact_attributes["file"] = tag.path
-            saved_artifact = Artifact(**tag.artifact_attributes)
-            try:
-                saved_artifact.save()
-            except IntegrityError:
-                del tag.artifact_attributes["file"]
-                saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
-                saved_artifact.touch()
+            for download_tag in asyncio.as_completed(to_download):
+                tag = await download_tag
+                with open(tag.path, "rb") as content_file:
+                    raw_data = content_file.read()
+                tag.artifact_attributes["file"] = tag.path
+                saved_artifact = Artifact(**tag.artifact_attributes)
+                try:
+                    saved_artifact.save()
+                except IntegrityError:
+                    del tag.artifact_attributes["file"]
+                    saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
+                    saved_artifact.touch()
 
-            tag_name = tag.url.split("/")[-1]
-            tag_dc = DeclarativeContent(Tag(name=tag_name))
+                tag_name = tag.url.split("/")[-1]
+                tag_dc = DeclarativeContent(Tag(name=tag_name))
 
-            content_data = json.loads(raw_data)
-            media_type = content_data.get("mediaType")
-            if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
-                list_dc = self.create_tagged_manifest_list(tag_name, saved_artifact, content_data)
-                await self.put(list_dc)
-                tag_dc.extra_data["man_relation"] = list_dc
-                for manifest_data in content_data.get("manifests"):
-                    man_dc = self.create_manifest(list_dc, manifest_data)
-                    future_manifests.append(man_dc)
-                    man_dcs[man_dc.content.digest] = man_dc
+                content_data = json.loads(raw_data)
+                media_type = content_data.get("mediaType")
+                if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
+                    list_dc = self.create_tagged_manifest_list(
+                        tag_name, saved_artifact, content_data
+                    )
+                    await self.put(list_dc)
+                    tag_dc.extra_data["tagged_manifest_dc"] = list_dc
+                    for manifest_data in content_data.get("manifests"):
+                        man_dc = self.create_manifest(list_dc, manifest_data)
+                        future_manifests.append(man_dc)
+                        man_dcs[man_dc.content.digest] = man_dc
+                        await self.put(man_dc)
+                else:
+                    man_dc = self.create_tagged_manifest(
+                        tag_name, saved_artifact, content_data, raw_data
+                    )
                     await self.put(man_dc)
-            else:
-                man_dc = self.create_tagged_manifest(
-                    tag_name, saved_artifact, content_data, raw_data
-                )
-                await self.put(man_dc)
-                tag_dc.extra_data["man_relation"] = man_dc
-                self.handle_blobs(man_dc, content_data, total_blobs)
-            await self.put(tag_dc)
-            pb_parsed_tags.increment()
-
-        pb_parsed_tags.state = "completed"
-        pb_parsed_tags.save()
+                    tag_dc.extra_data["tagged_manifest_dc"] = man_dc
+                    await self.handle_blobs(man_dc, content_data)
+                tag_dcs.append(tag_dc)
+                pb_parsed_tags.increment()
 
         for manifest_future in future_manifests:
             man = await manifest_future.resolution()
@@ -142,9 +141,12 @@ class ContainerFirstStage(Stage):
                 raw = content_file.read()
             content_data = json.loads(raw)
             man_dc = man_dcs[man.digest]
-            self.handle_blobs(man_dc, content_data, total_blobs)
-        for blob in total_blobs:
-            await self.put(blob)
+            await self.handle_blobs(man_dc, content_data)
+
+        for tag_dc in tag_dcs:
+            tagged_manifest_dc = tag_dc.extra_data["tagged_manifest_dc"]
+            tag_dc.content.tagged_manifest = await tagged_manifest_dc.resolution()
+            await self.put(tag_dc)
 
     def filter_tags(self, tag_list):
         """
@@ -184,21 +186,21 @@ class ContainerFirstStage(Stage):
                 tag_list.extend(tags_dict["tags"])
             link = list_downloader.response_headers.get("Link")
 
-    def handle_blobs(self, man, content_data, total_blobs):
+    async def handle_blobs(self, manifest_dc, content_data):
         """
         Handle blobs.
         """
         for layer in content_data.get("layers") or content_data.get("fsLayers"):
             if not self._include_layer(layer):
                 continue
-            blob_dc = self.create_blob(man, layer)
-            blob_dc.extra_data["blob_relation"] = man
-            total_blobs.append(blob_dc)
+            blob_dc = self.create_blob(layer)
+            blob_dc.extra_data["blob_relation"] = manifest_dc
+            await self.put(blob_dc)
         layer = content_data.get("config", None)
         if layer:
-            blob_dc = self.create_blob(man, layer, deferred_download=False)
-            blob_dc.extra_data["config_relation"] = man
-            total_blobs.append(blob_dc)
+            blob_dc = self.create_blob(layer, deferred_download=False)
+            blob_dc.extra_data["config_relation"] = manifest_dc
+            await self.put(blob_dc)
 
     def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data):
         """
@@ -310,12 +312,11 @@ class ContainerFirstStage(Stage):
         )
         return man_dc
 
-    def create_blob(self, man_dc, blob_data, deferred_download=True):
+    def create_blob(self, blob_data, deferred_download=True):
         """
         Create blob.
 
         Args:
-            man_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ImageManifest
             blob_data (dict): Data about a blob
             deferred_download (bool): boolean that indicates whether not to download a blob
                 immediatly. Config blob is downloaded regardless of the remote's settings
@@ -453,8 +454,6 @@ class InterrelateContent(Stage):
                 elif dc.extra_data.get("config_relation"):
                     config_blob = self.relate_config_blob(dc)
                     config_blob_list.append(config_blob)
-                elif dc.extra_data.get("man_relation"):
-                    self.relate_manifest_tag(dc)
 
             ManifestListManifest.objects.bulk_create(
                 objs=manifest_to_list_list, ignore_conflicts=True, batch_size=1000
@@ -497,23 +496,6 @@ class InterrelateContent(Stage):
         """
         related_dc = dc.extra_data.get("blob_relation")
         return BlobManifest(manifest=related_dc.content, manifest_blob=dc.content)
-
-    def relate_manifest_tag(self, dc):
-        """
-        Relate an ImageManifest to a Tag.
-
-        Args:
-            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
-
-        """
-        related_dc = dc.extra_data.get("man_relation")
-        dc.content.tagged_manifest = related_dc.content
-        try:
-            dc.content.save()
-        except IntegrityError:
-            existing_tag = Tag.objects.get(name=dc.content.name, tagged_manifest=related_dc.content)
-            dc.content.delete()
-            dc.content = existing_tag
 
     def relate_manifest_to_list(self, dc):
         """
