@@ -6,11 +6,12 @@ the case.
 """
 import unittest
 from pulp_smash.utils import uuid4
-from pulp_smash.pulp3.bindings import monitor_task, monitor_task_group
-from pulp_smash.pulp3.utils import (
+from pulp_smash.pulp3.bindings import (
     delete_orphans,
-    gen_repo,
+    monitor_task,
+    monitor_task_group,
 )
+from pulp_smash.pulp3.utils import gen_repo
 
 from pulpcore.client.pulpcore import (
     ApiClient as CoreApiClient,
