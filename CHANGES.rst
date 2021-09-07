@@ -13,6 +13,21 @@ Changelog
 
 .. towncrier release notes start
 
+2.8.1 (2021-09-07)
+==================
+
+
+Bugfixes
+--------
+
+- Refactor sync pipeline to fix a race condition with multiple synchronous syncs.
+  (backported from #9292)
+  `#9334 <https://pulp.plan.io/issues/9334>`_
+
+
+----
+
+
 2.8.0 (2021-08-04)
 ==================
 
