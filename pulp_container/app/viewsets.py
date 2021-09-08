@@ -390,7 +390,7 @@ class TagOperationsMixin:
 
         result = dispatch(
             tasks.tag_image,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={
                 "manifest_pk": str(manifest.pk),
                 "tag": tag,
@@ -422,7 +422,7 @@ class TagOperationsMixin:
 
         result = dispatch(
             tasks.untag_image,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={"tag": tag, "repository_pk": str(repository.pk)},
         )
         return OperationPostponedResponse(result, request)
@@ -574,7 +574,8 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         result = dispatch(
             tasks.synchronize,
-            [repository, remote],
+            shared_resources=[remote],
+            exclusive_resources=[repository],
             kwargs={
                 "remote_pk": str(remote.pk),
                 "repository_pk": str(repository.pk),
@@ -607,7 +608,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         result = dispatch(
             tasks.recursive_add_content,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={"repository_pk": str(repository.pk), "content_units": add_content_units},
         )
         return OperationPostponedResponse(result, request)
@@ -639,7 +640,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         result = dispatch(
             tasks.recursive_remove_content,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={"repository_pk": str(repository.pk), "content_units": remove_content_units},
         )
         return OperationPostponedResponse(result, request)
@@ -669,7 +670,8 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         result = dispatch(
             tasks.recursive_add_content,
-            [repository, source_latest.repository],
+            shared_resources=[source_latest.repository],
+            exclusive_resources=[repository],
             kwargs={
                 "repository_pk": str(repository.pk),
                 "content_units": [str(pk) for pk in tags_to_add.values_list("pk", flat=True)],
@@ -706,7 +708,8 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         manifests_to_add = manifests_in_repo.filter(**filters)
         result = dispatch(
             tasks.recursive_add_content,
-            [repository, source_latest.repository],
+            shared_resources=[source_latest.repository],
+            exclusive_resources=[repository],
             kwargs={
                 "repository_pk": str(repository.pk),
                 "content_units": [str(manifest.pk) for manifest in manifests_to_add],
@@ -750,7 +753,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         result = dispatch(
             tasks.build_image_from_containerfile,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={
                 "containerfile_pk": str(containerfile.pk),
                 "tag": tag,
@@ -927,7 +930,7 @@ class ContainerPushRepositoryViewSet(
 
         result = dispatch(
             tasks.recursive_remove_content,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={
                 "repository_pk": str(repository.pk),
                 "content_units": [str(pk) for pk in content_units_to_remove],
@@ -1206,7 +1209,9 @@ class ContainerDistributionViewSet(DistributionViewSet):
                 (str(distribution.repository.pk), "container", "ContainerPushRepositorySerializer"),
             )
 
-        async_result = dispatch(tasks.general_multi_delete, reservations, args=(instance_ids,))
+        async_result = dispatch(
+            tasks.general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
+        )
         return OperationPostponedResponse(async_result, request)
 
 
@@ -1374,5 +1379,7 @@ class ContainerNamespaceViewSet(
         instance_ids.append(
             (str(namespace.pk), "container", "ContainerNamespaceSerializer"),
         )
-        async_result = dispatch(tasks.general_multi_delete, reservations, args=(instance_ids,))
+        async_result = dispatch(
+            tasks.general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
+        )
         return OperationPostponedResponse(async_result, request)

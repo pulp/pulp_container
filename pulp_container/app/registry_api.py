@@ -647,7 +647,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             try:
                 task = Task.objects.filter(
                     name__endswith="add_and_remove",
-                    reserved_resources_record__resource=f"upload:{pk}",
+                    reserved_resources_record=[f"upload:{pk}"],
                 ).last()
             except Task.DoesNotExist:
                 # No upload and no task for it => the upload probably never existed
@@ -699,7 +699,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
             dispatched_task = dispatch(
                 add_and_remove,
-                [f"upload:{pk}", repository],
+                shared_resources=[f"upload:{pk}"],
+                exclusive_resources=[repository],
                 kwargs={
                     "repository_pk": str(repository.pk),
                     "add_content_units": [str(blob.pk)],
@@ -856,7 +857,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         ).exclude(tagged_manifest=manifest)
         dispatched_task = dispatch(
             add_and_remove,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={
                 "repository_pk": str(repository.pk),
                 "add_content_units": [str(tag.pk), str(manifest.pk)],
