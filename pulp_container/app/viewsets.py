@@ -1053,7 +1053,7 @@ class ContainerDistributionViewSet(DistributionViewSet):
                 "action": ["pull"],
                 "principal": "*",
                 "effect": "allow",
-                "condition": [
+                "condition_expression": [
                     "not is_private",
                 ],
             },
