@@ -145,7 +145,8 @@ class ContainerFirstStage(Stage):
 
         for manifest_future in future_manifests:
             man = await manifest_future.resolution()
-            with man._artifacts.get().file.open() as content_file:
+            artifact = await sync_to_async(man._artifacts.get)()
+            with artifact.file.open() as content_file:
                 raw = content_file.read()
             content_data = json.loads(raw)
             man_dc = man_dcs[man.digest]

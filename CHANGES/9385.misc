@@ -1,0 +1,2 @@
+Use sync_to_async to mitigate DB connection issues and comply with Django 3.2 ORM usage in async
+code.
