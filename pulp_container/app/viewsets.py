@@ -20,6 +20,7 @@ from guardian.shortcuts import get_objects_for_user
 
 from rest_framework import mixins
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 
 from pulpcore.plugin.access_policy import AccessPolicyFromDB
 from pulpcore.plugin.models import RepositoryVersion
@@ -595,23 +596,42 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         """
         Queues a task that creates a new RepositoryVersion by adding content units.
         """
-        add_content_units = []
+        add_content_units = {}
         repository = self.get_object()
         serializer = serializers.RecursiveManageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         if "content_units" in request.data:
             for url in request.data["content_units"]:
-                content = NamedModelViewSet.get_resource(url, Content)
-                content.touch()
-                add_content_units.append(str(content.pk))
+                add_content_units[NamedModelViewSet.extract_pk(url)] = url
+
+            self.touch_content_units(add_content_units)
 
         result = dispatch(
             tasks.recursive_add_content,
-            exclusive_resources=[repository],
-            kwargs={"repository_pk": str(repository.pk), "content_units": add_content_units},
+            [repository],
+            kwargs={
+                "repository_pk": repository.pk,
+                "content_units": list(add_content_units.keys()),
+            },
         )
         return OperationPostponedResponse(result, request)
+
+    def touch_content_units(self, content_units):
+        """Touch and validate referenced content units."""
+        content_units_pks = content_units.keys()
+        existing_content_units = Content.objects.filter(pk__in=content_units_pks)
+        existing_content_units.touch()
+
+        existing_content_units_pks = existing_content_units.values_list("pk", flat=True)
+        existing_content_units_pks = {str(pk) for pk in existing_content_units_pks}
+
+        missing_pks = content_units_pks - existing_content_units_pks
+        if missing_pks:
+            missing_hrefs = [content_units[pk] for pk in missing_pks]
+            raise ValidationError(
+                _("Could not find the following content units: {}").format(missing_hrefs)
+            )
 
     @extend_schema(
         description="Trigger an async task to recursively remove container content.",
