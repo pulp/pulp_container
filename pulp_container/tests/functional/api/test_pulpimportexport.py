@@ -91,7 +91,10 @@ class PulpImportExportTestCase(unittest.TestCase):
 
         filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
         import_response = imports_api.create(importer.pulp_href, {"path": filenames[0]})
-        task_group_href = monitor_task(import_response.task).created_resources[1]
+        if hasattr(import_response, "task_group"):
+            task_group_href = import_response.task_group
+        else:
+            task_group_href = monitor_task(import_response.task).created_resources[1]
         monitor_task_group(task_group_href)
 
         # Verify that the imported repository contains the right associations
