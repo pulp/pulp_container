@@ -1,5 +1,6 @@
 from gettext import gettext as _
 import os
+import re
 
 from django.db import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
@@ -30,6 +31,7 @@ from pulpcore.plugin.serializers import (
 from . import models
 
 VALID_TAG_REGEX = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+VALID_BASE_PATH_REGEX_COMPILED = re.compile(r"^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?$")
 
 
 class _GetOrCreateMixin:
@@ -287,6 +289,20 @@ class ContainerDistributionSerializer(DistributionSerializer):
                     {"name": namespace_name}
                 )
         return validated_data
+
+    def validate_base_path(self, value):
+        """Check whether the passed repository base path is valid or not."""
+        if len(value) > 255:
+            raise serializers.ValidationError(
+                _("The entered base path cannot be longer than 255 characters.")
+            )
+
+        if not all(re.match(VALID_BASE_PATH_REGEX_COMPILED, p) for p in value.split("/")):
+            raise serializers.ValidationError(
+                _("The provided base path contains forbidden characters.")
+            )
+
+        return value
 
     class Meta:
         model = models.ContainerDistribution
