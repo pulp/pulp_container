@@ -220,6 +220,13 @@ class DistributionBasePathTestCase(unittest.TestCase):
         """Test that ``base_path`` can not be duplicated."""
         self.try_create_distribution(base_path=self.distribution.base_path)
 
+    def test_invalid_base_paths(self):
+        """Test the validation for base paths."""
+        self.try_create_distribution(base_path="i/am/an/very:bad:repo/name.py")
+        self.try_create_distribution(base_path="invalid_")
+        self.try_create_distribution(base_path="_invalid")
+        self.try_create_distribution(base_path="another/invalid..reponame")
+
     def try_create_distribution(self, **kwargs):
         """Unsuccessfully create a distribution.
 
