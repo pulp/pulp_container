@@ -23,11 +23,10 @@ from django.shortcuts import get_object_or_404
 
 from django.conf import settings
 
-from guardian.shortcuts import get_objects_for_user
-
 from pulpcore.plugin.models import Artifact, ContentArtifact, Task, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
+from pulpcore.plugin.util import get_objects_for_user
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
@@ -458,8 +457,7 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
             self.request.user, distribution_permission, queryset
         )
 
-        namespace_refs = queryset.values_list("namespace", flat=True)
-        namespaces = models.ContainerNamespace.objects.filter(pk__in=namespace_refs)
+        namespaces = models.ContainerNamespace.objects.all()
         repositories_by_namespace = get_objects_for_user(
             self.request.user, namespace_permission, namespaces
         )

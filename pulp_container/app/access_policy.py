@@ -1,9 +1,14 @@
+from logging import getLogger
+
 from rest_access_policy import AccessPolicy
 
-from pulpcore.plugin.models import AccessPolicy as AccessPolicyModel
+from pulpcore.plugin.models import AccessPolicy as AccessPolicyModel, Repository
+from pulpcore.plugin.viewsets import RepositoryVersionViewSet
 from pulpcore.plugin.access_policy import AccessPolicyFromDB
 
 from pulp_container.app import models
+
+_logger = getLogger(__name__)
 
 
 class NamespacedAccessPolicyMixin:
@@ -19,20 +24,26 @@ class NamespacedAccessPolicyMixin:
         """
         if request.user.has_perm(permission):
             return True
-        obj = view.get_object()
+        if isinstance(view, RepositoryVersionViewSet):
+            obj = Repository.objects.get(pk=view.kwargs["repository_pk"]).cast()
+        else:
+            obj = view.get_object()
         if type(obj) == models.ContainerDistribution:
             namespace = obj.namespace
             return request.user.has_perm(permission, namespace)
         elif type(obj) == models.ContainerPushRepository:
-            dists_qs = models.ContainerDistribution.objects.filter(repository=obj)
-            for dist in dists_qs:
-                if request.user.has_perm(permission, dist.namespace):
+            for dist in obj.distributions.all():
+                if request.user.has_perm(permission, dist.cast().namespace):
+                    return True
+        elif type(obj) == models.ContainerPushRepositoryVersion:
+            for dist in obj.repository.distributions.all():
+                if request.user.has_perm(permission, dist.cast().namespace):
                     return True
         return False
 
     def has_namespace_perms(self, request, view, action, permission):
         """
-        Check if a user has a namespace-level perms
+        Check if a user has a namespace-level permission
         """
         ns_perm = "container.namespace_{}".format(permission.split(".", 1)[1])
         base_path = request.data.get("base_path")
@@ -91,9 +102,52 @@ class NamespacedAccessPolicyMixin:
 
 class NamespacedAccessPolicyFromDB(AccessPolicyFromDB, NamespacedAccessPolicyMixin):
     """
-    Access policy for ContainerDistributionViewSet and ContainerPushRepositoryViewSet which handles
+    Access policy for ContainerDistributionViewSet which handles
     namespace permissions.
     """
+
+
+class PushRepositoryAccessPolicy(NamespacedAccessPolicyFromDB):
+    """
+    Access policy for ContainerPushRepositoryViewSet.
+    """
+
+    def has_distribution_perms(self, request, view, action, permission):
+        """
+        Check if the user has permissions on the corresponding distribution.
+        Model or object permission is sufficient.
+        """
+        if request.user.has_perm(permission):
+            return True
+        distributions = view.get_object().distributions.all()
+        return any(
+            (
+                request.user.has_perm(permission, distribution.cast())
+                for distribution in distributions
+            )
+        )
+
+
+class PushRepositoryVersionAccessPolicy(NamespacedAccessPolicyFromDB):
+    """
+    Access policy for ContainerPushRepositoryVersionViewSet.
+    """
+
+    def has_distribution_perms(self, request, view, action, permission):
+        """
+        Check if the user has permissions on the corresponding distribution.
+        Model or object permission is sufficient.
+        """
+        if request.user.has_perm(permission):
+            return True
+        repository = Repository.objects.get(pk=view.kwargs["repository_pk"])
+        distributions = repository.distributions.all()
+        return any(
+            (
+                request.user.has_perm(permission, distribution.cast())
+                for distribution in distributions
+            )
+        )
 
 
 class NamespaceAccessPolicy(AccessPolicyFromDB):

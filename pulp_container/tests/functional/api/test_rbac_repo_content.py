@@ -30,7 +30,7 @@ from pulpcore.client.pulp_container import (
 
 
 class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
-    """Verify RBAC for content  of a ContainerRepository."""
+    """Verify RBAC for content of a ContainerRepository."""
 
     @classmethod
     def setUpClass(cls):
@@ -53,26 +53,28 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.user_admin = {"username": admin_user, "password": admin_password}
         cls.user_creator = gen_user(
             [
-                "container.add_containerrepository",
-                "container.add_containerremote",
-                "container.add_containernamespace",
-                "container.add_containerdistribution",
-            ]
+                # "container.add_containerdistribution",
+            ],
+            model_roles=[
+                "container.containernamespace_creator",
+                "container.containerremote_creator",
+                "container.containerrepository_creator",
+            ],
         )
         cls.user_creator2 = gen_user(
-            [
-                "container.add_containernamespace",
-                "container.add_containerdistribution",
+            model_roles=[
+                "container.containernamespace_creator",
+                "container.containerremote_creator",
             ]
         )
         cls.user_reader = gen_user(
-            [
-                "container.view_containerrepository",
-                "container.view_containerpushrepository",
+            model_roles=[
+                "container.containerrepository_viewer",
+                "container.containerdistribution_consumer",
             ]
         )
-        cls.user_reader2 = gen_user(["container.view_containerrepository"])
-        cls.user_reader3 = gen_user(["container.view_containerpushrepository"])
+        cls.user_reader2 = gen_user(model_roles=["container.containerrepository_viewer"])
+        cls.user_reader3 = gen_user(model_roles=["container.containerdistribution_consumer"])
         cls.user_helpless = gen_user([])
 
         # create a push repo with user_creator

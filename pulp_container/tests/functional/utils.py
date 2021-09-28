@@ -28,7 +28,8 @@ from pulpcore.client.pulpcore import (
     ArtifactsApi,
     GroupsApi,
     GroupsUsersApi,
-    TasksApi,
+    UsersApi,
+    UsersRolesApi,
 )
 from pulpcore.client.pulp_container import (
     ApiClient as ContainerApiClient,
@@ -38,6 +39,7 @@ from pulpcore.client.pulp_container import (
     ContentTagsApi,
     RemotesContainerApi,
     DistributionsContainerApi,
+    PulpContainerNamespacesApi,
     RepositoriesContainerApi,
     RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
@@ -47,36 +49,15 @@ cfg = config.get_config()
 cli_client = cli.Client(cfg)
 configuration = cfg.get_bindings_config()
 
+core_client = CoreApiClient(configuration)
+users_api = UsersApi(core_client)
+users_roles_api = UsersRolesApi(core_client)
+
 
 TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
 
 
-CREATE_USER_CMD = [
-    "from django.contrib.auth import get_user_model",
-    "from django.urls import resolve",
-    "from guardian.shortcuts import assign_perm",
-    "",
-    "user = get_user_model().objects.create(username='{username}')",
-    "user.set_password('{password}')",
-    "user.save()",
-    "",
-    "for permission in {model_permissions!r}:",
-    "    assign_perm(permission, user)",
-    "",
-    "for permission, obj_url in {object_permissions!r}:",
-    "    func, _, kwargs = resolve(obj_url)",
-    "    obj = func.cls.queryset.get(pk=kwargs['pk'])",
-    "    assign_perm(permission, user, obj)",
-]
-
-
-DELETE_USER_CMD = [
-    "from django.contrib.auth import get_user_model",
-    "get_user_model().objects.get(username='{username}').delete()",
-]
-
-
-def gen_user(model_permissions=None, object_permissions=None):
+def gen_user(model_permissions=None, object_permissions=None, model_roles=None, object_roles=None):
     """Create a user with a set of permissions in the pulp database."""
     if model_permissions is None:
         model_permissions = []
@@ -84,16 +65,23 @@ def gen_user(model_permissions=None, object_permissions=None):
     if object_permissions is None:
         object_permissions = []
 
+    if model_roles is None:
+        model_roles = []
+
+    if object_roles is None:
+        object_roles = []
+
     user = {
         "username": utils.uuid4(),
         "password": utils.uuid4(),
-        "model_permissions": model_permissions,
-        "object_permissions": object_permissions,
     }
-    utils.execute_pulpcore_python(
-        cli_client,
-        "\n".join(CREATE_USER_CMD).format(**user),
-    )
+    new_user = users_api.create(user)
+    user["pulp_href"] = new_user.pulp_href
+
+    for role in model_roles:
+        assign_role_to_user(user, role)
+    for role, content_object in object_roles:
+        assign_role_to_user(user, role, content_object)
 
     api_config = cfg.get_bindings_config()
     api_config.username = user["username"]
@@ -101,23 +89,28 @@ def gen_user(model_permissions=None, object_permissions=None):
     user["core_api_client"] = CoreApiClient(api_config)
     user["groups_api"] = GroupsApi(user["core_api_client"])
     user["group_users_api"] = GroupsUsersApi(user["core_api_client"])
-    user["api_client"] = ContainerApiClient(api_config)
-    user["distribution_api"] = DistributionsContainerApi(user["api_client"])
-    user["remote_api"] = RemotesContainerApi(user["api_client"])
-    user["repository_api"] = RepositoriesContainerApi(user["api_client"])
-    user["pushrepository_api"] = RepositoriesContainerPushApi(user["api_client"])
-    user["repo_version_api"] = RepositoriesContainerVersionsApi(user["api_client"])
-    user["tags_api"] = ContentTagsApi(user["api_client"])
-    user["manifests_api"] = ContentManifestsApi(user["api_client"])
-    user["blobs_api"] = ContentBlobsApi(user["api_client"])
+    user["container_api_client"] = ContainerApiClient(api_config)
+    user["namespace_api"] = PulpContainerNamespacesApi(user["container_api_client"])
+    user["distribution_api"] = DistributionsContainerApi(user["container_api_client"])
+    user["remote_api"] = RemotesContainerApi(user["container_api_client"])
+    user["repository_api"] = RepositoriesContainerApi(user["container_api_client"])
+    user["pushrepository_api"] = RepositoriesContainerPushApi(user["container_api_client"])
+    user["repo_version_api"] = RepositoriesContainerVersionsApi(user["container_api_client"])
+    user["tags_api"] = ContentTagsApi(user["container_api_client"])
+    user["manifests_api"] = ContentManifestsApi(user["container_api_client"])
+    user["blobs_api"] = ContentBlobsApi(user["container_api_client"])
     return user
 
 
 def del_user(user):
     """Delete a user from the pulp database."""
-    utils.execute_pulpcore_python(
-        cli_client,
-        "\n".join(DELETE_USER_CMD).format(**user),
+    users_api.delete(user["pulp_href"])
+
+
+def assign_role_to_user(user, role, content_object=None):
+    """Assign a role to a user with an optional object."""
+    users_roles_api.create(
+        auth_user_href=user["pulp_href"], user_role={"role": role, "content_object": content_object}
     )
 
 
@@ -266,9 +259,6 @@ skip_if = partial(selectors.skip_if, exc=SkipTest)
 :func:`pulp_smash.selectors.skip_if` is test runner agnostic. This function is
 identical, except that ``exc`` has been set to ``unittest.SkipTest``.
 """
-
-core_client = CoreApiClient(configuration)
-tasks = TasksApi(core_client)
 
 
 def gen_artifact(url=CONTAINER_IMAGE_URL):

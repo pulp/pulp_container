@@ -20,8 +20,8 @@ class RBACSyncRepositoriesTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Create class-wide variables and prepare api users."""
-        cls.user1 = gen_user(["container.add_containerrepository"])
-        cls.user2 = gen_user(["container.view_containerrepository"])
+        cls.user1 = gen_user(model_roles=["container.containerrepository_creator"])
+        cls.user2 = gen_user(model_roles=["container.containerrepository_viewer"])
         cls.user3 = gen_user([])
         cls.repository = None
 

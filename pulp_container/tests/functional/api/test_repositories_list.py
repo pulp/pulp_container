@@ -152,15 +152,15 @@ class RepositoriesListWithPermissionsTestCase(RepositoriesList, unittest.TestCas
 
         cls.user_none = gen_user()
         cls.user_all = gen_user(
-            [
-                "container.pull_containerdistribution",
-                "container.namespace_pull_containerdistribution",
-            ],
+            model_roles=[
+                "container.containerdistribution_consumer",
+                "container.containernamespace_consumer",
+            ]
         )
         cls.user_only_dist1 = gen_user(
-            object_permissions=[
-                ("container.pull_containerdistribution", cls.distribution1.pulp_href),
-                ("container.namespace_pull_containerdistribution", cls.namespace1.pulp_href),
+            object_roles=[
+                ("container.containerdistribution_consumer", cls.distribution1.pulp_href),
+                ("container.containernamespace_consumer", cls.namespace1.pulp_href),
             ]
         )
 
