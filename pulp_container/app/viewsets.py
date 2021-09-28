@@ -16,7 +16,6 @@ from django.http import Http404
 
 from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
-from guardian.shortcuts import get_objects_for_user
 
 from rest_framework import mixins
 from rest_framework.decorators import action
@@ -26,6 +25,7 @@ from pulpcore.plugin.models import RepositoryVersion
 from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
 from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import dispatch, general_multi_delete
+from pulpcore.plugin.util import get_objects_for_user
 from pulpcore.plugin.viewsets import (
     AsyncUpdateMixin,
     DistributionViewSet,
@@ -40,6 +40,7 @@ from pulpcore.plugin.viewsets import (
     RemoteViewSet,
     RepositoryViewSet,
     RepositoryVersionViewSet,
+    RolesMixin,
     OperationPostponedResponse,
 )
 
@@ -138,7 +139,7 @@ class ContainerNamespaceFilter(BaseFilterSet):
 
 Repo = namedtuple("Repo", "push_perm, mirror_perm, push_type, mirror_type")
 repo_info = Repo(
-    "container.view_containerpushrepository",
+    "container.view_containerdistribution",
     "container.view_containerrepository",
     "container.container-push",
     "container.container",
@@ -150,7 +151,7 @@ class ContainerContentQuerySetMixin:
     A mixin that provides container content models with querying utilities.
     """
 
-    def _repo_query_params(self, request, view, repo_info):
+    def _repo_query_params(self, request, view):
         """
         Checks if the requests' query_params contain repository_version.
 
@@ -161,7 +162,6 @@ class ContainerContentQuerySetMixin:
             view (subclass rest_framework.viewsets.GenericViewSet): The view being checked for
                 authorization.
             action (str): The action being performed, e.g. "destroy".
-            repo_info (tuple): Tuple that contains repo type and  Permissions to
                 be checked.
 
         Returns:
@@ -171,11 +171,15 @@ class ContainerContentQuerySetMixin:
         repo_pks = []
         for key, param in request.query_params.items():
             if "repository_version" in key:
-                rv = view.get_resource(param, RepositoryVersion)
+                rv = NamedModelViewSet.get_resource(param, RepositoryVersion)
                 repo = rv.repository.cast()
                 if repo.pulp_type == repo_info.push_type:
-                    if request.user.has_perm(repo_info.push_perm) or request.user.has_perm(
-                        repo_info.push_perm, repo
+                    if request.user.has_perm(repo_info.push_perm) or any(
+                        request.user.has_perm(repo_info.push_perm, dist.cast())
+                        or request.user.has_perm(
+                            "container.namespace_view_containerdistribution", dist.cast().namespace
+                        )
+                        for dist in repo.distributions.all()
                     ):
                         repo_pks.append(repo.pk)
                 elif repo.pulp_type == repo_info.mirror_type:
@@ -204,18 +208,20 @@ class ContainerContentQuerySetMixin:
             return qs
         query_params = self.request.query_params
         if query_params and "repository_version" in query_params:
-            repo_pks = self._repo_query_params(self.request, self, repo_info)
+            repo_pks = self._repo_query_params(self.request, self)
             content_qs = qs.model.objects.filter(repositories__in=repo_pks)
         else:
-            allowed_push_repos = get_objects_for_user(
-                self.request.user,
-                repo_info.push_perm,
-                klass=models.ContainerPushRepository,
+            allowed_push_repos = models.ContainerPushRepository.objects.filter(
+                distributions__in=get_objects_for_user(
+                    self.request.user,
+                    repo_info.push_perm,
+                    models.ContainerDistribution.objects.all(),
+                )
             ).only("pk")
             allowed_mirror_repos = get_objects_for_user(
                 self.request.user,
                 repo_info.mirror_perm,
-                klass=models.ContainerRepository,
+                models.ContainerRepository.objects.all(),
             ).only("pk")
             content_qs = qs.model.objects.filter(
                 Q(repositories__in=allowed_push_repos) | Q(repositories__in=allowed_mirror_repos)
@@ -328,7 +334,7 @@ class ManifestSignatureViewSet(ContainerContentQuerySetMixin, ReadOnlyContentVie
     }
 
 
-class ContainerRemoteViewSet(RemoteViewSet):
+class ContainerRemoteViewSet(RemoteViewSet, RolesMixin):
     """
     Container remotes represent an external repository that implements the Container
     Registry API. Container remotes support deferred downloading by configuring
@@ -344,7 +350,7 @@ class ContainerRemoteViewSet(RemoteViewSet):
     DEFAULT_ACCESS_POLICY = {
         "statements": [
             {
-                "action": ["list"],
+                "action": ["list", "my_permissions"],
                 "principal": "authenticated",
                 "effect": "allow",
             },
@@ -378,17 +384,32 @@ class ContainerRemoteViewSet(RemoteViewSet):
                     "has_model_or_obj_perms:container.view_containerremote",
                 ],
             },
-        ],
-        "permissions_assignment": [
             {
-                "function": "add_for_object_creator",
-                "parameters": None,
-                "permissions": [
-                    "container.view_containerremote",
-                    "container.change_containerremote",
-                    "container.delete_containerremote",
-                ],
+                "action": ["list_roles", "add_role", "remove_role"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": ["has_model_or_obj_perms:container.manage_roles_containerremote"],
             },
+        ],
+        "creation_hooks": [
+            {
+                "function": "add_roles_for_object_creator",
+                "parameters": {"roles": "container.containerremote_owner"},
+            },
+        ],
+    }
+    LOCKED_ROLES = {
+        "container.containerremote_creator": [
+            "container.add_containerremote",
+        ],
+        "container.containerremote_owner": [
+            "container.view_containerremote",
+            "container.change_containerremote",
+            "container.delete_containerremote",
+            "container.manage_roles_containerremote",
+        ],
+        "container.containerremote_viewer": [
+            "container.view_containerremote",
         ],
     }
 
@@ -534,7 +555,9 @@ class RepositoryVersionQuerySetMixin:
         return qs
 
 
-class ContainerRepositoryViewSet(TagOperationsMixin, SignOperationsMixin, RepositoryViewSet):
+class ContainerRepositoryViewSet(
+    TagOperationsMixin, SignOperationsMixin, RepositoryViewSet, RolesMixin
+):
     """
     ViewSet for container repo.
     """
@@ -546,7 +569,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, SignOperationsMixin, Reposi
     DEFAULT_ACCESS_POLICY = {
         "statements": [
             {
-                "action": ["list"],
+                "action": ["list", "my_permissions"],
                 "principal": "authenticated",
                 "effect": "allow",
             },
@@ -608,21 +631,41 @@ class ContainerRepositoryViewSet(TagOperationsMixin, SignOperationsMixin, Reposi
                     "has_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
-        ],
-        "permissions_assignment": [
             {
-                "function": "add_for_object_creator",
-                "parameters": None,
-                "permissions": [
-                    "container.view_containerrepository",
-                    "container.change_containerrepository",
-                    "container.delete_containerrepository",
-                    "container.delete_containerrepository_versions",
-                    "container.sync_containerrepository",
-                    "container.modify_content_containerrepository",
-                    "container.build_image_containerrepository",
-                ],
+                "action": ["list_roles", "add_role", "remove_role"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": ["has_model_or_obj_perms:container.manage_roles_containerrepository"],
             },
+        ],
+        "creation_hooks": [
+            {
+                "function": "add_roles_for_object_creator",
+                "parameters": {"roles": "container.containerrepository_owner"},
+            },
+        ],
+    }
+    LOCKED_ROLES = {
+        "container.containerrepository_creator": ["container.add_containerrepository"],
+        "container.containerrepository_owner": [
+            "container.view_containerrepository",
+            "container.change_containerrepository",
+            "container.delete_containerrepository",
+            "container.delete_containerrepository_versions",
+            "container.sync_containerrepository",
+            "container.modify_content_containerrepository",
+            "container.build_image_containerrepository",
+            "container.manage_roles_containerrepository",
+        ],
+        "container.containerrepository_content_manager": [
+            "container.view_containerrepository",
+            "container.delete_containerrepository_versions",
+            "container.sync_containerrepository",
+            "container.modify_content_containerrepository",
+            "container.build_image_containerrepository",
+        ],
+        "container.containerrepository_viewer": [
+            "container.view_containerrepository",
         ],
     }
 
@@ -866,34 +909,28 @@ class ContainerRepositoryViewSet(TagOperationsMixin, SignOperationsMixin, Reposi
         return OperationPostponedResponse(result, request)
 
 
-class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, RepositoryVersionViewSet):
+class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
     """
     ContainerRepositoryVersion represents a single container repository version.
     """
 
     parent_viewset = ContainerRepositoryViewSet
-    queryset_filtering_required_repo_permission = "container.view_containerrepository"
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
             {
-                "action": ["list"],
+                "action": ["list", "retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-            },
-            {
-                "action": ["retrieve"],
-                "principal": "authenticated",
-                "effect": "allow",
-                "condition": "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                "condition": "has_repository_model_or_obj_perms:container.view_containerrepository",
             },
             {
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_repo_attr_model_or_obj_perms:container.delete_containerrepository_versions",  # noqa
-                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                    "has_repository_model_or_obj_perms:container.delete_containerrepository_versions",  # noqa
+                    "has_repository_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -901,8 +938,8 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, Reposito
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_repo_attr_model_or_obj_perms:container.delete_containerrepository",
-                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                    "has_repository_model_or_obj_perms:container.delete_containerrepository",
+                    "has_repository_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -910,16 +947,18 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, Reposito
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_repo_attr_model_or_obj_perms:container.sync_containerrepository",
-                    "has_repo_attr_model_or_obj_perms:container.view_containerrepository",
+                    "has_repository_model_or_obj_perms:container.sync_containerrepository",
+                    "has_repository_model_or_obj_perms:container.view_containerrepository",
                 ],
             },
         ],
     }
 
 
+# Note Push Repositories roles management is deferred to its distributions by default. The
+# ``RolesMixin`` is still inherited to allow a custom acces policy to decide differently.
 class ContainerPushRepositoryViewSet(
-    TagOperationsMixin, SignOperationsMixin, ReadOnlyRepositoryViewSet, AsyncUpdateMixin
+    TagOperationsMixin, SignOperationsMixin, ReadOnlyRepositoryViewSet, AsyncUpdateMixin, RolesMixin
 ):
     """
     ViewSet for a container push repository.
@@ -932,7 +971,7 @@ class ContainerPushRepositoryViewSet(
     endpoint_name = "container-push"
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
-    permission_classes = (access_policy.NamespacedAccessPolicyFromDB,)
+    permission_classes = (access_policy.PushRepositoryAccessPolicy,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -945,64 +984,32 @@ class ContainerPushRepositoryViewSet(
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_namespace_or_obj_perms:container.view_containerpushrepository",
+                "condition_expression": [
+                    "has_namespace_obj_perms:container.namespace_view_containerpush_repository or "
+                    "has_distribution_perms:container.view_containerdistribution",
+                ],
             },
             {
                 "action": ["tag", "untag", "remove_image", "sign", "remove_signatures"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": [
-                    "has_namespace_or_obj_perms:container.modify_content_containerpushrepository",
-                    "has_namespace_or_obj_perms:container.view_containerpushrepository",
+                "condition_expression": [
+                    "has_namespace_obj_perms:container.namespace_modify_content_containerpushrepository or "  # noqa
+                    "has_distribution_perms:container.modify_content_containerpushrepository",
                 ],
             },
             {
                 "action": ["update", "partial_update"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": [
-                    "has_namespace_or_obj_perms:container.change_containerpushrepository",
-                    "has_namespace_or_obj_perms:container.view_containerpushrepository",
-                ],
-            },
-        ],
-        "permissions_assignment": [
-            {
-                "function": "add_perms_to_distribution_group",
-                "parameters": {
-                    "group_type": "owners",
-                    "add_user_to_group": True,
-                },
-                "permissions": [
-                    "container.view_containerpushrepository",
-                    "container.modify_content_containerpushrepository",
-                    "container.change_containerpushrepository",
-                ],
-            },
-            {
-                "function": "add_perms_to_distribution_group",
-                "parameters": {
-                    "group_type": "collaborators",
-                    "add_user_to_group": False,
-                },
-                "permissions": [
-                    "container.view_containerpushrepository",
-                    "container.modify_content_containerpushrepository",
-                    "container.change_containerpushrepository",
-                ],
-            },
-            {
-                "function": "add_perms_to_distribution_group",
-                "parameters": {
-                    "group_type": "consumers",
-                    "add_user_to_group": False,
-                },
-                "permissions": [
-                    "container.view_containerpushrepository",
+                "condition_expression": [
+                    "has_namespace_obj_perms:container.namespace_change_containerpushrepository or "
+                    "has_distribution_perms:container.change_containerdistribution",
                 ],
             },
         ],
     }
+    LOCKED_ROLES = {}
 
     @extend_schema(
         description=(
@@ -1072,12 +1079,18 @@ class ContainerPushRepositoryViewSet(
         """
 
         qs = models.ContainerPushRepository.objects.all()
-        namespaces = get_objects_for_user(self.request.user, "container.view_containernamespace")
+        namespaces = get_objects_for_user(
+            self.request.user,
+            "container.view_containernamespace",
+            models.ContainerNamespace.objects.all(),
+        )
         ns_repository_pks = models.ContainerDistribution.objects.filter(
             namespace__in=namespaces
         ).values_list("repository")
         dist_repository_pks = get_objects_for_user(
-            self.request.user, "container.view_containerdistribution"
+            self.request.user,
+            "container.view_containerdistribution",
+            models.ContainerDistribution.objects.all(),
         ).values_list("repository")
         public_repository_pks = models.ContainerDistribution.objects.filter(
             private=False
@@ -1090,7 +1103,6 @@ class ContainerPushRepositoryViewSet(
 
 
 class ContainerPushRepositoryVersionViewSet(
-    RepositoryVersionQuerySetMixin,
     RepositoryVersionViewSet,
 ):
     """
@@ -1103,26 +1115,22 @@ class ContainerPushRepositoryVersionViewSet(
     """
 
     parent_viewset = ContainerPushRepositoryViewSet
-    queryset_filtering_required_repo_permission = "container.view_containerpushrepository"
+    permission_classes = (access_policy.PushRepositoryVersionAccessPolicy,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
             {
-                "action": ["list"],
+                "action": ["list", "retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-            },
-            {
-                "action": ["retrieve"],
-                "principal": "authenticated",
-                "effect": "allow",
-                "condition": "has_repo_attr_model_or_obj_perms:container.view_containerpushrepository",  # noqa
+                "condition_expression": "has_namespace_obj_perms:container.namespace_view_containerdistribution or "  # noqa
+                "has_distribution_perms:container.view_containerdistribution",
             },
         ],
     }
 
 
-class ContainerDistributionViewSet(DistributionViewSet):
+class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
     """
     The Container Distribution will serve the latest version of a Repository if
     ``repository`` is specified. The Container Distribution will serve a specific
@@ -1140,7 +1148,7 @@ class ContainerDistributionViewSet(DistributionViewSet):
     DEFAULT_ACCESS_POLICY = {
         "statements": [
             {
-                "action": ["list"],
+                "action": ["list", "my_permissions"],
                 "principal": "authenticated",
                 "effect": "allow",
             },
@@ -1171,8 +1179,9 @@ class ContainerDistributionViewSet(DistributionViewSet):
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": [
-                    "has_namespace_or_obj_perms:container.view_containerdistribution",
+                "condition_expression": [
+                    "not is_private"
+                    " or has_namespace_or_obj_perms:container.view_containerdistribution",
                 ],
             },
             {
@@ -1227,76 +1236,42 @@ class ContainerDistributionViewSet(DistributionViewSet):
                     "has_namespace_or_obj_perms:container.view_containerdistribution",
                 ],
             },
+            {
+                "action": ["list_roles", "add_role", "remove_role"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.manage_roles_containerdistribution"
+                ],
+            },
         ],
-        "permissions_assignment": [
+        "creation_hooks": [
             {
-                "function": "create_distribution_group",
+                "function": "add_roles_for_object_creator",
                 "parameters": {
-                    "group_type": "owners",
-                    "add_user_to_group": True,
+                    "roles": "container.containerdistribution_owner",
                 },
-                "permissions": [
-                    "container.view_containerdistribution",
-                    "container.pull_containerdistribution",
-                    "container.push_containerdistribution",
-                    "container.delete_containerdistribution",
-                    "container.change_containerdistribution",
-                ],
             },
-            {
-                "function": "add_push_repository_perms_to_distribution_group",
-                "parameters": {
-                    "group_type": "owners",
-                },
-                "permissions": [
-                    "container.view_containerpushrepository",
-                    "container.modify_content_containerpushrepository",
-                    "container.change_containerpushrepository",
-                ],
-            },
-            {
-                "function": "create_distribution_group",
-                "parameters": {
-                    "group_type": "collaborators",
-                    "add_user_to_group": False,
-                },
-                "permissions": [
-                    "container.view_containerdistribution",
-                    "container.pull_containerdistribution",
-                    "container.push_containerdistribution",
-                ],
-            },
-            {
-                "function": "add_push_repository_perms_to_distribution_group",
-                "parameters": {
-                    "group_type": "collaborators",
-                },
-                "permissions": [
-                    "container.view_containerpushrepository",
-                    "container.modify_content_containerpushrepository",
-                    "container.change_containerpushrepository",
-                ],
-            },
-            {
-                "function": "create_distribution_group",
-                "parameters": {
-                    "group_type": "consumers",
-                    "add_user_to_group": False,
-                },
-                "permissions": [
-                    "container.view_containerdistribution",
-                    "container.pull_containerdistribution",
-                ],
-            },
-            {
-                "function": "add_push_repository_perms_to_distribution_group",
-                "parameters": {
-                    "group_type": "consumers",
-                },
-                "permissions": [
-                    "container.view_containerpushrepository",
-                ],
-            },
+        ],
+    }
+    LOCKED_ROLES = {
+        "container.containerdistribution_creator": ["container.add_containerdistribution"],
+        "container.containerdistribution_owner": [
+            "container.view_containerdistribution",
+            "container.pull_containerdistribution",
+            "container.push_containerdistribution",
+            "container.delete_containerdistribution",
+            "container.change_containerdistribution",
+            "container.manage_roles_containerdistribution",
+        ],
+        "container.containerdistribution_collaborator": [
+            "container.view_containerdistribution",
+            "container.pull_containerdistribution",
+            "container.push_containerdistribution",
+        ],
+        "container.containerdistribution_consumer": [
+            "container.view_containerdistribution",
+            "container.pull_containerdistribution",
         ],
     }
 
@@ -1307,11 +1282,19 @@ class ContainerDistributionViewSet(DistributionViewSet):
 
         public_qs = models.ContainerDistribution.objects.filter(private=False)
         obj_perm_qs = get_objects_for_user(
-            self.request.user, "container.view_containerdistribution"
+            self.request.user,
+            "container.view_containerdistribution",
+            models.ContainerDistribution.objects.all(),
         )
-        namespaces = get_objects_for_user(self.request.user, "container.view_containernamespace")
+        namespaces = get_objects_for_user(
+            self.request.user,
+            "container.view_containernamespace",
+            models.ContainerNamespace.objects.all(),
+        )
         namespaces |= get_objects_for_user(
-            self.request.user, "container.namespace_view_containerdistribution"
+            self.request.user,
+            "container.namespace_view_containerdistribution",
+            models.ContainerNamespace.objects.all(),
         )
         ns_qs = models.ContainerDistribution.objects.filter(namespace__in=namespaces)
         return public_qs | obj_perm_qs | ns_qs
@@ -1347,6 +1330,7 @@ class ContainerNamespaceViewSet(
     mixins.DestroyModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    RolesMixin,
 ):
     """
     ViewSet for ContainerNamespaces.
@@ -1379,7 +1363,7 @@ class ContainerNamespaceViewSet(
                 "condition": "namespace_is_username",
             },
             {
-                "action": ["retrieve"],
+                "action": ["retrieve", "my_permissions"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": "has_model_or_obj_perms:container.view_containernamespace",
@@ -1405,60 +1389,58 @@ class ContainerNamespaceViewSet(
                 "effect": "allow",
                 "condition": "has_model_or_obj_perms:container.namespace_view_containerdistribution",  # noqa: E501
             },
+            {
+                "action": ["list_roles", "add_role", "remove_role"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.manage_roles_containernamespace",
+            },
         ],
-        "permissions_assignment": [
+        "creation_hooks": [
             {
-                "function": "create_namespace_group",
+                "function": "add_roles_for_object_creator",
                 "parameters": {
-                    "group_type": "owners",
-                    "add_user_to_group": True,
+                    "roles": "container.containernamespace_owner",
                 },
-                "permissions": [
-                    "container.view_containernamespace",
-                    "container.delete_containernamespace",
-                    "container.namespace_add_containerdistribution",
-                    "container.namespace_delete_containerdistribution",
-                    "container.namespace_view_containerdistribution",
-                    "container.namespace_pull_containerdistribution",
-                    "container.namespace_push_containerdistribution",
-                    "container.namespace_change_containerdistribution",
-                    "container.namespace_view_containerpushrepository",
-                    "container.namespace_modify_content_containerpushrepository",
-                    "container.namespace_change_containerpushrepository",
-                ],
-            },
-            {
-                "function": "create_namespace_group",
-                "parameters": {
-                    "group_type": "collaborators",
-                    "add_user_to_group": False,
-                },
-                "permissions": [
-                    "container.view_containernamespace",
-                    "container.namespace_add_containerdistribution",
-                    "container.namespace_delete_containerdistribution",
-                    "container.namespace_view_containerdistribution",
-                    "container.namespace_pull_containerdistribution",
-                    "container.namespace_push_containerdistribution",
-                    "container.namespace_change_containerdistribution",
-                    "container.namespace_view_containerpushrepository",
-                    "container.namespace_modify_content_containerpushrepository",
-                    "container.namespace_change_containerpushrepository",
-                ],
-            },
-            {
-                "function": "create_namespace_group",
-                "parameters": {
-                    "group_type": "consumers",
-                    "add_user_to_group": False,
-                },
-                "permissions": [
-                    "container.view_containernamespace",
-                    "container.namespace_view_containerdistribution",
-                    "container.namespace_pull_containerdistribution",
-                    "container.namespace_view_containerpushrepository",
-                ],
-            },
+            }
+        ],
+    }
+
+    LOCKED_ROLES = {
+        "container.containernamespace_creator": [
+            "container.add_containernamespace",
+        ],
+        "container.containernamespace_owner": [
+            "container.view_containernamespace",
+            "container.delete_containernamespace",
+            "container.namespace_add_containerdistribution",
+            "container.namespace_delete_containerdistribution",
+            "container.namespace_view_containerdistribution",
+            "container.namespace_pull_containerdistribution",
+            "container.namespace_push_containerdistribution",
+            "container.namespace_change_containerdistribution",
+            "container.namespace_view_containerpushrepository",
+            "container.namespace_modify_content_containerpushrepository",
+            "container.namespace_change_containerpushrepository",
+            "container.manage_roles_containernamespace",
+        ],
+        "container.containernamespace_collaborator": [
+            "container.view_containernamespace",
+            "container.namespace_add_containerdistribution",
+            "container.namespace_delete_containerdistribution",
+            "container.namespace_view_containerdistribution",
+            "container.namespace_pull_containerdistribution",
+            "container.namespace_push_containerdistribution",
+            "container.namespace_change_containerdistribution",
+            "container.namespace_view_containerpushrepository",
+            "container.namespace_modify_content_containerpushrepository",
+            "container.namespace_change_containerpushrepository",
+        ],
+        "container.containernamespace_consumer": [
+            "container.view_containernamespace",
+            "container.namespace_view_containerdistribution",
+            "container.namespace_pull_containerdistribution",
+            "container.namespace_view_containerpushrepository",
         ],
     }
 

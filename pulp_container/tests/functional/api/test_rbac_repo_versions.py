@@ -33,7 +33,7 @@ from pulpcore.client.pulp_container import (
 from .test_tagging_images import TaggingTestCommons
 
 
-class RepoVersionTestCase(unittest.TestCase, TaggingTestCommons):
+class SyncRepoVersionTestCase(unittest.TestCase, TaggingTestCommons):
     """Verify RBAC for repo versions of a ContainerRepository."""
 
     @classmethod
@@ -52,25 +52,24 @@ class RepoVersionTestCase(unittest.TestCase, TaggingTestCommons):
         admin_user, admin_password = cfg.pulp_auth
         cls.user_admin = {"username": admin_user, "password": admin_password}
         cls.user_creator = gen_user(
-            [
-                "container.add_containerrepository",
-                "container.add_containerremote",
+            model_roles=[
+                "container.containerrepository_creator",
+                "container.containerremote_creator",
             ]
         )
         cls.user_repov_remover = gen_user(
-            [
-                "container.delete_containerrepository_versions",
-                "container.view_containerrepository",
+            model_roles=[
+                "container.containerrepository_content_manager",
             ]
         )
+        # TODO: Not sure what is the right role for this user...
         cls.user_repo_remover = gen_user(
-            [
-                "container.delete_containerrepository",
-                "container.view_containerrepository",
+            model_roles=[
+                "container.containerrepository_owner",
             ]
         )
-        cls.user_reader = gen_user(["container.view_containerrepository"])
-        cls.user_helpless = gen_user([])
+        cls.user_reader = gen_user(model_roles=["container.containerrepository_viewer"])
+        cls.user_helpless = gen_user()
 
         # sync a repo
         cls.repository = cls.user_creator["repository_api"].create(
@@ -174,12 +173,11 @@ class PushRepoVersionTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         admin_user, admin_password = cfg.pulp_auth
         cls.user_admin = {"username": admin_user, "password": admin_password}
         cls.user_creator = gen_user(
-            [
-                "container.add_containerdistribution",
-                "container.add_containernamespace",
+            model_roles=[
+                "container.containernamespace_creator",
             ]
         )
-        cls.user_reader = gen_user(["container.view_containerpushrepository"])
+        cls.user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
         cls.user_helpless = gen_user([])
 
         # create a push repo

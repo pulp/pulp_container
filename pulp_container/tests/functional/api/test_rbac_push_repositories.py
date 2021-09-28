@@ -41,12 +41,12 @@ class PushRepositoryTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.registry_name = urlparse(cfg.get_base_url()).netloc
 
         cls.user_creator = gen_user(
-            [
-                "container.add_containerdistribution",
-                "container.add_containernamespace",
+            model_roles=[
+                "container.containerdistribution_creator",
+                "container.containernamespace_creator",
             ]
         )
-        cls.user_reader = gen_user(["container.view_containerpushrepository"])
+        cls.user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
         cls.user_helpless = gen_user([])
 
         # create a push repo

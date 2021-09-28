@@ -13,8 +13,6 @@ from pulp_smash.pulp3.bindings import (
 from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import (
-    add_user_to_distribution_group,
-    add_user_to_namespace_group,
     del_user,
     gen_container_client,
     gen_user,
@@ -41,14 +39,12 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         admin_user, admin_password = cfg.pulp_auth
         cls.user_admin = {"username": admin_user, "password": admin_password}
-        cls.user_creator = gen_user(
-            ["container.add_containernamespace", "container.add_containerdistribution"]
-        )
-        cls.user_dist_collaborator = gen_user([])
-        cls.user_dist_consumer = gen_user([])
-        cls.user_namespace_collaborator = gen_user([])
-        cls.user_reader = gen_user([])
-        cls.user_helpless = gen_user([])
+        cls.user_creator = gen_user(model_roles=["container.containernamespace_creator"])
+        cls.user_dist_collaborator = gen_user()
+        cls.user_dist_consumer = gen_user()
+        cls.user_namespace_collaborator = gen_user()
+        cls.user_reader = gen_user()
+        cls.user_helpless = gen_user()
 
         # View push repositories, distributions, and namespaces using user_creator.
         api_client = gen_container_client()
@@ -107,26 +103,27 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self._push(image_path, local_url, self.user_creator)
 
         distributions = self.user_creator["distribution_api"].list(name="test/perms")
-        add_user_to_distribution_group(
-            self.user_dist_collaborator,
-            distributions.results[0],
-            "collaborators",
-            self.user_creator,
+        distribution = distributions.results[0]
+        self.user_creator["distribution_api"].add_role(
+            distribution.pulp_href,
+            {
+                "role": "container.containerdistribution_collaborator",
+                "users": [self.user_dist_collaborator["username"]],
+            },
         )
-
-        distributions = self.user_creator["distribution_api"].list(name="test/perms")
-        add_user_to_distribution_group(
-            self.user_dist_consumer,
-            distributions.results[0],
-            "consumers",
-            self.user_creator,
+        self.user_creator["distribution_api"].add_role(
+            distribution.pulp_href,
+            {
+                "role": "container.containerdistribution_consumer",
+                "users": [self.user_dist_consumer["username"]],
+            },
         )
-
-        add_user_to_namespace_group(
-            self.user_namespace_collaborator,
-            "test",
-            "collaborators",
-            self.user_creator,
+        self.user_creator["namespace_api"].add_role(
+            distribution.namespace,
+            {
+                "role": "container.containernamespace_collaborator",
+                "users": [self.user_namespace_collaborator["username"]],
+            },
         )
 
         self.assertEqual(self.pushrepository_api.list(name=repo_name).count, 1)
@@ -193,11 +190,13 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         # Add user_dist_collaborator to the collaborator group
         distributions = self.user_creator["distribution_api"].list(name="team/owner")
-        add_user_to_distribution_group(
-            self.user_dist_collaborator,
-            distributions.results[0],
-            "collaborators",
-            self.user_creator,
+        distribution = distributions.results[0]
+        self.user_creator["distribution_api"].add_role(
+            distribution.pulp_href,
+            {
+                "role": "container.containerdistribution_collaborator",
+                "users": [self.user_dist_collaborator["username"]],
+            },
         )
 
         collab_repo_name = "team/owner"
@@ -211,8 +210,12 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         with self.assertRaises(exceptions.CalledProcessError):
             self._push(image_path, local_url, self.user_dist_collaborator)
 
-        add_user_to_namespace_group(
-            self.user_namespace_collaborator, "team", "collaborators", self.user_creator
+        self.user_creator["namespace_api"].add_role(
+            distribution.namespace,
+            {
+                "role": "container.containernamespace_collaborator",
+                "users": [self.user_namespace_collaborator["username"]],
+            },
         )
 
         collab_repo_name = "team/collab"
@@ -251,8 +254,12 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         self._pull(local_url, self.user_creator)
 
-        add_user_to_distribution_group(
-            self.user_dist_consumer, distribution, "consumers", self.user_creator
+        self.user_creator["distribution_api"].add_role(
+            distribution.pulp_href,
+            {
+                "role": "container.containerdistribution_consumer",
+                "users": [self.user_dist_consumer["username"]],
+            },
         )
 
         self._pull(local_url, self.user_dist_consumer)

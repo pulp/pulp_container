@@ -313,6 +313,10 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
                 "namespace_change_containerpushrepository",
                 "Update any existing push repository in a namespace",
             ),
+            (
+                "manage_roles_containernamespace",
+                "Can manage role assignments on container namespace",
+            ),
         ]
 
 
@@ -454,6 +458,12 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
+        permissions = [
+            (
+                "manage_roles_containerremote",
+                "Can manage role assignments on container remote",
+            ),
+        ]
 
 
 class ManifestSigningService(SigningService):
@@ -554,6 +564,10 @@ class ContainerRepository(
             ("modify_content_containerrepository", "Can modify content in a repository"),
             ("build_image_containerrepository", "Can use the image builder in a repository"),
             ("delete_containerrepository_versions", "Can delete repository versions"),
+            (
+                "manage_roles_containerrepository",
+                "Can manage role assignments on container repository",
+            ),
         ]
 
     def finalize_new_version(self, new_version):
@@ -622,6 +636,10 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
         default_related_name = "%(app_label)s_%(model_name)s"
         permissions = [
             ("modify_content_containerpushrepository", "Can modify content in a push repository"),
+            (
+                "manage_roles_containerpushrepository",
+                "Can manage role assignments on container pushrepository",
+            ),
         ]
 
     def finalize_new_version(self, new_version):
@@ -749,6 +767,10 @@ class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
         permissions = [
             ("pull_containerdistribution", "Can pull from a registry repo"),
             ("push_containerdistribution", "Can push into the registry repo"),
+            (
+                "manage_roles_containerdistribution",
+                "Can manage role assignments on container distribution",
+            ),
         ]
 
 
