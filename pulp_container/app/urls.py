@@ -1,4 +1,4 @@
-from django.conf.urls import url, include
+from django.urls import include, path
 from rest_framework.routers import Route, SimpleRouter
 from pulp_container.app.registry_api import (
     BearerTokenView,
@@ -27,9 +27,9 @@ router.register(r"^v2/(?P<path>.+)/blobs", Blobs, basename="blobs")
 router.register(r"^v2/(?P<path>.+)/manifests", Manifests, basename="manifests")
 
 urlpatterns = [
-    url(r"^token/$", BearerTokenView.as_view()),
-    url(r"^v2/$", VersionView.as_view()),
-    url(r"^v2/_catalog", CatalogView.as_view()),
-    url(r"^v2/(?P<path>.+)/tags/list", TagsListView.as_view()),
-    url(r"", include(router.urls)),
+    path("token/", BearerTokenView.as_view()),
+    path("v2/", VersionView.as_view()),
+    path("v2/_catalog", CatalogView.as_view()),
+    path("v2/<path:path>/tags/list", TagsListView.as_view()),
+    path("", include(router.urls)),
 ]
