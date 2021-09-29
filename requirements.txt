@@ -1,5 +1,6 @@
+# remember to also update unittest_requirements.txt when updating this file
 pulpcore>=3.15.0
-ecdsa~=0.13.2
+ecdsa~=0.14
 pyjwkest~=1.4.0
 pyjwt[crypto]~=1.7.1
 url-normalize~=1.4.2
