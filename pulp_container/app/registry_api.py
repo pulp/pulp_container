@@ -48,7 +48,11 @@ from rest_framework.views import APIView
 from pulp_container.app import models, serializers
 from pulp_container.app.access_policy import RegistryAccessPolicy
 from pulp_container.app.authorization import AuthorizationService
-from pulp_container.app.redirects import FileStorageRedirects, S3StorageRedirects
+from pulp_container.app.redirects import (
+    FileStorageRedirects,
+    S3StorageRedirects,
+    AzureStorageRedirects,
+)
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
     TokenAuthentication,
@@ -741,6 +745,8 @@ class RedirectsMixin:
             self.redirects_class = FileStorageRedirects
         elif settings.DEFAULT_FILE_STORAGE == "storages.backends.s3boto3.S3Boto3Storage":
             self.redirects_class = S3StorageRedirects
+        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.azure_storage.AzureStorage":
+            self.redirects_class = AzureStorageRedirects
         else:
             raise NotImplementedError()
 

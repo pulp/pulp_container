@@ -90,7 +90,7 @@ class S3StorageRedirects(CommonRedirects):
         except ObjectDoesNotExist:
             raise Http404(f"An artifact for '{content_name}' was not found")
 
-        return self.redirect_to_s3_storage(artifact, manifest_media_type)
+        return self.redirect_to_object_storage(artifact, manifest_media_type)
 
     def issue_blob_redirect(self, blob):
         """
@@ -101,9 +101,9 @@ class S3StorageRedirects(CommonRedirects):
         except ObjectDoesNotExist:
             return self.redirect_to_content_app("blobs", blob.digest)
 
-        return self.redirect_to_s3_storage(artifact, blob.media_type)
+        return self.redirect_to_object_storage(artifact, blob.media_type)
 
-    def redirect_to_s3_storage(self, artifact, return_media_type):
+    def redirect_to_object_storage(self, artifact, return_media_type):
         """
         Redirect to the passed artifact's file stored in the S3 storage.
         """
@@ -113,4 +113,17 @@ class S3StorageRedirects(CommonRedirects):
             "ResponseContentDisposition": f"attachment; filename={filename}",
         }
         content_url = artifact.file.storage.url(artifact.file.name, parameters=parameters)
+        return redirect(content_url)
+
+
+class AzureStorageRedirects(S3StorageRedirects):
+    """
+    A class that implements methods for the direct retrieval of manifest objects.
+    """
+
+    def redirect_to_object_storage(self, artifact, return_media_type):
+        """
+        Redirect to the passed artifact's file stored in the Azure storage.
+        """
+        content_url = artifact.file.storage.url(artifact.file.name)
         return redirect(content_url)
