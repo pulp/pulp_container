@@ -609,7 +609,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
 
         result = dispatch(
             tasks.recursive_add_content,
-            [repository],
+            exclusive_resources=[repository],
             kwargs={
                 "repository_pk": repository.pk,
                 "content_units": list(add_content_units.keys()),
