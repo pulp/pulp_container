@@ -13,6 +13,33 @@ Changelog
 
 .. towncrier release notes start
 
+2.9.0 (2021-10-06)
+==================
+
+
+Bugfixes
+--------
+
+- Switched from ``condition`` element to ``condition_expression`` for boolean logic evaluation to
+  support latest drf-access-policy.
+  `#9092 <https://pulp.plan.io/issues/9092>`_
+- Fix OpenAPI schema view
+  `#9258 <https://pulp.plan.io/issues/9258>`_
+- Refactor sync pipeline to fix a race condition with multiple synchronous syncs.
+  `#9292 <https://pulp.plan.io/issues/9292>`_
+- Added validation for a repository base path.
+  `#9403 <https://pulp.plan.io/issues/9403>`_
+
+
+Misc
+----
+
+- `#9187 <https://pulp.plan.io/issues/9187>`_, `#9203 <https://pulp.plan.io/issues/9203>`_, `#9310 <https://pulp.plan.io/issues/9310>`_, `#9385 <https://pulp.plan.io/issues/9385>`_, `#9466 <https://pulp.plan.io/issues/9466>`_
+
+
+----
+
+
 2.8.1 (2021-09-07)
 ==================
 

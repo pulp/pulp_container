@@ -1,2 +1,0 @@
-Switched from ``condition`` element to ``condition_expression`` for boolean logic evaluation to
-support latest drf-access-policy.
