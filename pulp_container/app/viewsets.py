@@ -22,7 +22,6 @@ from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 
-from pulpcore.plugin.access_policy import AccessPolicyFromDB
 from pulpcore.plugin.models import RepositoryVersion
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
@@ -226,7 +225,6 @@ class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     queryset = models.Tag.objects.all()
     serializer_class = serializers.TagSerializer
     filterset_class = TagFilter
-    permission_classes = (AccessPolicyFromDB,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -253,7 +251,6 @@ class ManifestViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     queryset = models.Manifest.objects.all()
     serializer_class = serializers.ManifestSerializer
     filterset_class = ManifestFilter
-    permission_classes = (AccessPolicyFromDB,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -280,7 +277,6 @@ class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     queryset = models.Blob.objects.all()
     serializer_class = serializers.BlobSerializer
     filterset_class = BlobFilter
-    permission_classes = (AccessPolicyFromDB,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -309,7 +305,6 @@ class ContainerRemoteViewSet(RemoteViewSet):
     endpoint_name = "container"
     queryset = models.ContainerRemote.objects.all()
     serializer_class = serializers.ContainerRemoteSerializer
-    permission_classes = (AccessPolicyFromDB,)
     queryset_filtering_required_permission = "container.view_containerremote"
 
     DEFAULT_ACCESS_POLICY = {
@@ -466,7 +461,6 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
     endpoint_name = "container"
     queryset = models.ContainerRepository.objects.all()
     serializer_class = serializers.ContainerRepositorySerializer
-    permission_classes = (AccessPolicyFromDB,)
     queryset_filtering_required_permission = "container.view_containerrepository"
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -790,7 +784,6 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, Reposito
     """
 
     parent_viewset = ContainerRepositoryViewSet
-    permission_classes = (AccessPolicyFromDB,)
     queryset_filtering_required_repo_permission = "container.view_containerrepository"
 
     DEFAULT_ACCESS_POLICY = {
@@ -996,7 +989,6 @@ class ContainerPushRepositoryVersionViewSet(
     """
 
     parent_viewset = ContainerPushRepositoryViewSet
-    permission_classes = (AccessPolicyFromDB,)
     queryset_filtering_required_repo_permission = "container.view_containerpushrepository"
 
     DEFAULT_ACCESS_POLICY = {
