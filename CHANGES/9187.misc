@@ -1,1 +1,0 @@
-Removed ``AccessPolicyFromDB`` from the ``permission_classes`` since it is used by default.
