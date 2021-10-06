@@ -265,7 +265,7 @@ class ContainerDistributionSerializer(DistributionSerializer):
             validated_data["content_guard"] = ContentRedirectContentGuardSerializer.get_or_create(
                 {"name": "content redirect"}
             )
-        if "repository_version" in validated_data:
+        if validated_data.get("repository_version"):
             repository = validated_data["repository_version"].repository.cast()
             if repository.PUSH_ENABLED:
                 raise serializers.ValidationError(
@@ -279,7 +279,7 @@ class ContainerDistributionSerializer(DistributionSerializer):
             base_path = validated_data["base_path"]
             namespace_name = base_path.split("/")[0]
 
-            if "namespace" in validated_data:
+            if validated_data.get("namespace"):
                 if validated_data["namespace"].name != namespace_name:
                     raise serializers.ValidationError(
                         _("Selected namespace does not match first component of base_path.")
