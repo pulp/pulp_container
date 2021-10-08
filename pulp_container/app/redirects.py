@@ -6,7 +6,7 @@ from django.http import Http404
 from django.shortcuts import redirect
 
 from pulp_container.app.utils import get_accepted_media_types
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import BLOB_CONTENT_TYPE, MEDIA_TYPE
 
 
 class CommonRedirects:
@@ -101,7 +101,7 @@ class S3StorageRedirects(CommonRedirects):
         except ObjectDoesNotExist:
             return self.redirect_to_content_app("blobs", blob.digest)
 
-        return self.redirect_to_object_storage(artifact, blob.media_type)
+        return self.redirect_to_object_storage(artifact, BLOB_CONTENT_TYPE)
 
     def redirect_to_object_storage(self, artifact, return_media_type):
         """

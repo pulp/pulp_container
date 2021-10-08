@@ -16,3 +16,4 @@ MEDIA_TYPE = SimpleNamespace(
     FOREIGN_BLOB_OCI="application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
 )
 EMPTY_BLOB = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
+BLOB_CONTENT_TYPE = "application/octet-stream"
