@@ -115,6 +115,24 @@ class BlobNotFound(NotFound):
         )
 
 
+class BlobInvalid(ParseError):
+    """Exception to render a 400 with the code 'BLOB_UNKNOWN'"""
+
+    def __init__(self, digest):
+        """Initialize the exception with the blob digest."""
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "BLOB_UNKNOWN",
+                        "message": "blob unknown to registry",
+                        "detail": {"digest": digest},
+                    }
+                ]
+            }
+        )
+
+
 class ManifestNotFound(NotFound):
     """Exception to render a 404 with the code 'MANIFEST_UNKNOWN'"""
 
@@ -127,6 +145,24 @@ class ManifestNotFound(NotFound):
                         "code": "MANIFEST_UNKNOWN",
                         "message": "Manifest not found.",
                         "detail": {"reference": reference},
+                    }
+                ]
+            }
+        )
+
+
+class ManifestInvalid(ParseError):
+    """Exception to render a 400 with the code 'MANIFEST_INVALID'"""
+
+    def __init__(self, digest):
+        """Initialize the exception with the manifest digest."""
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "MANIFEST_INVALID",
+                        "message": "manifest invalid",
+                        "detail": {"digest": digest},
                     }
                 ]
             }
@@ -814,14 +850,34 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         # iterate over all the layers and create
         chunk = request.META["wsgi.input"]
         artifact = self.receive_artifact(chunk)
+        manifest_digest = "sha256:{id}".format(id=artifact.sha256)
         with storage.open(artifact.file.name) as artifact_file:
             raw_data = artifact_file.read()
         content_data = json.loads(raw_data)
+        # oci format might not contain mediaType in the manifest.json, docker should
+        # hence need to check request content type
+        if request.content_type not in (
+            models.MEDIA_TYPE.MANIFEST_V2,
+            models.MEDIA_TYPE.MANIFEST_OCI,
+        ):
+            # we suport only v2 docker/oci schema upload
+            raise ManifestInvalid(digest=manifest_digest)
+        # both docker/oci format should contain config, digest, mediaType, size
         config_layer = content_data.get("config")
-        config_blob = models.Blob.objects.get(digest=config_layer.get("digest"))
+        try:
+            config_digest = config_layer.get("digest")
+            config_blob = models.Blob.objects.get(digest=config_digest)
+        except models.Blob.DoesNotExist:
+            raise BlobNotFound(digest=config_digest)
+        config_media_type = config_layer.get("mediaType")
+        if config_media_type not in (
+            models.MEDIA_TYPE.CONFIG_BLOB,
+            models.MEDIA_TYPE.CONFIG_BLOB_OCI,
+        ):
+            raise BlobInvalid(digest=config_blob.digest)
 
         manifest = models.Manifest(
-            digest="sha256:{id}".format(id=artifact.sha256),
+            digest=manifest_digest,
             schema_version=2,
             media_type=request.content_type,
             config_blob=config_blob,
@@ -836,13 +892,21 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             ca.save()
         except IntegrityError:
             pass
+        # both docker/oci format should contain layers, digest, media_type, size
         layers = content_data.get("layers")
-        blobs = []
+        blobs = {}
         for layer in layers:
-            blobs.append(layer.get("digest"))
-        blobs_qs = models.Blob.objects.filter(digest__in=blobs)
+            blobs[layer.get("digest")] = layer.get("mediaType")
+        blobs_qs = models.Blob.objects.filter(digest__in=blobs.keys())
         thru = []
         for blob in blobs_qs:
+            # ensure there are no foreign layers
+            blob_media_type = blobs[blob.digest]
+            if blob_media_type not in (
+                models.MEDIA_TYPE.REGULAR_BLOB,
+                models.MEDIA_TYPE.REGULAR_BLOB_OCI,
+            ):
+                raise BlobInvalid(digest=blob.digest)
             thru.append(models.BlobManifest(manifest=manifest, manifest_blob=blob))
         models.BlobManifest.objects.bulk_create(objs=thru, ignore_conflicts=True, batch_size=1000)
         tag = models.Tag(name=pk, tagged_manifest=manifest)

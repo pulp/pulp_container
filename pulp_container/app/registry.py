@@ -10,12 +10,13 @@ from multidict import MultiDict
 
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
-from pulp_container.app.models import ContainerDistribution, Tag
+from pulp_container.app.models import ContainerDistribution, Tag, Blob
 from pulp_container.app.schema_convert import Schema2toSchema1ConverterWrapper
 from pulp_container.app.utils import get_accepted_media_types
-from pulp_container.constants import EMPTY_BLOB, MEDIA_TYPE
+from pulp_container.constants import BLOB_CONTENT_TYPE, EMPTY_BLOB, MEDIA_TYPE
 
 log = logging.getLogger(__name__)
+
 
 v2_headers = MultiDict()
 v2_headers["Docker-Distribution-API-Version"] = "registry/2.0"
@@ -220,8 +221,12 @@ class Registry(Handler):
                 relative_path=digest,
             )
             ca_content = await sync_to_async(ca.content.cast)()
+            if isinstance(ca_content, Blob):
+                media_type = BLOB_CONTENT_TYPE
+            else:
+                media_type = ca_content.media_type
             headers = {
-                "Content-Type": ca_content.media_type,
+                "Content-Type": media_type,
                 "Docker-Content-Digest": ca_content.digest,
             }
         except ObjectDoesNotExist:
@@ -244,7 +249,7 @@ class Registry(Handler):
         body = bytearray(empty_tar)
         response_headers = {
             "Docker-Content-Digest": EMPTY_BLOB,
-            "Content-Type": MEDIA_TYPE.REGULAR_BLOB,
+            "Content-Type": BLOB_CONTENT_TYPE,
             "Docker-Distribution-API-Version": "registry/2.0",
         }
         return web.Response(body=body, headers=response_headers)

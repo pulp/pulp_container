@@ -1,0 +1,1 @@
+Send proper blob content_type header when the blob is served.
