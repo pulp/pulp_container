@@ -1,0 +1,2 @@
+Fixed ORM calls in the content app that were made in async context to use sync_to_async.
+(Backported from https://pulp.plan.io/issues/9454).

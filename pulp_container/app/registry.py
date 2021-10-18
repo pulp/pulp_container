@@ -1,6 +1,8 @@
 import logging
 import os
 
+from asgiref.sync import sync_to_async
+
 from aiohttp import web
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -93,13 +95,15 @@ class Registry(Handler):
 
         path = request.match_info["path"]
         tag_name = request.match_info["tag_name"]
-        distribution = self._match_distribution(path)
-        self._permit(request, distribution)
-        repository_version = distribution.get_repository_version()
+        distribution = await sync_to_async(self._match_distribution)(path)
+        await sync_to_async(self._permit)(request, distribution)
+        repository_version = await sync_to_async(distribution.get_repository_version)()
         accepted_media_types = get_accepted_media_types(request.headers)
 
         try:
-            tag = Tag.objects.get(pk__in=repository_version.content, name=tag_name)
+            tag = await sync_to_async(Tag.objects.select_related("tagged_manifest").get)(
+                pk__in=await sync_to_async(repository_version.get_content)(), name=tag_name
+            )
         except ObjectDoesNotExist:
             raise PathNotResolved(tag_name)
 
@@ -154,9 +158,9 @@ class Registry(Handler):
 
         """
         try:
-            artifact = tag.tagged_manifest._artifacts.get()
+            artifact = await sync_to_async(tag.tagged_manifest._artifacts.get)()
         except ObjectDoesNotExist:
-            ca = tag.tagged_manifest.contentartifact_set.all()[0]
+            ca = await sync_to_async(lambda x: x[0])(tag.tagged_manifest.contentartifact_set.all())
             return await self._stream_content_artifact(request, web.StreamResponse(), ca)
         else:
             return await Registry._dispatch(artifact.file, response_headers)
@@ -184,7 +188,7 @@ class Registry(Handler):
         """
         schema1_converter = Schema2toSchema1ConverterWrapper(tag, accepted_media_types, path)
         try:
-            result = schema1_converter.convert()
+            result = await sync_to_async(schema1_converter.convert)()
         except RuntimeError:
             raise PathNotResolved(tag.name)
 
@@ -203,18 +207,22 @@ class Registry(Handler):
 
         path = request.match_info["path"]
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
-        distribution = self._match_distribution(path)
-        self._permit(request, distribution)
-        repository_version = distribution.get_repository_version()
+        distribution = await sync_to_async(self._match_distribution)(path)
+        await sync_to_async(self._permit)(request, distribution)
+        repository_version = await sync_to_async(distribution.get_repository_version)()
         if digest == EMPTY_BLOB:
             return await Registry._empty_blob()
         try:
-            ca = ContentArtifact.objects.get(
-                content__in=repository_version.content, relative_path=digest
+            ca = await sync_to_async(
+                ContentArtifact.objects.select_related("artifact", "content").get
+            )(
+                content__in=await sync_to_async(repository_version.get_content)(),
+                relative_path=digest,
             )
+            ca_content = await sync_to_async(ca.content.cast)()
             headers = {
-                "Content-Type": ca.content.cast().media_type,
-                "Docker-Content-Digest": ca.content.cast().digest,
+                "Content-Type": ca_content.media_type,
+                "Docker-Content-Digest": ca_content.digest,
             }
         except ObjectDoesNotExist:
             raise PathNotResolved(path)
