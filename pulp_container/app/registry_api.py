@@ -149,13 +149,12 @@ class UploadResponse(Response):
     This response object provides information about Uploads during 'push' operations.
     """
 
-    def __init__(self, upload, path, content_length, request):
+    def __init__(self, upload, path, request):
         """
         Args:
             upload (pulp_container.app.models.Upload): An Upload model used to generate the
                 response.
             path (str): The base_path of the ContainerDistribution (Container repository name)
-            content_length (int): The value for the Content-Length header.
             request (rest_framework.request.Request): Request object not used by this
                 implementation of Response.
         """
@@ -163,7 +162,7 @@ class UploadResponse(Response):
             "Docker-Upload-UUID": upload.pk,
             "Location": f"/v2/{path}/blobs/uploads/{upload.pk}",
             "Range": "0-{offset}".format(offset=int(upload.size - 1)),
-            "Content-Length": content_length,
+            "Content-Length": 0,
         }
         super().__init__(headers=headers, status=202)
 
@@ -183,12 +182,10 @@ class ManifestResponse(Response):
                 implementation of Response.
             status (int): Status code to send with the response.
         """
-        artifact = manifest._artifacts.get()
-        size = artifact.size
         headers = {
             "Docker-Content-Digest": manifest.digest,
             "Location": "/v2/{path}/manifests/{digest}".format(path=path, digest=manifest.digest),
-            "Content-Length": size,
+            "Content-Length": 0,
         }
         super().__init__(headers=headers, status=status, content_type=manifest.media_type)
 
@@ -215,7 +212,7 @@ class BlobResponse(Response):
             "Location": "/v2/{path}/blobs/{digest}".format(path=path, digest=blob.digest),
             "Etag": blob.digest,
             "Range": "0-{offset}".format(offset=int(size)),
-            "Content-Length": size,
+            "Content-Length": 0,
             "Content-Type": "application/octet-stream",
             "Connection": "close",
         }
@@ -593,7 +590,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
         upload = models.Upload(repository=repository, size=0)
         upload.save()
-        response = UploadResponse(upload=upload, path=path, content_length=0, request=request)
+        response = UploadResponse(upload=upload, path=path, request=request)
 
         return response
 
@@ -626,7 +623,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             upload.size += chunk.size
             upload.save()
 
-        return UploadResponse(upload=upload, path=path, content_length=chunk.size, request=request)
+        return UploadResponse(upload=upload, path=path, request=request)
 
     def put(self, request, path, pk=None):
         """

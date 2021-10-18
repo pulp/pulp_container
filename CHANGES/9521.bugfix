@@ -1,0 +1,3 @@
+Corrected value of ``Content-Length`` header for push upload responses.
+This fixes the *upstream prematurely closed connection while reading upstream* error that would
+appear in nginx logs after a push operation (Backported from https://pulp.plan.io/issues/9516).
