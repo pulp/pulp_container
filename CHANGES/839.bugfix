@@ -1,0 +1,1 @@
+Fixes bug where database connections would not get closed when using pulpcore 3.16.9.

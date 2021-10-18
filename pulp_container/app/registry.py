@@ -4,6 +4,8 @@ from gettext import gettext as _
 
 from asgiref.sync import sync_to_async
 
+from asgiref.sync import sync_to_async
+
 from aiohttp import web
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
