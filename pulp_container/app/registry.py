@@ -1,5 +1,8 @@
+import asyncio
 import logging
 import os
+
+from concurrent.futures import ThreadPoolExecutor
 
 from aiohttp import web
 from django.conf import settings
@@ -14,6 +17,14 @@ from pulp_container.app.utils import get_accepted_media_types
 from pulp_container.constants import EMPTY_BLOB, MEDIA_TYPE
 
 log = logging.getLogger(__name__)
+
+loop = asyncio.get_event_loop()
+# Django ORM is blocking, as are most of our file operations. This means that the
+# standard single-threaded async executor cannot help us. We need to create a separate,
+# thread-based executor to pass our heavy blocking IO work to.
+io_pool_exc = ThreadPoolExecutor(max_workers=2)
+loop.set_default_executor(io_pool_exc)
+
 
 v2_headers = MultiDict()
 v2_headers["Docker-Distribution-API-Version"] = "registry/2.0"
@@ -93,13 +104,25 @@ class Registry(Handler):
 
         path = request.match_info["path"]
         tag_name = request.match_info["tag_name"]
-        distribution = self._match_distribution(path)
-        self._permit(request, distribution)
-        repository_version = distribution.get_repository_version()
+
+        def match_distribution_blocking():
+            return self._match_distribution(path)
+
+        distribution = await loop.run_in_executor(None, match_distribution_blocking)
+
+        def check_permit_blocking():
+            self._permit(request, distribution)
+
+        await loop.run_in_executor(None, check_permit_blocking)
+        repository_version = await loop.run_in_executor(None, distribution.get_repository_version)
         accepted_media_types = get_accepted_media_types(request.headers)
 
         try:
-            tag = Tag.objects.get(pk__in=repository_version.content, name=tag_name)
+
+            def get_tag_blocking():
+                return Tag.objects.get(pk__in=repository_version.content, name=tag_name)
+
+            tag = await loop.run_in_executor(None, get_tag_blocking)
         except ObjectDoesNotExist:
             raise PathNotResolved(tag_name)
 
@@ -154,9 +177,13 @@ class Registry(Handler):
 
         """
         try:
-            artifact = tag.tagged_manifest._artifacts.get()
+            artifact = await loop.run_in_executor(None, tag.tagged_manifest._artifacts.get)
         except ObjectDoesNotExist:
-            ca = tag.tagged_manifest.contentartifact_set.all()[0]
+
+            def get_ca_blocking():
+                return tag.tagged_manifest.contentartifact_set.all()[0]
+
+            ca = await loop.run_in_executor(None, get_ca_blocking)
             return await self._stream_content_artifact(request, web.StreamResponse(), ca)
         else:
             return await Registry._dispatch(artifact.file, response_headers)
@@ -184,7 +211,7 @@ class Registry(Handler):
         """
         schema1_converter = Schema2toSchema1ConverterWrapper(tag, accepted_media_types, path)
         try:
-            result = schema1_converter.convert()
+            result = await loop.run_in_executor(None, schema1_converter.convert)
         except RuntimeError:
             raise PathNotResolved(tag.name)
 
@@ -203,18 +230,36 @@ class Registry(Handler):
 
         path = request.match_info["path"]
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
-        distribution = self._match_distribution(path)
-        self._permit(request, distribution)
-        repository_version = distribution.get_repository_version()
+
+        def match_distribution_blocking():
+            return self._match_distribution(path)
+
+        distribution = await loop.run_in_executor(None, match_distribution_blocking)
+
+        def check_permit_blocking():
+            self._permit(request, distribution)
+
+        await loop.run_in_executor(None, check_permit_blocking)
+        repository_version = await loop.run_in_executor(None, distribution.get_repository_version)
         if digest == EMPTY_BLOB:
             return await Registry._empty_blob()
         try:
-            ca = ContentArtifact.objects.get(
-                content__in=repository_version.content, relative_path=digest
-            )
+
+            def get_ca_blocking():
+                ca = ContentArtifact.objects.get(
+                    content__in=repository_version.content, relative_path=digest
+                )
+                return ca
+
+            ca = await loop.run_in_executor(None, get_ca_blocking)
+
+            def get_content_cast_blocking():
+                return ca.content.cast()
+
+            ca_content = await loop.run_in_executor(None, get_content_cast_blocking)
             headers = {
-                "Content-Type": ca.content.cast().media_type,
-                "Docker-Content-Digest": ca.content.cast().digest,
+                "Content-Type": ca_content.media_type,
+                "Docker-Content-Digest": ca_content.digest,
             }
         except ObjectDoesNotExist:
             raise PathNotResolved(path)
