@@ -1,7 +1,7 @@
 # This config represents the latest values used when running the plugin-template. Any settings that
 # were not present before running plugin-template have been added with their default values.
 
-# generated with plugin_template@2021.08.26-10-g56dc82c
+# generated with plugin_template@2021.08.26-24-g5c40a1d
 
 additional_repos: []
 all: false
@@ -71,17 +71,17 @@ python_version: '3.8'
 redmine_project: pulp_container
 release_email: pulp-infra@redhat.com
 release_user: pulpbot
+single_commit_check: false
 sync_ci: true
+tasking_allow_async_unsafe: true
 test: false
+test_azure: true
 test_bindings: false
 test_cli: true
 test_fips_nightly: false
 test_performance: false
 test_released_plugin_with_next_pulpcore_release: true
 test_s3: true
-travis: true
-travis_addtl_services: []
-travis_notifications: None
 update_redmine: true
 upgrade_range: []
 verbose: false
