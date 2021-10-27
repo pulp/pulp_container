@@ -6,9 +6,12 @@ set -mveuo pipefail
 # add pulp.example.com  ot the /etc/hosts
 # docker clients cannot identify 'pulp' as host
 cat /etc/hosts | grep pulp
-PULP_HOSTNAME=$(cat /etc/hosts | sed -En "s/pulp/pulp.example.com/p")
+PULP_HOSTNAME=$(cat /etc/hosts | grep -v azurite | sed -En "s/pulp/pulp.example.com/p")
 echo $PULP_HOSTNAME | sudo tee -a /etc/hosts
 cat /etc/hosts | grep pulp
+
+echo $PULP_HOSTNAME | docker exec -i pulp bash -c "cat >> /etc/hosts"
+cat /etc/hosts | grep azurite | docker exec -i pulp bash -c "cat >> /etc/hosts"
 
 echo "machine pulp.example.com
 login admin
