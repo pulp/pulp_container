@@ -11,6 +11,21 @@ on: {pull_request: {branches: ['*']}}
 jobs:
 
 
+  single_commit:
+    name: Assert single commit
+    if: github.base_ref == 'master'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+      with:
+        fetch-depth: 30
+    - name: Checkout master
+      run: git fetch origin master
+    - name: create local master branch
+      run: git branch master origin/master
+    - name: Commit Count Check
+      run: test `git log  --oneline --no-merges HEAD ^master  | wc -l ` = 1
+    runs-on: ubuntu-latest
 
   lint:
     runs-on: ubuntu-latest
@@ -168,8 +183,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
 
-      - name: After failure
-        if: failure()
+      - name: Logs
+        if: always()
         run: |
           echo "Need to debug? Please check: https://github.com/marketplace/actions/debugging-with-tmate"
           http --timeout 30 --check-status --pretty format --print hb https://pulp/pulp/api/v3/status/ || true
