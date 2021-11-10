@@ -28,7 +28,7 @@ from pulpcore.plugin.serializers import (
     RepositorySyncURLSerializer,
 )
 from pulpcore.plugin.models import Artifact, Content
-from pulpcore.plugin.tasking import dispatch
+from pulpcore.plugin.tasking import dispatch, general_multi_delete
 from pulpcore.plugin.viewsets import (
     AsyncUpdateMixin,
     DistributionViewSet,
@@ -1222,7 +1222,7 @@ class ContainerDistributionViewSet(DistributionViewSet):
             )
 
         async_result = dispatch(
-            tasks.general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
+            general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
         )
         return OperationPostponedResponse(async_result, request)
 
@@ -1392,6 +1392,6 @@ class ContainerNamespaceViewSet(
             (str(namespace.pk), "container", "ContainerNamespaceSerializer"),
         )
         async_result = dispatch(
-            tasks.general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
+            general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
         )
         return OperationPostponedResponse(async_result, request)
