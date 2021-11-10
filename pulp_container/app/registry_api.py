@@ -153,7 +153,7 @@ class UploadResponse(Response):
     This response object provides information about Uploads during 'push' operations.
     """
 
-    def __init__(self, upload, path, request):
+    def __init__(self, upload, path, request, status=202):
         """
         Args:
             upload (pulp_container.app.models.Upload): An Upload model used to generate the
@@ -162,13 +162,17 @@ class UploadResponse(Response):
             request (rest_framework.request.Request): Request object not used by this
                 implementation of Response.
         """
+        if upload.size == 0:
+            offset = 0
+        else:
+            offset = int(upload.size - 1)
         headers = {
             "Docker-Upload-UUID": upload.pk,
             "Location": f"/v2/{path}/blobs/uploads/{upload.pk}",
-            "Range": "0-{offset}".format(offset=int(upload.size - 1)),
+            "Range": "0-{offset}".format(offset=offset),
             "Content-Length": 0,
         }
-        super().__init__(headers=headers, status=202)
+        super().__init__(headers=headers, status=status)
 
 
 class ManifestResponse(Response):
@@ -208,17 +212,10 @@ class BlobResponse(Response):
                 implementation of Response.
             status (int): Status code to send with the response.
         """
-        artifact = blob._artifacts.get()
-        size = artifact.size
-
         headers = {
             "Docker-Content-Digest": blob.digest,
             "Location": "/v2/{path}/blobs/{digest}".format(path=path, digest=blob.digest),
-            "Etag": blob.digest,
-            "Range": "0-{offset}".format(offset=int(size)),
             "Content-Length": 0,
-            "Content-Type": "application/octet-stream",
-            "Connection": "close",
         }
         super().__init__(headers=headers, status=status)
 
@@ -627,7 +624,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             upload.size += chunk.size
             upload.save()
 
-        return UploadResponse(upload=upload, path=path, request=request)
+        return UploadResponse(upload=upload, path=path, request=request, status=204)
 
     def put(self, request, path, pk=None):
         """
