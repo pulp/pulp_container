@@ -338,7 +338,7 @@ jobs:
           committer: pulpbot <pulp-infra@redhat.com>
           author: pulpbot <pulp-infra@redhat.com>
           branch: changelog/${{ github.event.inputs.release }}
-          base: master
+          base: main
           title: 'Cherry pick ${{ github.event.inputs.release }} changelog'
           body: '[noissue]'
           commit-message: |
