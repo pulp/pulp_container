@@ -5,6 +5,7 @@ import hashlib
 import json
 import requests
 import unittest
+
 from urllib.parse import urljoin, urlparse
 
 from pulp_smash import api, cli, config, exceptions
@@ -16,13 +17,11 @@ from pulp_smash.pulp3.utils import (
 )
 
 from pulp_container.tests.functional.utils import (
-    TOKEN_AUTH_DISABLED,
     core_client,
     gen_container_client,
     gen_container_remote,
     get_blobsums_from_remote_registry,
-    BearerTokenAuth,
-    AuthenticationHeaderQueries,
+    get_auth_for_url,
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
@@ -148,27 +147,9 @@ class PullContentTestCase(unittest.TestCase):
         image_path = "/v2/{}/manifests/{}".format(self.distribution_with_repo.base_path, "latest")
         latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
-        if TOKEN_AUTH_DISABLED:
-            auth = ()
-        else:
-            with self.assertRaises(requests.HTTPError) as cm:
-                self.client.get(latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V1})
-
-            content_response = cm.exception.response
-            self.assertEqual(content_response.status_code, 401)
-
-            authenticate_header = content_response.headers["Www-Authenticate"]
-            queries = AuthenticationHeaderQueries(authenticate_header)
-            content_response = requests.get(
-                queries.realm, params={"service": queries.service, "scope": queries.scope}
-            )
-            content_response.raise_for_status()
-            token = content_response.json()["token"]
-            auth = BearerTokenAuth(token)
+        auth = get_auth_for_url(latest_image_url)
         content_response = requests.get(
-            latest_image_url,
-            auth=auth,
-            headers={"Accept": MEDIA_TYPE.MANIFEST_V1},
+            latest_image_url, auth=auth, headers={"Accept": MEDIA_TYPE.MANIFEST_V1}
         )
         content_response.raise_for_status()
         base_content_type = content_response.headers["Content-Type"].split(";")[0]
@@ -194,22 +175,7 @@ class PullContentTestCase(unittest.TestCase):
         blob_path = "/v2/{}/blobs/{}".format(self.distribution_with_repo.base_path, EMPTY_BLOB)
         empty_blob_url = urljoin(self.cfg.get_base_url(), blob_path)
 
-        if TOKEN_AUTH_DISABLED:
-            auth = ()
-        else:
-            with self.assertRaises(requests.HTTPError) as cm:
-                requests.get(empty_blob_url).raise_for_status()
-
-            content_response = cm.exception.response
-            self.assertEqual(content_response.status_code, 401)
-
-            authenticate_header = content_response.headers["Www-Authenticate"]
-            queries = AuthenticationHeaderQueries(authenticate_header)
-            content_response = requests.get(
-                queries.realm, params={"service": queries.service, "scope": queries.scope}
-            )
-            content_response.raise_for_status()
-            auth = BearerTokenAuth(content_response.json()["token"])
+        auth = get_auth_for_url(empty_blob_url)
         content_response = requests.get(empty_blob_url, auth=auth)
         content_response.raise_for_status()
         # calculate digest of the payload

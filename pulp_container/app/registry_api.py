@@ -30,7 +30,6 @@ from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
     PermissionDenied,
-    NotFound,
     ParseError,
     Throttled,
     ValidationError,
@@ -48,6 +47,15 @@ from rest_framework.views import APIView
 from pulp_container.app import models, serializers
 from pulp_container.app.access_policy import RegistryAccessPolicy
 from pulp_container.app.authorization import AuthorizationService
+from pulp_container.app.cache import find_base_path_cached, RegistryApiCache
+from pulp_container.app.exceptions import (
+    RepositoryNotFound,
+    RepositoryInvalid,
+    BlobNotFound,
+    BlobInvalid,
+    ManifestNotFound,
+    ManifestInvalid,
+)
 from pulp_container.app.redirects import (
     FileStorageRedirects,
     S3StorageRedirects,
@@ -64,109 +72,6 @@ from pulp_container.constants import EMPTY_BLOB
 FakeView = namedtuple("FakeView", ["action", "get_object"])
 
 log = logging.getLogger(__name__)
-
-
-class RepositoryNotFound(NotFound):
-    """Exception to render a 404 with the code 'NAME_UNKNOWN'"""
-
-    def __init__(self, name):
-        """Initialize the exception with the repository name."""
-        super().__init__(
-            detail={
-                "errors": [
-                    {
-                        "code": "NAME_UNKNOWN",
-                        "message": "Repository not found.",
-                        "detail": {"name": name},
-                    }
-                ]
-            }
-        )
-
-
-class RepositoryInvalid(ParseError):
-    """Exception to render a 400 with the code 'NAME_INVALID'"""
-
-    def __init__(self, name, message=None):
-        """Initialize the exception with the repository name."""
-        message = message or "Invalid repository name."
-        super().__init__(
-            detail={
-                "errors": [{"code": "NAME_INVALID", "message": message, "detail": {"name": name}}]
-            }
-        )
-
-
-class BlobNotFound(NotFound):
-    """Exception to render a 404 with the code 'BLOB_UNKNOWN'"""
-
-    def __init__(self, digest):
-        """Initialize the exception with the blob digest."""
-        super().__init__(
-            detail={
-                "errors": [
-                    {
-                        "code": "BLOB_UNKNOWN",
-                        "message": "Blob not found.",
-                        "detail": {"digest": digest},
-                    }
-                ]
-            }
-        )
-
-
-class BlobInvalid(ParseError):
-    """Exception to render a 400 with the code 'BLOB_UNKNOWN'"""
-
-    def __init__(self, digest):
-        """Initialize the exception with the blob digest."""
-        super().__init__(
-            detail={
-                "errors": [
-                    {
-                        "code": "BLOB_UNKNOWN",
-                        "message": "blob unknown to registry",
-                        "detail": {"digest": digest},
-                    }
-                ]
-            }
-        )
-
-
-class ManifestNotFound(NotFound):
-    """Exception to render a 404 with the code 'MANIFEST_UNKNOWN'"""
-
-    def __init__(self, reference):
-        """Initialize the exception with the manifest reference."""
-        super().__init__(
-            detail={
-                "errors": [
-                    {
-                        "code": "MANIFEST_UNKNOWN",
-                        "message": "Manifest not found.",
-                        "detail": {"reference": reference},
-                    }
-                ]
-            }
-        )
-
-
-class ManifestInvalid(ParseError):
-    """Exception to render a 400 with the code 'MANIFEST_INVALID'"""
-
-    def __init__(self, digest):
-        """Initialize the exception with the manifest digest."""
-        super().__init__(
-            detail={
-                "errors": [
-                    {
-                        "code": "MANIFEST_INVALID",
-                        "message": "manifest invalid",
-                        "detail": {"digest": digest},
-                    }
-                ]
-            }
-        )
 
 
 class ContentRenderer(BaseRenderer):
@@ -792,10 +697,17 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to HEAD requests about blobs
         """
-        return self.get(request, path, pk=pk)
+        return self.handle_safe_method(request, path, pk=pk)
 
-    def get(self, request, path, pk=None):
-        """Handles GET requests for Blobs."""
+    def get(self, request, path, pk):
+        """
+        Responds to GET requests about blobs
+        """
+        return self.handle_safe_method(request, path, pk)
+
+    @RegistryApiCache(base_key=lambda req, cac: find_base_path_cached(req, cac))
+    def handle_safe_method(self, request, path, pk):
+        """Handles safe requests for Blobs."""
         distribution, _, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)
 
@@ -821,12 +733,18 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to HEAD requests about manifests by reference
         """
+        return self.handle_safe_method(request, path, pk=pk)
 
-        return self.get(request, path, pk=pk)
-
-    def get(self, request, path, pk=None):
+    def get(self, request, path, pk):
         """
         Responds to GET requests about manifests by reference
+        """
+        return self.handle_safe_method(request, path, pk)
+
+    @RegistryApiCache(base_key=lambda req, cac: find_base_path_cached(req, cac))
+    def handle_safe_method(self, request, path, pk):
+        """
+        Responds to safe requests about manifests by reference
         """
         distribution, _, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)

@@ -4,7 +4,6 @@ import unittest
 
 from urllib.parse import urljoin
 import requests
-from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
@@ -61,7 +60,7 @@ class RepositoriesList:
         """Fetch repositories from the catalog endpoint."""
         repositories_list_endpoint = urljoin(self.cfg.get_base_url(), "/v2/_catalog")
 
-        with self.assertRaises(HTTPError) as cm:
+        with self.assertRaises(requests.HTTPError) as cm:
             requests.get(repositories_list_endpoint).raise_for_status()
         content_response = cm.exception.response
         authenticate_header = content_response.headers["Www-Authenticate"]

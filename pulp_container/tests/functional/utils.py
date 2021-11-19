@@ -1,5 +1,6 @@
 # coding=utf-8
 """Utilities for tests for the container plugin."""
+import pytest
 import requests
 
 from requests.auth import AuthBase
@@ -277,3 +278,25 @@ def gen_artifact(url=CONTAINER_IMAGE_URL):
         temp_file.write(response.content)
         artifact = ArtifactsApi(core_client).create(file=temp_file.name)
         return artifact.to_dict()
+
+
+def get_auth_for_url(registry_endpoint_url, auth=None):
+    """Return authentication details based on the the status of token authentication."""
+    if TOKEN_AUTH_DISABLED:
+        auth = ()
+    else:
+        with pytest.raises(requests.HTTPError):
+            response = requests.get(registry_endpoint_url)
+            response.raise_for_status()
+        assert response.status_code == 401
+
+        authenticate_header = response.headers["WWW-Authenticate"]
+        queries = AuthenticationHeaderQueries(authenticate_header)
+        content_response = requests.get(
+            queries.realm, params={"service": queries.service, "scope": queries.scope}, auth=auth
+        )
+        content_response.raise_for_status()
+        token = content_response.json()["token"]
+        auth = BearerTokenAuth(token)
+
+    return auth
