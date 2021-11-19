@@ -10,6 +10,8 @@ from multidict import MultiDict
 
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
+
+from pulp_container.app.cache import RegistryContentCache
 from pulp_container.app.models import ContainerDistribution, Tag, Blob
 from pulp_container.app.schema_convert import Schema2toSchema1ConverterWrapper
 from pulp_container.app.utils import get_accepted_media_types
@@ -76,6 +78,10 @@ class Registry(Handler):
         file_response = web.FileResponse(path, headers=full_headers)
         return file_response
 
+    @RegistryContentCache(
+        base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
+        auth=lambda req, cac, bk: Registry.auth_cached(req, cac, bk),
+    )
     async def get_tag(self, request):
         """
         Match the path and stream either Manifest or ManifestList.
@@ -202,6 +208,10 @@ class Registry(Handler):
         }
         return web.Response(text=result.text, headers=response_headers)
 
+    @RegistryContentCache(
+        base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
+        auth=lambda req, cac, bk: Registry.auth_cached(req, cac, bk),
+    )
     async def get_by_digest(self, request):
         """
         Return a response to the "GET" action.
@@ -250,7 +260,7 @@ class Registry(Handler):
             255, 46, 175, 181, 239, 0, 4, 0, 0,
         ]
         # fmt: on
-        body = bytearray(empty_tar)
+        body = bytes(empty_tar)
         response_headers = {
             "Docker-Content-Digest": EMPTY_BLOB,
             "Content-Type": BLOB_CONTENT_TYPE,

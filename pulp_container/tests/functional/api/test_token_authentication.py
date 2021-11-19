@@ -4,7 +4,6 @@ import unittest
 
 from urllib.parse import urljoin, urlparse
 import requests
-from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, cli
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
@@ -13,8 +12,7 @@ from pulp_smash.pulp3.utils import gen_repo, gen_distribution
 from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
-    BearerTokenAuth,
-    AuthenticationHeaderQueries,
+    get_auth_for_url,
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
@@ -88,24 +86,9 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         image_path = "/v2/{}/manifests/{}".format(self.distribution.base_path, "manifest_a")
         latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
 
-        with self.assertRaises(HTTPError) as cm:
-            requests.get(
-                latest_image_url, headers={"Accept": MEDIA_TYPE.MANIFEST_V2}
-            ).raise_for_status()
-
-        content_response = cm.exception.response
-        self.assertEqual(content_response.status_code, 401)
-
-        authenticate_header = content_response.headers["Www-Authenticate"]
-        queries = AuthenticationHeaderQueries(authenticate_header)
+        auth = get_auth_for_url(latest_image_url)
         content_response = requests.get(
-            queries.realm, params={"service": queries.service, "scope": queries.scope}
-        )
-        content_response.raise_for_status()
-        content_response = requests.get(
-            latest_image_url,
-            auth=BearerTokenAuth(content_response.json()["token"]),
-            headers={"Accept": MEDIA_TYPE.MANIFEST_V2},
+            latest_image_url, auth=auth, headers={"Accept": MEDIA_TYPE.MANIFEST_V2}
         )
         content_response.raise_for_status()
         self.compare_config_blob_digests(content_response.json()["config"]["digest"])
