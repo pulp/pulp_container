@@ -205,8 +205,8 @@ class ManifestSignature(Content):
     A signature for a manifest.
 
     Fields:
-        name (models.CharField): A signature name in the 'manifest_digest@random_name' format
-        digest (models.CharField): A signature sha256 digest.
+        name (models.CharField): A signature name in the 'manifest_digest@random_name' format.
+        digest (models.CharField): A signature sha256 digest prepended with its algorithm `sha256:`.
         type (models.CharField): A signature type as specified in signature metadata. Currently
                                  it's only "atomic container signature".
         key_id (models.CharField): A key id identified by gpg (last 8 bytes of the fingerprint).
@@ -320,12 +320,17 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         upstream_name (models.CharField): The name of the image at the remote.
         include_foreign_layers (models.BooleanField): Foreign layers in the remote
             are included. They are not included by default.
+        include_tags (fields.ArrayField): List of tags to include during sync.
+        exclude_tags (fields.ArrayField): List of tags to exclude during sync.
+        sigstore (models.TextField): The URL to a sigstore where signatures of container images
+            should be synced from.
     """
 
     upstream_name = models.CharField(max_length=255, db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
     include_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
     exclude_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
+    sigstore = models.TextField(null=True)
 
     TYPE = "container"
     ACCESS_POLICY_VIEWSET_NAME = "remotes/container/container"
@@ -333,12 +338,9 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     @property
     def download_factory(self):
         """
-        Return the DownloaderFactory which can be used to generate asyncio capable downloaders.
+        Downloader Factory that maps to custom downloaders which support registry auth.
 
         Upon first access, the DownloaderFactory is instantiated and saved internally.
-
-        Plugin writers are expected to override when additional configuration of the
-        DownloaderFactory is needed.
 
         Returns:
             DownloadFactory: The instantiated DownloaderFactory to be used by
@@ -356,6 +358,26 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
                 },
             )
             return self._download_factory
+
+    @property
+    def noauth_download_factory(self):
+        """
+        Downloader Factory that doesn't use Basic Auth or TLS settings from a remote.
+
+        Some supplementary data, e.g. signatures, might be available via unprotected resources.
+
+        Upon first access, the NoAuthDownloaderFactory is instantiated and saved internally.
+
+        Returns:
+            DownloadFactory: The instantiated NoAuthDownloaderFactory to be used by
+                get_noauth_downloader().
+
+        """
+        try:
+            return self._noauth_download_factory
+        except AttributeError:
+            self._noauth_download_factory = downloaders.NoAuthDownloaderFactory(self)
+            return self._noauth_download_factory
 
     def get_downloader(self, remote_artifact=None, url=None, **kwargs):
         """
@@ -381,6 +403,35 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         """
         kwargs["remote"] = self
         return super().get_downloader(remote_artifact=remote_artifact, url=url, **kwargs)
+
+    def get_noauth_downloader(self, remote_artifact=None, url=None, **kwargs):
+        """
+        Get a no-auth downloader from either a RemoteArtifact or URL that is provided.
+
+        This method accepts either `remote_artifact` or `url` but not both. At least one is
+        required. If neither or both are passed a ValueError is raised.
+
+        Args:
+            remote_artifact (:class:`~pulpcore.app.models.RemoteArtifact`): The RemoteArtifact to
+                download.
+            url (str): The URL to download.
+            kwargs (dict): This accepts the parameters of
+                :class:`~pulpcore.plugin.download.BaseDownloader`.
+
+        Raises:
+            ValueError: If neither remote_artifact and url are passed, or if both are passed.
+
+        Returns:
+            subclass of :class:`~pulpcore.plugin.download.BaseDownloader`: A downloader that
+            is configured with the remote settings.
+
+        """
+        return super().get_downloader(
+            remote_artifact=remote_artifact,
+            url=url,
+            download_factory=self.noauth_download_factory,
+            **kwargs,
+        )
 
     @property
     def namespaced_upstream_name(self):

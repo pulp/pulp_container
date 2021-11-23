@@ -17,10 +17,10 @@ from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
 from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
     ContainerContainerRemote,
+    ContainerRepositorySyncURL,
     ContentTagsApi,
     RepositoriesContainerApi,
     RepositoriesContainerVersionsApi,
-    RepositorySyncURL,
     RemotesContainerApi,
 )
 
@@ -61,7 +61,7 @@ class BasicSyncTestCase(PulpTestCase):
         self.addCleanup(remote_api.delete, remote.pulp_href)
 
         self.assertEqual(repository.latest_version_href, f"{repository.pulp_href}versions/0/")
-        repository_sync_data = RepositorySyncURL(remote=remote.pulp_href)
+        repository_sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
 
         # Sync the repository.
         sync_response = repository_api.sync(repository.pulp_href, repository_sync_data)
@@ -98,7 +98,7 @@ class SyncInvalidURLTestCase(PulpTestCase):
         remote = remote_api.create(ContainerContainerRemote(**remote_data))
         self.addCleanup(remote_api.delete, remote.pulp_href)
 
-        repository_sync_data = RepositorySyncURL(remote=remote.pulp_href)
+        repository_sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
         sync_response = repository_api.sync(repository.pulp_href, repository_sync_data)
 
         with self.assertRaises(PulpTaskError) as context:
@@ -132,7 +132,7 @@ class TestRepeatedSync(PulpTestCase):
 
     def test_sync_idempotency(self):
         """Ensure that sync does not create orphan tags https://pulp.plan.io/issues/5252 ."""
-        sync_data = RepositorySyncURL(remote=self.remote.pulp_href)
+        sync_data = ContainerRepositorySyncURL(remote=self.remote.pulp_href)
         sync_response = self.repository_api.sync(self.from_repo.pulp_href, sync_data)
         monitor_task(sync_response.task)
 
@@ -217,7 +217,7 @@ class FilteredTagsSyncTestCase(PulpTestCase):
         remote = self.remotes_api.create(remote_data)
         self.addCleanup(self.remotes_api.delete, remote.pulp_href)
 
-        repository_sync_data = RepositorySyncURL(remote=remote.pulp_href)
+        repository_sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
 
         sync_response = self.repositories_api.sync(self.repository.pulp_href, repository_sync_data)
         monitor_task(sync_response.task)
