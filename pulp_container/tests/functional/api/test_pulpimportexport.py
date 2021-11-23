@@ -24,9 +24,9 @@ from pulpcore.client.pulpcore import (
 from pulpcore.client.pulp_container import (
     ApiClient as ContainerApiClient,
     ContentManifestsApi,
+    ContainerRepositorySyncURL,
     RepositoriesContainerApi,
     RepositoriesContainerVersionsApi,
-    RepositorySyncURL,
     RemotesContainerApi,
 )
 from pulp_container.tests.functional.utils import configuration, gen_container_remote
@@ -55,7 +55,7 @@ class PulpImportExportTestCase(unittest.TestCase):
         # Setup
         remote = remotes_api.create(gen_container_remote())
         self.addCleanup(remotes_api.delete, remote.pulp_href)
-        sync_data = RepositorySyncURL(remote=remote.pulp_href)
+        sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
         repository = repositories_api.create(gen_repo())
         self.addCleanup(repositories_api.delete, repository.pulp_href)
         sync_response = repositories_api.sync(repository.pulp_href, sync_data)

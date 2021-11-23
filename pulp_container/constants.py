@@ -21,3 +21,4 @@ SIGNATURE_TYPE = SimpleNamespace(
     ATOMIC_FULL="atomic container signature",  # full version is present in the signed document
     ATOMIC_SHORT="atomic",  # short version is used in the JSON produced by API extension
 )
+SIGNATURE_SOURCE = SimpleNamespace(SIGSTORE="sigstore", API_EXTENSION="API extension")

@@ -33,8 +33,8 @@ from pulp_container.constants import EMPTY_BLOB, MEDIA_TYPE
 from pulpcore.client.pulp_container import (
     ContainerContainerDistribution,
     ContainerContainerRepository,
+    ContainerRepositorySyncURL,
     DistributionsContainerApi,
-    RepositorySyncURL,
     RepositoriesContainerApi,
     RemotesContainerApi,
 )
@@ -84,7 +84,7 @@ class PullContentTestCase(unittest.TestCase):
             cls.teardown_cleanups.append((cls.remotes_api.delete, cls.remote.pulp_href))
 
             # Step 3
-            sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
+            sync_data = ContainerRepositorySyncURL(remote=cls.remote.pulp_href)
             sync_response = cls.repositories_api.sync(_repo.pulp_href, sync_data)
             monitor_task(sync_response.task)
             cls.repo = cls.repositories_api.read(_repo.pulp_href)
@@ -318,7 +318,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
             cls.teardown_cleanups.append((cls.remotes_api.delete, cls.remote.pulp_href))
 
             # Step 3
-            sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
+            sync_data = ContainerRepositorySyncURL(remote=cls.remote.pulp_href)
             sync_response = cls.repositories_api.sync(_repo.pulp_href, sync_data)
             monitor_task(sync_response.task)
 

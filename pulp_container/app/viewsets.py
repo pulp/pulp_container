@@ -23,10 +23,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 
 from pulpcore.plugin.models import RepositoryVersion
-from pulpcore.plugin.serializers import (
-    AsyncOperationResponseSerializer,
-    RepositorySyncURLSerializer,
-)
+from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
 from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import dispatch, general_multi_delete
 from pulpcore.plugin.viewsets import (
@@ -588,14 +585,19 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         description="Trigger an asynchronous task to sync content.",
         summary="Sync from a remote",
         responses={202: AsyncOperationResponseSerializer},
+        request=serializers.ContainerRepositorySyncURLSerializer,
     )
-    @action(detail=True, methods=["post"], serializer_class=RepositorySyncURLSerializer)
+    @action(
+        detail=True,
+        methods=["post"],
+        serializer_class=serializers.ContainerRepositorySyncURLSerializer,
+    )
     def sync(self, request, pk):
         """
         Synchronizes a repository. The ``repository`` field has to be provided.
         """
         repository = self.get_object()
-        serializer = RepositorySyncURLSerializer(
+        serializer = serializers.ContainerRepositorySyncURLSerializer(
             data=request.data, context={"request": request, "repository_pk": pk}
         )
 
@@ -603,6 +605,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         serializer.is_valid(raise_exception=True)
         remote = serializer.validated_data.get("remote", repository.remote)
         mirror = serializer.validated_data.get("mirror")
+        signed_only = serializer.validated_data.get("signed_only")
 
         result = dispatch(
             tasks.synchronize,
@@ -612,6 +615,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                 "remote_pk": str(remote.pk),
                 "repository_pk": str(repository.pk),
                 "mirror": mirror,
+                "signed_only": signed_only,
             },
         )
         return OperationPostponedResponse(result, request)

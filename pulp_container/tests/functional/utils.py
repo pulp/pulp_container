@@ -32,6 +32,7 @@ from pulpcore.client.pulpcore import (
 )
 from pulpcore.client.pulp_container import (
     ApiClient as ContainerApiClient,
+    ContainerRepositorySyncURL,
     ContentBlobsApi,
     ContentManifestsApi,
     ContentTagsApi,
@@ -40,7 +41,6 @@ from pulpcore.client.pulp_container import (
     RepositoriesContainerApi,
     RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
-    RepositorySyncURL,
 )
 
 cfg = config.get_config()
@@ -223,7 +223,7 @@ def populate_pulp(url=REGISTRY_V2_FEED_URL):
     repositories_api = RepositoriesContainerApi(container_client)
 
     container_remote = remotes_api.create(gen_container_remote(url))
-    sync_data = RepositorySyncURL(remote=container_remote.pulp_href)
+    sync_data = ContainerRepositorySyncURL(remote=container_remote.pulp_href)
     container_repository = repositories_api.create(gen_repo())
     sync_response = repositories_api.sync(container_repository.pulp_href, sync_data)
 

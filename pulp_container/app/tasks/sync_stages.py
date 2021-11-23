@@ -1,8 +1,9 @@
+import aiohttp
 import asyncio
 import base64
 import fnmatch
-import json
 import hashlib
+import json
 import logging
 
 from gettext import gettext as _
@@ -14,15 +15,16 @@ from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 from pulpcore.plugin.constants import TASK_STATES
 
+from pulp_container.constants import MEDIA_TYPE, SIGNATURE_SOURCE, SIGNATURE_TYPE
 from pulp_container.app.models import (
-    Manifest,
-    MEDIA_TYPE,
     Blob,
-    Tag,
     BlobManifest,
+    Manifest,
     ManifestListManifest,
+    ManifestSignature,
+    Tag,
 )
-
+from pulp_container.app.utils import extract_data_from_signature, urlpath_sanitize
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +39,8 @@ V2_ACCEPT_HEADERS = {
         ]
     )
 }
+
+SIGNATURE_HEADER = "X-Registry-Supports-Signatures"
 
 
 def _save_artifact_blocking(artifact_attributes):
@@ -58,20 +62,50 @@ class ContainerFirstStage(Stage):
 
     """
 
-    def __init__(self, remote):
+    def __init__(self, remote, signed_only):
         """Initialize the stage."""
         super().__init__()
         self.remote = remote
         self.deferred_download = self.remote.policy != Remote.IMMEDIATE
+        self.signed_only = signed_only
 
     async def run(self):
         """
         ContainerFirstStage.
         """
+
+        async def get_signature_source(self):
+            """
+            Find out where signatures come from: sigstore, extension API or not available at all.
+            """
+            if self.remote.sigstore:
+                return SIGNATURE_SOURCE.SIGSTORE
+
+            registry_v2_url = urljoin(self.remote.url, "v2")
+            extension_check_downloader = self.remote.get_noauth_downloader(url=registry_v2_url)
+            try:
+                await extension_check_downloader.run()
+            except aiohttp.client_exceptions.ClientResponseError as exc:
+                if exc.status in [200, 401]:
+                    response_headers = dict(exc.headers)
+                    if response_headers.get(SIGNATURE_HEADER) == "1":
+                        return SIGNATURE_SOURCE.API_EXTENSION
+
         tag_list = []
         tag_dcs = []
         to_download = []
         man_dcs = {}
+        signature_dcs = []
+        signature_source = await get_signature_source(self)
+
+        if signature_source is None and self.signed_only:
+            raise ValueError(
+                _(
+                    "It is requested to sync only signed content but no sigstore URL is "
+                    "provided. Please configure a `sigstore` on your Remote or set "
+                    "`signed_only` to `False` for your sync request."
+                )
+            )
 
         async with ProgressReport(
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
@@ -125,20 +159,54 @@ class ContainerFirstStage(Stage):
                     list_dc = self.create_tagged_manifest_list(
                         tag_name, saved_artifact, content_data
                     )
-                    await self.put(list_dc)
-                    tag_dc.extra_data["tagged_manifest_dc"] = list_dc
+                    at_least_one_manifest = False
                     for manifest_data in content_data.get("manifests"):
                         man_dc = self.create_manifest(list_dc, manifest_data)
+                        if signature_source is not None:
+                            man_sig_dcs = await self.create_signatures(man_dc, signature_source)
+                            if self.signed_only and not man_sig_dcs:
+                                log.info(
+                                    _(
+                                        "The unsigned image {img_digest} which is a part of the "
+                                        "manifest list {ml_digest} (tagged as `{tag}`) is "
+                                        "skipped due to a requirement to sync signed content "
+                                        "only.".format(
+                                            img_digest=man_dc.d_content.digest,
+                                            ml_digest=list_dc.d_content.digest,
+                                            tag=tag_name,
+                                        )
+                                    )
+                                )
+                                # do not pass down the pipeline unsigned manifests
+                                continue
+                            signature_dcs.extend(man_sig_dcs)
+                        at_least_one_manifest = True
                         man_dcs[man_dc.content.digest] = man_dc
                         await self.put(man_dc)
+
+                    if not at_least_one_manifest:
+                        # no manifests for this manifest list and tag were signed, do not pass
+                        # this manifest list and tag down the pipeline
+                        continue
+
+                    tag_dc.extra_data["tagged_manifest_dc"] = list_dc
+                    await self.put(list_dc)
+
                 else:
                     man_dc = self.create_tagged_manifest(
                         tag_name, saved_artifact, content_data, raw_data
                     )
+                    if signature_source is not None:
+                        man_sig_dcs = await self.create_signatures(man_dc, signature_source)
+                        if self.signed_only and not man_sig_dcs:
+                            # do not pass down the pipeline unsigned manifests
+                            continue
+                        signature_dcs.extend(man_sig_dcs)
                     await self.put(man_dc)
                     tag_dc.extra_data["tagged_manifest_dc"] = man_dc
                     await man_dc.resolution()
                     await self.handle_blobs(man_dc, content_data)
+
                 tag_dcs.append(tag_dc)
                 await pb_parsed_tags.aincrement()
 
@@ -154,6 +222,11 @@ class ContainerFirstStage(Stage):
             tagged_manifest_dc = tag_dc.extra_data["tagged_manifest_dc"]
             tag_dc.content.tagged_manifest = await tagged_manifest_dc.resolution()
             await self.put(tag_dc)
+
+        for sig_dc in signature_dcs:
+            signed_manifest_dc = sig_dc.extra_data["signed_manifest_dc"]
+            sig_dc.content.signed_manifest = await signed_manifest_dc.resolution()
+            await self.put(sig_dc)
 
     def filter_tags(self, tag_list):
         """
@@ -346,6 +419,75 @@ class ContainerFirstStage(Stage):
         blob_dc = DeclarativeContent(content=blob, d_artifacts=[da])
 
         return blob_dc
+
+    async def create_signatures(self, man_dc, signature_source):
+        """
+        Create signature declarative artifacts.
+
+        Signatures are currently supported only for image manifests and not manifest lists.
+
+        For sigstore, signatures are downloaded from a specified url. The number of signatures is
+        unknown upfront, need to download them in order by incrementing the index until hit 404.
+
+        Args:
+            man_dc: Declarative content instance of a related Manifest
+            signature_source: Source where to get signatures from
+        """
+        signature_dcs = []
+        if signature_source == SIGNATURE_SOURCE.SIGSTORE:
+            man_digest_reformatted = man_dc.content.digest.replace(":", "=")
+            sig_relative_baseurl = f"{self.remote.upstream_name}@{man_digest_reformatted}"
+
+            signature_counter = 1
+            while True:
+                signature_url = urlpath_sanitize(
+                    self.remote.sigstore, sig_relative_baseurl, f"signature-{signature_counter}"
+                )
+                signature_downloader = self.remote.get_noauth_downloader(url=signature_url)
+                try:
+                    signature_download_result = await signature_downloader.run()
+                except aiohttp.client_exceptions.ClientResponseError as exc:
+                    if exc.status != 404:
+                        log.info(
+                            _(
+                                "{} is not accessible, can't sync an image signature. "
+                                "Error: {} {}".format(signature_url, exc.status, exc.message)
+                            )
+                        )
+                    # 404 is fine, it means there are no or no more signatures available
+                    break
+
+                with open(signature_download_result.path, "rb") as f:
+                    signature_raw = f.read()
+
+                signature_counter += 1
+                signature_json = extract_data_from_signature(signature_raw, man_dc.content.digest)
+                if signature_json is None:
+                    continue
+
+                sig_digest = hashlib.sha256(signature_raw).hexdigest()
+                signature = ManifestSignature(
+                    name=f"{man_dc.content.digest}@{sig_digest[:32]}",
+                    digest=f"sha256:{sig_digest}",
+                    type=SIGNATURE_TYPE.ATOMIC_SHORT,
+                    key_id=signature_json["signing_key_id"],
+                    timestamp=signature_json["signature_timestamp"],
+                    creator=signature_json["optional"].get("creator"),
+                    data=base64.b64encode(signature_raw),
+                )
+                sig_dc = DeclarativeContent(
+                    content=signature,
+                    extra_data={"signed_manifest_dc": man_dc},
+                )
+                signature_dcs.append(sig_dc)
+
+            return signature_dcs
+
+        elif signature_source == SIGNATURE_SOURCE.API_EXTENSION:
+            # TODO in a PR for the extension support
+            pass
+
+        return []
 
     def _include_layer(self, layer):
         """
