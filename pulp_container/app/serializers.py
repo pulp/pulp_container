@@ -2,6 +2,7 @@ from gettext import gettext as _
 import os
 import re
 
+from django.core.validators import URLValidator
 from rest_framework import serializers
 
 from pulpcore.plugin.models import (
@@ -14,6 +15,7 @@ from pulpcore.plugin.serializers import (
     ContentRedirectContentGuardSerializer,
     DetailRelatedField,
     GetOrCreateSerializerMixin,
+    DistributionSerializer,
     IdentityField,
     ModelSerializer,
     NestedRelatedField,
@@ -21,7 +23,7 @@ from pulpcore.plugin.serializers import (
     RelatedField,
     RemoteSerializer,
     RepositorySerializer,
-    DistributionSerializer,
+    RepositorySyncURLSerializer,
     RepositoryVersionRelatedField,
     SingleArtifactContentSerializer,
     validate_unknown_fields,
@@ -226,8 +228,19 @@ class ContainerRemoteSerializer(RemoteSerializer):
         default=Remote.IMMEDIATE,
     )
 
+    sigstore = serializers.CharField(
+        required=False,
+        help_text=_("A URL to a sigstore to download image signatures from"),
+        validators=[URLValidator(schemes=["http", "https"])],
+    )
+
     class Meta:
-        fields = RemoteSerializer.Meta.fields + ("upstream_name", "include_tags", "exclude_tags")
+        fields = RemoteSerializer.Meta.fields + (
+            "upstream_name",
+            "include_tags",
+            "exclude_tags",
+            "sigstore",
+        )
         model = models.ContainerRemote
 
 
@@ -240,7 +253,7 @@ class ContainerDistributionSerializer(DistributionSerializer):
         source="base_path",
         read_only=True,
         help_text=_(
-            "The Registry hostame/name/ to use with docker pull command defined by "
+            "The Registry hostname/name/ to use with docker pull command defined by "
             "this distribution."
         ),
     )
@@ -666,3 +679,17 @@ class OCIBuildImageSerializer(serializers.Serializer):
             "tag",
             "artifacts",
         )
+
+
+class ContainerRepositorySyncURLSerializer(RepositorySyncURLSerializer):
+    """
+    Serializer for Container Sync.
+    """
+
+    signed_only = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=_(
+            "If ``True``, only signed content will be synced. Signatures are not verified."
+        ),
+    )

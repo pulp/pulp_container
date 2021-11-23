@@ -9,14 +9,14 @@ from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
 
 from pulpcore.client.pulp_container import (
-    RepositorySyncURL,
-    RepositoriesContainerApi,
-    RemotesContainerApi,
-    DistributionsContainerApi,
-    PatchedcontainerContainerDistribution,
+    ContainerRepositorySyncURL,
     ContentBlobsApi,
     ContentManifestsApi,
     ContentTagsApi,
+    DistributionsContainerApi,
+    RepositoriesContainerApi,
+    RemotesContainerApi,
+    PatchedcontainerContainerDistribution,
     UnTagImage,
 )
 
@@ -55,7 +55,7 @@ class ContentCacheTestCache(unittest.TestCase):
 
         cls.repo = cls.repo_api.create(gen_repo())
         cls.remote = cls.remote_api.create(gen_container_remote())
-        body = RepositorySyncURL(remote=cls.remote.pulp_href)
+        body = ContainerRepositorySyncURL(remote=cls.remote.pulp_href)
         response = cls.repo_api.sync(cls.repo.pulp_href, body)
         monitor_task(response.task)
 
