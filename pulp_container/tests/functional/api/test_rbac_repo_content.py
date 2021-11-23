@@ -21,11 +21,11 @@ from pulp_container.tests.functional.utils import (
 
 from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
+    ContainerRepositorySyncURL,
     ContentTagsApi,
     PulpContainerNamespacesApi,
     RepositoriesContainerApi,
     RepositoriesContainerPushApi,
-    RepositorySyncURL,
 )
 
 
@@ -98,7 +98,7 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.remote = cls.user_creator["remote_api"].create(
             gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         )
-        sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
+        sync_data = ContainerRepositorySyncURL(remote=cls.remote.pulp_href)
         sync_response = cls.user_creator["repository_api"].sync(cls.repository.pulp_href, sync_data)
         monitor_task(sync_response.task)
 

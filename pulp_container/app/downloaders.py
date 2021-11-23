@@ -1,14 +1,16 @@
 from gettext import gettext as _
-from logging import getLogger
-from urllib import parse
+
 import aiohttp
 import asyncio
 import json
 import re
 
 from aiohttp.client_exceptions import ClientResponseError
+from logging import getLogger
+from multidict import MultiDict
+from urllib import parse
 
-from pulpcore.plugin.download import HttpDownloader
+from pulpcore.plugin.download import DownloaderFactory, HttpDownloader
 
 
 log = getLogger(__name__)
@@ -161,3 +163,66 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         elif basic_auth is not None:
             return {"Authorization": basic_auth}
         return {}
+
+
+class NoAuthDownloaderFactory(DownloaderFactory):
+    """
+    A downloader factory without any preset auth configuration, TLS or basic auth.
+    """
+
+    def _make_aiohttp_session_from_remote(self):
+        """
+        Same as DownloaderFactory._make_aiohttp_session_from_remote, excluding TLS configuration.
+
+        Returns:
+            :class:`aiohttp.ClientSession`
+
+        """
+        tcp_conn_opts = {"force_close": True}
+
+        headers = MultiDict({"User-Agent": NoAuthDownloaderFactory.user_agent()})
+        if self._remote.headers is not None:
+            for header_dict in self._remote.headers:
+                user_agent_header = header_dict.pop("User-Agent", None)
+                if user_agent_header:
+                    headers["User-Agent"] = f"{headers['User-Agent']}, {user_agent_header}"
+                headers.extend(header_dict)
+
+        conn = aiohttp.TCPConnector(**tcp_conn_opts)
+        total = self._remote.total_timeout
+        sock_connect = self._remote.sock_connect_timeout
+        sock_read = self._remote.sock_read_timeout
+        connect = self._remote.connect_timeout
+
+        timeout = aiohttp.ClientTimeout(
+            total=total, sock_connect=sock_connect, sock_read=sock_read, connect=connect
+        )
+        return aiohttp.ClientSession(connector=conn, timeout=timeout, headers=headers)
+
+    def _http_or_https(self, download_class, url, **kwargs):
+        """
+        Same as DownloaderFactory._http_or_https, excluding the basic auth credentials.
+
+        Args:
+            download_class (:class:`~pulpcore.plugin.download.BaseDownloader`): The download
+                class to be instantiated.
+            url (str): The download URL.
+            kwargs (dict): All kwargs are passed along to the downloader. At a minimum, these
+                include the :class:`~pulpcore.plugin.download.BaseDownloader` parameters.
+
+        Returns:
+            :class:`~pulpcore.plugin.download.HttpDownloader`: A downloader that
+            is configured with the remote settings.
+
+        """
+        options = {"session": self._session}
+        if self._remote.proxy_url:
+            options["proxy"] = self._remote.proxy_url
+            if self._remote.proxy_username and self._remote.proxy_password:
+                options["proxy_auth"] = aiohttp.BasicAuth(
+                    login=self._remote.proxy_username, password=self._remote.proxy_password
+                )
+
+        kwargs["throttler"] = self._remote.download_throttler if self._remote.rate_limit else None
+
+        return download_class(url, **options, **kwargs)
