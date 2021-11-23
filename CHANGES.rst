@@ -13,6 +13,28 @@ Changelog
 
 .. towncrier release notes start
 
+2.8.2 (2021-11-23)
+==================
+
+
+Bugfixes
+--------
+
+- Corrected value of ``Content-Length`` header for push upload responses.
+  This fixes the *upstream prematurely closed connection while reading upstream* error that would
+  appear in nginx logs after a push operation (Backported from https://pulp.plan.io/issues/9516).
+  `#9521 <https://pulp.plan.io/issues/9521>`_
+- Fixed ORM calls in the content app that were made in async context to use loop.run_in_executor().
+  `#9522 <https://pulp.plan.io/issues/9522>`_
+- Fixed Azure storage backend support (Backported from https://pulp.plan.io/issues/9488).
+  `#9523 <https://pulp.plan.io/issues/9523>`_
+- Added validation for a repository base path (Backported from https://pulp.plan.io/issues/9403).
+  `#9526 <https://pulp.plan.io/issues/9526>`_
+
+
+----
+
+
 2.8.1 (2021-09-07)
 ==================
 

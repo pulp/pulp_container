@@ -1,1 +1,0 @@
-Fixed ORM calls in the content app that were made in async context to use loop.run_in_executor().
