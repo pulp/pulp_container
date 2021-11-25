@@ -112,5 +112,7 @@ class S3StorageRedirects(CommonRedirects):
             "ResponseContentType": return_media_type,
             "ResponseContentDisposition": f"attachment; filename={filename}",
         }
-        content_url = artifact.file.storage.url(artifact.file.name, parameters=parameters)
+        content_url = artifact.file.storage.url(
+            artifact.file.name, parameters=parameters, http_method=self.request.method
+        )
         return redirect(content_url)
