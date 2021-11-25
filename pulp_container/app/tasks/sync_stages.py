@@ -473,7 +473,7 @@ class ContainerFirstStage(Stage):
                     key_id=signature_json["signing_key_id"],
                     timestamp=signature_json["signature_timestamp"],
                     creator=signature_json["optional"].get("creator"),
-                    data=base64.b64encode(signature_raw),
+                    data=base64.b64encode(signature_raw).decode(),
                 )
                 sig_dc = DeclarativeContent(
                     content=signature,
