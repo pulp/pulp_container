@@ -1,8 +1,11 @@
 from gettext import gettext as _
 
+import gnupg
 import hashlib
+import json
 import os
 import re
+import tempfile
 import time
 from logging import getLogger
 from url_normalize import url_normalize
@@ -29,6 +32,7 @@ from pulpcore.plugin.models import (
     Remote,
     Repository,
     Distribution,
+    SigningService,
     Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
@@ -38,6 +42,7 @@ from . import downloaders
 from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
 
 
+gpg = gnupg.GPG()
 logger = getLogger(__name__)
 
 
@@ -247,6 +252,9 @@ class ManifestSignature(Content):
 class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
     """
     Namespace for the container registry.
+
+    Fields:
+        name (models.CharField): The name of the namespace.
     """
 
     name = models.CharField(max_length=255, db_index=True)
@@ -452,6 +460,71 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         default_related_name = "%(app_label)s_%(model_name)s"
 
 
+class ManifestSigningService(SigningService):
+    """
+    Signing service used for creating container signatures.
+    """
+
+    def validate(self):
+        """
+        Validate a signing service for a container signature.
+
+        The validation seeks to ensure that the sign() method returns a dict as follows:
+
+        {"signature": "$SIG_PATH"}
+
+        The method creates a test image manifest, signs its manifest.json, and checks if the
+        signature can be verified by the provided public key.
+
+        Raises:
+            RuntimeError: If the validation has failed.
+
+        """
+        test_manifest = {
+            "schemaVersion": 2,
+            "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+            "config": {
+                "mediaType": "application/vnd.docker.container.image.v1+json",
+                "size": 1456,
+                "digest": "sha256:7138284460ffa3bb6ee087344f5b051468b3f8697e2d1427bac1a208d4168123",
+            },
+            "layers": [
+                {
+                    "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                    "size": 772792,
+                    "digest": "sha256:e685c5c858e36338a47c627763b50dfe6035b547f1f75f0d39753d4e3121",
+                }
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_directory_name:
+            manifest_file = tempfile.NamedTemporaryFile(dir=temp_directory_name, delete=False)
+            with open(manifest_file.name, "w") as outfile:
+                json.dump(test_manifest, outfile)
+            sig_path = os.path.join(temp_directory_name, "signature")
+
+            signed = self.sign(
+                manifest_file.name, env_vars={"REFERENCE": "test", "SIG_PATH": sig_path}
+            )
+
+            with open(signed["signature_path"], "rb") as fp:
+                verified = gpg.verify_file(fp)
+                if verified.trust_level is None or verified.trust_level < verified.TRUST_FULLY:
+                    raise RuntimeError(
+                        _(
+                            "The signature could not be verified or the trust level is too "
+                            "low. The signing script may generate invalid signatures."
+                        )
+                    )
+                elif verified.pubkey_fingerprint != self.pubkey_fingerprint:
+                    raise RuntimeError(
+                        _(
+                            "Fingerprints of the provided public key and the verified public "
+                            "key are not equal. The signing script is probably not valid."
+                        )
+                    )
+
+
 class ContainerRepository(
     Repository,
     AutoAddObjPermsMixin,
@@ -462,6 +535,10 @@ class ContainerRepository(
 
     This Repository type is designed for standard pulp operations, and can be distributed as a
     read only registry.
+
+    Relations:
+        manifest_signing_service (models.ForeignKey): ManifestSigningService this repository will
+                                                      use for signing content.
     """
 
     TYPE = "container"
@@ -469,6 +546,10 @@ class ContainerRepository(
     REMOTE_TYPES = [ContainerRemote]
     PUSH_ENABLED = False
     ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
+
+    manifest_signing_service = models.ForeignKey(
+        ManifestSigningService, on_delete=models.SET_NULL, null=True
+    )
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
@@ -498,12 +579,20 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
     automatically instantiated on authorised push to nonexisting repositories.
     With this repository type, all but the latest repository_version are solely of historical
     interest.
+
+    Relations:
+        manifest_signing_service (models.ForeignKey): ManifestSigningService this repository will
+                                                      use for signing content.
     """
 
     TYPE = "container-push"
-    CONTENT_TYPES = [Blob, Manifest, Tag]
+    CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
     PUSH_ENABLED = True
     ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container-push"
+
+    manifest_signing_service = models.ForeignKey(
+        ManifestSigningService, on_delete=models.SET_NULL, null=True
+    )
 
     def add_perms_to_distribution_group(self, permissions, parameters):
         """
@@ -553,6 +642,14 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
 class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
     """
     A container distribution defines how a repository version is distributed by Pulp's webserver.
+
+    Fields:
+        private (models.BooleanField): Whether the distribution is private or public.
+                                       Public by default.
+        descripion (models.TextField): Description of the distribution.
+
+    Relations:
+        namespace (models.ForeignKey): Namespace the distribution belonds to.
     """
 
     TYPE = "container"
@@ -683,6 +780,10 @@ def _gen_secret():
 class ContentRedirectContentGuard(ContentGuard):
     """
     Content guard to allow preauthenticated redirects to the content app.
+
+    Fields:
+        shared_secret (models.BinaryField): Shared secret.
+
     """
 
     TYPE = "content_redirect"

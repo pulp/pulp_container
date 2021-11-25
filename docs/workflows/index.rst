@@ -59,3 +59,4 @@ Container Workflows
    authentication
    managing-credentials
    push
+   sign-images

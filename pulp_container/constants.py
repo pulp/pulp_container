@@ -15,6 +15,17 @@ MEDIA_TYPE = SimpleNamespace(
     REGULAR_BLOB_OCI="application/vnd.oci.image.layer.v1.tar+gzip",
     FOREIGN_BLOB_OCI="application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
 )
+
+MANIFEST_MEDIA_TYPES = SimpleNamespace(
+    IMAGE=[
+        MEDIA_TYPE.MANIFEST_V1,
+        MEDIA_TYPE.MANIFEST_V1_SIGNED,
+        MEDIA_TYPE.MANIFEST_V2,
+        MEDIA_TYPE.MANIFEST_OCI,
+    ],
+    LIST=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI],
+)
+
 EMPTY_BLOB = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
 BLOB_CONTENT_TYPE = "application/octet-stream"
 SIGNATURE_TYPE = SimpleNamespace(
