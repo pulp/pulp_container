@@ -104,6 +104,39 @@ class BlobSerializer(SingleArtifactContentSerializer):
         model = models.Blob
 
 
+class ManifestSignatureSerializer(NoArtifactContentSerializer):
+    """
+    Serializer for image manifest signatures.
+    """
+
+    name = serializers.CharField(
+        help_text="Signature name in the format of `digest_algo:manifest_digest@random_32_chars`"
+    )
+    digest = serializers.CharField(help_text="sha256 digest of the signature blob")
+    type = serializers.CharField(help_text="Container signature type, e.g. 'atomic'")
+    key_id = serializers.CharField(help_text="Signing key ID")
+    timestamp = serializers.IntegerField(help_text="Timestamp of a signature")
+    creator = serializers.CharField(help_text="Signature creator")
+    signed_manifest = DetailRelatedField(
+        many=False,
+        help_text="Manifest that is signed",
+        view_name="container-manifests-detail",
+        queryset=models.Manifest.objects.all(),
+    )
+
+    class Meta:
+        fields = NoArtifactContentSerializer.Meta.fields + (
+            "name",
+            "digest",
+            "type",
+            "key_id",
+            "timestamp",
+            "creator",
+            "signed_manifest",
+        )
+        model = models.ManifestSignature
+
+
 class RegistryPathField(serializers.CharField):
     """
     Serializer Field for the registry_path field of the ContainerDistribution.
