@@ -17,3 +17,7 @@ MEDIA_TYPE = SimpleNamespace(
 )
 EMPTY_BLOB = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
 BLOB_CONTENT_TYPE = "application/octet-stream"
+SIGNATURE_TYPE = SimpleNamespace(
+    ATOMIC_FULL="atomic container signature",  # full version is present in the signed document
+    ATOMIC_SHORT="atomic",  # short version is used in the JSON produced by API extension
+)
