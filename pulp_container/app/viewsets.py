@@ -100,6 +100,22 @@ class BlobFilter(ContentFilter):
         }
 
 
+class ManifestSignatureFilter(ContentFilter):
+    """
+    FilterSet for image signatures.
+    """
+
+    manifest = CharInFilter(field_name="signed_manifest__digest", lookup_expr="in")
+
+    class Meta:
+        model = models.ManifestSignature
+        fields = {
+            "name": NAME_FILTER_OPTIONS,
+            "digest": ["exact", "in"],
+            "key_id": ["exact", "in"],
+        }
+
+
 class ContainerDistributionFilter(DistributionFilter):
     """
     FilterSet for ContainerDistributions
@@ -277,6 +293,32 @@ class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     queryset = models.Blob.objects.all()
     serializer_class = serializers.BlobSerializer
     filterset_class = BlobFilter
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
+
+
+class ManifestSignatureViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
+    """
+    ViewSet for image signatures.
+    """
+
+    endpoint_name = "signatures"
+    queryset = models.ManifestSignature.objects.all()
+    serializer_class = serializers.ManifestSignatureSerializer
+    filterset_class = ManifestSignatureFilter
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [

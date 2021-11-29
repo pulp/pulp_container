@@ -35,7 +35,7 @@ from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_
 
 
 from . import downloaders
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
 
 
 logger = getLogger(__name__)
@@ -198,6 +198,50 @@ class Tag(Content):
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
         unique_together = (("name", "tagged_manifest"),)
+
+
+class ManifestSignature(Content):
+    """
+    A signature for a manifest.
+
+    Fields:
+        name (models.CharField): A signature name in the 'manifest_digest@random_name' format
+        digest (models.CharField): A signature sha256 digest.
+        type (models.CharField): A signature type as specified in signature metadata. Currently
+                                 it's only "atomic container signature".
+        key_id (models.CharField): A key id identified by gpg (last 8 bytes of the fingerprint).
+        timestamp (models.PositiveIntegerField): A signature timestamp identified by gpg.
+        creator (models.CharField): A signature creator.
+        data (models.BinaryField): A signature, base64 encoded.
+
+    Relations:
+        signed_manifest (models.ForeignKey): A manifest this signature is relevant to.
+
+    """
+
+    PROTECTED_FROM_RECLAIM = False
+
+    TYPE = "signature"
+
+    SIGNATURE_CHOICES = ((SIGNATURE_TYPE.ATOMIC_SHORT, SIGNATURE_TYPE.ATOMIC_SHORT),)
+
+    name = models.CharField(max_length=255, db_index=True)
+    digest = models.CharField(max_length=255)
+    type = models.CharField(max_length=255, choices=SIGNATURE_CHOICES)
+    key_id = models.CharField(max_length=255, db_index=True)
+    timestamp = models.PositiveIntegerField()
+    creator = models.CharField(max_length=255, blank=True)
+    data = models.BinaryField()
+
+    signed_manifest = models.ForeignKey(
+        Manifest, null=False, related_name="signed_manifests", on_delete=models.CASCADE
+    )
+    # TODO: Maybe there should be an optional field with a FK to a signing_service for the cases
+    #       when Pulp creates a signature.
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+        unique_together = (("digest",),)
 
 
 class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
@@ -370,7 +414,7 @@ class ContainerRepository(
     """
 
     TYPE = "container"
-    CONTENT_TYPES = [Blob, Manifest, Tag]
+    CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
     REMOTE_TYPES = [ContainerRemote]
     PUSH_ENABLED = False
     ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
