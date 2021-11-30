@@ -161,20 +161,16 @@ class ContainerContentQuerySetMixin:
             if "repository_version" in key:
                 rv = view.get_resource(param, RepositoryVersion)
                 repo = rv.repository.cast()
-                if (
-                    request.user.has_perm(repo_info.push_perm)
-                    and repo.pulp_type == repo_info.push_type
-                ):
-                    repo_pks.append(repo.pk)
-                elif (
-                    request.user.has_perm(repo_info.mirror_perm)
-                    and repo.pulp_type == repo_info.mirror_type
-                ):
-                    repo_pks.append(repo.pk)
-                elif request.user.has_perm(repo_info.push_perm, repo) or request.user.has_perm(
-                    repo_info.mirror_perm, repo
-                ):
-                    repo_pks.append(repo.pk)
+                if repo.pulp_type == repo_info.push_type:
+                    if request.user.has_perm(repo_info.push_perm) or request.user.has_perm(
+                        repo_info.push_perm, repo
+                    ):
+                        repo_pks.append(repo.pk)
+                elif repo.pulp_type == repo_info.mirror_type:
+                    if request.user.has_perm(repo_info.mirror_perm) or request.user.has_perm(
+                        repo_info.mirror_perm, repo
+                    ):
+                        repo_pks.append(repo.pk)
         return repo_pks
 
     def get_queryset(self):
