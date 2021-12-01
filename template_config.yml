@@ -1,7 +1,7 @@
 # This config represents the latest values used when running the plugin-template. Any settings that
 # were not present before running plugin-template have been added with their default values.
 
-# generated with plugin_template@2021.08.26-19-g88bcdd3
+# generated with plugin_template@2021.08.26-39-gb86dbd0
 
 additional_repos: []
 all: false
@@ -21,18 +21,9 @@ deploy_client_to_rubygems: true
 deploy_daily_client_to_pypi: true
 deploy_daily_client_to_rubygems: true
 deploy_to_pypi: true
+disabled_redis_runners: []
 docker_fixtures: false
 docs_test: true
-exclude_check_commit_message: false
-exclude_coverage: true
-exclude_deploy_client_to_pypi: false
-exclude_deploy_client_to_rubygems: false
-exclude_deploy_daily_client_to_pypi: false
-exclude_deploy_daily_client_to_rubygems: false
-exclude_deploy_to_pypi: false
-exclude_docs_test: false
-exclude_mariadb_test: false
-exclude_test_bindings: false
 flake8: true
 issue_tracker: redmine
 noissue_marker: '[noissue]'
@@ -61,7 +52,7 @@ pulp_settings:
   - /tmp
   allowed_import_paths:
   - /tmp
-pulpcore_branch: master
+pulpcore_branch: main
 pulpcore_pip_version_specifier: null
 pulpcore_revision: null
 pulpprojectdotorg_key_id: aa499d7938ed
@@ -74,11 +65,9 @@ release_user: pulpbot
 single_commit_check: true
 sync_ci: true
 tasking_allow_async_unsafe: false
-test: false
 test_azure: true
 test_bindings: false
 test_cli: true
-test_fips_nightly: false
 test_performance: false
 test_released_plugin_with_next_pulpcore_release: true
 test_s3: true
@@ -86,5 +75,4 @@ update_redmine: true
 upgrade_range:
 - pulp_container_branch: 2.3
   pulpcore_branch: 3.11
-verbose: false
 
