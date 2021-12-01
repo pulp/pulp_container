@@ -80,6 +80,8 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         self._push(image_path, local_url, self.user_admin)
         self._pull(local_url, self.user_admin)
+        # ensure that same content can be pushed twice without permission errors
+        self._push(image_path, local_url, self.user_admin)
 
         # cleanup, namespace removal also removes related distributions
         namespace = self.namespace_api.list(name="foo").results[0]
