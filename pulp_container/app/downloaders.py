@@ -57,6 +57,8 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         headers.update(auth_headers)
         # aiohttps does not allow to send auth argument and auth header together
         self.session._default_auth = None
+        if self.download_throttler:
+            await self.download_throttler.acquire()
         async with self.session.get(
             self.url, headers=headers, proxy=self.proxy, proxy_auth=self.proxy_auth
         ) as response:
