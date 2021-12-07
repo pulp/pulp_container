@@ -9,7 +9,6 @@ from url_normalize import url_normalize
 from urllib.parse import urlparse
 
 from django.db import models
-from django.contrib.auth.models import Group
 from django.contrib.postgres import fields
 from django.shortcuts import redirect
 
@@ -26,6 +25,7 @@ from pulpcore.plugin.models import (
     BaseModel,
     Content,
     ContentGuard,
+    Group,
     Remote,
     Repository,
     Distribution,
@@ -230,8 +230,8 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
         owners_group = Group.objects.get(
             name="{}.{}".format("container.namespace.owners", self.name)
         )
-        assign_perm("auth.change_group", owners_group, group)
-        assign_perm("auth.view_group", owners_group, group)
+        assign_perm("core.change_group", owners_group, group)
+        assign_perm("core.view_group", owners_group, group)
         if add_user_to_group:
             current_user.groups.add(group)
         self.add_for_groups(permissions, group.name)
@@ -520,8 +520,8 @@ class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
         owners_group = Group.objects.get(
             name="{}.{}".format("container.distribution.owners", self.pk)
         )
-        assign_perm("auth.change_group", owners_group, group)
-        assign_perm("auth.view_group", owners_group, group)
+        assign_perm("core.change_group", owners_group, group)
+        assign_perm("core.view_group", owners_group, group)
         if add_user_to_group:
             current_user.groups.add(group)
         self.add_for_groups(permissions, group.name)
