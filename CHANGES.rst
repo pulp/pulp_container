@@ -61,6 +61,24 @@ Misc
 ----
 
 
+2.8.3 (2021-12-09)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed a bug that caused container clients to be unable to interact with content stored on S3.
+  (Backported from https://pulp.plan.io/issues/9586).
+  `#9601 <https://pulp.plan.io/issues/9601>`_
+- Fixed rate_limit option on the remote which was ignored during the downloads. Rate limit defines
+  N req/sec per connection ( backported from https://pulp.plan.io/issues/9610).
+  `#9610 <https://pulp.plan.io/issues/9610>`_
+
+
+----
+
+
 2.8.2 (2021-11-23)
 ==================
 
