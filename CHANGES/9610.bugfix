@@ -1,2 +1,0 @@
-Fixed rate_limit option on the remote which was ignored during the downloads. Rate limit defines
-N req/sec per connection ( backported from https://pulp.plan.io/issues/9610).
