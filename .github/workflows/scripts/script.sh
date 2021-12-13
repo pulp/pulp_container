@@ -28,9 +28,10 @@ export PULP_SETTINGS=$PWD/.ci/ansible/settings/settings.py
 
 export PULP_URL="http://pulp"
 
-if [[ "$TEST" = "docs" || "$TEST" = "publish" ]]; then
+if [[ "$TEST" = "docs" ]]; then
   cd docs
-  make PULP_URL="$PULP_URL" html
+  make PULP_URL="$PULP_URL" diagrams html
+  tar -cvf docs.tar ./_build
   cd ..
 
   echo "Validating OpenAPI schema..."
@@ -44,43 +45,40 @@ if [[ "$TEST" = "docs" || "$TEST" = "publish" ]]; then
   exit
 fi
 
+if [[ "${RELEASE_WORKFLOW:-false}" == "true" ]]; then
+  REPORTED_VERSION=$(http $PULP_URL/pulp/api/v3/status/ | jq --arg plugin container --arg legacy_plugin pulp_container -r '.versions[] | select(.component == $plugin or .component == $legacy_plugin) | .version')
+  response=$(curl --write-out %{http_code} --silent --output /dev/null https://pypi.org/project/pulp-container/$REPORTED_VERSION/)
+  if [ "$response" == "200" ];
+  then
+    echo "pulp_container $REPORTED_VERSION has already been released. Skipping running tests."
+    exit
+  fi
+fi
+
 if [[ "$TEST" == "plugin-from-pypi" ]]; then
   COMPONENT_VERSION=$(http https://pypi.org/pypi/pulp-container/json | jq -r '.info.version')
   git checkout ${COMPONENT_VERSION} -- pulp_container/tests/
 fi
 
 cd ../pulp-openapi-generator
-
 ./generate.sh pulpcore python
 pip install ./pulpcore-client
-./generate.sh pulp_container python
-pip install ./pulp_container-client
-cd $REPO_ROOT
-
-if [[ "$TEST" = 'bindings' || "$TEST" = 'publish' ]]; then
-  python $REPO_ROOT/.ci/assets/bindings/test_bindings.py
-  cd ../pulp-openapi-generator
-  if [ ! -f $REPO_ROOT/.ci/assets/bindings/test_bindings.rb ]
-  then
-    exit
-  fi
-
-  rm -rf ./pulpcore-client
-
+rm -rf ./pulpcore-client
+if [[ "$TEST" = 'bindings' ]]; then
   ./generate.sh pulpcore ruby 0
   cd pulpcore-client
-  gem build pulpcore_client
+  gem build pulpcore_client.gemspec
   gem install --both ./pulpcore_client-0.gem
-  cd ..
-  rm -rf ./pulp_container-client
+fi
+cd $REPO_ROOT
 
-  ./generate.sh pulp_container ruby 0
-
-  cd pulp_container-client
-  gem build pulp_container_client
-  gem install --both ./pulp_container_client-0.gem
-  cd ..
-  ruby $REPO_ROOT/.ci/assets/bindings/test_bindings.rb
+if [[ "$TEST" = 'bindings' ]]; then
+  if [ -f $REPO_ROOT/.ci/assets/bindings/test_bindings.py ]; then
+    python $REPO_ROOT/.ci/assets/bindings/test_bindings.py
+  fi
+  if [ -f $REPO_ROOT/.ci/assets/bindings/test_bindings.rb ]; then
+    ruby $REPO_ROOT/.ci/assets/bindings/test_bindings.rb
+  fi
   exit
 fi
 
@@ -91,11 +89,14 @@ cmd_prefix pip3 install -r /tmp/unittest_requirements.txt
 echo "Checking for uncommitted migrations..."
 cmd_prefix bash -c "django-admin makemigrations --check --dry-run"
 
-# Run unit tests.
-cmd_prefix bash -c "PULP_DATABASES__default__USER=postgres django-admin test --noinput /usr/local/lib/python3.6/site-packages/pulp_container/tests/unit/"
+if [[ "$TEST" != "upgrade" ]]; then
+  # Run unit tests.
+  cmd_prefix bash -c "PULP_DATABASES__default__USER=postgres django-admin test --noinput /usr/local/lib/python3.6/site-packages/pulp_container/tests/unit/"
+fi
 
 # Run functional tests
-export PYTHONPATH=$REPO_ROOT:$REPO_ROOT/../pulpcore${PYTHONPATH:+:${PYTHONPATH}}
+export PYTHONPATH=$REPO_ROOT/../pulpcore${PYTHONPATH:+:${PYTHONPATH}}
+export PYTHONPATH=$REPO_ROOT${PYTHONPATH:+:${PYTHONPATH}}
 
 
 
