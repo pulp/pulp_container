@@ -241,6 +241,25 @@ Misc
 ----
 
 
+2.5.4 (2021-12-14)
+==================
+
+
+Bugfixes
+--------
+
+- Improved error logging on failed image push. (Backported from https://pulp.plan.io/issues/8879).
+  `#8888 <https://pulp.plan.io/issues/8888>`_
+- Fixed access policy for the container repository ``repair`` endpoint. (Backported from https://pulp.plan.io/issues/8884).
+  `#8889 <https://pulp.plan.io/issues/8889>`_
+- Fixed a bug that caused container clients to be unable to interact with content stored on S3.
+  (Backported from https://pulp.plan.io/issues/9586).
+  `#9600 <https://pulp.plan.io/issues/9600>`_
+
+
+----
+
+
 2.5.3 (2021-05-20)
 ==================
 
