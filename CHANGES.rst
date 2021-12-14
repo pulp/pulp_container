@@ -13,6 +13,51 @@ Changelog
 
 .. towncrier release notes start
 
+2.10.0 (2021-12-14)
+===================
+
+
+Features
+--------
+
+- Enabled Azure storage backend support.
+  `#9488 <https://pulp.plan.io/issues/9488>`_
+- Enabled rate_limit option on the remote. Rate limit defines N req/sec per connection.
+  `#9607 <https://pulp.plan.io/issues/9607>`_
+
+
+Bugfixes
+--------
+
+- Added validation for the supported manifests and blobs media_types in the push operation.
+  `#8303 <https://pulp.plan.io/issues/8303>`_
+- Fixed ORM calls in the content app that were made in async context to use sync_to_async.
+  `#9454 <https://pulp.plan.io/issues/9454>`_
+- Fixed a failure during distribution update that occured when unsetting repository_version.
+  `#9497 <https://pulp.plan.io/issues/9497>`_
+- Corrected value of ``Content-Length`` header for push upload responses.
+  This fixes the *upstream prematurely closed connection while reading upstream* error that would
+  appear in nginx logs after a push operation.
+  `#9516 <https://pulp.plan.io/issues/9516>`_
+- Fixed headers and status codes in the upload/blob responses during image push.
+  `#9568 <https://pulp.plan.io/issues/9568>`_
+- Send proper blob content_type header when the blob is served.
+  `#9571 <https://pulp.plan.io/issues/9571>`_
+- Fixed a bug that caused container clients to be unable to interact with content stored on S3.
+  `#9586 <https://pulp.plan.io/issues/9586>`_
+- Fixed a bug, where permissions were checked against the wrong object type.
+  `#9589 <https://pulp.plan.io/issues/9589>`_
+
+
+Misc
+----
+
+- `#9562 <https://pulp.plan.io/issues/9562>`_, `#9618 <https://pulp.plan.io/issues/9618>`_
+
+
+----
+
+
 2.9.1 (2021-11-23)
 ==================
 
