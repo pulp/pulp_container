@@ -1,1 +1,0 @@
-Fixed a failure during distribution update that occured when unsetting repository_version.
