@@ -6,4 +6,4 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
 
     name = "pulp_container.app"
     label = "container"
-    version = "2.10.0"
+    version = "2.10.1.dev"
