@@ -1,1 +1,0 @@
-Fixed a bug, where permissions were checked against the wrong object type.
