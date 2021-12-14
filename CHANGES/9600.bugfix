@@ -1,2 +1,0 @@
-Fixed a bug that caused container clients to be unable to interact with content stored on S3.
-(Backported from https://pulp.plan.io/issues/9586).

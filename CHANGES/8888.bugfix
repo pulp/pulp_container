@@ -1,2 +1,0 @@
-Improved error logging on failed image push. (Backported from https://pulp.plan.io/issues/8879).
-
