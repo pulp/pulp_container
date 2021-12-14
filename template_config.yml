@@ -45,7 +45,7 @@ plugin_caps: PULP_CONTAINER
 plugin_caps_short: CONTAINER
 plugin_dash: pulp-container
 plugin_dash_short: container
-plugin_default_branch: master
+plugin_default_branch: main
 plugin_name: pulp_container
 plugin_snake: pulp_container
 post_job_template: null
