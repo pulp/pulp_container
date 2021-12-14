@@ -1,8 +1,8 @@
 ``pulp_container`` Plugin
 =========================
 
-.. figure:: https://github.com/pulp/pulp_container/workflows/Pulp%20CI/badge.svg
- :alt: Pulp CI
+.. figure:: https://github.com/pulp/pulp_container/actions/workflows/nightly.yml/badge.svg?branch=main
+ :alt: Container Nightly CI/CD
 
 This is the ``pulp_container`` Plugin for `Pulp Project
 3.0+ <https://pypi.python.org/pypi/pulpcore/>`__. This plugin provides Pulp with support for container
