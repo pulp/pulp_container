@@ -1,7 +1,7 @@
 from import_export import fields, widgets
 from pulpcore.plugin.importexport import QueryModelResource, BaseContentResource
 
-from pulp_container.app.models import Blob, Manifest, ManifestListManifest, Tag
+from pulp_container.app.models import Blob, Manifest, ManifestListManifest, ManifestSignature, Tag
 
 
 class BlobResource(BaseContentResource):
@@ -76,6 +76,30 @@ class ManifestListManifestResource(QueryModelResource):
         model = ManifestListManifest
 
 
+class ManifestSignatureResource(BaseContentResource):
+    """
+    A resource for import/export of manifest signatures.
+    """
+
+    signed_manifest = fields.Field(
+        column_name="signed_manifest",
+        attribute="signed_manifest",
+        widget=widgets.ForeignKeyWidget(Manifest, field="digest"),
+    )
+
+    def set_up_queryset(self):
+        """
+        Return signatures specific to a specified repo-version.
+        """
+        return ManifestSignature.objects.filter(pk__in=self.repo_version.content).order_by(
+            "content_ptr_id"
+        )
+
+    class Meta:
+        model = ManifestSignature
+        import_id_fields = model.natural_key_fields()
+
+
 class TagResource(BaseContentResource):
     """
     Resource for import/export of tag entities
@@ -98,4 +122,10 @@ class TagResource(BaseContentResource):
         import_id_fields = model.natural_key_fields()
 
 
-IMPORT_ORDER = [BlobResource, ManifestResource, ManifestListManifestResource, TagResource]
+IMPORT_ORDER = [
+    BlobResource,
+    ManifestResource,
+    ManifestListManifestResource,
+    ManifestSignatureResource,
+    TagResource,
+]
