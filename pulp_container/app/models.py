@@ -208,7 +208,7 @@ class ManifestSignature(Content):
         key_id (models.CharField): A key id identified by gpg (last 8 bytes of the fingerprint).
         timestamp (models.PositiveIntegerField): A signature timestamp identified by gpg.
         creator (models.CharField): A signature creator.
-        data (models.BinaryField): A signature, base64 encoded.
+        data (models.TextField): A signature, base64 encoded.
 
     Relations:
         signed_manifest (models.ForeignKey): A manifest this signature is relevant to.
@@ -227,7 +227,7 @@ class ManifestSignature(Content):
     key_id = models.CharField(max_length=255, db_index=True)
     timestamp = models.PositiveIntegerField()
     creator = models.CharField(max_length=255, blank=True)
-    data = models.BinaryField()
+    data = models.TextField()
 
     signed_manifest = models.ForeignKey(
         Manifest, null=False, related_name="signed_manifests", on_delete=models.CASCADE
