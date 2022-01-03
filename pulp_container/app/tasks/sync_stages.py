@@ -159,7 +159,6 @@ class ContainerFirstStage(Stage):
                     list_dc = self.create_tagged_manifest_list(
                         tag_name, saved_artifact, content_data
                     )
-                    at_least_one_manifest = False
                     for manifest_data in content_data.get("manifests"):
                         man_dc = self.create_manifest(list_dc, manifest_data)
                         if signature_source is not None:
@@ -168,29 +167,29 @@ class ContainerFirstStage(Stage):
                                 log.info(
                                     _(
                                         "The unsigned image {img_digest} which is a part of the "
-                                        "manifest list {ml_digest} (tagged as `{tag}`) is "
-                                        "skipped due to a requirement to sync signed content "
-                                        "only.".format(
+                                        "manifest list {ml_digest} (tagged as `{tag}`) can't be "
+                                        "synced due to a requirement to sync signed content only. "
+                                        "The whole manifest list is skipped.".format(
                                             img_digest=man_dc.d_content.digest,
                                             ml_digest=list_dc.d_content.digest,
                                             tag=tag_name,
                                         )
                                     )
                                 )
-                                # do not pass down the pipeline unsigned manifests
-                                continue
+                                # do not pass down the pipeline a manifest list with unsigned
+                                # manifests.
+                                break
                             signature_dcs.extend(man_sig_dcs)
-                        at_least_one_manifest = True
                         man_dcs[man_dc.content.digest] = man_dc
                         await self.put(man_dc)
 
-                    if not at_least_one_manifest:
-                        # no manifests for this manifest list and tag were signed, do not pass
-                        # this manifest list and tag down the pipeline
-                        continue
-
-                    tag_dc.extra_data["tagged_manifest_dc"] = list_dc
-                    await self.put(list_dc)
+                    else:
+                        # only pass the manifest list and tag down the pipeline if there were no
+                        # issues with signatures (no `break` in the `for` loop)
+                        tag_dc.extra_data["tagged_manifest_dc"] = list_dc
+                        await self.put(list_dc)
+                        tag_dcs.append(tag_dc)
+                        await pb_parsed_tags.aincrement()
 
                 else:
                     man_dc = self.create_tagged_manifest(
@@ -206,9 +205,8 @@ class ContainerFirstStage(Stage):
                     tag_dc.extra_data["tagged_manifest_dc"] = man_dc
                     await man_dc.resolution()
                     await self.handle_blobs(man_dc, content_data)
-
-                tag_dcs.append(tag_dc)
-                await pb_parsed_tags.aincrement()
+                    tag_dcs.append(tag_dc)
+                    await pb_parsed_tags.aincrement()
 
         for digest, man_dc in man_dcs.items():
             man = await man_dc.resolution()
