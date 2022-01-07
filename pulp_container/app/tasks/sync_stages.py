@@ -15,7 +15,7 @@ from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 from pulpcore.plugin.constants import TASK_STATES
 
-from pulp_container.constants import MEDIA_TYPE, SIGNATURE_SOURCE, SIGNATURE_TYPE
+from pulp_container.constants import MEDIA_TYPE, SIGNATURE_HEADER, SIGNATURE_SOURCE, SIGNATURE_TYPE
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -39,8 +39,6 @@ V2_ACCEPT_HEADERS = {
         ]
     )
 }
-
-SIGNATURE_HEADER = "X-Registry-Supports-Signatures"
 
 
 def _save_artifact_blocking(artifact_attributes):
