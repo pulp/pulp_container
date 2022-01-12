@@ -15,7 +15,13 @@ from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 from pulpcore.plugin.constants import TASK_STATES
 
-from pulp_container.constants import MEDIA_TYPE, SIGNATURE_HEADER, SIGNATURE_SOURCE, SIGNATURE_TYPE
+from pulp_container.constants import (
+    MEDIA_TYPE,
+    SIGNATURE_API_EXTENSION_VERSION,
+    SIGNATURE_HEADER,
+    SIGNATURE_SOURCE,
+    SIGNATURE_TYPE,
+)
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -345,6 +351,29 @@ class ContainerFirstStage(Stage):
         )
         return da
 
+    def _create_signature_declarative_content(
+        self, signature_raw, man_dc, name=None, signature_b64=None
+    ):
+        signature_json = extract_data_from_signature(signature_raw, man_dc.content.digest)
+        if signature_json is None:
+            return
+
+        sig_digest = hashlib.sha256(signature_raw).hexdigest()
+        signature = ManifestSignature(
+            name=name or f"{man_dc.content.digest}@{sig_digest[:32]}",
+            digest=f"sha256:{sig_digest}",
+            type=SIGNATURE_TYPE.ATOMIC_SHORT,
+            key_id=signature_json["signing_key_id"],
+            timestamp=signature_json["signature_timestamp"],
+            creator=signature_json["optional"].get("creator"),
+            data=signature_b64 or base64.b64encode(signature_raw).decode(),
+        )
+        sig_dc = DeclarativeContent(
+            content=signature,
+            extra_data={"signed_manifest_dc": man_dc},
+        )
+        return sig_dc
+
     def create_manifest(self, list_dc, manifest_data):
         """
         Create an Image Manifest from manifest data in a ManifestList.
@@ -457,33 +486,38 @@ class ContainerFirstStage(Stage):
                     signature_raw = f.read()
 
                 signature_counter += 1
-                signature_json = extract_data_from_signature(signature_raw, man_dc.content.digest)
-                if signature_json is None:
-                    continue
-
-                sig_digest = hashlib.sha256(signature_raw).hexdigest()
-                signature = ManifestSignature(
-                    name=f"{man_dc.content.digest}@{sig_digest[:32]}",
-                    digest=f"sha256:{sig_digest}",
-                    type=SIGNATURE_TYPE.ATOMIC_SHORT,
-                    key_id=signature_json["signing_key_id"],
-                    timestamp=signature_json["signature_timestamp"],
-                    creator=signature_json["optional"].get("creator"),
-                    data=base64.b64encode(signature_raw).decode(),
-                )
-                sig_dc = DeclarativeContent(
-                    content=signature,
-                    extra_data={"signed_manifest_dc": man_dc},
-                )
-                signature_dcs.append(sig_dc)
-
-            return signature_dcs
+                sig_dc = self._create_signature_declarative_content(signature_raw, man_dc)
+                if sig_dc:
+                    signature_dcs.append(sig_dc)
 
         elif signature_source == SIGNATURE_SOURCE.API_EXTENSION:
-            # TODO in a PR for the extension support
-            pass
+            signatures_url = urlpath_sanitize(
+                self.remote.url,
+                "extensions/v2",
+                self.remote.upstream_name,
+                "signatures",
+                man_dc.content.digest,
+            )
+            signatures_downloader = self.remote.get_downloader(url=signatures_url)
+            await signatures_downloader.run()
+            with open(signatures_downloader.path) as signatures_fd:
+                api_extension_signatures = json.loads(signatures_fd.read())
+            for signature in api_extension_signatures.get("signatures", []):
+                if (
+                    signature.get("schemaVersion") == SIGNATURE_API_EXTENSION_VERSION
+                    and signature.get("type") == SIGNATURE_TYPE.ATOMIC_SHORT
+                ):
+                    signature_base64 = signature.get("content")
+                    if signature_base64 is None:
+                        continue
+                    signature_raw = base64.b64decode(signature_base64)
+                    sig_dc = self._create_signature_declarative_content(
+                        signature_raw, man_dc, signature.get("name"), signature_base64
+                    )
+                    if sig_dc:
+                        signature_dcs.append(sig_dc)
 
-        return []
+        return signature_dcs
 
     def _include_layer(self, layer):
         """

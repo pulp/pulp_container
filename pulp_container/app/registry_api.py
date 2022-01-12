@@ -73,6 +73,7 @@ from pulp_container.app.token_verification import (
 from pulp_container.app.utils import extract_data_from_signature
 from pulp_container.constants import (
     EMPTY_BLOB,
+    SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
     SIGNATURE_PAYLOAD_MAX_SIZE,
     SIGNATURE_TYPE,
@@ -945,7 +946,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
         data = []
         for signature in signatures:
             signature = {
-                "schemaVersion": 2,
+                "schemaVersion": SIGNATURE_API_EXTENSION_VERSION,
                 "type": signature.type,
                 "name": signature.name,
                 "content": signature.data,

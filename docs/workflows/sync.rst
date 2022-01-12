@@ -66,6 +66,16 @@ Remote GET Response::
    instead of the whole repository. Note that it is also possible to filter a bunch of tags that
    matches defined criteria by leveraging wildcards.
 
+Some registries contain signed images. Such registries provide signatures in different ways.
+If a registry provides signatures via a dedicated SigStore, a URL to it should be specified in
+the ``sigstore`` field when creating a Remote.
+
+.. note::
+    Some registries provide docker API extensions for ``atomic container signature`` type only, or
+    have ``cosign`` type signatures that are stored as a separate OCI artifact in a registry.
+    Pulp will automatically sync signatures provided via the docker API extension. At the moment,
+    `cosign` signatures are not supported.
+
 
 Reference: `Container Remote Usage <../restapi.html#tag/Remotes:-Container>`_
 
