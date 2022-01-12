@@ -59,7 +59,7 @@ from pulp_container.app.token_verification import (
     RegistryPermission,
     TokenPermission,
 )
-from pulp_container.constants import EMPTY_BLOB
+from pulp_container.constants import EMPTY_BLOB, SIGNATURE_HEADER
 
 FakeView = namedtuple("FakeView", ["action", "get_object"])
 
@@ -292,7 +292,7 @@ class ContainerRegistryApiMixin:
         Provide common headers to all responses.
         """
         headers = super().default_response_headers
-        headers.update({"Docker-Distribution-Api-Version": "registry/2.0"})
+        headers.update({"Docker-Distribution-Api-Version": "registry/2.0", SIGNATURE_HEADER: "1"})
         return headers
 
     def get_exception_handler_context(self):
@@ -971,3 +971,42 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
                 artifact.touch()
             return artifact
+
+
+class Signatures(ContainerRegistryApiMixin, ViewSet):
+    """A ViewSet for image signatures."""
+
+    lookup_value_regex = "sha256:[0-9a-f]{64}"
+
+    def head(self, request, path, pk=None):
+        """Respond to HEAD requests querying signatures by sha256."""
+        return self.get(request, path, pk=pk)
+
+    def get(self, request, path, pk):
+        """Return a signature identified by its sha256 checksum."""
+        _, _, repository_version = self.get_drv_pull(path)
+
+        try:
+            manifest = models.Manifest.objects.get(digest=pk)
+        except models.Manifest.DoesNotExit:
+            raise ManifestNotFound(reference=pk)
+
+        signatures = models.ManifestSignature.objects.filter(
+            signed_manifest=manifest, pk__in=repository_version.content
+        )
+
+        return Response(self.get_response_data(signatures))
+
+    @staticmethod
+    def get_response_data(signatures):
+        """Extract version, type, name, and content from the passed signature data."""
+        data = []
+        for signature in signatures:
+            signature = {
+                "schemaVersion": 2,
+                "type": signature.type,
+                "name": signature.name,
+                "content": signature.data,
+            }
+            data.append(signature)
+        return {"signatures": data}

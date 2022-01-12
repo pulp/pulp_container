@@ -4,17 +4,19 @@ import re
 
 from django.db import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
-
+from django.core.validators import URLValidator
 from rest_framework import serializers
 
 from pulpcore.plugin.models import (
     Artifact,
     Remote,
+    Repository,
     RepositoryVersion,
 )
 from pulpcore.plugin.serializers import (
     ContentGuardSerializer,
     DetailRelatedField,
+    DistributionSerializer,
     IdentityField,
     ModelSerializer,
     NestedRelatedField,
@@ -22,7 +24,7 @@ from pulpcore.plugin.serializers import (
     RelatedField,
     RemoteSerializer,
     RepositorySerializer,
-    DistributionSerializer,
+    RepositorySyncURLSerializer,
     RepositoryVersionRelatedField,
     SingleArtifactContentSerializer,
     validate_unknown_fields,
@@ -125,6 +127,39 @@ class BlobSerializer(SingleArtifactContentSerializer):
         model = models.Blob
 
 
+class ManifestSignatureSerializer(NoArtifactContentSerializer):
+    """
+    Serializer for image manifest signatures.
+    """
+
+    name = serializers.CharField(
+        help_text="Signature name in the format of `digest_algo:manifest_digest@random_32_chars`"
+    )
+    digest = serializers.CharField(help_text="sha256 digest of the signature blob")
+    type = serializers.CharField(help_text="Container signature type, e.g. 'atomic'")
+    key_id = serializers.CharField(help_text="Signing key ID")
+    timestamp = serializers.IntegerField(help_text="Timestamp of a signature")
+    creator = serializers.CharField(help_text="Signature creator")
+    signed_manifest = DetailRelatedField(
+        many=False,
+        help_text="Manifest that is signed",
+        view_name="container-manifests-detail",
+        queryset=models.Manifest.objects.all(),
+    )
+
+    class Meta:
+        fields = NoArtifactContentSerializer.Meta.fields + (
+            "name",
+            "digest",
+            "type",
+            "key_id",
+            "timestamp",
+            "creator",
+            "signed_manifest",
+        )
+        model = models.ManifestSignature
+
+
 class RegistryPathField(serializers.CharField):
     """
     Serializer Field for the registry_path field of the ContainerDistribution.
@@ -155,8 +190,17 @@ class ContainerRepositorySerializer(RepositorySerializer):
     Serializer for Container Repositories.
     """
 
+    manifest_signing_service = RelatedField(
+        help_text="A reference to an associated signing service.",
+        view_name="signing-services-detail",
+        queryset=models.ManifestSigningService.objects.all(),
+        many=False,
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
-        fields = RepositorySerializer.Meta.fields
+        fields = RepositorySerializer.Meta.fields + ("manifest_signing_service",)
         model = models.ContainerRepository
 
 
@@ -165,8 +209,19 @@ class ContainerPushRepositorySerializer(RepositorySerializer):
     Serializer for Container Push Repositories.
     """
 
+    manifest_signing_service = RelatedField(
+        help_text="A reference to an associated signing service.",
+        view_name="signing-services-detail",
+        queryset=models.ManifestSigningService.objects.all(),
+        many=False,
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
-        fields = tuple(set(RepositorySerializer.Meta.fields) - set(["remote"]))
+        fields = tuple(
+            set(RepositorySerializer.Meta.fields + ("manifest_signing_service",)) - set(["remote"])
+        )
         model = models.ContainerPushRepository
 
 
@@ -214,8 +269,19 @@ class ContainerRemoteSerializer(RemoteSerializer):
         default=Remote.IMMEDIATE,
     )
 
+    sigstore = serializers.CharField(
+        required=False,
+        help_text=_("A URL to a sigstore to download image signatures from"),
+        validators=[URLValidator(schemes=["http", "https"])],
+    )
+
     class Meta:
-        fields = RemoteSerializer.Meta.fields + ("upstream_name", "include_tags", "exclude_tags")
+        fields = RemoteSerializer.Meta.fields + (
+            "upstream_name",
+            "include_tags",
+            "exclude_tags",
+            "sigstore",
+        )
         model = models.ContainerRemote
 
 
@@ -228,7 +294,7 @@ class ContainerDistributionSerializer(DistributionSerializer):
         source="base_path",
         read_only=True,
         help_text=_(
-            "The Registry hostame/name/ to use with docker pull command defined by "
+            "The Registry hostname/name/ to use with docker pull command defined by "
             "this distribution."
         ),
     )
@@ -663,3 +729,84 @@ class OCIBuildImageSerializer(serializers.Serializer):
             "tag",
             "artifacts",
         )
+
+
+class ContainerRepositorySyncURLSerializer(RepositorySyncURLSerializer):
+    """
+    Serializer for Container Sync.
+    """
+
+    signed_only = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=_(
+            "If ``True``, only signed content will be synced. Signatures are not verified."
+        ),
+    )
+
+
+class RepositorySignSerializer(serializers.Serializer):
+    """
+    Serializer for container images signing.
+    """
+
+    manifest_signing_service = RelatedField(
+        required=False,
+        many=False,
+        view_name="signing-services-detail",
+        queryset=models.ManifestSigningService.objects.all(),
+        help_text=_(
+            "A signing service to sign with. This will override a signing service set on the repo."
+        ),
+        allow_null=True,
+    )
+
+    # Ask for the future_base_path for synced repos - this should match future/existing distribution
+    # otherwise client verification can fail, it looks at 'docker-reference' in the signature json
+    future_base_path = serializers.CharField(
+        required=False,
+        help_text=_("Future base path content will be distributed at for sync repos"),
+    )
+    tags_list = serializers.ListField(help_text=_("A list of tags to sign."), required=False)
+
+    def validate(self, data):
+        """Ensure that future_base_path is provided for synced repos."""
+
+        data = super().validate(data)
+
+        repository = Repository.objects.get(pk=self.context["repository_pk"]).cast()
+        try:
+            signing_service = repository.manifest_signing_service
+        except KeyError:
+            signing_service = None
+
+        if "manifest_signing_service" not in data and not signing_service:
+            raise serializers.ValidationError(
+                {
+                    "manifest_signing_service": _(
+                        "This field is required since a signing_service is not set on the repo."
+                    )
+                }
+            )
+
+        if repository.PUSH_ENABLED:
+            if "future_base_path" in data:
+                raise serializers.ValidationError(
+                    {
+                        "future_base_path": _(
+                            "This field cannot be set since this is a push repo type."
+                        )
+                    }
+                )
+            data["future_base_path"] = repository.distributions.first().base_path
+        else:
+            if "future_base_path" not in data:
+                raise serializers.ValidationError(
+                    {
+                        "future_base_path": _(
+                            "This field is required since this is a sync repo type."
+                        )
+                    }
+                )
+
+        return data

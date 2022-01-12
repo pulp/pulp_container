@@ -6,6 +6,7 @@ from pulp_container.app.registry_api import (
     BlobUploads,
     CatalogView,
     Manifests,
+    Signatures,
     TagsListView,
     VersionView,
 )
@@ -25,6 +26,7 @@ router.routes.append(head_route)
 router.register(r"^v2/(?P<path>.+)/blobs/uploads\/?", BlobUploads, basename="docker-upload")
 router.register(r"^v2/(?P<path>.+)/blobs", Blobs, basename="blobs")
 router.register(r"^v2/(?P<path>.+)/manifests", Manifests, basename="manifests")
+router.register(r"^extensions/v2/(?P<path>.+)/signatures", Signatures, basename="signatures")
 
 urlpatterns = [
     path("token/", BearerTokenView.as_view()),

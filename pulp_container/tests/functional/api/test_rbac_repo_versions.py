@@ -21,13 +21,13 @@ from pulp_container.tests.functional.utils import (
 
 from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
-    ContentTagsApi,
+    ContainerRepositorySyncURL,
     ContentManifestsApi,
+    ContentTagsApi,
     PulpContainerNamespacesApi,
     RepositoriesContainerApi,
     RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
-    RepositorySyncURL,
 )
 
 from .test_tagging_images import TaggingTestCommons
@@ -79,7 +79,7 @@ class RepoVersionTestCase(unittest.TestCase, TaggingTestCommons):
         cls.remote = cls.user_creator["remote_api"].create(
             gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         )
-        sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
+        sync_data = ContainerRepositorySyncURL(remote=cls.remote.pulp_href)
         sync_response = cls.user_creator["repository_api"].sync(cls.repository.pulp_href, sync_data)
         monitor_task(sync_response.task)
 

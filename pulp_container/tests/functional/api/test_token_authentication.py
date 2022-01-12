@@ -26,10 +26,10 @@ from pulpcore.client.pulp_container import (
     ContainerContainerDistribution,
     ContainerContainerRepository,
     ContainerContainerRemote,
+    ContainerRepositorySyncURL,
     DistributionsContainerApi,
     RepositoriesContainerApi,
     RemotesContainerApi,
-    RepositorySyncURL,
 )
 
 
@@ -58,7 +58,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
-        sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
+        sync_data = ContainerRepositorySyncURL(remote=cls.remote.pulp_href)
         sync_response = cls.repositories_api.sync(cls.repository.pulp_href, sync_data)
         monitor_task(sync_response.task)
 
