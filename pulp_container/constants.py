@@ -33,8 +33,9 @@ SIGNATURE_TYPE = SimpleNamespace(
     ATOMIC_SHORT="atomic",  # short version is used in the JSON produced by API extension
 )
 SIGNATURE_SOURCE = SimpleNamespace(SIGSTORE="sigstore", API_EXTENSION="API extension")
-
 SIGNATURE_HEADER = "X-Registry-Supports-Signatures"
 
 MEGABYTE = 1_000_000
 SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
+
+SIGNATURE_API_EXTENSION_VERSION = 2
