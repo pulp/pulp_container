@@ -68,7 +68,6 @@ class ContainerFirstStage(Stage):
         """
         ContainerFirstStage.
         """
-        future_manifests = []
         tag_list = []
         tag_dcs = []
         to_download = []
@@ -130,7 +129,6 @@ class ContainerFirstStage(Stage):
                     tag_dc.extra_data["tagged_manifest_dc"] = list_dc
                     for manifest_data in content_data.get("manifests"):
                         man_dc = self.create_manifest(list_dc, manifest_data)
-                        future_manifests.append(man_dc)
                         man_dcs[man_dc.content.digest] = man_dc
                         await self.put(man_dc)
                 else:
@@ -139,17 +137,17 @@ class ContainerFirstStage(Stage):
                     )
                     await self.put(man_dc)
                     tag_dc.extra_data["tagged_manifest_dc"] = man_dc
+                    await man_dc.resolution()
                     await self.handle_blobs(man_dc, content_data)
                 tag_dcs.append(tag_dc)
                 await pb_parsed_tags.aincrement()
 
-        for manifest_future in future_manifests:
-            man = await manifest_future.resolution()
+        for digest, man_dc in man_dcs.items():
+            man = await man_dc.resolution()
             artifact = await sync_to_async(man._artifacts.get)()
             with artifact.file.open() as content_file:
                 raw = content_file.read()
             content_data = json.loads(raw)
-            man_dc = man_dcs[man.digest]
             await self.handle_blobs(man_dc, content_data)
 
         for tag_dc in tag_dcs:
