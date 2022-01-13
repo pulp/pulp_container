@@ -73,6 +73,7 @@ class ContainerFirstStage(Stage):
         tag_dcs = []
         to_download = []
         man_dcs = {}
+        total_blobs = []
 
         async with ProgressReport(
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
@@ -139,7 +140,7 @@ class ContainerFirstStage(Stage):
                     )
                     await self.put(man_dc)
                     tag_dc.extra_data["tagged_manifest_dc"] = man_dc
-                    await self.handle_blobs(man_dc, content_data)
+                    self.handle_blobs(man_dc, content_data, total_blobs)
                 tag_dcs.append(tag_dc)
                 await pb_parsed_tags.aincrement()
 
@@ -150,12 +151,15 @@ class ContainerFirstStage(Stage):
                 raw = content_file.read()
             content_data = json.loads(raw)
             man_dc = man_dcs[man.digest]
-            await self.handle_blobs(man_dc, content_data)
+            self.handle_blobs(man_dc, content_data, total_blobs)
 
         for tag_dc in tag_dcs:
             tagged_manifest_dc = tag_dc.extra_data["tagged_manifest_dc"]
             tag_dc.content.tagged_manifest = await tagged_manifest_dc.resolution()
             await self.put(tag_dc)
+
+        for blob in total_blobs:
+            await self.put(blob)
 
     def filter_tags(self, tag_list):
         """
@@ -195,7 +199,7 @@ class ContainerFirstStage(Stage):
                 tag_list.extend(tags_dict["tags"])
             link = list_downloader.response_headers.get("Link")
 
-    async def handle_blobs(self, manifest_dc, content_data):
+    def handle_blobs(self, manifest_dc, content_data, total_blobs):
         """
         Handle blobs.
         """
@@ -204,12 +208,12 @@ class ContainerFirstStage(Stage):
                 continue
             blob_dc = self.create_blob(layer)
             blob_dc.extra_data["blob_relation"] = manifest_dc
-            await self.put(blob_dc)
+            total_blobs.append(blob_dc)
         layer = content_data.get("config", None)
         if layer:
             blob_dc = self.create_blob(layer, deferred_download=False)
             blob_dc.extra_data["config_relation"] = manifest_dc
-            await self.put(blob_dc)
+            total_blobs.append(blob_dc)
 
     def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data):
         """
