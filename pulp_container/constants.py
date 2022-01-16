@@ -35,3 +35,6 @@ SIGNATURE_TYPE = SimpleNamespace(
 SIGNATURE_SOURCE = SimpleNamespace(SIGSTORE="sigstore", API_EXTENSION="API extension")
 
 SIGNATURE_HEADER = "X-Registry-Supports-Signatures"
+
+MEGABYTE = 1_000_000
+SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
