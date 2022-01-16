@@ -987,7 +987,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
 
         try:
             manifest = models.Manifest.objects.get(digest=pk)
-        except models.Manifest.DoesNotExit:
+        except models.Manifest.DoesNotExist:
             raise ManifestNotFound(reference=pk)
 
         signatures = models.ManifestSignature.objects.filter(
