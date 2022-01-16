@@ -4,6 +4,8 @@ Check `Plugin Writer's Guide`_ for more details.
 . _Plugin Writer's Guide:
     http://docs.pulpproject.org/plugins/plugin-writer/index.html
 """
+import base64
+import binascii
 import json
 import logging
 import hashlib
@@ -55,6 +57,7 @@ from pulp_container.app.exceptions import (
     BlobInvalid,
     ManifestNotFound,
     ManifestInvalid,
+    ManifestSignatureInvalid,
 )
 from pulp_container.app.redirects import (
     FileStorageRedirects,
@@ -67,7 +70,13 @@ from pulp_container.app.token_verification import (
     RegistryPermission,
     TokenPermission,
 )
-from pulp_container.constants import EMPTY_BLOB, SIGNATURE_HEADER
+from pulp_container.app.utils import extract_data_from_signature
+from pulp_container.constants import (
+    EMPTY_BLOB,
+    SIGNATURE_HEADER,
+    SIGNATURE_PAYLOAD_MAX_SIZE,
+    SIGNATURE_TYPE,
+)
 
 FakeView = namedtuple("FakeView", ["action", "get_object"])
 
@@ -137,6 +146,22 @@ class ManifestResponse(Response):
             "Content-Length": 0,
         }
         super().__init__(headers=headers, status=status, content_type=manifest.media_type)
+
+
+class ManifestSignatureResponse(Response):
+    """
+    An HTTP response class after creating an image signature.
+    """
+
+    def __init__(self, signature, path, status=201):
+        """Initialize the headers with the path to the repository and corresponding digests."""
+        headers = {
+            "Location": "/extensions/v2/{path}/signatures/{digest}".format(
+                path=path, digest=signature.signed_manifest.digest
+            ),
+            "Content-Length": 0,
+        }
+        super().__init__(headers=headers, status=status)
 
 
 class BlobResponse(Response):
@@ -927,3 +952,75 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
             }
             data.append(signature)
         return {"signatures": data}
+
+    def put(self, request, path, pk):
+        """Create a new signature from the received data."""
+        _, repository = self.get_dr_push(request, path)
+
+        try:
+            manifest = models.Manifest.objects.get(
+                digest=pk, pk__in=repository.latest_version().content
+            )
+        except models.Manifest.DoesNotExist:
+            raise ManifestNotFound(reference=pk)
+
+        signature_payload = request.META["wsgi.input"].read(SIGNATURE_PAYLOAD_MAX_SIZE)
+        try:
+            signature_dict = json.loads(signature_payload)
+        except json.decoder.JSONDecodeError:
+            raise ManifestSignatureInvalid(digest=pk)
+
+        serializer = serializers.ManifestSignaturePutSerializer(data=signature_dict)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            signature_raw = base64.b64decode(signature_dict["content"])
+        except binascii.Error:
+            raise ManifestSignatureInvalid(digest=pk)
+
+        signature_json = extract_data_from_signature(signature_raw, manifest.digest)
+        if signature_json is None:
+            raise ManifestSignatureInvalid(digest=pk)
+
+        sig_digest = hashlib.sha256(signature_raw).hexdigest()
+        signature = models.ManifestSignature(
+            name=f"{manifest.digest}@{sig_digest[:32]}",
+            digest=f"sha256:{sig_digest}",
+            type=SIGNATURE_TYPE.ATOMIC_SHORT,
+            key_id=signature_json["signing_key_id"],
+            timestamp=signature_json["signature_timestamp"],
+            creator=signature_json["optional"].get("creator"),
+            data=signature_dict["content"],
+            signed_manifest=manifest,
+        )
+        try:
+            signature.save()
+        except IntegrityError:
+            signature = models.ManifestSignature.objects.get(digest=signature.digest)
+            signature.touch()
+
+        dispatched_task = dispatch(
+            add_and_remove,
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "add_content_units": [str(signature.pk)],
+                "remove_content_units": [],
+            },
+        )
+
+        # wait a small amount of time until a new repository version
+        # with the new signature is created
+        for dummy in range(3):
+            time.sleep(1)
+            task = Task.objects.get(pk=dispatched_task.pk)
+            if task.state == "completed":
+                task.delete()
+                return ManifestSignatureResponse(signature, path)
+            elif task.state in ["waiting", "running"]:
+                continue
+            else:
+                error = task.error
+                task.delete()
+                raise Exception(str(error))
+        raise Throttled()

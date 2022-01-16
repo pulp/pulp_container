@@ -298,3 +298,42 @@ It is possible to specify a single manifest identified by tag or a list of manif
 by proviging ``tags_list`` option to the call.
 Note that ``manifest lists`` are not signed, instead all the image manifests that manifest lists
 contain, are signed.
+
+Managing signatures via the Extensions API
+==========================================
+
+This API exposes an endpoint for reading and writing image signatures. Users should configure the
+sigstore section in the `registries.d file <https://github.com/containers/image/blob/main/docs/containers-registries.d.5.md>`_
+accordingly to benefit from the API.
+
+Reading image signatures
+------------------------
+
+To read existing signatures, issue the following GET request::
+
+    $ http GET http://localhost:24817/extensions/v2/<namespace>/<name>/signatures/sha256:<manifest-digest>
+
+Signatures are retrieved by container clients automatically if the policy requires so. The policy is
+defined in the file ``/etc/containers/policy.json``.
+
+Writing image signatures
+------------------------
+
+To add a new signature to an image, execute the following PUT request::
+
+    $ http PUT http://localhost:24817/extensions/v2/<namespace>/<name>/signatures/sha256:<manifest-digest> < signature.json
+
+The JSON payload has the same structure as described in the `container signature specs <https://github.com/containers/image/blob/main/docs/containers-signature.5.md>`_::
+
+    {
+      "schemaVersion": 2,
+      "type":    "atomic",
+      "name":    "sha256:4028782c08eae4a8c9a28bf661c0a8d1c2fc8e19dbaae2b018b21011197e1484@cddeb7006d914716e2728000746a0b23",
+      "content": "<cryptographic_signature>"
+    }
+
+This step can be also done via podman or skopeo. After configuring a GPG keyring, it is possible to
+issue the following command to push a tagged image altogether with its signature to the Pulp
+Registry::
+
+    $ podman push --tls-verify=false --sign-by username@email.com localhost:24817/<namespace>/<name>
