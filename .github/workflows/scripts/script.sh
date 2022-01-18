@@ -162,7 +162,10 @@ fi
 if [ -f $FUNC_TEST_SCRIPT ]; then
   source $FUNC_TEST_SCRIPT
 else
-    pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional
+
+    pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m parallel -n 8
+    pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional -m "not parallel"
+
 fi
 pushd ../pulp-cli
 pytest -v -m pulp_container
