@@ -904,7 +904,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
         _, _, repository_version = self.get_drv_pull(path)
 
         try:
-            manifest = models.Manifest.objects.get(digest=pk)
+            manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
         except models.Manifest.DoesNotExist:
             raise ManifestNotFound(reference=pk)
 
