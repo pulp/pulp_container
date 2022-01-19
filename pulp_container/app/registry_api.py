@@ -678,12 +678,11 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             upload = models.Upload.objects.get(pk=pk, repository=repository)
         except models.Upload.DoesNotExist as e_upload:
             # Upload has been deleted => task has started or even finished
-            try:
-                task = Task.objects.filter(
-                    name__endswith="add_and_remove",
-                    reserved_resources_record=[f"upload:{pk}"],
-                ).last()
-            except Task.DoesNotExist:
+            task = Task.objects.filter(
+                name__endswith="add_and_remove",
+                reserved_resources_record=[f"upload:{pk}"],
+            ).last()
+            if not task:
                 # No upload and no task for it => the upload probably never existed
                 # return 404
                 raise e_upload
