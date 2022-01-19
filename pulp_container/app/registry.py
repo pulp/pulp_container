@@ -99,6 +99,8 @@ class Registry(Handler):
         distribution = await sync_to_async(self._match_distribution)(path)
         await sync_to_async(self._permit)(request, distribution)
         repository_version = await sync_to_async(distribution.get_repository_version)()
+        if not repository_version:
+            raise PathNotResolved(tag_name)
         accepted_media_types = get_accepted_media_types(request.headers)
 
         try:
@@ -211,6 +213,8 @@ class Registry(Handler):
         distribution = await sync_to_async(self._match_distribution)(path)
         await sync_to_async(self._permit)(request, distribution)
         repository_version = await sync_to_async(distribution.get_repository_version)()
+        if not repository_version:
+            raise PathNotResolved(path)
         if digest == EMPTY_BLOB:
             return await Registry._empty_blob()
         try:
