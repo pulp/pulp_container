@@ -133,7 +133,7 @@ class AuthorizationService:
                 endpoint.
 
         """
-        if not self.scope:
+        if not self.scope or self.scope.count(":") != 2:
             return []
 
         typ, name, actions = self.scope.split(":")

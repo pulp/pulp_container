@@ -1,0 +1,1 @@
+Account for case when token's scope does not contain type/resource/action.
