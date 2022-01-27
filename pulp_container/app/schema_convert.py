@@ -6,6 +6,9 @@ import hashlib
 import itertools
 import json
 import logging
+
+from gettext import gettext as _
+
 from collections import namedtuple
 from jwkest import jws, jwk, ecc
 
@@ -323,4 +326,11 @@ def _get_manifest_dict(manifest):
 
 
 def _get_dict(artifact):
-    return json.load(artifact.file)
+    try:
+        return json.load(artifact.file)
+    except FileNotFoundError:
+        raise Exception(
+            _(
+                "Expected manifest file 'sha256:{}' needed for schema conversion is not found"
+            ).format(artifact.sha256)
+        )
