@@ -237,6 +237,9 @@ class Registry(Handler):
             raise PathNotResolved(path)
         else:
             artifact = ca.artifact
+            artifact_file = os.path.join(settings.MEDIA_ROOT, artifact.file.name)
+            if not os.path.exists(artifact_file):
+                raise PathNotResolved(path)
             if artifact:
                 return await Registry._dispatch(artifact.file, headers)
             else:
