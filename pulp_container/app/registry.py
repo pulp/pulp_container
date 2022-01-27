@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from gettext import gettext as _
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -70,17 +71,15 @@ class Registry(Handler):
             The :class:`aiohttp.web.FileResponse` for the file.
 
         """
+        path = os.path.join(settings.MEDIA_ROOT, file.name)
+        if not os.path.exists(path):
+            raise Exception(_("Expected path '{}' is not found").format(path))
+
         full_headers = MultiDict()
 
         full_headers["Content-Type"] = headers["Content-Type"]
         full_headers["Docker-Content-Digest"] = headers["Docker-Content-Digest"]
         full_headers["Docker-Distribution-API-Version"] = "registry/2.0"
-        full_headers["Content-Length"] = str(file.size)
-        full_headers["Content-Disposition"] = "attachment; filename={n}".format(
-            n=os.path.basename(file.name)
-        )
-
-        path = os.path.join(settings.MEDIA_ROOT, file.name)
         file_response = web.FileResponse(path, headers=full_headers)
         return file_response
 
@@ -133,7 +132,7 @@ class Registry(Handler):
             and tag.tagged_manifest.media_type not in accepted_media_types
         ):
             log.warn(
-                "OCI format found, but the client only accepts {accepted_media_types}.".format(
+                _("OCI format found, but the client only accepts {accepted_media_types}.").format(
                     accepted_media_types=accepted_media_types
                 )
             )
