@@ -106,6 +106,20 @@ Misc
 ----
 
 
+2.8.4 (2022-01-27)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed "manifest_id" violates not-null constraint error during sync.
+  `#537 <https://github.com/pulp/pulp_container/issues/537>`_
+
+
+----
+
+
 2.8.3 (2021-12-09)
 ==================
 
