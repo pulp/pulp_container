@@ -35,7 +35,6 @@ from pulpcore.plugin.viewsets import (
     BaseFilterSet,
     CharInFilter,
     ContentFilter,
-    ContentGuardViewSet,
     DistributionFilter,
     NamedModelViewSet,
     NAME_FILTER_OPTIONS,
@@ -1221,16 +1220,6 @@ class ContainerDistributionViewSet(DistributionViewSet):
             general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
         )
         return OperationPostponedResponse(async_result, request)
-
-
-class ContentRedirectContentGuardViewSet(ContentGuardViewSet):
-    """
-    Content guard to protect preauthenticated redirects to the content app.
-    """
-
-    endpoint_name = "content_redirect"
-    queryset = models.ContentRedirectContentGuard.objects.all()
-    serializer_class = serializers.ContentRedirectContentGuardSerializer
 
 
 class ContainerNamespaceViewSet(

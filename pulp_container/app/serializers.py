@@ -2,19 +2,18 @@ from gettext import gettext as _
 import os
 import re
 
-from django.db import IntegrityError
-from django.core.exceptions import ObjectDoesNotExist
-
 from rest_framework import serializers
 
 from pulpcore.plugin.models import (
     Artifact,
+    ContentRedirectContentGuard,
     Remote,
     RepositoryVersion,
 )
 from pulpcore.plugin.serializers import (
-    ContentGuardSerializer,
+    ContentRedirectContentGuardSerializer,
     DetailRelatedField,
+    GetOrCreateSerializerMixin,
     IdentityField,
     ModelSerializer,
     NestedRelatedField,
@@ -32,26 +31,6 @@ from . import models
 
 VALID_TAG_REGEX = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
 VALID_BASE_PATH_REGEX_COMPILED = re.compile(r"^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?$")
-
-
-class _GetOrCreateMixin:
-    @classmethod
-    def get_or_create(cls, natural_key, default_values=None):
-        try:
-            result = cls.Meta.model.objects.get(**natural_key)
-        except ObjectDoesNotExist:
-            data = {}
-            if default_values:
-                data.update(default_values)
-            data.update(natural_key)
-            serializer = cls(data=data)
-            try:
-                serializer.is_valid(raise_exception=True)
-                result = serializer.create(serializer.validated_data)
-            except (IntegrityError, serializers.ValidationError):
-                # recover from a race condition, where another thread just created the object
-                result = cls.Meta.model.objects.get(**natural_key)
-        return result
 
 
 class TagSerializer(NoArtifactContentSerializer):
@@ -138,7 +117,7 @@ class RegistryPathField(serializers.CharField):
         return f"{request.get_host()}/{value}"
 
 
-class ContainerNamespaceSerializer(ModelSerializer, _GetOrCreateMixin):
+class ContainerNamespaceSerializer(ModelSerializer, GetOrCreateSerializerMixin):
     """
     Serializer for ContainerNamespaces.
     """
@@ -236,7 +215,7 @@ class ContainerDistributionSerializer(DistributionSerializer):
         required=False,
         help_text=_("An optional content-guard. If none is specified, a default one will be used."),
         view_name=r"contentguards-container/content-redirect-detail",
-        queryset=models.ContentRedirectContentGuard.objects.all(),
+        queryset=ContentRedirectContentGuard.objects.all(),
         allow_null=False,
     )
     namespace = RelatedField(
@@ -313,15 +292,6 @@ class ContainerDistributionSerializer(DistributionSerializer):
             "private",
             "description",
         )
-
-
-class ContentRedirectContentGuardSerializer(ContentGuardSerializer, _GetOrCreateMixin):
-    """
-    A serializer for ContentRedirectContentGuard.
-    """
-
-    class Meta(ContentGuardSerializer.Meta):
-        model = models.ContentRedirectContentGuard
 
 
 class TagOperationSerializer(serializers.Serializer):
