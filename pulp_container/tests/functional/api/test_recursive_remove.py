@@ -17,7 +17,7 @@ from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
 )
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
 
 from pulpcore.client.pulp_container import (
     ApiException,
@@ -56,7 +56,7 @@ class TestRecursiveRemove(PulpTestCase):
 
         cls.from_repo = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
 
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
@@ -413,7 +413,7 @@ class TestRecursiveRemovePushRepo(PulpTestCase, rbac_base.BaseRegistryTest):
         cls.distributions_api = DistributionsContainerApi(api_client)
 
         # the image tagged as 'manifest_a' consists of 3 blobs, 1 manifest, and 1 tag
-        manifest_a_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        manifest_a_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         cls._pull(manifest_a_path)
 
         local_url = "/".join([cls.registry_name, "foo/bar:tag"])
