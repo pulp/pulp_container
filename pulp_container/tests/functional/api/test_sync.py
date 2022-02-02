@@ -12,7 +12,7 @@ from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_container_remote,
 )
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 
 from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
@@ -118,7 +118,7 @@ class TestRepeatedSync(PulpTestCase):
         cls.from_repo = cls.repository_api.create(ContainerContainerRepository(**gen_repo()))
 
         cls.remote_api = RemotesContainerApi(cls.client_api)
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remote_api.create(remote_data)
 
         delete_orphans()
@@ -210,7 +210,7 @@ class FilteredTagsSyncTestCase(PulpTestCase):
         self.addCleanup(self.repositories_api.delete, self.repository.pulp_href)
 
         remote_data = gen_container_remote(
-            upstream_name=DOCKERHUB_PULP_FIXTURE_1,
+            upstream_name=PULP_FIXTURE_1,
             include_tags=include_tags,
             exclude_tags=exclude_tags,
         )

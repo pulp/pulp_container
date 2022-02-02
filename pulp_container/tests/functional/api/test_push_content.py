@@ -11,7 +11,7 @@ from pulp_smash.pulp3.bindings import (
     PulpTestCase,
 )
 from pulp_container.tests.functional.api import rbac_base
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import (
     add_user_to_distribution_group,
     add_user_to_namespace_group,
@@ -57,10 +57,10 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
         cls.namespace_api = PulpContainerNamespacesApi(api_client)
 
-        cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a")
-        cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b")
-        cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_c")
-        cls._pull(f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_d")
+        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_a")
+        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_b")
+        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_c")
+        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_d")
 
     @classmethod
     def tearDownClass(cls):
@@ -75,7 +75,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
     def test_push_using_registry_client_admin(self):
         """Test push with official registry client and logged in as admin."""
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         local_url = "/".join([self.registry_name, "foo/bar:1.0"])
 
         self._push(image_path, local_url, self.user_admin)
@@ -101,7 +101,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         """
         repo_name = "test/perms"
         local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         self._push(image_path, local_url, self.user_creator)
 
         distributions = self.user_creator["distribution_api"].list(name="test/perms")
@@ -151,7 +151,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         """
         repo_name = "unsuccessful/perms"
         local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         with self.assertRaises(exceptions.CalledProcessError):
             self._push(image_path, local_url, self.user_reader)
 
@@ -161,7 +161,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         """
         repo_name = "unsuccessful/perms"
         local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         with self.assertRaises(exceptions.CalledProcessError):
             self._push(image_path, local_url, self.user_helpless)
 
@@ -186,7 +186,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         """
         repo_name = "team/owner"
         local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         self._push(image_path, local_url, self.user_creator)
 
         # Add user_dist_collaborator to the collaborator group
@@ -200,12 +200,12 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         collab_repo_name = "team/owner"
         local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
         self._push(image_path, local_url, self.user_dist_collaborator)
 
         collab_repo_name = "team/collab"
         local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_d"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
         with self.assertRaises(exceptions.CalledProcessError):
             self._push(image_path, local_url, self.user_dist_collaborator)
 
@@ -215,7 +215,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         collab_repo_name = "team/collab"
         local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_c"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
         self._push(image_path, local_url, self.user_namespace_collaborator)
 
         # cleanup, namespace removal also removes related distributions
@@ -238,7 +238,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         repo_name = "test/private"
         local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
 
         distribution = {"name": "test/private", "base_path": "test/private", "private": True}
         distribution_response = self.user_creator["distribution_api"].create(distribution)
@@ -280,7 +280,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         repo_name = f"{namespace_name}/matching"
         local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
         invalid_local_url = "/".join([self.registry_name, f"other/{repo_name}:2.0"])
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
 
         self._push(image_path, local_url, self.user_helpless)
 
