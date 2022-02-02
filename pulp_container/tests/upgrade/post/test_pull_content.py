@@ -16,8 +16,8 @@ from pulp_container.tests.functional.utils import (
     gen_container_remote,
 )
 from pulp_container.tests.functional.constants import (
-    REPO_UPSTREAM_NAME,
-    REPO_UPSTREAM_TAG,
+    REGISTRY_V2_REPO_HELLO_WORLD,
+    PULP_HELLO_WORLD_LINUX_TAG,
 )
 
 from pulpcore.client.pulp_container import (
@@ -120,15 +120,17 @@ class PullContentTestCase(unittest.TestCase):
 
         local_url = (
             urljoin(self.cfg.get_base_url(), self.distribution_with_repo.base_path)
-            + REPO_UPSTREAM_TAG
+            + PULP_HELLO_WORLD_LINUX_TAG
         )
 
         registry.pull(local_url)
         self.teardown_cleanups.append((registry.rmi, local_url))
         local_image = registry.inspect(local_url)
 
-        registry.pull(REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
-        self.teardown_cleanups.append((registry.rmi, REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG))
-        remote_image = registry.inspect(REPO_UPSTREAM_NAME + REPO_UPSTREAM_TAG)
+        registry.pull(REGISTRY_V2_REPO_HELLO_WORLD + PULP_HELLO_WORLD_LINUX_TAG)
+        self.teardown_cleanups.append(
+            (registry.rmi, REGISTRY_V2_REPO_HELLO_WORLD + PULP_HELLO_WORLD_LINUX_TAG)
+        )
+        remote_image = registry.inspect(REGISTRY_V2_REPO_HELLO_WORLD + PULP_HELLO_WORLD_LINUX_TAG)
 
         self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])
