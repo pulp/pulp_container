@@ -10,7 +10,7 @@ from pulp_smash import api, config
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
 
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 
 from pulp_container.tests.functional.utils import (
     del_user,
@@ -50,7 +50,7 @@ class RepositoriesList:
 
         cls.repository = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
 
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)

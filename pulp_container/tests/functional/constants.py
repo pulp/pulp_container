@@ -26,47 +26,18 @@ CONTAINER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, "container/container/")
 CONTAINER_IMAGE_URL = urljoin(PULP_FIXTURES_BASE_URL, "container/busybox:latest.tar")
 """The URL to a Container image as created by ``docker save``."""
 
-# hello-world is the smalest container image available on docker hub 1.84kB
-REPO_UPSTREAM_NAME = "hello-world"
-"""The name of a Container repository.
+# GH Packages registry
+REGISTRY_V2 = "ghcr.io"
+REGISTRY_V2_FEED_URL = "https://ghcr.io"
 
-This repository has several desireable properties:
+# a repository having the size of 1.84kB
+PULP_HELLO_WORLD_REPO = "pulp/hello-world"
 
-* It is available via both :data:`REGISTRY_V1_FEED_URL` and
-  :data:`REGISTRY_V2_FEED_URL`.
-* It has a manifest list, where one entry has an architecture of amd64 and an
-  os of linux. (The "latest" tag offers this.)
-* It is relatively small.
+# a repository containing 4 manifest lists and 5 manifests
+PULP_FIXTURE_1 = "pulp/test-fixture-1"
 
-This repository also has several shortcomings:
+# an alternative tag for the PULP_HELLO_WORLD image referencing a manifest list
+PULP_HELLO_WORLD_LINUX_TAG = ":linux"
 
-* This repository isn't an official repository. It's less trustworthy, and may
-  be more likely to change with little or no notice.
-* It doesn't have a manifest list where no list entries have an architecture of
-  amd64 and an os of linux. (The "arm32v7" tag provides schema v1 content.)
-
-One can get a high-level view of the content in this repository by executing:
-
-.. code-block:: sh
-
-    curl --location --silent \
-    https://registry.hub.docker.com/v2/repositories/$this_constant/tags \
-    | python -m json.tool
-"""
-
-REPO_UPSTREAM_TAG = ":linux"
-"""Alternative tag for the REPO_UPSTREAM_NAME image."""
-
-REGISTRY_V1_FEED_URL = "https://index.docker.io"
-"""The URL to a V1 Docker registry.
-
-This URL can be used as the "feed" property of a Pulp Container registry.
-"""
-
-REGISTRY_V2_FEED_URL = "https://registry-1.docker.io"
-"""The URL to a V2 Docker registry.
-
-This URL can be used as the "feed" property of a Pulp Container registry.
-"""
-
-DOCKERHUB_PULP_FIXTURE_1 = "pulp/test-fixture-1"
+REGISTRY_V2_REPO_PULP = f"{REGISTRY_V2}/{PULP_FIXTURE_1}"
+REGISTRY_V2_REPO_HELLO_WORLD = f"{REGISTRY_V2}/{PULP_HELLO_WORLD_REPO}"

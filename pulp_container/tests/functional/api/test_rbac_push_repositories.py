@@ -10,7 +10,7 @@ from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulpcore.client.pulp_container.exceptions import ApiException
 
 from pulp_container.tests.functional.api import rbac_base
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import (
     del_user,
     gen_container_client,
@@ -50,7 +50,7 @@ class PushRepositoryTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.user_helpless = gen_user([])
 
         # create a push repo
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_d"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
         cls._pull(image_path)
         repo_name = "test_push_repo/perms"
         local_url = "/".join([cls.registry_name, f"{repo_name}:1.0"])
