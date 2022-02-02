@@ -14,7 +14,8 @@ from pulp_container.tests.functional.utils import (
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
-    DOCKERHUB_PULP_FIXTURE_1,
+    PULP_FIXTURE_1,
+    REGISTRY_V2_REPO_PULP,
 )
 
 from pulpcore.client.pulp_container import (
@@ -77,7 +78,7 @@ class RepositoryTaggingTestCase(TaggingTestCommons, unittest.TestCase):
 
         cls.repository = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
 
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
@@ -227,9 +228,9 @@ class PushRepositoryTaggingTestCase(TaggingTestCommons, unittest.TestCase):
 
         cls.repository_name = "namespace/tags"
         cls.registry_repository_name = f"{cls.registry_name}/{cls.repository_name}"
-        manifest_a = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        manifest_a = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         tagged_registry_manifest_a = f"{cls.registry_repository_name}:manifest_a"
-        manifest_b = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b"
+        manifest_b = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
         tagged_registry_manifest_b = f"{cls.registry_repository_name}:manifest_b"
 
         cls.registry.pull(manifest_a)
