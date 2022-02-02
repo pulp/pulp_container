@@ -18,7 +18,7 @@ from pulp_smash.pulp3.utils import (
 from pulp_container.tests.functional.constants import (
     CONTAINER_CONTENT_NAME,
     CONTAINER_IMAGE_URL,
-    REPO_UPSTREAM_NAME,
+    PULP_HELLO_WORLD_REPO,
     REGISTRY_V2_FEED_URL,
 )
 
@@ -154,24 +154,37 @@ def gen_container_remote(url=REGISTRY_V2_FEED_URL, **kwargs):
 
     :param url: The URL of an external content source.
     """
-    return gen_remote(url, upstream_name=kwargs.pop("upstream_name", REPO_UPSTREAM_NAME), **kwargs)
+    return gen_remote(
+        url, upstream_name=kwargs.pop("upstream_name", PULP_HELLO_WORLD_REPO), **kwargs
+    )
 
 
-def get_docker_hub_remote_blobsums(upstream_name=REPO_UPSTREAM_NAME):
-    """Get remote blobsum list from dockerhub registry."""
-    token_url = (
-        "https://auth.docker.io/token"
-        "?service=registry.docker.io"
-        "&scope=repository:library/{0}:pull"
-    ).format(upstream_name)
-    token_response = requests.get(token_url)
-    token_response.raise_for_status()
-    token = token_response.json()["token"]
+def get_blobsums_from_remote_registry(upstream_name=PULP_HELLO_WORLD_REPO):
+    """Get remote blobsum list from a remote registry."""
+    token_server_response = requests.get(
+        f"{REGISTRY_V2_FEED_URL}/token?service=ghcr.io&scope=repository:{upstream_name}:pull"
+    )
+    token_server_response.raise_for_status()
+    token = token_server_response.json()["token"]
 
-    blob_url = ("{0}/v2/library/{1}/manifests/latest").format(REGISTRY_V2_FEED_URL, upstream_name)
-    response = requests.get(blob_url, headers={"Authorization": "Bearer " + token})
+    s = requests.Session()
+    s.headers.update({"Authorization": "Bearer " + token})
+
+    # the tag 'latest' references a manifest list
+    manifest_url = f"{REGISTRY_V2_FEED_URL}/v2/{upstream_name}/manifests/latest"
+    response = s.get(manifest_url)
     response.raise_for_status()
-    return response.json()["fsLayers"]
+
+    checksums = []
+    for manifest in response.json()["manifests"]:
+        manifest_url = f"{REGISTRY_V2_FEED_URL}/v2/{upstream_name}/manifests/{manifest['digest']}"
+        response = s.get(manifest_url)
+        response.raise_for_status()
+
+        for layer in response.json()["layers"]:
+            checksums.append(layer["digest"])
+
+    return checksums
 
 
 def get_container_image_paths(repo, version_href=None):
