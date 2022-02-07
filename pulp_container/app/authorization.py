@@ -31,19 +31,19 @@ class AuthorizationService:
     according to a user's scope.
     """
 
-    def __init__(self, user, service, scope):
+    def __init__(self, user, service, scopes):
         """
         Store class-wide variables and initialize a dictionary used for determining permissions.
 
         Args:
             user (django.contrib.auth.models.User): Requesting user.
             service (str): Name of the service access is granted to.
-            scope (str): Scope of the resource that is to be accessed.
+            scopes (list): Scopes of the resources that are to be accessed.
 
         """
         self.user = user
         self.service = service
-        self.scope = scope
+        self.scopes = scopes
         self.access_policy = RegistryAccessPolicy()
 
         self.actions_permissions = defaultdict(
@@ -133,10 +133,21 @@ class AuthorizationService:
                 endpoint.
 
         """
-        if not self.scope or self.scope.count(":") != 2:
+        if not self.scopes:
             return []
 
-        typ, name, actions = self.scope.split(":")
+        if any(scope.count(":") != 2 for scope in self.scopes):
+            return []
+
+        permitted_scopes = []
+        for scope in self.scopes:
+            permitted_scopes.extend(self.permit_scope(scope))
+
+        return permitted_scopes
+
+    def permit_scope(self, scope):
+        """Permit a received access scope based on user's permissions."""
+        typ, name, actions = scope.split(":")
         actions = set(actions.split(","))
 
         permitted_actions = set()
