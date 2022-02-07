@@ -948,7 +948,7 @@ class ContainerPushRepositoryViewSet(
                 "condition": "has_namespace_or_obj_perms:container.view_containerpushrepository",
             },
             {
-                "action": ["tag", "untag", "remove_image", "sign"],
+                "action": ["tag", "untag", "remove_image", "sign", "remove_signatures"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -1027,7 +1027,33 @@ class ContainerPushRepositoryViewSet(
         serializer.is_valid(raise_exception=True)
 
         content_units_to_remove = list(serializer.validated_data["tags_pks"])
+        content_units_to_remove.extend(list(serializer.validated_data["sigs_pks"]))
         content_units_to_remove.append(serializer.validated_data["manifest"].pk)
+
+        result = dispatch(
+            tasks.recursive_remove_content,
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "content_units": [str(pk) for pk in content_units_to_remove],
+            },
+        )
+        return OperationPostponedResponse(result, request)
+
+    @action(detail=True, methods=["post"], serializer_class=serializers.RemoveSignaturesSerializer)
+    def remove_signatures(self, request, pk):
+        """
+        Create a task which deletes signatures by the passed key_id.
+        """
+        repository = self.get_object()
+        request.data["repository"] = repository
+
+        serializer = serializers.RemoveSignaturesSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        content_units_to_remove = list(serializer.validated_data["sigs_pks"])
 
         result = dispatch(
             tasks.recursive_remove_content,
