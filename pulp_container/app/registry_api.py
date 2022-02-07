@@ -356,7 +356,7 @@ class BearerTokenView(APIView):
             service = request.query_params["service"]
         except KeyError:
             raise ParseError(detail="No service name provided.")
-        scope = request.query_params.get("scope", "")
+        scope = request.query_params.getlist("scope", [])
 
         authorization_service = AuthorizationService(self.request.user, service, scope)
         data = authorization_service.generate_token()
@@ -554,11 +554,65 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         """
         _, repository = self.get_dr_push(request, path, create=True)
 
-        upload = models.Upload(repository=repository, size=0)
-        upload.save()
-        response = UploadResponse(upload=upload, path=path, request=request)
+        if self.tries_to_mount_blob(request):
+            response = self.mount_blob(request, path, repository)
+        else:
+            upload = models.Upload(repository=repository, size=0)
+            upload.save()
+            response = UploadResponse(upload=upload, path=path, request=request)
 
         return response
+
+    @staticmethod
+    def tries_to_mount_blob(request):
+        """Check if a client is trying to perform cross repository blob mounting."""
+        return (request.query_params.keys()) == {"from", "mount"}
+
+    def mount_blob(self, request, path, repository):
+        """Mount a blob that is already present in another repository."""
+        from_path = request.query_params["from"]
+        try:
+            distribution = models.ContainerDistribution.objects.get(base_path=from_path)
+        except models.ContainerDistribution.DoesNotExist:
+            raise RepositoryNotFound(name=path)
+
+        try:
+            version = distribution.repository_version or distribution.repository.latest_version()
+        except AttributeError:
+            # the distribution does not contain reference to the source repository version
+            raise RepositoryNotFound(name=from_path)
+
+        digest = request.query_params["mount"]
+        try:
+            blob = models.Blob.objects.get(digest=digest, pk__in=version.content)
+        except models.Blob.DoesNotExist:
+            raise BlobNotFound(digest=digest)
+
+        dispatched_task = dispatch(
+            add_and_remove,
+            shared_resources=[version.repository],
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "add_content_units": [str(blob.pk)],
+                "remove_content_units": [],
+            },
+        )
+
+        # Wait a small amount of time
+        for dummy in range(3):
+            time.sleep(1)
+            task = Task.objects.get(pk=dispatched_task.pk)
+            if task.state == "completed":
+                task.delete()
+                return BlobResponse(blob, path, 201, request)
+            elif task.state in ["waiting", "running"]:
+                continue
+            else:
+                error = task.error
+                task.delete()
+                raise Exception(str(error))
+        raise Throttled()
 
     def partial_update(self, request, path, pk=None):
         """

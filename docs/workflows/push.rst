@@ -12,6 +12,9 @@ image.
     Having disabled the token authentication, only users with staff privileges (i.e.,
     administrators) are allowed to push content to the registry.
 
+The registry supports cross repository blob mounting. When uploading blobs that already exist in
+the registry as a part of a different repository, the content is not being uploaded but rather
+referenced from another repository to reduce network traffic.
 
 ::
 
