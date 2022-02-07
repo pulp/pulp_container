@@ -590,7 +590,8 @@ class RemoveImageSerializer(serializers.Serializer):
 
     def validate(self, data):
         """
-        Validate and extract the latest repository version, manifest, and tags from the passed data.
+        Validate and extract the latest repository version, manifest, signatures and tags
+        from the passed data.
         """
         new_data = {}
         new_data.update(self.initial_data)
@@ -627,6 +628,56 @@ class RemoveImageSerializer(serializers.Serializer):
             pk__in=new_data["latest_version"].content.all(), tagged_manifest=new_data["manifest"]
         ).values_list("pk", flat=True)
         new_data["tags_pks"] = tags_pks
+        sigs_pks = models.ManifestSignature.objects.filter(
+            pk__in=new_data["latest_version"].content.all(), signed_manifest=new_data["manifest"]
+        ).values_list("pk", flat=True)
+        new_data["sigs_pks"] = sigs_pks
+
+        return new_data
+
+
+class RemoveSignaturesSerializer(serializers.Serializer):
+    """
+    A serializer for parsing and validating data associated with the signatures removal.
+    """
+
+    signed_with_key_id = serializers.CharField(
+        help_text="key_id of the key the signatures were produced with"
+    )
+
+    def validate(self, data):
+        """
+        Validate and extract the latest repository version, signatures from the passed data.
+        """
+        new_data = {}
+        new_data.update(self.initial_data)
+
+        latest_version = new_data["repository"].latest_version()
+        if not latest_version:
+            raise serializers.ValidationError(
+                _(
+                    "The latest repository version of '{}' was not found".format(
+                        new_data["repository"]
+                    )
+                )
+            )
+
+        new_data["latest_version"] = latest_version
+        sigs_pks = models.ManifestSignature.objects.filter(
+            pk__in=new_data["latest_version"].content.all(),
+            key_id=new_data["signed_with_key_id"],
+        ).values_list("pk", flat=True)
+        if not sigs_pks:
+            raise serializers.ValidationError(
+                _(
+                    "There are no signatures in the latest repository version '{}' "
+                    "produced with the specified key_id '{}'".format(
+                        new_data["latest_version"], new_data["signed_with_key_id"]
+                    )
+                )
+            )
+
+        new_data["sigs_pks"] = sigs_pks
 
         return new_data
 
