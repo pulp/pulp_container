@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.9.2 (2022-02-08)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed "manifest_id" violates not-null constraint error during sync.
+  `#537 <https://pulp.plan.io/issues/537>`_
+
+
+----
+
+
 2.9.1 (2021-11-23)
 ==================
 
