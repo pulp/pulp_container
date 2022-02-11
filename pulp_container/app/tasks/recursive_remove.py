@@ -4,6 +4,7 @@ from pulpcore.plugin.models import Content, Repository
 from pulp_container.app.models import (
     Blob,
     Manifest,
+    ManifestSignature,
     MEDIA_TYPE,
     Tag,
 )
@@ -42,6 +43,7 @@ def recursive_remove_content(repository_pk, content_units):
             new_version.remove_content(latest_content)
     else:
         tags_in_repo = Q(pk__in=latest_content.filter(pulp_type=Tag.get_pulp_type()))
+        sigs_in_repo = Q(pk__in=latest_content.filter(pulp_type=ManifestSignature.get_pulp_type()))
         manifests_in_repo = Q(pk__in=latest_content.filter(pulp_type=Manifest.get_pulp_type()))
         user_provided_content = Q(pk__in=content_units)
         type_manifest_list = Q(media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI])
@@ -111,8 +113,15 @@ def recursive_remove_content(repository_pk, content_units):
             .exclude(listed_blobs_must_remain)
         )
 
+        # signatures can't be shared, so no need to calculate which ones to remain
+        sigs_to_remove_from_manifests = Q(signed_manifest__in=manifests_to_remove)
+        signatures_to_remove = ManifestSignature.objects.filter(
+            (user_provided_content & sigs_in_repo) | sigs_to_remove_from_manifests
+        )
+
         with repository.new_version() as new_version:
             new_version.remove_content(tags_to_remove)
             new_version.remove_content(manifest_lists_to_remove)
             new_version.remove_content(manifests_to_remove)
             new_version.remove_content(blobs_to_remove)
+            new_version.remove_content(signatures_to_remove)

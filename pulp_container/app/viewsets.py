@@ -23,10 +23,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 
 from pulpcore.plugin.models import RepositoryVersion
-from pulpcore.plugin.serializers import (
-    AsyncOperationResponseSerializer,
-    RepositorySyncURLSerializer,
-)
+from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
 from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import dispatch, general_multi_delete
 from pulpcore.plugin.viewsets import (
@@ -96,6 +93,22 @@ class BlobFilter(ContentFilter):
         model = models.Blob
         fields = {
             "digest": ["exact", "in"],
+        }
+
+
+class ManifestSignatureFilter(ContentFilter):
+    """
+    FilterSet for image signatures.
+    """
+
+    manifest = CharInFilter(field_name="signed_manifest__digest", lookup_expr="in")
+
+    class Meta:
+        model = models.ManifestSignature
+        fields = {
+            "name": NAME_FILTER_OPTIONS,
+            "digest": ["exact", "in"],
+            "key_id": ["exact", "in"],
         }
 
 
@@ -289,6 +302,32 @@ class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     }
 
 
+class ManifestSignatureViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
+    """
+    ViewSet for image signatures.
+    """
+
+    endpoint_name = "signatures"
+    queryset = models.ManifestSignature.objects.all()
+    serializer_class = serializers.ManifestSignatureSerializer
+    filterset_class = ManifestSignatureFilter
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+    }
+
+
 class ContainerRemoteViewSet(RemoteViewSet):
     """
     Container remotes represent an external repository that implements the Container
@@ -419,6 +458,53 @@ class TagOperationsMixin:
         return OperationPostponedResponse(result, request)
 
 
+class SignOperationsMixin:
+    """Signing mixing for both types of the repos."""
+
+    @extend_schema(
+        description="Trigger an asynchronous task to sign content.",
+        summary="Sign images in the repo",
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    @action(detail=True, methods=["post"], serializer_class=serializers.RepositorySignSerializer)
+    def sign(self, request, pk):
+        """
+        Signs manifests by tag in the repository.
+        """
+        repository = self.get_object()
+        serializer = serializers.RepositorySignSerializer(
+            data=request.data, context={"request": request, "repository_pk": pk}
+        )
+
+        # Validate synchronously to return 400 errors.
+        serializer.is_valid(raise_exception=True)
+        signing_service = serializer.validated_data.get(
+            "manifest_signing_service", repository.manifest_signing_service
+        )
+        future_base_path = serializer.validated_data.get("future_base_path")
+        reference = f"{request.get_host()}/{future_base_path}"
+
+        tags_list = serializer.validated_data.get("tags_list")
+        if tags_list:
+            tags_list_pks = models.Tag.objects.filter(name__in=tags_list).values_list(
+                "pk", flat=True
+            )
+            tags_list_pks = list(tags_list_pks)
+        else:
+            tags_list_pks = None
+        result = dispatch(
+            tasks.sign,
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": repository.pk,
+                "reference": reference,
+                "signing_service_pk": signing_service.pk,
+                "tags_list": tags_list_pks,
+            },
+        )
+        return OperationPostponedResponse(result, request)
+
+
 class RepositoryVersionQuerySetMixin:
     """
     A mixin which provides with a custom `get_queryset` method for repository version viewsets.
@@ -448,7 +534,7 @@ class RepositoryVersionQuerySetMixin:
         return qs
 
 
-class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
+class ContainerRepositoryViewSet(TagOperationsMixin, SignOperationsMixin, RepositoryViewSet):
     """
     ViewSet for container repo.
     """
@@ -505,7 +591,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                 ],
             },
             {
-                "action": ["add", "remove", "tag", "untag", "copy_tags", "copy_manifests"],
+                "action": ["add", "remove", "tag", "untag", "copy_tags", "copy_manifests", "sign"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -546,14 +632,19 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         description="Trigger an asynchronous task to sync content.",
         summary="Sync from a remote",
         responses={202: AsyncOperationResponseSerializer},
+        request=serializers.ContainerRepositorySyncURLSerializer,
     )
-    @action(detail=True, methods=["post"], serializer_class=RepositorySyncURLSerializer)
+    @action(
+        detail=True,
+        methods=["post"],
+        serializer_class=serializers.ContainerRepositorySyncURLSerializer,
+    )
     def sync(self, request, pk):
         """
         Synchronizes a repository. The ``repository`` field has to be provided.
         """
         repository = self.get_object()
-        serializer = RepositorySyncURLSerializer(
+        serializer = serializers.ContainerRepositorySyncURLSerializer(
             data=request.data, context={"request": request, "repository_pk": pk}
         )
 
@@ -561,6 +652,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
         serializer.is_valid(raise_exception=True)
         remote = serializer.validated_data.get("remote", repository.remote)
         mirror = serializer.validated_data.get("mirror")
+        signed_only = serializer.validated_data.get("signed_only")
 
         result = dispatch(
             tasks.synchronize,
@@ -570,6 +662,7 @@ class ContainerRepositoryViewSet(TagOperationsMixin, RepositoryViewSet):
                 "remote_pk": str(remote.pk),
                 "repository_pk": str(repository.pk),
                 "mirror": mirror,
+                "signed_only": signed_only,
             },
         )
         return OperationPostponedResponse(result, request)
@@ -826,7 +919,7 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionQuerySetMixin, Reposito
 
 
 class ContainerPushRepositoryViewSet(
-    TagOperationsMixin, ReadOnlyRepositoryViewSet, AsyncUpdateMixin
+    TagOperationsMixin, SignOperationsMixin, ReadOnlyRepositoryViewSet, AsyncUpdateMixin
 ):
     """
     ViewSet for a container push repository.
@@ -855,7 +948,7 @@ class ContainerPushRepositoryViewSet(
                 "condition": "has_namespace_or_obj_perms:container.view_containerpushrepository",
             },
             {
-                "action": ["tag", "untag", "remove_image"],
+                "action": ["tag", "untag", "remove_image", "sign", "remove_signatures"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -934,7 +1027,33 @@ class ContainerPushRepositoryViewSet(
         serializer.is_valid(raise_exception=True)
 
         content_units_to_remove = list(serializer.validated_data["tags_pks"])
+        content_units_to_remove.extend(list(serializer.validated_data["sigs_pks"]))
         content_units_to_remove.append(serializer.validated_data["manifest"].pk)
+
+        result = dispatch(
+            tasks.recursive_remove_content,
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "content_units": [str(pk) for pk in content_units_to_remove],
+            },
+        )
+        return OperationPostponedResponse(result, request)
+
+    @action(detail=True, methods=["post"], serializer_class=serializers.RemoveSignaturesSerializer)
+    def remove_signatures(self, request, pk):
+        """
+        Create a task which deletes signatures by the passed key_id.
+        """
+        repository = self.get_object()
+        request.data["repository"] = repository
+
+        serializer = serializers.RemoveSignaturesSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        content_units_to_remove = list(serializer.validated_data["sigs_pks"])
 
         result = dispatch(
             tasks.recursive_remove_content,

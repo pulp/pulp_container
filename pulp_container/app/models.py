@@ -1,7 +1,10 @@
 from gettext import gettext as _
 
+import gnupg
+import json
 import os
 import re
+import tempfile
 import time
 from logging import getLogger
 
@@ -25,15 +28,17 @@ from pulpcore.plugin.models import (
     Remote,
     Repository,
     Distribution,
+    SigningService,
     Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
 
 
 from . import downloaders
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
 
 
+gpg = gnupg.GPG()
 logger = getLogger(__name__)
 
 
@@ -196,9 +201,56 @@ class Tag(Content):
         unique_together = (("name", "tagged_manifest"),)
 
 
+class ManifestSignature(Content):
+    """
+    A signature for a manifest.
+
+    Fields:
+        name (models.CharField): A signature name in the 'manifest_digest@random_name' format.
+        digest (models.CharField): A signature sha256 digest prepended with its algorithm `sha256:`.
+        type (models.CharField): A signature type as specified in signature metadata. Currently
+                                 it's only "atomic container signature".
+        key_id (models.CharField): A key id identified by gpg (last 8 bytes of the fingerprint).
+        timestamp (models.PositiveIntegerField): A signature timestamp identified by gpg.
+        creator (models.CharField): A signature creator.
+        data (models.TextField): A signature, base64 encoded.
+
+    Relations:
+        signed_manifest (models.ForeignKey): A manifest this signature is relevant to.
+
+    """
+
+    PROTECTED_FROM_RECLAIM = False
+
+    TYPE = "signature"
+
+    SIGNATURE_CHOICES = ((SIGNATURE_TYPE.ATOMIC_SHORT, SIGNATURE_TYPE.ATOMIC_SHORT),)
+
+    name = models.CharField(max_length=255, db_index=True)
+    digest = models.CharField(max_length=255)
+    type = models.CharField(max_length=255, choices=SIGNATURE_CHOICES)
+    key_id = models.CharField(max_length=255, db_index=True)
+    timestamp = models.PositiveIntegerField()
+    creator = models.CharField(max_length=255, blank=True)
+    data = models.TextField()
+
+    signed_manifest = models.ForeignKey(
+        Manifest, null=False, related_name="signed_manifests", on_delete=models.CASCADE
+    )
+    # TODO: Maybe there should be an optional field with a FK to a signing_service for the cases
+    #       when Pulp creates a signature.
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+        unique_together = (("digest",),)
+
+
 class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
     """
     Namespace for the container registry.
+
+    Fields:
+        name (models.CharField): The name of the namespace.
     """
 
     name = models.CharField(max_length=255, db_index=True)
@@ -272,12 +324,17 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         upstream_name (models.CharField): The name of the image at the remote.
         include_foreign_layers (models.BooleanField): Foreign layers in the remote
             are included. They are not included by default.
+        include_tags (fields.ArrayField): List of tags to include during sync.
+        exclude_tags (fields.ArrayField): List of tags to exclude during sync.
+        sigstore (models.TextField): The URL to a sigstore where signatures of container images
+            should be synced from.
     """
 
     upstream_name = models.CharField(max_length=255, db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
     include_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
     exclude_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
+    sigstore = models.TextField(null=True)
 
     TYPE = "container"
     ACCESS_POLICY_VIEWSET_NAME = "remotes/container/container"
@@ -285,12 +342,9 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     @property
     def download_factory(self):
         """
-        Return the DownloaderFactory which can be used to generate asyncio capable downloaders.
+        Downloader Factory that maps to custom downloaders which support registry auth.
 
         Upon first access, the DownloaderFactory is instantiated and saved internally.
-
-        Plugin writers are expected to override when additional configuration of the
-        DownloaderFactory is needed.
 
         Returns:
             DownloadFactory: The instantiated DownloaderFactory to be used by
@@ -308,6 +362,26 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
                 },
             )
             return self._download_factory
+
+    @property
+    def noauth_download_factory(self):
+        """
+        Downloader Factory that doesn't use Basic Auth or TLS settings from a remote.
+
+        Some supplementary data, e.g. signatures, might be available via unprotected resources.
+
+        Upon first access, the NoAuthDownloaderFactory is instantiated and saved internally.
+
+        Returns:
+            DownloadFactory: The instantiated NoAuthDownloaderFactory to be used by
+                get_noauth_downloader().
+
+        """
+        try:
+            return self._noauth_download_factory
+        except AttributeError:
+            self._noauth_download_factory = downloaders.NoAuthDownloaderFactory(self)
+            return self._noauth_download_factory
 
     def get_downloader(self, remote_artifact=None, url=None, **kwargs):
         """
@@ -334,6 +408,35 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         kwargs["remote"] = self
         return super().get_downloader(remote_artifact=remote_artifact, url=url, **kwargs)
 
+    def get_noauth_downloader(self, remote_artifact=None, url=None, **kwargs):
+        """
+        Get a no-auth downloader from either a RemoteArtifact or URL that is provided.
+
+        This method accepts either `remote_artifact` or `url` but not both. At least one is
+        required. If neither or both are passed a ValueError is raised.
+
+        Args:
+            remote_artifact (:class:`~pulpcore.app.models.RemoteArtifact`): The RemoteArtifact to
+                download.
+            url (str): The URL to download.
+            kwargs (dict): This accepts the parameters of
+                :class:`~pulpcore.plugin.download.BaseDownloader`.
+
+        Raises:
+            ValueError: If neither remote_artifact and url are passed, or if both are passed.
+
+        Returns:
+            subclass of :class:`~pulpcore.plugin.download.BaseDownloader`: A downloader that
+            is configured with the remote settings.
+
+        """
+        return super().get_downloader(
+            remote_artifact=remote_artifact,
+            url=url,
+            download_factory=self.noauth_download_factory,
+            **kwargs,
+        )
+
     @property
     def namespaced_upstream_name(self):
         """
@@ -353,6 +456,71 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         default_related_name = "%(app_label)s_%(model_name)s"
 
 
+class ManifestSigningService(SigningService):
+    """
+    Signing service used for creating container signatures.
+    """
+
+    def validate(self):
+        """
+        Validate a signing service for a container signature.
+
+        The validation seeks to ensure that the sign() method returns a dict as follows:
+
+        {"signature": "$SIG_PATH"}
+
+        The method creates a test image manifest, signs its manifest.json, and checks if the
+        signature can be verified by the provided public key.
+
+        Raises:
+            RuntimeError: If the validation has failed.
+
+        """
+        test_manifest = {
+            "schemaVersion": 2,
+            "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+            "config": {
+                "mediaType": "application/vnd.docker.container.image.v1+json",
+                "size": 1456,
+                "digest": "sha256:7138284460ffa3bb6ee087344f5b051468b3f8697e2d1427bac1a208d4168123",
+            },
+            "layers": [
+                {
+                    "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                    "size": 772792,
+                    "digest": "sha256:e685c5c858e36338a47c627763b50dfe6035b547f1f75f0d39753d4e3121",
+                }
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_directory_name:
+            manifest_file = tempfile.NamedTemporaryFile(dir=temp_directory_name, delete=False)
+            with open(manifest_file.name, "w") as outfile:
+                json.dump(test_manifest, outfile)
+            sig_path = os.path.join(temp_directory_name, "signature")
+
+            signed = self.sign(
+                manifest_file.name, env_vars={"REFERENCE": "test", "SIG_PATH": sig_path}
+            )
+
+            with open(signed["signature_path"], "rb") as fp:
+                verified = gpg.verify_file(fp)
+                if verified.trust_level is None or verified.trust_level < verified.TRUST_FULLY:
+                    raise RuntimeError(
+                        _(
+                            "The signature could not be verified or the trust level is too "
+                            "low. The signing script may generate invalid signatures."
+                        )
+                    )
+                elif verified.pubkey_fingerprint != self.pubkey_fingerprint:
+                    raise RuntimeError(
+                        _(
+                            "Fingerprints of the provided public key and the verified public "
+                            "key are not equal. The signing script is probably not valid."
+                        )
+                    )
+
+
 class ContainerRepository(
     Repository,
     AutoAddObjPermsMixin,
@@ -363,13 +531,21 @@ class ContainerRepository(
 
     This Repository type is designed for standard pulp operations, and can be distributed as a
     read only registry.
+
+    Relations:
+        manifest_signing_service (models.ForeignKey): ManifestSigningService this repository will
+                                                      use for signing content.
     """
 
     TYPE = "container"
-    CONTENT_TYPES = [Blob, Manifest, Tag]
+    CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
     REMOTE_TYPES = [ContainerRemote]
     PUSH_ENABLED = False
     ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
+
+    manifest_signing_service = models.ForeignKey(
+        ManifestSigningService, on_delete=models.SET_NULL, null=True
+    )
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
@@ -399,12 +575,20 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
     automatically instantiated on authorised push to nonexisting repositories.
     With this repository type, all but the latest repository_version are solely of historical
     interest.
+
+    Relations:
+        manifest_signing_service (models.ForeignKey): ManifestSigningService this repository will
+                                                      use for signing content.
     """
 
     TYPE = "container-push"
-    CONTENT_TYPES = [Blob, Manifest, Tag]
+    CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
     PUSH_ENABLED = True
     ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container-push"
+
+    manifest_signing_service = models.ForeignKey(
+        ManifestSigningService, on_delete=models.SET_NULL, null=True
+    )
 
     def add_perms_to_distribution_group(self, permissions, parameters):
         """
@@ -454,6 +638,14 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
 class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
     """
     A container distribution defines how a repository version is distributed by Pulp's webserver.
+
+    Fields:
+        private (models.BooleanField): Whether the distribution is private or public.
+                                       Public by default.
+        descripion (models.TextField): Description of the distribution.
+
+    Relations:
+        namespace (models.ForeignKey): Namespace the distribution belonds to.
     """
 
     TYPE = "container"
