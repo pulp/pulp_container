@@ -1,10 +1,11 @@
 # This config represents the latest values used when running the plugin-template. Any settings that
 # were not present before running plugin-template have been added with their default values.
 
-# generated with plugin_template@2021.08.26-43-gb21df56
+# generated with plugin_template@2021.08.26-72-g04dca83
 
 additional_plugins: []
 additional_repos: []
+aiohttp_fixtures_origin: 172.18.0.1
 all: false
 black: true
 bootstrap: false
@@ -36,8 +37,9 @@ exclude_docs_test: false
 exclude_mariadb_test: false
 exclude_test_bindings: false
 flake8: true
-issue_tracker: redmine
+issue_tracker: github
 noissue_marker: '[noissue]'
+parallel_test_workers: 8
 plugin_app_label: container
 plugin_camel: PulpContainer
 plugin_camel_short: Container
@@ -76,6 +78,7 @@ test: false
 test_azure: false
 test_bindings: false
 test_cli: true
+test_deprecations: true
 test_fips_nightly: false
 test_performance: false
 test_released_plugin_with_next_pulpcore_release: true
@@ -83,7 +86,9 @@ test_s3: true
 travis: true
 travis_addtl_services: []
 travis_notifications: None
+update_github: true
 update_redmine: true
 upgrade_range: []
+use_issue_template: true
 verbose: false
 
