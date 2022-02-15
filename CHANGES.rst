@@ -300,6 +300,22 @@ Misc
 ----
 
 
+2.5.5 (2022-02-15)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed file descriptor leak during image push.
+  `#523 <https://pulp.plan.io/issues/523>`_
+- Fixed error during container image push.
+  `#542 <https://pulp.plan.io/issues/542>`_
+
+
+----
+
+
 2.5.4 (2021-12-14)
 ==================
 
