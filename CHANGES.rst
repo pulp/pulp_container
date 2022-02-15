@@ -13,6 +13,24 @@ Changelog
 
 .. towncrier release notes start
 
+2.10.1 (2022-02-15)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed file descriptor leak during image push.
+  `#523 <https://github.com/pulp/pulp_container/issues/523>`_
+- Fixed "manifest_id" violates not-null constraint error during sync.
+  `#537 <https://github.com/pulp/pulp_container/issues/537>`_
+- Fixed error during container image push.
+  `#542 <https://github.com/pulp/pulp_container/issues/542>`_
+
+
+----
+
+
 2.10.0 (2021-12-14)
 ===================
 
