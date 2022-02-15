@@ -10,6 +10,9 @@ from pulp_smash.pulp3.bindings import (
     monitor_task,
     PulpTestCase,
 )
+
+from pulp_container.constants import MEDIA_TYPE
+
 from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import (
@@ -19,6 +22,9 @@ from pulp_container.tests.functional.utils import (
 )
 
 from pulpcore.client.pulp_container import (
+    ContentManifestsApi,
+    ContentTagsApi,
+    DistributionsContainerApi,
     PulpContainerNamespacesApi,
     RepositoriesContainerPushApi,
 )
@@ -317,3 +323,195 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         # cleanup, namespace removal also removes related distributions
         namespace = self.namespace_api.list(name=namespace_name).results[0]
         self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
+
+
+class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
+    """A test case that verifies if a container client can push manifest lists to the registry."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Initialize a new manifest list that will be pushed to the registry."""
+        cfg = config.get_config()
+        cls.registry = cli.RegistryClient(cfg)
+        cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
+        cls.registry_name = urlparse(cfg.get_base_url()).netloc
+
+        admin_user, admin_password = cfg.pulp_auth
+        cls.user_admin = {"username": admin_user, "password": admin_password}
+
+        api_client = gen_container_client()
+        api_client.configuration.username = cls.user_admin["username"]
+        api_client.configuration.password = cls.user_admin["password"]
+        cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
+        cls.distributions_api = DistributionsContainerApi(api_client)
+        cls.manifests_api = ContentManifestsApi(api_client)
+        cls.tags_api = ContentTagsApi(api_client)
+
+        cls.manifest_a = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+        cls.manifest_b = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
+        cls.manifest_c = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
+        cls._pull(cls.manifest_a)
+        cls._pull(cls.manifest_b)
+        cls._pull(cls.manifest_c)
+
+        # get default manifests' digests for the further comparison
+        manifest_a_digest = cls.registry.inspect(cls.manifest_a)[0]["Digest"]
+        manifest_b_digest = cls.registry.inspect(cls.manifest_b)[0]["Digest"]
+        manifest_c_digest = cls.registry.inspect(cls.manifest_c)[0]["Digest"]
+        cls.manifests_v2s2_digests = sorted(
+            [manifest_a_digest, manifest_b_digest, manifest_c_digest]
+        )
+
+        # create a new manifest list composed of the pulled manifest images
+        cls.image_v2s2_tag = "manifest_list"
+        cls.image_v2s2_path = f"{REGISTRY_V2_REPO_PULP}:{cls.image_v2s2_tag}"
+        cls.local_v2s2_url = f"{cls.registry_name}/foo:{cls.image_v2s2_tag}"
+        cls.registry._dispatch_command("manifest", "create", cls.image_v2s2_path)
+        cls.registry._dispatch_command("manifest", "add", cls.image_v2s2_path, cls.manifest_a)
+        cls.registry._dispatch_command("manifest", "add", cls.image_v2s2_path, cls.manifest_b)
+        cls.registry._dispatch_command("manifest", "add", cls.image_v2s2_path, cls.manifest_c)
+
+        # get digests of manifests after converting images to the OCI format by reloading them
+        cls.registry._dispatch_command(
+            "save", cls.manifest_a, "--format", "oci-dir", "-o", "manifest_a.tar"
+        )
+        cls.registry._dispatch_command(
+            "save", cls.manifest_b, "--format", "oci-dir", "-o", "manifest_b.tar"
+        )
+        cls.registry._dispatch_command(
+            "save", cls.manifest_c, "--format", "oci-dir", "-o", "manifest_c.tar"
+        )
+
+        cls.registry._dispatch_command("load", "-q", "-i", "manifest_a.tar")
+        cls.registry._dispatch_command("load", "-q", "-i", "manifest_b.tar")
+        cls.registry._dispatch_command("load", "-q", "-i", "manifest_c.tar")
+
+        manifest_a_digest = cls.registry.inspect("manifest_a.tar")[0]["Digest"]
+        manifest_b_digest = cls.registry.inspect("manifest_b.tar")[0]["Digest"]
+        manifest_c_digest = cls.registry.inspect("manifest_c.tar")[0]["Digest"]
+        cls.manifests_oci_digests = sorted(
+            [manifest_a_digest, manifest_b_digest, manifest_c_digest]
+        )
+
+        # create an empty manifest list
+        cls.empty_image_tag = "empty_manifest_list"
+        cls.empty_image_path = f"{REGISTRY_V2_REPO_PULP}:{cls.empty_image_tag}"
+        cls.empty_image_local_url = f"{cls.registry_name}/foo:{cls.empty_image_tag}"
+        cls.registry._dispatch_command("manifest", "create", cls.empty_image_path)
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up created images."""
+        cls.registry._dispatch_command("manifest", "rm", cls.image_v2s2_path)
+        cls.registry._dispatch_command("manifest", "rm", cls.empty_image_path)
+
+        cls.registry._dispatch_command("image", "rm", cls.manifest_a)
+        cls.registry._dispatch_command("image", "rm", cls.manifest_b)
+        cls.registry._dispatch_command("image", "rm", cls.manifest_c)
+
+        cls.registry._dispatch_command("image", "rm", "localhost/manifest_a.tar")
+        cls.registry._dispatch_command("image", "rm", "localhost/manifest_b.tar")
+        cls.registry._dispatch_command("image", "rm", "localhost/manifest_c.tar")
+
+        delete_orphans()
+
+    def test_push_manifest_list_v2s2(self):
+        """Push the created manifest list in the v2s2 format."""
+        self.registry.login(
+            "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
+        )
+        self.registry._dispatch_command(
+            "manifest",
+            "push",
+            self.image_v2s2_path,
+            self.local_v2s2_url,
+            "--all",
+            "--format",
+            "v2s2",
+        )
+
+        # pushing the same manifest list two times should not fail
+        self.registry._dispatch_command(
+            "manifest",
+            "push",
+            self.image_v2s2_path,
+            self.local_v2s2_url,
+            "--all",
+            "--format",
+            "v2s2",
+        )
+
+        distribution = self.distributions_api.list(name="foo").results[0]
+        self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
+
+        repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
+        latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
+        assert latest_tag.name == self.image_v2s2_tag
+
+        manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
+        assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
+        assert manifest_list.schema_version == 2
+
+        referenced_manifests_digests = sorted(
+            [
+                self.manifests_api.read(manifest_href).digest
+                for manifest_href in manifest_list.listed_manifests
+            ]
+        )
+        assert referenced_manifests_digests == self.manifests_v2s2_digests
+
+    def test_push_manifest_list_oci(self):
+        """Push the created manifest list in the OCI format."""
+        self.registry.login(
+            "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
+        )
+        self.registry._dispatch_command(
+            "manifest",
+            "push",
+            self.image_v2s2_path,
+            self.local_v2s2_url,
+            "--all",
+            "--format",
+            "oci",
+        )
+
+        distribution = self.distributions_api.list(name="foo").results[0]
+        self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
+
+        repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
+        latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
+        assert latest_tag.name == self.image_v2s2_tag
+
+        manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
+        assert manifest_list.media_type == MEDIA_TYPE.INDEX_OCI
+        assert manifest_list.schema_version == 2
+
+        referenced_manifests_digests = sorted(
+            [
+                self.manifests_api.read(manifest_href).digest
+                for manifest_href in manifest_list.listed_manifests
+            ]
+        )
+        assert referenced_manifests_digests == self.manifests_oci_digests
+
+    def test_push_empty_manifest_list(self):
+        """Push an empty manifest list to the registry."""
+        self.registry.login(
+            "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
+        )
+        self.registry._dispatch_command(
+            "manifest", "push", self.empty_image_path, self.empty_image_local_url
+        )
+
+        distribution = self.distributions_api.list(name="foo").results[0]
+        self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
+
+        repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
+        latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
+        assert latest_tag.name == self.empty_image_tag
+
+        manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
+        # empty manifest lists are being pushed in the v2s2 format by default
+        assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
+        assert manifest_list.schema_version == 2
+        assert manifest_list.listed_manifests == []
