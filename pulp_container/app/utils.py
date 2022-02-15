@@ -3,6 +3,11 @@ from gettext import gettext as _
 import gnupg
 import json
 import logging
+import time
+
+from rest_framework.exceptions import Throttled
+
+from pulpcore.plugin.models import Task
 
 from pulp_container.constants import SIGNATURE_TYPE
 
@@ -99,3 +104,30 @@ def extract_data_from_signature(signature_raw, man_digest):
     sig_json["signing_key_id"] = crypt_obj.key_id
     sig_json["signature_timestamp"] = crypt_obj.timestamp
     return sig_json
+
+
+def has_task_completed(dispatched_task):
+    """
+    Wait a couple of seconds until the task finishes its run.
+
+    Returns:
+        bool: True if the task ends successfully.
+
+    Raises:
+        Exception: If an error occurs during the task's runtime.
+        Throttled: If the task did not finish within a predefined timespan.
+
+    """
+    for dummy in range(3):
+        time.sleep(1)
+        task = Task.objects.get(pk=dispatched_task.pk)
+        if task.state == "completed":
+            task.delete()
+            return True
+        elif task.state in ["waiting", "running"]:
+            continue
+        else:
+            error = task.error
+            task.delete()
+            raise Exception(str(error))
+    raise Throttled()
