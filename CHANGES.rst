@@ -26,6 +26,33 @@ Features
   `#9607 <https://pulp.plan.io/issues/9607>`_
 
 
+----
+
+
+2.9.3 (2022-02-15)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed file descriptor leak during image push.
+  `#523 <https://github.com/pulp/pulp_container/issues/523>`_
+- Fixed error during container image push.
+  `#542 <https://github.com/pulp/pulp_container/issues/542>`_
+- Fixed rate_limit option on the remote. Rate limit defines N req/sec per connection.
+  `#578 <https://github.com/pulp/pulp_container/issues/578>`_
+- Fixed a bug that caused container clients to be unable to interact with content stored on S3.
+  `#579 <https://github.com/pulp/pulp_container/issues/579>`_
+
+
+----
+
+
+2.9.2 (2022-02-08)
+==================
+
+
 Bugfixes
 --------
 
