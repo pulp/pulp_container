@@ -13,6 +13,24 @@ Changelog
 
 .. towncrier release notes start
 
+2.10.1 (2022-02-15)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed file descriptor leak during image push.
+  `#523 <https://github.com/pulp/pulp_container/issues/523>`__
+- Fixed "manifest_id" violates not-null constraint error during sync.
+  `#537 <https://github.com/pulp/pulp_container/issues/537>`__
+- Fixed error during container image push.
+  `#542 <https://github.com/pulp/pulp_container/issues/542>`__
+
+
+----
+
+
 2.10.0 (2021-12-14)
 ===================
 
@@ -37,13 +55,13 @@ Bugfixes
 --------
 
 - Fixed file descriptor leak during image push.
-  `#523 <https://github.com/pulp/pulp_container/issues/523>`_
+  `#523 <https://github.com/pulp/pulp_container/issues/523>`__
 - Fixed error during container image push.
-  `#542 <https://github.com/pulp/pulp_container/issues/542>`_
+  `#542 <https://github.com/pulp/pulp_container/issues/542>`__
 - Fixed rate_limit option on the remote. Rate limit defines N req/sec per connection.
-  `#578 <https://github.com/pulp/pulp_container/issues/578>`_
+  `#578 <https://github.com/pulp/pulp_container/issues/578>`__
 - Fixed a bug that caused container clients to be unable to interact with content stored on S3.
-  `#579 <https://github.com/pulp/pulp_container/issues/579>`_
+  `#579 <https://github.com/pulp/pulp_container/issues/579>`__
 
 
 ----
@@ -141,9 +159,9 @@ Bugfixes
 --------
 
 - Fixed file descriptor leak during image push.
-  `#523 <https://github.com/pulp/pulp_container/issues/523>`_
+  `#523 <https://github.com/pulp/pulp_container/issues/523>`__
 - Fixed error during container image push.
-  `#542 <https://github.com/pulp/pulp_container/issues/542>`_
+  `#542 <https://github.com/pulp/pulp_container/issues/542>`__
 
 
 ----
@@ -157,7 +175,7 @@ Bugfixes
 --------
 
 - Fixed "manifest_id" violates not-null constraint error during sync.
-  `#537 <https://github.com/pulp/pulp_container/issues/537>`_
+  `#537 <https://github.com/pulp/pulp_container/issues/537>`__
 
 
 ----
@@ -351,9 +369,9 @@ Bugfixes
 --------
 
 - Fixed file descriptor leak during image push.
-  `#523 <https://pulp.plan.io/issues/523>`_
+  `#523 <https://pulp.plan.io/issues/523>`__
 - Fixed error during container image push.
-  `#542 <https://pulp.plan.io/issues/542>`_
+  `#542 <https://pulp.plan.io/issues/542>`__
 
 
 ----
