@@ -13,6 +13,22 @@ Changelog
 
 .. towncrier release notes start
 
+2.8.5 (2022-02-15)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed file descriptor leak during image push.
+  `#523 <https://github.com/pulp/pulp_container/issues/523>`_
+- Fixed error during container image push.
+  `#542 <https://github.com/pulp/pulp_container/issues/542>`_
+
+
+----
+
+
 2.8.4 (2022-01-27)
 ==================
 
