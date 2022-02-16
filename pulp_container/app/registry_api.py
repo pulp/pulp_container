@@ -656,8 +656,10 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 )
                 blob_artifact.save()
             except IntegrityError:
-                pass
-
+                ca = ContentArtifact.objects.get(content=blob, relative_path=digest)
+                if not ca.artifact:
+                    ca.artifact = artifact
+                    ca.save(update_fields=["artifact"])
             upload.delete()
 
             dispatched_task = dispatch(
@@ -833,7 +835,10 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         try:
             ca.save()
         except IntegrityError:
-            pass
+            ca = ContentArtifact.objects.get(content=manifest, relative_path=manifest.digest)
+            if not ca.artifact:
+                ca.artifact = artifact
+                ca.save(update_fields=["artifact"])
         # both docker/oci format should contain layers, digest, media_type, size
         layers = content_data.get("layers")
         blobs = {}
