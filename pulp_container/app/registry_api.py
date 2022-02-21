@@ -808,17 +808,40 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             raise ManifestInvalid(digest=manifest_digest)
         # both docker/oci format should contain config, digest, mediaType, size
         config_layer = content_data.get("config")
-        try:
-            config_digest = config_layer.get("digest")
-            config_blob = models.Blob.objects.get(digest=config_digest)
-        except models.Blob.DoesNotExist:
-            raise BlobNotFound(digest=config_digest)
         config_media_type = config_layer.get("mediaType")
+        config_digest = config_layer.get("digest")
         if config_media_type not in (
             models.MEDIA_TYPE.CONFIG_BLOB,
             models.MEDIA_TYPE.CONFIG_BLOB_OCI,
         ):
-            raise BlobInvalid(digest=config_blob.digest)
+            raise BlobInvalid(digest=config_digest)
+        try:
+            config_blob = models.Blob.objects.get(digest=config_digest)
+        except models.Blob.DoesNotExist:
+            raise BlobInvalid(digest=config_digest)
+
+        # both docker/oci format should contain layers, digest, media_type, size
+        layers = content_data.get("layers")
+        blobs = set()
+        for layer in layers:
+            media_type = layer.get("mediaType")
+            urls = layer.get("urls")
+            digest = layer.get("digest")
+            if (
+                media_type
+                in (
+                    models.MEDIA_TYPE.FOREIGN_BLOB,
+                    models.MEDIA_TYPE.FOREIGN_BLOB_OCI,
+                )
+                and not urls
+            ):
+                raise ManifestInvalid(digest=manifest_digest)
+            if media_type not in (
+                models.MEDIA_TYPE.REGULAR_BLOB,
+                models.MEDIA_TYPE.REGULAR_BLOB_OCI,
+            ):
+                raise BlobInvalid(digest=digest)
+            blobs.add(digest)
 
         manifest = models.Manifest(
             digest=manifest_digest,
@@ -839,21 +862,9 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             if not ca.artifact:
                 ca.artifact = artifact
                 ca.save(update_fields=["artifact"])
-        # both docker/oci format should contain layers, digest, media_type, size
-        layers = content_data.get("layers")
-        blobs = {}
-        for layer in layers:
-            blobs[layer.get("digest")] = layer.get("mediaType")
-        blobs_qs = models.Blob.objects.filter(digest__in=blobs.keys())
+        blobs_qs = models.Blob.objects.filter(digest__in=blobs)
         thru = []
         for blob in blobs_qs:
-            # ensure there are no foreign layers
-            blob_media_type = blobs[blob.digest]
-            if blob_media_type not in (
-                models.MEDIA_TYPE.REGULAR_BLOB,
-                models.MEDIA_TYPE.REGULAR_BLOB_OCI,
-            ):
-                raise BlobInvalid(digest=blob.digest)
             thru.append(models.BlobManifest(manifest=manifest, manifest_blob=blob))
         models.BlobManifest.objects.bulk_create(objs=thru, ignore_conflicts=True, batch_size=1000)
         tag = models.Tag(name=pk, tagged_manifest=manifest)

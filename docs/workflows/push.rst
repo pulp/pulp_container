@@ -3,9 +3,10 @@
 Push content to a Repository
 =============================
 
-Users can push images to the repositories hosted by the Container Registry. Only the users who are
-logged in to the registry are allowed to perform such an action. Find below a complete example of
-pushing a tagged image.
+Users can push images to the repositories hosted by the Container Registry. It is possible to push
+images that container foreign ( non-distributable) layers. Only the users who are logged in to the
+registry are allowed to perform push operation. Find below a complete example of pushing a tagged
+image.
 
 .. note::
     Having disabled the token authentication, only users with staff privileges (i.e.,
