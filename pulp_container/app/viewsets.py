@@ -88,8 +88,6 @@ class BlobFilter(ContentFilter):
     FilterSet for Blobs.
     """
 
-    media_type = MultipleChoiceFilter(choices=models.Blob.BLOB_CHOICES)
-
     class Meta:
         model = models.Blob
         fields = {

@@ -36,12 +36,12 @@ def get_or_create_blob(layer_json, manifest, path):
         layer_file_name = "{}{}".format(path, layer_json["digest"][7:])
         layer_artifact = Artifact.init_and_validate(layer_file_name)
         layer_artifact.save()
-        blob = Blob(digest=layer_json["digest"], media_type=layer_json["mediaType"])
+        blob = Blob(digest=layer_json["digest"])
         blob.save()
         ContentArtifact(
             artifact=layer_artifact, content=blob, relative_path=layer_json["digest"]
         ).save()
-    if blob.media_type != MEDIA_TYPE.CONFIG_BLOB_OCI:
+    if layer_json["mediaType"] != MEDIA_TYPE.CONFIG_BLOB_OCI:
         BlobManifest(manifest=manifest, manifest_blob=blob).save()
     return blob
 

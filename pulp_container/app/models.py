@@ -60,16 +60,7 @@ class Blob(Content):
 
     TYPE = "blob"
 
-    BLOB_CHOICES = (
-        (MEDIA_TYPE.CONFIG_BLOB, MEDIA_TYPE.CONFIG_BLOB),
-        (MEDIA_TYPE.REGULAR_BLOB, MEDIA_TYPE.REGULAR_BLOB),
-        (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB),
-        (MEDIA_TYPE.CONFIG_BLOB_OCI, MEDIA_TYPE.CONFIG_BLOB_OCI),
-        (MEDIA_TYPE.REGULAR_BLOB_OCI, MEDIA_TYPE.REGULAR_BLOB_OCI),
-        (MEDIA_TYPE.FOREIGN_BLOB_OCI, MEDIA_TYPE.FOREIGN_BLOB_OCI),
-    )
     digest = models.CharField(max_length=255, db_index=True)
-    media_type = models.CharField(max_length=80, choices=BLOB_CHOICES)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"

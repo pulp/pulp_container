@@ -429,7 +429,7 @@ class ContainerFirstStage(Stage):
         """
         digest = blob_data.get("digest") or blob_data.get("blobSum")
         blob_artifact = Artifact(sha256=digest[len("sha256:") :])
-        blob = Blob(digest=digest, media_type=blob_data.get("mediaType", MEDIA_TYPE.REGULAR_BLOB))
+        blob = Blob(digest=digest)
         relative_url = "/v2/{name}/blobs/{digest}".format(
             name=self.remote.namespaced_upstream_name, digest=digest
         )
