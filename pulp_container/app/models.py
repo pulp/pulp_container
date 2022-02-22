@@ -245,7 +245,6 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
     """
 
     name = models.CharField(max_length=255, db_index=True)
-    ACCESS_POLICY_VIEWSET_NAME = "pulp_container/namespaces"
 
     def create_namespace_group(self, permissions, parameters):
         """
@@ -332,7 +331,6 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
     sigstore = models.TextField(null=True)
 
     TYPE = "container"
-    ACCESS_POLICY_VIEWSET_NAME = "remotes/container/container"
 
     @property
     def download_factory(self):
@@ -542,7 +540,6 @@ class ContainerRepository(
     CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
     REMOTE_TYPES = [ContainerRemote]
     PUSH_ENABLED = False
-    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container"
 
     manifest_signing_service = models.ForeignKey(
         ManifestSigningService, on_delete=models.SET_NULL, null=True
@@ -589,7 +586,6 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
     TYPE = "container-push"
     CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
     PUSH_ENABLED = True
-    ACCESS_POLICY_VIEWSET_NAME = "repositories/container/container-push"
 
     manifest_signing_service = models.ForeignKey(
         ManifestSigningService, on_delete=models.SET_NULL, null=True
@@ -658,7 +654,6 @@ class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
     """
 
     TYPE = "container"
-    ACCESS_POLICY_VIEWSET_NAME = "distributions/container/container"
 
     namespace = models.ForeignKey(
         ContainerNamespace,

@@ -8,8 +8,10 @@ from guardian.shortcuts import assign_perm, get_objects_for_group
 def update_repo_perms(apps, schema_editor):
     """ Assign push repo perms to the namespace and distribution groups. """
     AccessPolicy = apps.get_model('core', 'AccessPolicy')
+    push_repo_model = apps.get_model('container', 'ContainerPushRepository')
     push_repo_viewset = 'repositories/container/container-push'
     dist_viewset = 'distributions/container/container'
+    namespace_model = apps.get_model('container', 'ContainerNamespace')
     namespace_viewset = 'pulp_container/namespaces'
     viewset_names = (dist_viewset, namespace_viewset, push_repo_viewset)
     existing_perms = (
@@ -31,9 +33,9 @@ def update_repo_perms(apps, schema_editor):
                     for group in groups_ns:
                         objs = get_objects_for_group(group, perm, accept_global_perms=False)
                         for obj in objs:
-                            if obj.ACCESS_POLICY_VIEWSET_NAME == namespace_viewset:
+                            if obj._meta.model == namespace_model:
                                 assign_perm('container.namespace_change_containerpushrepository', group, obj)
-                            elif obj.ACCESS_POLICY_VIEWSET_NAME == push_repo_viewset:
+                            elif obj._meta.model == push_repo_model:
                                 assign_perm('container.change_containerpushrepository', group, obj)
 
 
