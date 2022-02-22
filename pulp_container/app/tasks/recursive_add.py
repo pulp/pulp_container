@@ -57,16 +57,8 @@ def recursive_add_content(repository_pk, content_units):
         )
     )
 
-    blob_media_types = [
-        MEDIA_TYPE.CONFIG_BLOB,
-        MEDIA_TYPE.REGULAR_BLOB,
-        MEDIA_TYPE.FOREIGN_BLOB,
-        MEDIA_TYPE.CONFIG_BLOB_OCI,
-        MEDIA_TYPE.REGULAR_BLOB_OCI,
-        MEDIA_TYPE.FOREIGN_BLOB_OCI,
-    ]
     blobs_to_add = (
-        Blob.objects.filter(pk__in=content_units, media_type__in=blob_media_types)
+        Blob.objects.filter(pk__in=content_units)
         | Blob.objects.filter(pk__in=manifests_to_add.values_list("blobs", flat=True))
         | Blob.objects.filter(pk__in=manifests_to_add.values_list("config_blob", flat=True))
     )

@@ -645,7 +645,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
                 artifact.touch()
             try:
-                blob = models.Blob(digest=digest, media_type=models.MEDIA_TYPE.REGULAR_BLOB)
+                blob = models.Blob(digest=digest)
                 blob.save()
             except IntegrityError:
                 blob = models.Blob.objects.get(digest=digest)

@@ -102,10 +102,9 @@ class BlobSerializer(SingleArtifactContentSerializer):
     """
 
     digest = serializers.CharField(help_text="sha256 of the Blob file")
-    media_type = serializers.CharField(help_text="Blob media type of the file")
 
     class Meta:
-        fields = SingleArtifactContentSerializer.Meta.fields + ("digest", "media_type")
+        fields = SingleArtifactContentSerializer.Meta.fields + ("digest",)
         model = models.Blob
 
 
