@@ -1,10 +1,13 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.conf import settings
 
 from django_currentuser.middleware import _set_current_user
 
 from pulp_container.app.serializers import ContainerDistributionSerializer, TagOperationSerializer
 from pulp_container.app.models import ContainerPushRepository, ContainerRepository
+
+V3_API_ROOT = settings.V3_API_ROOT
 
 
 class TestContainerDistributionSerializer(TestCase):
@@ -15,14 +18,14 @@ class TestContainerDistributionSerializer(TestCase):
         self.mirror_repository, _ = ContainerRepository.objects.get_or_create(
             name="mirror repository",
         )
-        self.mirror_repository_href = "/pulp/api/v3/repositories/container/container/{}/".format(
-            self.mirror_repository.pk
+        self.mirror_repository_href = (
+            f"{V3_API_ROOT}repositories/container/container/{self.mirror_repository.pk}/"
         )
         self.push_repository, _ = ContainerPushRepository.objects.get_or_create(
             name="push repository",
         )
-        self.push_repository_href = "/pulp/api/v3/repositories/container/container-push/{}/".format(
-            self.push_repository.pk
+        self.push_repository_href = (
+            f"{V3_API_ROOT}repositories/container/container-push/{self.push_repository.pk}/"
         )
         self.user = get_user_model().objects.create(username="user1", is_staff=False)
         _set_current_user(self.user)
