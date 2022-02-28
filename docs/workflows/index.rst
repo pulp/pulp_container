@@ -56,7 +56,6 @@ Container Workflows
    listing-repositories
    manage-content
    build-containerfile
-   authentication
    managing-credentials
    push
    sign-images
