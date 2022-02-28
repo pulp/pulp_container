@@ -7,7 +7,11 @@ from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
 
-from rest_framework.authentication import BaseAuthentication, BasicAuthentication
+from rest_framework.authentication import (
+    BaseAuthentication,
+    BasicAuthentication,
+    RemoteUserAuthentication,
+)
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
@@ -52,16 +56,36 @@ class RegistryAuthentication(BasicAuthentication):
     A basic authentication class that accepts empty username and password as anonymous.
     """
 
+    PULP_AUTHENTICATION_CLASS = "pulpcore.app.authentication.PulpRemoteUserAuthentication"
+    AUTH_CLASSES = settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
+
     def authenticate(self, request):
         """
         Perform basic authentication with the exception to accept empty credentials.
+
         For anonymous user, Podman sends 'Authorization': 'Basic Og=='.
         This represents ":" in base64.
+
+        If basic authentication could not success, remote webserver authentication is considered.
         """
         if request.headers.get("Authorization") == "Basic Og==":
             return (AnonymousUser, None)
 
-        return super().authenticate(request)
+        try:
+            return super().authenticate(request)
+        except AuthenticationFailed:
+            if self.PULP_AUTHENTICATION_CLASS in self.AUTH_CLASSES:
+                return RemoteUserRegistryAuthentication().authenticate(request)
+            else:
+                raise
+
+
+class RemoteUserRegistryAuthentication(RemoteUserAuthentication):
+    """
+    A class that authenticates users who were authenticated by a remote web server.
+    """
+
+    header = settings.REMOTE_USER_ENVIRON_NAME
 
 
 class TokenAuthentication(BaseAuthentication):
