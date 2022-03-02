@@ -1,98 +1,81 @@
 # coding=utf-8
 """Tests that container sync repositories have RBAC."""
-import unittest
+import pytest
 
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 
-from pulp_container.tests.functional.utils import (
-    del_user,
-    gen_user,
-    skip_if,
-)
-
 from pulpcore.client.pulp_container.exceptions import ApiException
 
 
-class RBACSyncRepositoriesTestCase(unittest.TestCase):
+@pytest.mark.parallel
+def test_rbac_sync_repositories(gen_user, container_repository_api):
     """RBAC sync repositories."""
 
-    @classmethod
-    def setUpClass(cls):
-        """Create class-wide variables and prepare api users."""
-        cls.user1 = gen_user(model_roles=["container.containerrepository_creator"])
-        cls.user2 = gen_user(model_roles=["container.containerrepository_viewer"])
-        cls.user3 = gen_user()
-        cls.repository = None
+    user1 = gen_user(model_roles=["container.containerrepository_creator"])
+    user2 = gen_user(model_roles=["container.containerrepository_viewer"])
+    user3 = gen_user()
+    repository = None
 
-    @classmethod
-    def tearDownClass(cls):
-        """Delete api users."""
-        del_user(cls.user1)
-        del_user(cls.user2)
-        del_user(cls.user3)
+    """Create a repository."""
+    body = {"name": utils.uuid4()}
+    with user2, pytest.raises(ApiException):
+        container_repository_api.create(body)
+    with user3, pytest.raises(ApiException):
+        container_repository_api.create(body)
+    with user1:
+        repository = container_repository_api.create(body)
 
-    def test_01_create_repository(self):
-        """Create a repository."""
-        body = {"name": utils.uuid4()}
-        with self.assertRaises(ApiException):
-            self.user2["repository_api"].create(body)
-        with self.assertRaises(ApiException):
-            self.user3["repository_api"].create(body)
-        type(self).repository = self.user1["repository_api"].create(body)
-
-    @skip_if(bool, "repository", False)
-    def test_02_read_repository(self):
-        """Read a repository by its href."""
-        self.user1["repository_api"].read(self.repository.pulp_href)
+    """Read a repository by its href."""
+    with user1:
+        container_repository_api.read(repository.pulp_href)
+    with user2:
         # read with global read permission
-        self.user2["repository_api"].read(self.repository.pulp_href)
+        container_repository_api.read(repository.pulp_href)
+    with user3, pytest.raises(ApiException):
         # read without read permission
-        with self.assertRaises(ApiException):
-            self.user3["repository_api"].read(self.repository.pulp_href)
+        container_repository_api.read(repository.pulp_href)
 
-    @skip_if(bool, "repository", False)
-    def test_02_read_repositories(self):
-        """Read a repository by its name."""
-        page = self.user1["repository_api"].list(name=self.repository.name)
-        self.assertEqual(len(page.results), 1)
-        page = self.user2["repository_api"].list(name=self.repository.name)
-        self.assertEqual(len(page.results), 1)
-        page = self.user3["repository_api"].list(name=self.repository.name)
-        self.assertEqual(len(page.results), 0)
+    """Read a repository by its name."""
+    with user1:
+        page = container_repository_api.list(name=repository.name)
+        assert len(page.results) == 1
+    with user2:
+        page = container_repository_api.list(name=repository.name)
+        assert len(page.results) == 1
+    with user3:
+        page = container_repository_api.list(name=repository.name)
+        assert len(page.results) == 0
 
-    @skip_if(bool, "repository", False)
-    def test_03_partially_update(self):
-        """Update a repository using HTTP PATCH."""
-        body = {"name": utils.uuid4()}
-        with self.assertRaises(ApiException):
-            self.user2["repository_api"].partial_update(self.repository.pulp_href, body)
-        with self.assertRaises(ApiException):
-            self.user3["repository_api"].partial_update(self.repository.pulp_href, body)
-        response = self.user1["repository_api"].partial_update(self.repository.pulp_href, body)
+    """Update a repository using HTTP PATCH."""
+    body = {"name": utils.uuid4()}
+    with user2, pytest.raises(ApiException):
+        container_repository_api.partial_update(repository.pulp_href, body)
+    with user3, pytest.raises(ApiException):
+        container_repository_api.partial_update(repository.pulp_href, body)
+    with user1:
+        response = container_repository_api.partial_update(repository.pulp_href, body)
         monitor_task(response.task)
-        type(self).repository = self.user1["repository_api"].read(self.repository.pulp_href)
+        repository = container_repository_api.read(repository.pulp_href)
 
-    @skip_if(bool, "repository", False)
-    def test_04_fully_update(self):
-        """Update a repository using HTTP PUT."""
-        body = {"name": utils.uuid4()}
-        with self.assertRaises(ApiException):
-            self.user2["repository_api"].update(self.repository.pulp_href, body)
-        with self.assertRaises(ApiException):
-            self.user3["repository_api"].update(self.repository.pulp_href, body)
-        response = self.user1["repository_api"].update(self.repository.pulp_href, body)
+    """Update a repository using HTTP PUT."""
+    body = {"name": utils.uuid4()}
+    with user2, pytest.raises(ApiException):
+        container_repository_api.update(repository.pulp_href, body)
+    with user3, pytest.raises(ApiException):
+        container_repository_api.update(repository.pulp_href, body)
+    with user1:
+        response = container_repository_api.update(repository.pulp_href, body)
         monitor_task(response.task)
-        type(self).repository = self.user1["repository_api"].read(self.repository.pulp_href)
+        repository = container_repository_api.read(repository.pulp_href)
 
-    @skip_if(bool, "repository", False)
-    def test_05_delete(self):
-        """Delete a repository."""
-        with self.assertRaises(ApiException):
-            self.user2["repository_api"].delete(self.repository.pulp_href)
-        with self.assertRaises(ApiException):
-            self.user3["repository_api"].delete(self.repository.pulp_href)
-        response = self.user1["repository_api"].delete(self.repository.pulp_href)
+    """Delete a repository."""
+    with user2, pytest.raises(ApiException):
+        container_repository_api.delete(repository.pulp_href)
+    with user3, pytest.raises(ApiException):
+        container_repository_api.delete(repository.pulp_href)
+    with user1:
+        response = container_repository_api.delete(repository.pulp_href)
         monitor_task(response.task)
-        with self.assertRaises(ApiException):
-            self.user1["repository_api"].read(self.repository.pulp_href)
+        with pytest.raises(ApiException):
+            container_repository_api.read(repository.pulp_href)

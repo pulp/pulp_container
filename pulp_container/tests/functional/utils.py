@@ -108,30 +108,6 @@ def assign_role_to_user(user, role, content_object=None):
     )
 
 
-def add_user_to_distribution_group(user, distribution, group_type, as_user):
-    """Add the user to either owner, collaborator, or consumer group of a distribution."""
-    distribution_pk = distribution.pulp_href.split("/")[-2]
-    collaborator_group = (
-        as_user["groups_api"]
-        .list(name="container.distribution.{}.{}".format(group_type, distribution_pk))
-        .results[0]
-    )
-    as_user["group_users_api"].create(collaborator_group.pulp_href, {"username": user["username"]})
-
-
-def add_user_to_namespace_group(user, namespace_name, group_type, as_user):
-    """Add the user to either owner, collaborator, or consumer group of a namespace."""
-    namespace_collaborator_group = (
-        as_user["groups_api"]
-        .list(name="container.namespace.{}.{}".format(group_type, namespace_name))
-        .results[0]
-    )
-    as_user["group_users_api"].create(
-        namespace_collaborator_group.pulp_href,
-        {"username": user["username"]},
-    )
-
-
 def gen_container_client():
     """Return an OBJECT for container client."""
     return ContainerApiClient(configuration)
