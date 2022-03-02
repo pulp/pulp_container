@@ -1,104 +1,89 @@
 # coding=utf-8
 """Tests that container remotes have RBAC."""
 from random import choice
-import unittest
+import pytest
 
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.constants import ON_DEMAND_DOWNLOAD_POLICIES
 
-from pulp_container.tests.functional.utils import (
-    del_user,
-    gen_container_remote,
-    gen_user,
-    skip_if,
-)
+from pulp_container.tests.functional.utils import gen_container_remote
 
 from pulpcore.client.pulp_container.exceptions import ApiException
 
 
-class RBACRemotesTestCase(unittest.TestCase):
+@pytest.mark.parallel
+def test_rbac_remotes(gen_user, container_remote_api):
     """RBAC remotes."""
 
-    @classmethod
-    def setUpClass(cls):
-        """Create class-wide variables and prepare api users."""
-        cls.user1 = gen_user(model_roles=["container.containerremote_creator"])
-        cls.user2 = gen_user(model_roles=["container.containerremote_viewer"])
-        cls.user3 = gen_user()
-        cls.remote = None
+    # Setup
+    user1 = gen_user(model_roles=["container.containerremote_creator"])
+    user2 = gen_user(model_roles=["container.containerremote_viewer"])
+    user3 = gen_user()
+    remote = None
 
-    @classmethod
-    def tearDownClass(cls):
-        """Delete api users."""
-        del_user(cls.user1)
-        del_user(cls.user2)
-        del_user(cls.user3)
+    """Create a remote."""
+    body = _gen_verbose_remote()
+    with user2, pytest.raises(ApiException):
+        container_remote_api.create(body)
+    with user3, pytest.raises(ApiException):
+        container_remote_api.create(body)
+    with user1:
+        remote = container_remote_api.create(body)
 
-    def test_01_create_remote(self):
-        """Create a remote."""
-        body = _gen_verbose_remote()
-        with self.assertRaises(ApiException):
-            self.user2["remote_api"].create(body)
-        with self.assertRaises(ApiException):
-            self.user3["remote_api"].create(body)
-        type(self).remote = self.user1["remote_api"].create(body)
-
-    @skip_if(bool, "remote", False)
-    def test_02_read_remote(self):
-        """Read a remote by its href."""
-        self.user1["remote_api"].read(self.remote.pulp_href)
+    """Read a remote by its href."""
+    with user1:
+        container_remote_api.read(remote.pulp_href)
+    with user2:
         # read with global read permission
-        self.user2["remote_api"].read(self.remote.pulp_href)
+        container_remote_api.read(remote.pulp_href)
+    with user3, pytest.raises(ApiException):
         # read without read permission
-        with self.assertRaises(ApiException):
-            self.user3["remote_api"].read(self.remote.pulp_href)
+        container_remote_api.read(remote.pulp_href)
 
-    @skip_if(bool, "remote", False)
-    def test_02_read_remotes(self):
-        """Read a remote by its name."""
-        page = self.user1["remote_api"].list(name=self.remote.name)
-        self.assertEqual(len(page.results), 1)
-        page = self.user2["remote_api"].list(name=self.remote.name)
-        self.assertEqual(len(page.results), 1)
-        page = self.user3["remote_api"].list(name=self.remote.name)
-        self.assertEqual(len(page.results), 0)
+    """Read a remote by its name."""
+    with user1:
+        page = container_remote_api.list(name=remote.name)
+        assert len(page.results) == 1
+    with user2:
+        page = container_remote_api.list(name=remote.name)
+        assert len(page.results) == 1
+    with user3:
+        page = container_remote_api.list(name=remote.name)
+        assert len(page.results) == 0
 
-    @skip_if(bool, "remote", False)
-    def test_03_partially_update(self):
-        """Update a remote using HTTP PATCH."""
-        body = _gen_verbose_remote()
-        with self.assertRaises(ApiException):
-            self.user2["remote_api"].partial_update(self.remote.pulp_href, body)
-        with self.assertRaises(ApiException):
-            self.user3["remote_api"].partial_update(self.remote.pulp_href, body)
-        response = self.user1["remote_api"].partial_update(self.remote.pulp_href, body)
+    """Update a remote using HTTP PATCH."""
+    body = _gen_verbose_remote()
+    with user2, pytest.raises(ApiException):
+        container_remote_api.partial_update(remote.pulp_href, body)
+    with user3, pytest.raises(ApiException):
+        container_remote_api.partial_update(remote.pulp_href, body)
+    with user1:
+        response = container_remote_api.partial_update(remote.pulp_href, body)
         monitor_task(response.task)
-        type(self).remote = self.user1["remote_api"].read(self.remote.pulp_href)
+        remote = container_remote_api.read(remote.pulp_href)
 
-    @skip_if(bool, "remote", False)
-    def test_04_fully_update(self):
-        """Update a remote using HTTP PUT."""
-        body = _gen_verbose_remote()
-        with self.assertRaises(ApiException):
-            self.user2["remote_api"].update(self.remote.pulp_href, body)
-        with self.assertRaises(ApiException):
-            self.user3["remote_api"].update(self.remote.pulp_href, body)
-        response = self.user1["remote_api"].update(self.remote.pulp_href, body)
+    """Update a remote using HTTP PUT."""
+    body = _gen_verbose_remote()
+    with user2, pytest.raises(ApiException):
+        container_remote_api.update(remote.pulp_href, body)
+    with user3, pytest.raises(ApiException):
+        container_remote_api.update(remote.pulp_href, body)
+    with user1:
+        response = container_remote_api.update(remote.pulp_href, body)
         monitor_task(response.task)
-        type(self).remote = self.user1["remote_api"].read(self.remote.pulp_href)
+        remote = container_remote_api.read(remote.pulp_href)
 
-    @skip_if(bool, "remote", False)
-    def test_05_delete(self):
-        """Delete a remote."""
-        with self.assertRaises(ApiException):
-            self.user2["remote_api"].delete(self.remote.pulp_href)
-        with self.assertRaises(ApiException):
-            self.user3["remote_api"].delete(self.remote.pulp_href)
-        response = self.user1["remote_api"].delete(self.remote.pulp_href)
+    """Delete a remote."""
+    with user2, pytest.raises(ApiException):
+        container_remote_api.delete(remote.pulp_href)
+    with user3, pytest.raises(ApiException):
+        container_remote_api.delete(remote.pulp_href)
+    with user1:
+        response = container_remote_api.delete(remote.pulp_href)
         monitor_task(response.task)
-        with self.assertRaises(ApiException):
-            self.user1["remote_api"].read(self.remote.pulp_href)
+    with user1, pytest.raises(ApiException):
+        container_remote_api.read(remote.pulp_href)
 
 
 def _gen_verbose_remote():
