@@ -12,8 +12,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 from asgiref.sync import sync_to_async
 from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressReport, Remote
-from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
-from pulpcore.plugin.constants import TASK_STATES
+from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage, ContentSaver
 
 from pulp_container.constants import (
     MEDIA_TYPE,
@@ -73,36 +72,20 @@ class ContainerFirstStage(Stage):
         self.deferred_download = self.remote.policy != Remote.IMMEDIATE
         self.signed_only = signed_only
 
+        self.tag_dcs = []
+        self.manifest_list_dcs = []
+        self.manifest_dcs = []
+        self.signature_dcs = []
+
     async def run(self):
         """
         ContainerFirstStage.
         """
 
-        async def get_signature_source(self):
-            """
-            Find out where signatures come from: sigstore, extension API or not available at all.
-            """
-            if self.remote.sigstore:
-                return SIGNATURE_SOURCE.SIGSTORE
-
-            registry_v2_url = urljoin(self.remote.url, "v2/")
-            extension_check_downloader = self.remote.get_noauth_downloader(url=registry_v2_url)
-            response_headers = {}
-            try:
-                result = await extension_check_downloader.run()
-                response_headers = result.headers
-            except aiohttp.client_exceptions.ClientResponseError as exc:
-                if exc.status == 401:
-                    response_headers = dict(exc.headers)
-            if response_headers.get(SIGNATURE_HEADER) == "1":
-                return SIGNATURE_SOURCE.API_EXTENSION
-
-        tag_list = []
-        tag_dcs = []
         to_download = []
-        man_dcs = {}
-        signature_dcs = []
-        signature_source = await get_signature_source(self)
+        BATCH_SIZE = 500
+
+        signature_source = await self.get_signature_source()
 
         if signature_source is None and self.signed_only:
             raise ValueError(
@@ -117,18 +100,8 @@ class ContainerFirstStage(Stage):
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
         ) as pb:
             repo_name = self.remote.namespaced_upstream_name
-            relative_url = "/v2/{name}/tags/list".format(name=repo_name)
-            tag_list_url = urljoin(self.remote.url, relative_url)
-            list_downloader = self.remote.get_downloader(url=tag_list_url)
-            await list_downloader.run(extra_data={"repo_name": repo_name})
-
-            with open(list_downloader.path) as tags_raw:
-                tags_dict = json.loads(tags_raw.read())
-                tag_list = tags_dict["tags"]
-
-            # check for the presence of the pagination link header
-            link = list_downloader.response_headers.get("Link")
-            await self.handle_pagination(link, repo_name, tag_list)
+            tag_list_url = "/v2/{name}/tags/list".format(name=repo_name)
+            tag_list = await self.get_paginated_tag_list(tag_list_url, repo_name)
             tag_list = self.filter_tags(tag_list)
             await pb.aincrement()
 
@@ -143,20 +116,19 @@ class ContainerFirstStage(Stage):
         async with ProgressReport(
             message="Processing Tags",
             code="sync.processing.tag",
-            state=TASK_STATES.RUNNING,
             total=len(tag_list),
         ) as pb_parsed_tags:
 
             for download_tag in asyncio.as_completed(to_download):
-                tag = await download_tag
-                with open(tag.path, "rb") as content_file:
+                dl_res = await download_tag
+                with open(dl_res.path, "rb") as content_file:
                     raw_data = content_file.read()
-                tag.artifact_attributes["file"] = tag.path
+                dl_res.artifact_attributes["file"] = dl_res.path
                 saved_artifact = await sync_to_async(_save_artifact_blocking)(
-                    tag.artifact_attributes
+                    dl_res.artifact_attributes
                 )
 
-                tag_name = tag.url.split("/")[-1]
+                tag_name = dl_res.url.split("/")[-1]
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
 
                 content_data = json.loads(raw_data)
@@ -165,8 +137,14 @@ class ContainerFirstStage(Stage):
                     list_dc = self.create_tagged_manifest_list(
                         tag_name, saved_artifact, content_data
                     )
-                    for manifest_data in content_data.get("manifests"):
-                        man_dc = self.create_manifest(list_dc, manifest_data)
+                    for listed_manifest_task in asyncio.as_completed(
+                        [
+                            self.create_listed_manifest(list_dc, manifest_data)
+                            for manifest_data in content_data.get("manifests")
+                        ]
+                    ):
+                        listed_manifest = await listed_manifest_task
+                        man_dc = listed_manifest["manifest_dc"]
                         if signature_source is not None:
                             man_sig_dcs = await self.create_signatures(man_dc, signature_source)
                             if self.signed_only and not man_sig_dcs:
@@ -185,19 +163,23 @@ class ContainerFirstStage(Stage):
                                 # do not pass down the pipeline a manifest list with unsigned
                                 # manifests.
                                 break
-                            signature_dcs.extend(man_sig_dcs)
-                        man_dcs[man_dc.content.digest] = man_dc
-                        await self.put(man_dc)
+                            self.signature_dcs.extend(man_sig_dcs)
+                        list_dc.extra_data["listed_manifests"].append(listed_manifest)
 
                     else:
                         # only pass the manifest list and tag down the pipeline if there were no
                         # issues with signatures (no `break` in the `for` loop)
                         tag_dc.extra_data["tagged_manifest_dc"] = list_dc
-                        await self.put(list_dc)
-                        tag_dcs.append(tag_dc)
-                        await pb_parsed_tags.aincrement()
+                        for listed_manifest in list_dc.extra_data["listed_manifests"]:
+                            await self.handle_blobs(
+                                listed_manifest["manifest_dc"], listed_manifest["content_data"]
+                            )
+                            self.manifest_dcs.append(listed_manifest["manifest_dc"])
+                        self.manifest_list_dcs.append(list_dc)
+                        self.tag_dcs.append(tag_dc)
 
                 else:
+                    # Simple tagged manifest
                     man_dc = self.create_tagged_manifest(
                         tag_name, saved_artifact, content_data, raw_data
                     )
@@ -206,31 +188,78 @@ class ContainerFirstStage(Stage):
                         if self.signed_only and not man_sig_dcs:
                             # do not pass down the pipeline unsigned manifests
                             continue
-                        signature_dcs.extend(man_sig_dcs)
-                    await self.put(man_dc)
+                        self.signature_dcs.extend(man_sig_dcs)
                     tag_dc.extra_data["tagged_manifest_dc"] = man_dc
-                    await man_dc.resolution()
                     await self.handle_blobs(man_dc, content_data)
-                    tag_dcs.append(tag_dc)
-                    await pb_parsed_tags.aincrement()
+                    self.tag_dcs.append(tag_dc)
+                    self.manifest_dcs.append(man_dc)
 
-        for digest, man_dc in man_dcs.items():
-            man = await man_dc.resolution()
-            artifact = await sync_to_async(man._artifacts.get)()
-            with artifact.file.open() as content_file:
-                raw = content_file.read()
-            content_data = json.loads(raw)
-            await self.handle_blobs(man_dc, content_data)
+                # Count the skipped tasks as parsed too.
+                await pb_parsed_tags.aincrement()
 
-        for tag_dc in tag_dcs:
+                # Flush the queues to prevent overly excessive memory usage.
+                # This will cap the number of in flight high level objects to about BATCH_SIZE.
+                if (
+                    len(self.tag_dcs)
+                    + len(self.signature_dcs)
+                    + len(self.manifest_dcs)
+                    + len(self.manifest_list_dcs)
+                    >= BATCH_SIZE
+                ):
+                    await self.resolve_flush()
+
+        await self.resolve_flush()
+
+    async def get_signature_source(self):
+        """
+        Find out where signatures come from: sigstore, extension API or not available at all.
+        """
+        if self.remote.sigstore:
+            return SIGNATURE_SOURCE.SIGSTORE
+
+        registry_v2_url = urljoin(self.remote.url, "v2/")
+        extension_check_downloader = self.remote.get_noauth_downloader(url=registry_v2_url)
+        response_headers = {}
+        try:
+            result = await extension_check_downloader.run()
+            response_headers = result.headers
+        except aiohttp.client_exceptions.ClientResponseError as exc:
+            if exc.status == 401:
+                response_headers = dict(exc.headers)
+        if response_headers.get(SIGNATURE_HEADER) == "1":
+            return SIGNATURE_SOURCE.API_EXTENSION
+
+    async def resolve_flush(self):
+        """Resolve pending contents dependencies and put in the pipeline."""
+        # Order matters! Things depended on must be resolved first.
+        for manifest_dc in self.manifest_dcs:
+            config_blob_dc = manifest_dc.extra_data.get("config_blob_dc")
+            if config_blob_dc:
+                manifest_dc.content.config_blob = await config_blob_dc.resolution()
+            for blob_dc in manifest_dc.extra_data["blob_dcs"]:
+                # Just await here. They will be associated in the post_save hook.
+                await blob_dc.resolution()
+            await self.put(manifest_dc)
+        self.manifest_dcs.clear()
+
+        for manifest_list_dc in self.manifest_list_dcs:
+            for listed_manifest in manifest_list_dc.extra_data["listed_manifests"]:
+                # Just await here. They will be associated in the post_save hook.
+                await listed_manifest["manifest_dc"].resolution()
+            await self.put(manifest_list_dc)
+        self.manifest_list_dcs.clear()
+
+        for tag_dc in self.tag_dcs:
             tagged_manifest_dc = tag_dc.extra_data["tagged_manifest_dc"]
             tag_dc.content.tagged_manifest = await tagged_manifest_dc.resolution()
             await self.put(tag_dc)
+        self.tag_dcs.clear()
 
-        for sig_dc in signature_dcs:
-            signed_manifest_dc = sig_dc.extra_data["signed_manifest_dc"]
-            sig_dc.content.signed_manifest = await signed_manifest_dc.resolution()
-            await self.put(sig_dc)
+        for signature_dc in self.signature_dcs:
+            signed_manifest_dc = signature_dc.extra_data["signed_manifest_dc"]
+            signature_dc.content.signed_manifest = await signed_manifest_dc.resolution()
+            await self.put(signature_dc)
+        self.signature_dcs.clear()
 
     def filter_tags(self, tag_list):
         """
@@ -254,14 +283,12 @@ class ContainerFirstStage(Stage):
 
         return tag_list
 
-    async def handle_pagination(self, link, repo_name, tag_list):
+    async def get_paginated_tag_list(self, rel_link, repo_name):
         """
         Handle registries that have pagination enabled.
         """
-        while link:
-            # according RFC5988 URI-reference can be relative or absolute
-            _, _, path, params, query, fragm = urlparse(link.split(";")[0].strip(">, <"))
-            rel_link = urlunparse(("", "", path, params, query, fragm))
+        tag_list = []
+        while True:
             link = urljoin(self.remote.url, rel_link)
             list_downloader = self.remote.get_downloader(url=link)
             await list_downloader.run(extra_data={"repo_name": repo_name})
@@ -269,21 +296,28 @@ class ContainerFirstStage(Stage):
                 tags_dict = json.loads(tags_raw.read())
                 tag_list.extend(tags_dict["tags"])
             link = list_downloader.response_headers.get("Link")
+            if link is None:
+                break
+            # according RFC5988 URI-reference can be relative or absolute
+            _, _, path, params, query, fragm = urlparse(link.split(";")[0].strip(">, <"))
+            rel_link = urlunparse(("", "", path, params, query, fragm))
+        return tag_list
 
     async def handle_blobs(self, manifest_dc, content_data):
         """
         Handle blobs.
         """
+        manifest_dc.extra_data["blob_dcs"] = []
         for layer in content_data.get("layers") or content_data.get("fsLayers"):
             if not self._include_layer(layer):
                 continue
             blob_dc = self.create_blob(layer)
-            blob_dc.extra_data["blob_relation"] = manifest_dc
+            manifest_dc.extra_data["blob_dcs"].append(blob_dc)
             await self.put(blob_dc)
         layer = content_data.get("config", None)
         if layer:
             blob_dc = self.create_blob(layer, deferred_download=False)
-            blob_dc.extra_data["config_relation"] = manifest_dc
+            manifest_dc.extra_data["config_blob_dc"] = blob_dc
             await self.put(blob_dc)
 
     def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data):
@@ -303,9 +337,11 @@ class ContainerFirstStage(Stage):
             media_type=manifest_list_data["mediaType"],
         )
 
-        return self._create_manifest_declarative_content(
+        manifest_list_dc = self._create_manifest_declarative_content(
             manifest_list, saved_artifact, tag_name, digest
         )
+        manifest_list_dc.extra_data["listed_manifests"] = []
+        return manifest_list_dc
 
     def create_tagged_manifest(self, tag_name, saved_artifact, manifest_data, raw_data):
         """
@@ -376,7 +412,7 @@ class ContainerFirstStage(Stage):
         )
         return sig_dc
 
-    def create_manifest(self, list_dc, manifest_data):
+    async def create_listed_manifest(self, list_dc, manifest_data):
         """
         Create an Image Manifest from manifest data in a ManifestList.
 
@@ -390,19 +426,40 @@ class ContainerFirstStage(Stage):
             name=self.remote.namespaced_upstream_name, digest=digest
         )
         manifest_url = urljoin(self.remote.url, relative_url)
+        manifest = await sync_to_async(
+            Manifest.objects.prefetch_related("contentartifact_set").filter(digest=digest).first
+        )()
+        if manifest:
+
+            def _get_content_data_blocking():
+                saved_artifact = manifest.contentartifact_set.first().artifact
+                content_data = json.load(saved_artifact.file)
+                return saved_artifact, content_data
+
+            saved_artifact, content_data = await sync_to_async(_get_content_data_blocking)()
+        else:
+            downloader = self.remote.get_downloader(url=manifest_url)
+            dl_res = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+            with open(dl_res.path, "rb") as content_file:
+                raw_data = content_file.read()
+            dl_res.artifact_attributes["file"] = dl_res.path
+            saved_artifact = await sync_to_async(_save_artifact_blocking)(
+                dl_res.artifact_attributes
+            )
+            content_data = json.loads(raw_data)
+            manifest = Manifest(
+                digest=manifest_data["digest"],
+                schema_version=2
+                if manifest_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
+                else 1,
+                media_type=manifest_data["mediaType"],
+            )
         da = DeclarativeArtifact(
-            artifact=Artifact(),
+            artifact=saved_artifact,
             url=manifest_url,
             relative_path=digest,
             remote=self.remote,
             extra_data={"headers": V2_ACCEPT_HEADERS},
-        )
-        manifest = Manifest(
-            digest=manifest_data["digest"],
-            schema_version=2
-            if manifest_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
-            else 1,
-            media_type=manifest_data["mediaType"],
         )
         platform = {}
         p = manifest_data["platform"]
@@ -415,9 +472,8 @@ class ContainerFirstStage(Stage):
         man_dc = DeclarativeContent(
             content=manifest,
             d_artifacts=[da],
-            extra_data={"relation": list_dc, "platform": platform},
         )
-        return man_dc
+        return {"manifest_dc": man_dc, "platform": platform, "content_data": content_data}
 
     def create_blob(self, blob_data, deferred_download=True):
         """
@@ -449,7 +505,7 @@ class ContainerFirstStage(Stage):
 
     async def create_signatures(self, man_dc, signature_source):
         """
-        Create signature declarative artifacts.
+        Create signature declarative contents.
 
         Signatures are currently supported only for image manifests and not manifest lists.
 
@@ -612,95 +668,37 @@ class ContainerFirstStage(Stage):
         return unpadded_b64 + paddings[len(unpadded_b64) % 4]
 
 
-class InterrelateContent(Stage):
-    """
-    Stage for relating Content to other Content.
-    """
+class ContainerContentSaver(ContentSaver):
+    """Container specific content saver stage to add content associations."""
 
-    async def run(self):
-        """
-        Relate each item in the input queue to objects specified on the DeclarativeContent.
-        """
-        async for batch in self.batches():
-            manifest_to_list_list = []
-            blob_list = []
-            config_blob_list = []
-            for dc in batch:
-                if dc.extra_data.get("relation"):
-                    manifest_to_list = self.relate_manifest_to_list(dc)
-                    manifest_to_list_list.append(manifest_to_list)
-                elif dc.extra_data.get("blob_relation"):
-                    blob = self.relate_blob(dc)
-                    blob_list.append(blob)
-                elif dc.extra_data.get("config_relation"):
-                    config_blob = self.relate_config_blob(dc)
-                    config_blob_list.append(config_blob)
-
-            await sync_to_async(ManifestListManifest.objects.bulk_create)(
-                objs=manifest_to_list_list, ignore_conflicts=True, batch_size=1000
-            )
-            await sync_to_async(BlobManifest.objects.bulk_create)(
-                objs=blob_list, ignore_conflicts=True, batch_size=1000
-            )
-            await sync_to_async(Manifest.objects.bulk_update)(
-                objs=config_blob_list, fields=["config_blob"], batch_size=1000
-            )
-
-            for dc in batch:
-                await self.put(dc)
-
-    def relate_config_blob(self, dc):
-        """
-        Relate a Blob to a Manifest as a config layer.
-
-        Args:
-            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
-
-        Returns:
-            pulp_container.app.models.Manifest: An existing Manifest object with the updated
-                config layer
-
-        """
-        configured_dc = dc.extra_data.get("config_relation")
-        configured_dc.content.config_blob = dc.content
-        return configured_dc.content
-
-    def relate_blob(self, dc):
-        """
-        Relate a Blob to a Manifest.
-
-        Args:
-            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
-
-        Returns:
-            pulp_container.app.models.BlobManifest: A new BlobManifest object with the added
-                reference to a Manifest object
-
-        """
-        related_dc = dc.extra_data.get("blob_relation")
-        return BlobManifest(manifest=related_dc.content, manifest_blob=dc.content)
-
-    def relate_manifest_to_list(self, dc):
-        """
-        Relate an ImageManifest to a ManifestList.
-
-        Args:
-            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ImageManifest
-
-        Returns:
-            pulp_container.app.models.ManifestListManifest: A new ManifestListManifest object
-                with the associated ImageManifest object and corresponding platform information
-
-        """
-        related_dc = dc.extra_data.get("relation")
-        platform = dc.extra_data.get("platform")
-        return ManifestListManifest(
-            manifest_list=dc.content,
-            image_manifest=related_dc.content,
-            architecture=platform["architecture"],
-            os=platform["os"],
-            features=platform.get("features"),
-            variant=platform.get("variant"),
-            os_version=platform.get("os.version"),
-            os_features=platform.get("os.features"),
-        )
+    def _post_save(self, batch):
+        blob_manifests = []
+        manifest_list_manifests = []
+        for dc in batch:
+            if "blob_dcs" in dc.extra_data:
+                blob_manifests.extend(
+                    (
+                        BlobManifest(manifest=dc.content, manifest_blob=blob_dc.content)
+                        for blob_dc in dc.extra_data["blob_dcs"]
+                    )
+                )
+            if "listed_manifests" in dc.extra_data:
+                for listed_manifest in dc.extra_data["listed_manifests"]:
+                    manifest_dc = listed_manifest["manifest_dc"]
+                    platform = listed_manifest["platform"]
+                    manifest_list_manifests.append(
+                        ManifestListManifest(
+                            manifest_list=manifest_dc.content,
+                            image_manifest=dc.content,
+                            architecture=platform["architecture"],
+                            os=platform["os"],
+                            features=platform.get("features"),
+                            variant=platform.get("variant"),
+                            os_version=platform.get("os.version"),
+                            os_features=platform.get("os.features"),
+                        )
+                    )
+        if blob_manifests:
+            BlobManifest.objects.bulk_create(blob_manifests, ignore_conflicts=True)
+        if manifest_list_manifests:
+            ManifestListManifest.objects.bulk_create(manifest_list_manifests, ignore_conflicts=True)
