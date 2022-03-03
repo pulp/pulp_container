@@ -4,7 +4,6 @@ import logging
 from pulpcore.plugin.stages import (
     ArtifactDownloader,
     ArtifactSaver,
-    ContentSaver,
     DeclarativeVersion,
     RemoteArtifactSaver,
     ResolveContentFutures,
@@ -12,7 +11,7 @@ from pulpcore.plugin.stages import (
     QueryExistingContents,
 )
 
-from .sync_stages import InterrelateContent, ContainerFirstStage
+from .sync_stages import ContainerFirstStage, ContainerContentSaver
 from pulp_container.app.models import ContainerRemote, ContainerRepository
 
 
@@ -70,10 +69,9 @@ class ContainerDeclarativeVersion(DeclarativeVersion):
             ArtifactDownloader(),
             ArtifactSaver(),
             QueryExistingContents(),
-            ContentSaver(),
+            ContainerContentSaver(),
             RemoteArtifactSaver(),
             ResolveContentFutures(),
-            InterrelateContent(),
         ]
 
         return pipeline
