@@ -63,6 +63,22 @@ Features
 ----
 
 
+2.9.4 (2022-03-04)
+===================
+
+
+Bugfixes
+--------
+
+- Return a more concise message exception on 500 during image pull when content is missing on the FS.
+  `#555 <https://github.com/pulp/pulp_container/issues/555>`_
+- Successfully re-upload artifact in case it was previously removed.
+  `#595 <https://github.com/pulp/pulp_container/issues/595>`_
+
+
+----
+
+
 2.9.3 (2022-02-15)
 ==================
 
