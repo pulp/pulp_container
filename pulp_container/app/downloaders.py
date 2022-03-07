@@ -142,7 +142,9 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             ) as token_response:
                 token_data = await token_response.text()
 
-            self.registry_auth["bearer"] = json.loads(token_data)["token"]
+            token_js = json.loads(token_data)
+            token = token_js.get("token") or token_js.get("access_token")
+            self.registry_auth["bearer"] = token
 
     @staticmethod
     def auth_header(token, basic_auth):
