@@ -1,6 +1,8 @@
 import pytest
 
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
+
+import requests
 from pulp_smash.cli import RegistryClient
 from pulpcore.client.pulp_container import (
     ApiClient,
@@ -14,6 +16,13 @@ from pulpcore.client.pulp_container import (
     ContentTagsApi,
     ContentManifestsApi,
     ContentBlobsApi,
+    ContentSignaturesApi,
+)
+
+from pulp_container.tests.functional.utils import (
+    TOKEN_AUTH_DISABLED,
+    AuthenticationHeaderQueries,
+    BearerTokenAuth,
 )
 
 
@@ -47,6 +56,44 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
     registry_name = urlparse(pulp_cfg.get_base_url()).netloc
 
     class _LocalRegistry:
+        @property
+        def name(self):
+            return registry_name
+
+        @staticmethod
+        def get_response(method, path, **kwargs):
+            """Return a response while dealing with token authentication."""
+            url = urljoin(pulp_cfg.get_base_url(), path)
+
+            basic_auth = (bindings_cfg.username, bindings_cfg.password)
+            if TOKEN_AUTH_DISABLED:
+                auth = basic_auth
+            else:
+                extended_scope = kwargs.pop("scope", None)
+
+                with pytest.raises(requests.HTTPError):
+                    response = requests.request(method, url, auth=basic_auth, **kwargs)
+                    response.raise_for_status()
+                assert response.status_code == 401
+
+                authenticate_header = response.headers["WWW-Authenticate"]
+                queries = AuthenticationHeaderQueries(authenticate_header)
+
+                scopes = [queries.scope]
+                if extended_scope:
+                    scopes.append(extended_scope)
+
+                content_response = requests.get(
+                    queries.realm,
+                    params={"service": queries.service, "scope": scopes},
+                    auth=basic_auth,
+                )
+                content_response.raise_for_status()
+                token = content_response.json()["token"]
+                auth = BearerTokenAuth(token)
+
+            return requests.request(method, url, auth=auth, **kwargs), auth
+
         @staticmethod
         def _dispatch_command(*args):
             if bindings_cfg.username is not None:
@@ -74,7 +121,7 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
                 registry_client.logout(registry_name)
 
         @staticmethod
-        def tag_and_push(image_path, local_url):
+        def tag_and_push(image_path, local_url, *args):
             local_image_path = "/".join([registry_name, local_url])
             registry_client.tag(image_path, local_image_path)
             if bindings_cfg.username is not None:
@@ -84,7 +131,7 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
             else:
                 registry_client.logout(registry_name)
             try:
-                registry_client.push(local_image_path)
+                registry_client.push(local_image_path, *args)
             finally:
                 # Untag local copy
                 registry_client.rmi(local_image_path)
@@ -157,3 +204,9 @@ def container_manifest_api(container_client):
 def container_blob_api(container_client):
     """Container blob API fixture."""
     return ContentBlobsApi(container_client)
+
+
+@pytest.fixture(scope="session")
+def container_signature_api(container_client):
+    """Container image signature API fixture."""
+    return ContentSignaturesApi(container_client)

@@ -12,12 +12,7 @@ from pulp_smash.pulp3.utils import gen_repo
 from pulpcore.client.pulp_container.exceptions import ApiException
 
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
-from pulp_container.tests.functional.utils import (
-    TOKEN_AUTH_DISABLED,
-    gen_container_remote,
-    BearerTokenAuth,
-    AuthenticationHeaderQueries,
-)
+from pulp_container.tests.functional.utils import TOKEN_AUTH_DISABLED, gen_container_remote
 
 from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
@@ -274,41 +269,19 @@ def test_cross_repository_blob_mount(
 
 
 @pytest.fixture
-def mount_blob(
-    pulp_cfg, bindings_cfg, add_to_cleanup, container_namespace_api, container_distribution_api
-):
-    """Fixture to mount blobs to new repositories, that are added to autocleanup."""
+def mount_blob(local_registry, container_distribution_api, container_namespace_api, add_to_cleanup):
+    """A fixture function to mount blobs to new repositories that will be cleaned up."""
 
     def _mount_blob(blob, source, dest):
-        """Try to mount the blob with the provided credentials."""
-        mount_url = f"/v2/{dest}/blobs/uploads/?from={source}&mount={blob.digest}"
-        url = urljoin(pulp_cfg.get_base_url(), mount_url)
+        mount_path = f"/v2/{dest}/blobs/uploads/?from={source}&mount={blob.digest}"
+        response, auth = local_registry.get_response(
+            "POST", mount_path, scope=f"repository:{source}:pull"
+        )
 
-        basic_auth = (bindings_cfg.username, bindings_cfg.password)
-        if TOKEN_AUTH_DISABLED:
-            auth = basic_auth
-        else:
-            response = requests.post(url, auth=basic_auth)
-            assert response.status_code == 401
-
-            authenticate_header = response.headers["Www-Authenticate"]
-            queries = AuthenticationHeaderQueries(authenticate_header)
-            response = requests.get(
-                queries.realm,
-                params={
-                    "service": queries.service,
-                    "scope": [queries.scope, "repository:{source}:pull"],
-                },
-                auth=basic_auth,
-            )
-            response.raise_for_status()
-            token = response.json()["token"]
-            auth = BearerTokenAuth(token)
-
-        response = requests.post(url, auth=auth)
         if response.status_code == 201:
             distribution = container_distribution_api.list(name=dest).results[0]
             add_to_cleanup(container_namespace_api, distribution.namespace)
+
         return response, auth
 
     return _mount_blob
