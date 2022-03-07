@@ -94,6 +94,7 @@ class AuthorizationService:
             "expires_in": TOKEN_EXPIRATION_TIME,
             "issued_at": current_datetime_utc,
             "token": token,
+            "access_token": token,
         }
 
     def generate_kid_header(self, public_key):
