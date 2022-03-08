@@ -87,13 +87,15 @@ class ContainerFirstStage(Stage):
 
             registry_v2_url = urljoin(self.remote.url, "v2")
             extension_check_downloader = self.remote.get_noauth_downloader(url=registry_v2_url)
+            response_headers = {}
             try:
-                await extension_check_downloader.run()
+                result = await extension_check_downloader.run()
+                response_headers = result.headers
             except aiohttp.client_exceptions.ClientResponseError as exc:
-                if exc.status in [200, 401]:
+                if exc.status == 401:
                     response_headers = dict(exc.headers)
-                    if response_headers.get(SIGNATURE_HEADER) == "1":
-                        return SIGNATURE_SOURCE.API_EXTENSION
+            if response_headers.get(SIGNATURE_HEADER) == "1":
+                return SIGNATURE_SOURCE.API_EXTENSION
 
         tag_list = []
         tag_dcs = []
