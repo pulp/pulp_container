@@ -25,7 +25,7 @@ class RBACRemotesTestCase(unittest.TestCase):
         """Create class-wide variables and prepare api users."""
         cls.user1 = gen_user(model_roles=["container.containerremote_creator"])
         cls.user2 = gen_user(model_roles=["container.containerremote_viewer"])
-        cls.user3 = gen_user([])
+        cls.user3 = gen_user()
         cls.remote = None
 
     @classmethod

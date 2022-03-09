@@ -47,7 +47,7 @@ class PushRepositoryTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
             ]
         )
         cls.user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
-        cls.user_helpless = gen_user([])
+        cls.user_helpless = gen_user()
 
         # create a push repo
         image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"

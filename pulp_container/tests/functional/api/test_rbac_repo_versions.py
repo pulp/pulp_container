@@ -184,7 +184,7 @@ class PushRepoVersionTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
             ]
         )
         cls.user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
-        cls.user_helpless = gen_user([])
+        cls.user_helpless = gen_user()
 
         # create a push repo
         image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
@@ -271,17 +271,12 @@ class PushCrossRepoBlobMountTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         cls.distribution = cls.distributions_api.list(name="test-1").results[0]
 
         cls.user_pull = gen_user(
-            object_permissions=[
-                ("container.pull_containerdistribution", cls.distribution.pulp_href)
-            ]
+            object_roles=[("container.containernamespace_consumer", cls.distribution.namespace)]
         )
         cls.user_push = gen_user(
-            [
-                "container.push_containerdistribution",
-                "container.namespace_push_containerdistribution",
-            ]
+            object_roles=[("container.containernamespace_collaborator", cls.distribution.namespace)]
         )
-        cls.user_anon = gen_user([])
+        cls.user_anon = gen_user()
 
     @classmethod
     def tearDownClass(cls):
@@ -331,7 +326,7 @@ class PushCrossRepoBlobMountTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
     @unittest.skipIf(TOKEN_AUTH_DISABLED, "Only administrators can push content to the Registry.")
     def test_mount_blobs_as_user_push(self):
-        """Test if a user with push permission, but not pull permission, is not able to mount."""
+        """Test if a collaborator cannot mount content outside of his scope."""
         user_push_basic_auth = self.user_push["username"], self.user_push["password"]
         for i, blob in enumerate(self.blobs, 1):
             content_response, _ = self.mount_blob(blob, user_push_basic_auth)
