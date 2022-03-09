@@ -52,9 +52,6 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         admin_user, admin_password = cfg.pulp_auth
         cls.user_admin = {"username": admin_user, "password": admin_password}
         cls.user_creator = gen_user(
-            [
-                # "container.add_containerdistribution",
-            ],
             model_roles=[
                 "container.containernamespace_creator",
                 "container.containerremote_creator",
@@ -75,7 +72,7 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         )
         cls.user_reader2 = gen_user(model_roles=["container.containerrepository_viewer"])
         cls.user_reader3 = gen_user(model_roles=["container.containerdistribution_consumer"])
-        cls.user_helpless = gen_user([])
+        cls.user_helpless = gen_user()
 
         # create a push repo with user_creator
         image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"

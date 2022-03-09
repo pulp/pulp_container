@@ -57,14 +57,8 @@ users_roles_api = UsersRolesApi(core_client)
 TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
 
 
-def gen_user(model_permissions=None, object_permissions=None, model_roles=None, object_roles=None):
+def gen_user(model_roles=None, object_roles=None):
     """Create a user with a set of permissions in the pulp database."""
-    if model_permissions is None:
-        model_permissions = []
-
-    if object_permissions is None:
-        object_permissions = []
-
     if model_roles is None:
         model_roles = []
 
