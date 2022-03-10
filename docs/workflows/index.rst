@@ -59,3 +59,4 @@ Container Workflows
    managing-credentials
    push
    sign-images
+   verify-images
