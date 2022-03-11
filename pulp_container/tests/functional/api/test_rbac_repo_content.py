@@ -11,7 +11,7 @@ from pulp_smash.pulp3.utils import delete_orphans, gen_repo
 from pulpcore.client.pulp_container.exceptions import ApiException
 
 from pulp_container.tests.functional.api import rbac_base
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import (
     del_user,
     gen_container_client,
@@ -76,7 +76,7 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.user_helpless = gen_user([])
 
         # create a push repo with user_creator
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_a"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         cls._pull(image_path)
         repo_name = "testcontent/perms"
         local_url = "/".join([cls.registry_name, f"{repo_name}:1.0"])
@@ -84,7 +84,7 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.push_repository = cls.pushrepository_api.list(name=repo_name).results[0]
 
         # create a second push repo with user_creator2
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_b"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
         cls._pull(image_path)
         repo_name = "testcontent2/perms"
         local_url = "/".join([cls.registry_name, f"{repo_name}:1.0"])
@@ -96,7 +96,7 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
             ContainerContainerRepository(**gen_repo())
         )
         cls.remote = cls.user_creator["remote_api"].create(
-            gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+            gen_container_remote(upstream_name=PULP_FIXTURE_1)
         )
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
         sync_response = cls.user_creator["repository_api"].sync(cls.repository.pulp_href, sync_data)

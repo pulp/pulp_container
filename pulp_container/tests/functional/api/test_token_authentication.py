@@ -18,7 +18,7 @@ from pulp_container.tests.functional.utils import (
 )
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
-    DOCKERHUB_PULP_FIXTURE_1,
+    PULP_FIXTURE_1,
 )
 from pulp_container.constants import MEDIA_TYPE
 
@@ -55,7 +55,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
         cls.repository = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
 
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)

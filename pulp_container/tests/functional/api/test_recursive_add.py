@@ -9,7 +9,7 @@ from pulp_container.tests.functional.utils import (
     gen_container_remote,
     gen_container_client,
 )
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 
 from pulp_container.constants import MEDIA_TYPE
 
@@ -46,7 +46,7 @@ class TestManifestCopy(unittest.TestCase):
 
         cls.from_repo = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
 
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
@@ -323,7 +323,7 @@ class TestTagCopy(unittest.TestCase):
         repository_data = ContainerContainerRepository(**gen_repo())
         cls.from_repo = cls.repositories_api.create(repository_data)
 
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
@@ -488,7 +488,7 @@ class TestRecursiveAdd(unittest.TestCase):
         repository_data = ContainerContainerRepository(**gen_repo())
         cls.from_repo = cls.repositories_api.create(repository_data)
 
-        remote_data = gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
         cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
 
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
