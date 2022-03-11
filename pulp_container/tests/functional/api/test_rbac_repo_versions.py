@@ -11,7 +11,7 @@ from pulp_smash.pulp3.utils import delete_orphans, gen_repo
 from pulpcore.client.pulp_container.exceptions import ApiException
 
 from pulp_container.tests.functional.api import rbac_base
-from pulp_container.tests.functional.constants import DOCKERHUB_PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import (
     del_user,
     gen_container_client,
@@ -77,7 +77,7 @@ class RepoVersionTestCase(unittest.TestCase, TaggingTestCommons):
             ContainerContainerRepository(**gen_repo())
         )
         cls.remote = cls.user_creator["remote_api"].create(
-            gen_container_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+            gen_container_remote(upstream_name=PULP_FIXTURE_1)
         )
         sync_data = RepositorySyncURL(remote=cls.remote.pulp_href)
         sync_response = cls.user_creator["repository_api"].sync(cls.repository.pulp_href, sync_data)
@@ -183,7 +183,7 @@ class PushRepoVersionTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.user_helpless = gen_user([])
 
         # create a push repo
-        image_path = f"{DOCKERHUB_PULP_FIXTURE_1}:manifest_d"
+        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
         cls._pull(image_path)
         repo_name = "testrv/perms"
         local_url = "/".join([cls.registry_name, f"{repo_name}:1.0"])
