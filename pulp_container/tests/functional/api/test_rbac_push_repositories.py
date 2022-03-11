@@ -1,113 +1,92 @@
 # coding=utf-8
 """Tests that verify that RBAC for push repository works properly."""
-import unittest
+import pytest
 
-from urllib.parse import urlparse
-
-from pulp_smash import cli, config
-from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
+from pulp_smash import utils
+from pulp_smash.pulp3.bindings import monitor_task
 
 from pulpcore.client.pulp_container.exceptions import ApiException
 
-from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
-from pulp_container.tests.functional.utils import (
-    del_user,
-    gen_container_client,
+
+
+def test_rbac_push_repository(
+    add_to_cleanup,
     gen_user,
-)
-
-from pulpcore.client.pulp_container import (
-    PulpContainerNamespacesApi,
-    RepositoriesContainerPushApi,
-)
-
-
-class PushRepositoryTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
+    registry_client,
+    local_registry,
+    container_namespace_api,
+    container_push_repository_api,
+):
     """Verify RBAC for a ContainerPushRepository."""
 
-    @classmethod
-    def setUpClass(cls):
-        """
-        Define APIs to use.
-        """
-        api_client = gen_container_client()
-        cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
-        cls.namespace_api = PulpContainerNamespacesApi(api_client)
+    namespace_name = utils.uuid4()
+    repo_name = f"{namespace_name}/perms"
+    local_url = f"{repo_name}:1.0"
 
-        cfg = config.get_config()
-        cls.registry = cli.RegistryClient(cfg)
-        cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
-        cls.registry_name = urlparse(cfg.get_base_url()).netloc
+    user_creator = gen_user(
+        model_roles=[
+            "container.containerdistribution_creator",
+            "container.containernamespace_creator",
+        ]
+    )
+    user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
+    user_helpless = gen_user()
 
-        cls.user_creator = gen_user(
-            model_roles=[
-                "container.containerdistribution_creator",
-                "container.containernamespace_creator",
-            ]
-        )
-        cls.user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
-        cls.user_helpless = gen_user()
+    # create a push repo
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
+    registry_client.pull(image_path)
+    with user_creator:
+        local_registry.push(image_path, local_url)
+        repository = container_push_repository_api.list(name=repo_name).results[0]
 
-        # create a push repo
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
-        cls._pull(image_path)
-        repo_name = "test_push_repo/perms"
-        local_url = "/".join([cls.registry_name, f"{repo_name}:1.0"])
-        cls._push(image_path, local_url, cls.user_creator)
-        cls.repository = cls.pushrepository_api.list(name=repo_name).results[0]
+    # Remove namespace after test
+    namespace = container_namespace_api.list(name=namespace_name).results[0]
+    add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-    @classmethod
-    def tearDownClass(cls):
-        """Delete api users and things created in setUpclass."""
-        namespace = cls.namespace_api.list(name="test_push_repo").results[0]
-        cls.namespace_api.delete(namespace.pulp_href)
-        delete_orphans()
-        del_user(cls.user_creator)
-        del_user(cls.user_reader)
-        del_user(cls.user_helpless)
+    """Read a repository by its href."""
+    with user_creator:
+        container_push_repository_api.read(repository.pulp_href)
+    # read with global read permission
+    with user_reader:
+        container_push_repository_api.read(repository.pulp_href)
+    # read without read permission
+    with user_helpless, pytest.raises(ApiException):
+        container_push_repository_api.read(repository.pulp_href)
 
-    def test_02_read_repository(self):
-        """Read a repository by its href."""
-        self.user_creator["pushrepository_api"].read(self.repository.pulp_href)
-        # read with global read permission
-        self.user_reader["pushrepository_api"].read(self.repository.pulp_href)
-        # read without read permission
-        with self.assertRaises(ApiException):
-            self.user_helpless["pushrepository_api"].read(self.repository.pulp_href)
+    """Read a repository by its name."""
+    with user_creator:
+        page = container_push_repository_api.list(name=repository.name)
+        assert len(page.results) == 1
+    with user_reader:
+        page = container_push_repository_api.list(name=repository.name)
+        assert len(page.results) == 1
+    # this is a public repo
+    with user_helpless:
+        page = container_push_repository_api.list(name=repository.name)
+        assert len(page.results) == 1
 
-    def test_02_read_repositories(self):
-        """Read a repository by its name."""
-        page = self.user_creator["pushrepository_api"].list(name=self.repository.name)
-        self.assertEqual(len(page.results), 1)
-        page = self.user_reader["pushrepository_api"].list(name=self.repository.name)
-        self.assertEqual(len(page.results), 1)
-        # this is a public repo
-        page = self.user_helpless["pushrepository_api"].list(name=self.repository.name)
-        self.assertEqual(len(page.results), 1)
-
-    def test_03_partially_update(self):
-        """Update a repository using HTTP PATCH."""
-        body = {"description": "new_hotness"}
-        with self.assertRaises(ApiException):
-            self.user_helpless["pushrepository_api"].partial_update(self.repository.pulp_href, body)
-        with self.assertRaises(ApiException):
-            self.user_reader["pushrepository_api"].partial_update(self.repository.pulp_href, body)
-        response = self.user_creator["pushrepository_api"].partial_update(
-            self.repository.pulp_href, body
-        )
+    """Update a repository using HTTP PATCH."""
+    body = {"description": "new_hotness"}
+    with user_helpless, pytest.raises(ApiException):
+        container_push_repository_api.partial_update(repository.pulp_href, body)
+    with user_reader, pytest.raises(ApiException):
+        container_push_repository_api.partial_update(repository.pulp_href, body)
+    with user_creator:
+        response = container_push_repository_api.partial_update(repository.pulp_href, body)
         monitor_task(response.task)
-        repository = self.user_creator["pushrepository_api"].read(self.repository.pulp_href)
-        self.assertEqual(repository.description, body["description"])
+        repository = container_push_repository_api.read(repository.pulp_href)
+        assert repository.description == body["description"]
 
-    def test_04_fully_update(self):
-        """Update a repository using HTTP PUT."""
-        body = {"name": self.repository.name, "description": "old_busted"}
-        with self.assertRaises(ApiException):
-            self.user_helpless["pushrepository_api"].update(self.repository.pulp_href, body)
-        with self.assertRaises(ApiException):
-            self.user_reader["pushrepository_api"].update(self.repository.pulp_href, body)
-        response = self.user_creator["pushrepository_api"].update(self.repository.pulp_href, body)
+    """Update a repository using HTTP PUT."""
+    body = {"name": repository.name, "description": "old_busted"}
+    with user_helpless, pytest.raises(ApiException):
+        container_push_repository_api.update(repository.pulp_href, body)
+    with user_reader, pytest.raises(ApiException):
+        container_push_repository_api.update(repository.pulp_href, body)
+    with user_creator:
+        response = container_push_repository_api.update(repository.pulp_href, body)
         monitor_task(response.task)
-        repository = self.user_creator["pushrepository_api"].read(self.repository.pulp_href)
-        self.assertEqual(repository.description, body["description"])
+    with user_creator:
+        repository = container_push_repository_api.read(repository.pulp_href)
+        assert repository.description == body["description"]

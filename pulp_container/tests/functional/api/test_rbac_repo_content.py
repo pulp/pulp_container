@@ -49,8 +49,7 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
         cls.registry_name = urlparse(cfg.get_base_url()).netloc
 
-        admin_user, admin_password = cfg.pulp_auth
-        cls.user_admin = {"username": admin_user, "password": admin_password}
+        delete_orphans()
         cls.user_creator = gen_user(
             model_roles=[
                 "container.containernamespace_creator",
