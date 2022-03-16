@@ -1,2 +1,0 @@
-Don't store blob's media_type on the model.
-There is no way to say what mimetype it has when it comes into the registry.

@@ -1,2 +1,0 @@
-Fixed a bug that disallowed users who were authenticated by a remote webserver to access the
-Registry API endpoints when token authentication was disabled.
