@@ -1,5 +1,6 @@
 # coding=utf-8
 """Tests that verify that images can be pushed to Pulp."""
+import pytest
 import unittest
 
 from urllib.parse import urlparse
@@ -16,313 +17,345 @@ from pulp_container.constants import MEDIA_TYPE
 from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import (
-    del_user,
     gen_container_client,
-    gen_user,
 )
 
 from pulpcore.client.pulp_container import (
     ContentManifestsApi,
     ContentTagsApi,
     DistributionsContainerApi,
-    PulpContainerNamespacesApi,
     RepositoriesContainerPushApi,
 )
 
 
-class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
-    """Verify whether images can be pushed to pulp."""
+def test_push_using_registry_client_admin(
+    add_to_cleanup,
+    registry_client,
+    local_registry,
+    container_namespace_api,
+):
+    """Test push with official registry client and logged in as admin."""
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    local_url = "foo/bar:1.0"
 
-    @classmethod
-    def setUpClass(cls):
-        """
-        Define APIs to use and pull images needed later in tests
-        """
-        cfg = config.get_config()
-        cls.registry = cli.RegistryClient(cfg)
-        cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
-        cls.registry_name = urlparse(cfg.get_base_url()).netloc
+    registry_client.pull(image_path)
+    local_registry.tag_and_push(image_path, local_url)
+    local_registry.pull(local_url)
+    # ensure that same content can be pushed twice without permission errors
+    local_registry.tag_and_push(image_path, local_url)
 
-        admin_user, admin_password = cfg.pulp_auth
-        cls.user_admin = {"username": admin_user, "password": admin_password}
-        cls.user_creator = gen_user(model_roles=["container.containernamespace_creator"])
-        cls.user_dist_collaborator = gen_user()
-        cls.user_dist_consumer = gen_user()
-        cls.user_namespace_collaborator = gen_user()
-        cls.user_reader = gen_user()
-        cls.user_helpless = gen_user()
+    # cleanup, namespace removal also removes related distributions
+    namespace = container_namespace_api.list(name="foo").results[0]
+    add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-        # View push repositories, distributions, and namespaces using user_creator.
-        api_client = gen_container_client()
-        api_client.configuration.username = cls.user_admin["username"]
-        api_client.configuration.password = cls.user_admin["password"]
-        cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
-        cls.namespace_api = PulpContainerNamespacesApi(api_client)
 
-        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_a")
-        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_b")
-        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_c")
-        cls._pull(f"{REGISTRY_V2_REPO_PULP}:manifest_d")
+def test_push_without_login(
+    anonymous_user,
+    registry_client,
+    local_registry,
+):
+    """Test that one can't push without being logged in."""
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    local_url = "foo/bar:1.0"
+    registry_client.pull(image_path)
 
-    @classmethod
-    def tearDownClass(cls):
-        """Delete api users."""
-        del_user(cls.user_creator)
-        del_user(cls.user_dist_collaborator)
-        del_user(cls.user_dist_consumer)
-        del_user(cls.user_namespace_collaborator)
-        del_user(cls.user_reader)
-        del_user(cls.user_helpless)
-        delete_orphans()
+    # Try to push without permission
+    with anonymous_user, pytest.raises(exceptions.CalledProcessError):
+        local_registry.tag_and_push(image_path, local_url)
 
-    def test_push_using_registry_client_admin(self):
-        """Test push with official registry client and logged in as admin."""
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-        local_url = "/".join([self.registry_name, "foo/bar:1.0"])
 
-        self._push(image_path, local_url, self.user_admin)
-        self._pull(local_url, self.user_admin)
-        # ensure that same content can be pushed twice without permission errors
-        self._push(image_path, local_url, self.user_admin)
+def test_push_with_dist_perms(
+    add_to_cleanup,
+    gen_user,
+    anonymous_user,
+    registry_client,
+    local_registry,
+    container_push_repository_api,
+    container_distribution_api,
+    container_namespace_api,
+):
+    """
+    Test that it's enough to have container distribution and namespace perms to perform push.
 
-        # cleanup, namespace removal also removes related distributions
-        namespace = self.namespace_api.list(name="foo").results[0]
-        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
+    It also checks read abilities for users with different set of permissions.
+    """
+    user_creator = gen_user(model_roles=["container.containernamespace_creator"])
+    user_dist_collaborator = gen_user()
+    user_dist_consumer = gen_user()
+    user_namespace_collaborator = gen_user()
+    user_reader = gen_user()
+    user_helpless = gen_user()
 
-    def test_push_without_login(self):
-        """Test that one can't push without being logged in."""
-        local_url = "/".join([self.registry_name, "foo/bar:1.0"])
+    repo_name = "test/perms"
+    local_url = f"{repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    registry_client.pull(image_path)
+    with user_creator:
+        local_registry.tag_and_push(image_path, local_url)
 
-        # Try to push without permission
-        with self.assertRaises(exceptions.CalledProcessError):
-            self.registry.push(local_url)
+    # cleanup, namespace removal also removes related distributions
+    namespace = container_namespace_api.list(name="test").results[0]
+    add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-    def test_push_with_dist_perms(self):
-        """
-        Test that it's enough to have container distribution and namespace perms to perform push.
-
-        It also checks read abilities for users with different set of permissions.
-        """
-        repo_name = "test/perms"
-        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-        self._push(image_path, local_url, self.user_creator)
-
-        distributions = self.user_creator["distribution_api"].list(name="test/perms")
+    with user_creator:
+        distributions = container_distribution_api.list(name="test/perms")
         distribution = distributions.results[0]
-        self.user_creator["distribution_api"].add_role(
+        container_distribution_api.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_collaborator",
-                "users": [self.user_dist_collaborator["username"]],
+                "users": [user_dist_collaborator.username],
             },
         )
-        self.user_creator["distribution_api"].add_role(
+        container_distribution_api.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_consumer",
-                "users": [self.user_dist_consumer["username"]],
+                "users": [user_dist_consumer.username],
             },
         )
-        self.user_creator["namespace_api"].add_role(
+        container_distribution_api.add_role(
             distribution.namespace,
             {
                 "role": "container.containernamespace_collaborator",
-                "users": [self.user_namespace_collaborator["username"]],
+                "users": [user_namespace_collaborator.username],
             },
         )
 
-        self.assertEqual(self.pushrepository_api.list(name=repo_name).count, 1)
-        self.assertEqual(self.user_creator["pushrepository_api"].list(name=repo_name).count, 1)
-        self.assertEqual(
-            self.user_dist_collaborator["pushrepository_api"].list(name=repo_name).count, 1
-        )
-        self.assertEqual(
-            self.user_dist_consumer["pushrepository_api"].list(name=repo_name).count, 1
-        )
-        self.assertEqual(
-            self.user_namespace_collaborator["pushrepository_api"].list(name=repo_name).count, 1
-        )
+    assert container_push_repository_api.list(name=repo_name).count == 1
+    with user_creator:
+        assert container_push_repository_api.list(name=repo_name).count == 1
+    with user_dist_collaborator:
+        assert container_push_repository_api.list(name=repo_name).count == 1
+    with user_dist_consumer:
+        assert container_push_repository_api.list(name=repo_name).count == 1
+    with user_namespace_collaborator:
+        assert container_push_repository_api.list(name=repo_name).count == 1
+    with user_reader:
+        assert container_push_repository_api.list(name=repo_name).count == 1
+    with user_helpless:
+        # "{repo_name}" turns out to be a public repository
+        assert container_push_repository_api.list(name=repo_name).count == 1
 
-        self.assertEqual(self.user_reader["pushrepository_api"].list(name=repo_name).count, 1)
 
-        # cleanup, namespace removal also removes related distributions
-        namespace = self.namespace_api.list(name="test").results[0]
-        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
+def test_push_with_view_perms(
+    gen_user,
+    registry_client,
+    local_registry,
+):
+    """
+    Test that push is not working if a user has only view permission for push repos.
+    """
+    user_reader = gen_user(model_roles=["container.containernamespace_consumer"])
+    repo_name = "unsuccessful/perms"
+    local_url = f"{repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    registry_client.pull(image_path)
+    with user_reader, pytest.raises(exceptions.CalledProcessError):
+        local_registry.tag_and_push(image_path, local_url)
 
-    def test_push_with_view_perms(self):
-        """
-        Test that push is not working if a user has only view permission for push repos.
-        """
-        repo_name = "unsuccessful/perms"
-        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-        with self.assertRaises(exceptions.CalledProcessError):
-            self._push(image_path, local_url, self.user_reader)
 
-    def test_push_with_no_perms(self):
-        """
-        Test that user with no permissions can't perform push.
-        """
-        repo_name = "unsuccessful/perms"
-        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-        with self.assertRaises(exceptions.CalledProcessError):
-            self._push(image_path, local_url, self.user_helpless)
+def test_push_with_no_perms(
+    add_to_cleanup,
+    gen_user,
+    registry_client,
+    local_registry,
+    container_namespace_api,
+):
+    """
+    Test that user with no permissions can't perform push.
+    """
+    user_creator = gen_user(model_roles=["container.containernamespace_creator"])
+    user_helpless = gen_user()
+    repo_name = "unsuccessful/perms"
+    local_url = f"{repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    registry_client.pull(image_path)
+    with user_helpless, pytest.raises(exceptions.CalledProcessError):
+        local_registry.tag_and_push(image_path, local_url)
 
-        # test a user can still pull
-        self._push(image_path, local_url, self.user_creator)
-        with self.assertRaises(exceptions.CalledProcessError):
-            self._push(image_path, local_url, self.user_dist_consumer)
-        self._pull(local_url, self.user_dist_consumer)
+    # test a user can still pull
+    with user_creator:
+        local_registry.tag_and_push(image_path, local_url)
+        namespace = container_namespace_api.list(name="unsuccessful").results[0]
+        add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-        # cleanup, namespace removal also removes related distributions
-        namespace = self.namespace_api.list(name="unsuccessful").results[0]
-        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
+    with user_helpless:
+        with pytest.raises(exceptions.CalledProcessError):
+            local_registry.tag_and_push(image_path, local_url)
+        local_registry.pull(local_url)
 
-    def test_push_to_existing_namespace(self):
-        """
-        Test the push to existing namespace with collaborator permissions.
 
-        Container distribution perms and manage-namespace one should be enough
-        to push a new distribution.
-        Container distribution perms shouls be enough to push to the existing
-        distribution.
-        """
-        repo_name = "team/owner"
-        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-        self._push(image_path, local_url, self.user_creator)
+def test_push_to_existing_namespace(
+    add_to_cleanup,
+    gen_user,
+    registry_client,
+    local_registry,
+    container_distribution_api,
+    container_namespace_api,
+):
+    """
+    Test the push to an existing namespace with collaborator permissions.
+
+    Container distribution perms and manage-namespace one should be enough
+    to push a new distribution.
+    Container distribution perms should be enough to push to the existing
+    distribution.
+    """
+    user_creator = gen_user(model_roles=["container.containernamespace_creator"])
+    user_dist_collaborator = gen_user()
+    user_namespace_collaborator = gen_user()
+    repo_name = "team/owner"
+    local_url = f"{repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    registry_client.pull(image_path)
+    with user_creator:
+        local_registry.tag_and_push(image_path, local_url)
+        namespace = container_namespace_api.list(name="team").results[0]
+        add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
         # Add user_dist_collaborator to the collaborator group
-        distributions = self.user_creator["distribution_api"].list(name="team/owner")
+        distributions = container_distribution_api.list(name="team/owner")
         distribution = distributions.results[0]
-        self.user_creator["distribution_api"].add_role(
+        container_distribution_api.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_collaborator",
-                "users": [self.user_dist_collaborator["username"]],
+                "users": [user_dist_collaborator.username],
             },
         )
 
-        collab_repo_name = "team/owner"
-        local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
-        self._push(image_path, local_url, self.user_dist_collaborator)
+    collab_repo_name = "team/owner"
+    local_url = f"{collab_repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
+    registry_client.pull(image_path)
+    with user_dist_collaborator:
+        local_registry.tag_and_push(image_path, local_url)
 
-        collab_repo_name = "team/collab"
-        local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
-        with self.assertRaises(exceptions.CalledProcessError):
-            self._push(image_path, local_url, self.user_dist_collaborator)
+    collab_repo_name = "team/collab"
+    local_url = f"{collab_repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
+    registry_client.pull(image_path)
+    with user_dist_collaborator, pytest.raises(exceptions.CalledProcessError):
+        local_registry.tag_and_push(image_path, local_url)
 
-        self.user_creator["namespace_api"].add_role(
+    with user_creator:
+        container_namespace_api.add_role(
             distribution.namespace,
             {
                 "role": "container.containernamespace_collaborator",
-                "users": [self.user_namespace_collaborator["username"]],
+                "users": [user_namespace_collaborator.username],
             },
         )
 
-        collab_repo_name = "team/collab"
-        local_url = "/".join([self.registry_name, f"{collab_repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
-        self._push(image_path, local_url, self.user_namespace_collaborator)
+    collab_repo_name = "team/collab"
+    local_url = f"{collab_repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
+    registry_client.pull(image_path)
+    with user_namespace_collaborator:
+        local_registry.tag_and_push(image_path, local_url)
 
-        # cleanup, namespace removal also removes related distributions
-        namespace = self.namespace_api.list(name="team").results[0]
-        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
 
-    def test_private_repository(self):
-        """
-        Test that you can create a private distribution and push to it.
-        Test that the same user can pull, but another cannot.
-        Test that the other user can pull after marking it non-private.
-        """
-        # cleanup, namespace removal also removes related distributions
-        try:
-            namespace = self.namespace_api.list(name="test").results[0]
-            namespace_response = self.namespace_api.delete(namespace.pulp_href)
-            monitor_task(namespace_response.task)
-        except Exception:
-            pass
+def test_push_private_repository(
+    add_to_cleanup,
+    gen_user,
+    registry_client,
+    local_registry,
+    container_distribution_api,
+    container_namespace_api,
+):
+    """
+    Test that you can create a private distribution and push to it.
+    Test that the same user can pull, but another cannot.
+    Test that the other user can pull after marking it non-private.
+    """
+    user_creator = gen_user(model_roles=["container.containernamespace_creator"])
+    user_dist_consumer = gen_user()
+    user_helpless = gen_user()
+    repo_name = "test/private"
+    local_url = f"{repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
 
-        repo_name = "test/private"
-        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-
-        distribution = {"name": "test/private", "base_path": "test/private", "private": True}
-        distribution_response = self.user_creator["distribution_api"].create(distribution)
+    distribution = {"name": repo_name, "base_path": repo_name, "private": True}
+    registry_client.pull(image_path)
+    with user_creator:
+        distribution_response = container_distribution_api.create(distribution)
         created_resources = monitor_task(distribution_response.task).created_resources
-        distribution = self.user_creator["distribution_api"].read(created_resources[0])
+        distribution = container_distribution_api.read(created_resources[0])
+        add_to_cleanup(container_namespace_api, distribution.namespace)
 
-        self._push(image_path, local_url, self.user_creator)
+        local_registry.tag_and_push(image_path, local_url)
+        local_registry.pull(local_url)
 
-        self._pull(local_url, self.user_creator)
-
-        self.user_creator["distribution_api"].add_role(
+        container_distribution_api.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_consumer",
-                "users": [self.user_dist_consumer["username"]],
+                "users": [user_dist_consumer.username],
             },
         )
 
-        self._pull(local_url, self.user_dist_consumer)
-        with self.assertRaises(exceptions.CalledProcessError):
-            self._pull(local_url, self.user_reader)
-        with self.assertRaises(exceptions.CalledProcessError):
-            self._pull(local_url, self.user_helpless)
+    with user_dist_consumer:
+        local_registry.pull(local_url)
+    with user_helpless, pytest.raises(exceptions.CalledProcessError):
+        local_registry.pull(local_url)
 
+    with user_creator:
         distribution.private = False
-        distribution_response = self.user_creator["distribution_api"].partial_update(
+        distribution_response = container_distribution_api.partial_update(
             distribution.pulp_href, {"private": False}
         )
         monitor_task(distribution_response.task)
 
-        self._pull(local_url, self.user_reader)
-        self._pull(local_url, self.user_helpless)
+    with user_helpless:
+        local_registry.pull(local_url)
 
-        # cleanup, namespace removal also removes related distributions
-        namespace = self.namespace_api.list(name="test").results[0]
-        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
 
-    def test_matching_username(self):
-        """
-        Test that you can push to a nonexisting nameespace that matches your username.
-        """
-        namespace_name = self.user_helpless["username"]
-        repo_name = f"{namespace_name}/matching"
-        local_url = "/".join([self.registry_name, f"{repo_name}:2.0"])
-        invalid_local_url = "/".join([self.registry_name, f"other/{repo_name}:2.0"])
-        image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+def test_push_matching_username(
+    add_to_cleanup,
+    gen_user,
+    registry_client,
+    local_registry,
+    container_distribution_api,
+    container_namespace_api,
+):
+    """
+    Test that you can push to a nonexisting namespace that matches your username.
+    """
+    user_helpless = gen_user()
+    namespace_name = user_helpless.username
+    repo_name = f"{namespace_name}/matching"
+    local_url = f"{repo_name}:2.0"
+    invalid_local_url = f"other/{repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
 
-        self._push(image_path, local_url, self.user_helpless)
+    registry_client.pull(image_path)
+    with user_helpless:
+        local_registry.tag_and_push(image_path, local_url)
+        namespace = container_namespace_api.list(name=namespace_name).results[0]
+        add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-        with self.assertRaises(exceptions.CalledProcessError):
-            self._push(image_path, invalid_local_url, self.user_helpless)
+        with pytest.raises(exceptions.CalledProcessError):
+            local_registry.tag_and_push(image_path, invalid_local_url)
 
         # test you can create distribution under the namespace that matches login
         repo_name2 = f"{namespace_name}/matching2"
         distribution = {"name": repo_name2, "base_path": repo_name2, "private": True}
-        distribution_response = self.user_helpless["distribution_api"].create(distribution)
+        distribution_response = container_distribution_api.create(distribution)
         created_resources = monitor_task(distribution_response.task).created_resources
-        distribution = self.user_helpless["distribution_api"].read(created_resources[0])
+        distribution = container_distribution_api.read(created_resources[0])
 
         # cleanup, namespace removal also removes related distributions
-        namespace = self.namespace_api.list(name=namespace_name).results[0]
-        namespace_response = self.namespace_api.delete(namespace.pulp_href)
+        namespace_response = container_namespace_api.delete(namespace.pulp_href)
         monitor_task(namespace_response.task)
 
         # test you can create distribution if namespace does not exist but matches login
         distribution = {"name": repo_name, "base_path": repo_name, "private": True}
-        distribution_response = self.user_helpless["distribution_api"].create(distribution)
+        distribution_response = container_distribution_api.create(distribution)
         created_resources = monitor_task(distribution_response.task).created_resources
-        distribution = self.user_helpless["distribution_api"].read(created_resources[0])
+        distribution = container_distribution_api.read(created_resources[0])
 
-        # cleanup, namespace removal also removes related distributions
-        namespace = self.namespace_api.list(name=namespace_name).results[0]
-        self.addCleanup(self.namespace_api.delete, namespace.pulp_href)
+        add_to_cleanup(container_namespace_api, distribution.namespace)
 
 
 class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
