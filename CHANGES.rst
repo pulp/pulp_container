@@ -13,6 +13,86 @@ Changelog
 
 .. towncrier release notes start
 
+2.11.0 (2022-03-16)
+===================
+
+
+Features
+--------
+
+- Allow upload of non-distributable layers.
+  `#462 <https://github.com/pulp/pulp_container/issues/462>`__
+- Added support for pushing manifest lists via the Registry API.
+  `#469 <https://github.com/pulp/pulp_container/issues/469>`__
+- Added support for cross repository blob mount.
+  `#494 <https://github.com/pulp/pulp_container/issues/494>`__
+- Added support for caching responses from the registry. The caching is not enabled by default.
+  Enable it by configuring the Redis connection and defining ``CACHE_ENABLED = True`` in the
+  settings file.
+  `#496 <https://github.com/pulp/pulp_container/issues/496>`__
+- Added model, serializer, filter and viewset for image manifest signature.
+  Added ability to sync manifest signatures from a sigstore.
+  `#498 <https://github.com/pulp/pulp_container/issues/498>`__
+- Added ability to sign container images from within The Pulp Registry.
+  manifest_signing_service is used to produce signed container content.
+  `#500 <https://github.com/pulp/pulp_container/issues/500>`__
+- Added support for pushing image signatures to the Pulp Registry. The signatures can be pushed by
+  utilizing the extensions API.
+  `#502 <https://github.com/pulp/pulp_container/issues/502>`__
+- Added an extensions API endpoint for downloading image signatures.
+  `#504 <https://github.com/pulp/pulp_container/issues/504>`__
+- Enabled users to import/export image signatures.
+  `#506 <https://github.com/pulp/pulp_container/issues/506>`__
+- Ported RBAC implementation to use pulpcore roles.
+  `#508 <https://github.com/pulp/pulp_container/issues/508>`__
+- Added recursive removal of manifest signatures when a manifest is removed from a repository.
+  `#511 <https://github.com/pulp/pulp_container/issues/511>`__
+- Added support for syncing signatures using docker API extension.
+  `#528 <https://github.com/pulp/pulp_container/issues/528>`__
+- Added ability to remove signatures from a container(push) repo.
+  `#548 <https://github.com/pulp/pulp_container/issues/548>`__
+- Don't reject manifest that has non-distributable layers during upload.
+  `#598 <https://github.com/pulp/pulp_container/issues/598>`__
+
+
+Bugfixes
+--------
+
+- Don't store blob's media_type on the model.
+  There is no way to say what mimetype it has when it comes into the registry.
+  `#493 <https://github.com/pulp/pulp_container/issues/493>`__
+- Account for case when token's scope does not contain type/resource/action.
+  `#509 <https://github.com/pulp/pulp_container/issues/509>`__
+- Fixed content retrieval from distribution when repo is removed.
+  `#513 <https://github.com/pulp/pulp_container/issues/513>`__
+- Fixed file descriptor leak during image push.
+  `#523 <https://github.com/pulp/pulp_container/issues/523>`__
+- Fixed "manifest_id" violates not-null constraint error during sync.
+  `#537 <https://github.com/pulp/pulp_container/issues/537>`__
+- Fixed error during container image push.
+  `#542 <https://github.com/pulp/pulp_container/issues/542>`__
+- Return a more concise message exception on 500 during image pull when content is missing on the FS.
+  `#555 <https://github.com/pulp/pulp_container/issues/555>`__
+- Fixed a bug that disallowed users who were authenticated by a remote webserver to access the
+  Registry API endpoints when token authentication was disabled.
+  `#558 <https://github.com/pulp/pulp_container/issues/558>`__
+- Successfully re-upload artifact in case it was previously removed.
+  `#595 <https://github.com/pulp/pulp_container/issues/595>`__
+- Fixed check for the signature source location.
+  `#617 <https://github.com/pulp/pulp_container/issues/617>`__
+- Accept token under access_token for compat reasons.
+  `#619 <https://github.com/pulp/pulp_container/issues/619>`__
+
+
+Misc
+----
+
+- `#561 <https://github.com/pulp/pulp_container/issues/561>`__
+
+
+----
+
+
 2.10.2 (2022-03-04)
 ===================
 

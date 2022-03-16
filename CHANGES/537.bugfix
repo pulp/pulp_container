@@ -1,1 +1,0 @@
-Fixed "manifest_id" violates not-null constraint error during sync.
