@@ -2,7 +2,6 @@ import pytest
 
 from urllib.parse import urlparse
 from pulp_smash.cli import RegistryClient
-from pulp_smash.pulp3.bindings import monitor_task
 from pulpcore.client.pulp_container import (
     ApiClient,
     PulpContainerNamespacesApi,
@@ -18,30 +17,6 @@ from pulpcore.client.pulp_container import (
 )
 
 
-@pytest.fixture
-def add_to_cleanup():
-    """Fixture to allow pulp objects to be deleted after the test."""
-    obj_refs = []
-
-    def _add_to_cleanup(api_client, pulp_href):
-        obj_refs.append((api_client, pulp_href))
-
-    yield _add_to_cleanup
-
-    delete_task_hrefs = []
-    for api_client, pulp_href in obj_refs:
-        try:
-            task_url = api_client.delete(pulp_href).task
-            delete_task_hrefs.append(task_url)
-        except Exception:
-            # There was no delete task for this unit or the unit may already have been deleted
-            # Also we can never be sure which one is the right ApiException to catch.
-            pass
-
-    for deleted_task_href in delete_task_hrefs:
-        monitor_task(deleted_task_href)
-
-
 @pytest.fixture(scope="session")
 def registry_client(pulp_cfg):
     """Fixture for a container registry client."""
@@ -54,29 +29,60 @@ def registry_client(pulp_cfg):
     return registry
 
 
-@pytest.fixture(scope="session")
-def local_registry(pulp_cfg, bindings_cfg, registry_client):
+@pytest.fixture()
+def local_registry(request, _local_registry):
     """Local registry with authentication."""
+
+    # This check only works, if the fixture is scoped to the test
+    if request.node.get_closest_marker("parallel") is not None:
+        raise pytest.UsageError("This test is not suitable to be marked parallel.")
+
+    return _local_registry
+
+
+@pytest.fixture(scope="session")
+def _local_registry(pulp_cfg, bindings_cfg, registry_client):
+    """Local registry with authentication. Session scoped."""
+
     registry_name = urlparse(pulp_cfg.get_base_url()).netloc
 
     class _LocalRegistry:
         @staticmethod
+        def _dispatch_command(*args):
+            if bindings_cfg.username is not None:
+                registry_client.login(
+                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
+                )
+            else:
+                registry_client.logout(registry_name)
+            try:
+                registry_client._dispatch_command(*args)
+            finally:
+                registry_client.logout(registry_name)
+
+        @staticmethod
         def pull(image_path):
-            registry_client.login(
-                "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-            )
+            if bindings_cfg.username is not None:
+                registry_client.login(
+                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
+                )
+            else:
+                registry_client.logout(registry_name)
             try:
                 registry_client.pull("/".join([registry_name, image_path]))
             finally:
                 registry_client.logout(registry_name)
 
         @staticmethod
-        def push(image_path, local_url):
+        def tag_and_push(image_path, local_url):
             local_image_path = "/".join([registry_name, local_url])
             registry_client.tag(image_path, local_image_path)
-            registry_client.login(
-                "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-            )
+            if bindings_cfg.username is not None:
+                registry_client.login(
+                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
+                )
+            else:
+                registry_client.logout(registry_name)
             try:
                 registry_client.push(local_image_path)
             finally:

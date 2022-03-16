@@ -164,7 +164,7 @@ def test_rbac_push_repository_version(
     repo_name = "test_push_repo/perms"
     local_url = f"{repo_name}:1.0"
     with user_creator:
-        local_registry.push(image_path, local_url)
+        local_registry.tag_and_push(image_path, local_url)
         repository = container_push_repository_api.list(name=repo_name).results[0]
 
     # Remove namespace after the test
@@ -196,7 +196,6 @@ def test_rbac_push_repository_version(
         container_push_repository_version_api.read(repository.latest_version_href)
 
 
-@pytest.mark.parallel
 def test_cross_repository_blob_mount(
     add_to_cleanup,
     gen_user,
@@ -216,7 +215,7 @@ def test_cross_repository_blob_mount(
     local_url = f"{source_repo}:manifest_a"
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
-    local_registry.push(image_path, local_url)
+    local_registry.tag_and_push(image_path, local_url)
     repository = container_push_repository_api.list(name=source_repo).results[0]
     blobs = container_blob_api.list(repository_version=repository.latest_version_href).results
     distribution = container_distribution_api.list(name=source_repo).results[0]

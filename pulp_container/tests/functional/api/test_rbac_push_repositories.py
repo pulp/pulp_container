@@ -37,7 +37,7 @@ def test_rbac_push_repository(
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
     registry_client.pull(image_path)
     with user_creator:
-        local_registry.push(image_path, local_url)
+        local_registry.tag_and_push(image_path, local_url)
         repository = container_push_repository_api.list(name=repo_name).results[0]
 
     # Remove namespace after test
