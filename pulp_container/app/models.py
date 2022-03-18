@@ -38,7 +38,6 @@ from . import downloaders
 from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
 
 
-gpg = gnupg.GPG()
 logger = getLogger(__name__)
 
 
@@ -503,6 +502,7 @@ class ManifestSigningService(SigningService):
             )
 
             with open(signed["signature_path"], "rb") as fp:
+                gpg = gnupg.GPG()
                 verified = gpg.verify_file(fp)
                 if verified.trust_level is None or verified.trust_level < verified.TRUST_FULLY:
                     raise RuntimeError(

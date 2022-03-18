@@ -12,7 +12,6 @@ from pulpcore.plugin.models import Task
 from pulp_container.constants import SIGNATURE_TYPE
 
 
-gpg = gnupg.GPG()
 log = logging.getLogger(__name__)
 
 
@@ -67,6 +66,7 @@ def extract_data_from_signature(signature_raw, man_digest):
         dict: JSON representation of the document and available data about signature
 
     """
+    gpg = gnupg.GPG()
     crypt_obj = gpg.decrypt(signature_raw)
     if not crypt_obj.data:
         log.info(
