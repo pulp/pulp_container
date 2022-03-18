@@ -31,3 +31,42 @@ eval "$(ssh-agent -s)" #start the ssh agent
 ssh-add ~/.ssh/pulp-infra
 
 python3 .github/workflows/scripts/docs-publisher.py --build-type $1 --branch $2
+
+if [[ "$GITHUB_WORKFLOW" == "Container changelog update" ]]; then
+  # Do not build bindings docs on changelog update
+  exit
+fi
+
+# Building python bindings
+export PULP_URL="${PULP_URL:-https://pulp}"
+VERSION=$(http $PULP_URL/pulp/api/v3/status/ | jq --arg plugin container --arg legacy_plugin pulp_container -r '.versions[] | select(.component == $plugin or .component == $legacy_plugin) | .version')
+cd ../pulp-openapi-generator
+rm -rf pulp_container-client
+./generate.sh pulp_container python $VERSION
+cd pulp_container-client
+
+# Adding mkdocs
+cp README.md docs/index.md
+sed -i 's/docs\///g' docs/index.md
+sed -i 's/\.md//g' docs/index.md
+cat >> mkdocs.yml << DOCSYAML
+---
+site_name: PulpContainer Client
+site_description: Container bindings
+site_author: Pulp Team
+site_url: https://docs.pulpproject.org/pulp_container_client/
+repo_name: pulp/pulp_container
+repo_url: https://github.com/pulp/pulp_container
+theme: readthedocs
+DOCSYAML
+
+pip install mkdocs pymdown-extensions
+
+# Building the bindings docs
+mkdocs build
+
+# publish to docs.pulpproject.org/pulp_container_client
+rsync -avzh site/ doc_builder_pulp_container@docs.pulpproject.org:/var/www/docs.pulpproject.org/pulp_container_client/
+
+# publish to docs.pulpproject.org/pulp_container_client/en/{release}
+rsync -avzh site/ doc_builder_pulp_container@docs.pulpproject.org:/var/www/docs.pulpproject.org/pulp_container_client/en/"$1"
