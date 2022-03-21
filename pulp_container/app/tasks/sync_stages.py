@@ -85,7 +85,7 @@ class ContainerFirstStage(Stage):
             if self.remote.sigstore:
                 return SIGNATURE_SOURCE.SIGSTORE
 
-            registry_v2_url = urljoin(self.remote.url, "v2")
+            registry_v2_url = urljoin(self.remote.url, "v2/")
             extension_check_downloader = self.remote.get_noauth_downloader(url=registry_v2_url)
             response_headers = {}
             try:
