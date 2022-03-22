@@ -1,5 +1,7 @@
 from gettext import gettext as _
+import asyncio
 import logging
+import tempfile
 
 from pulpcore.plugin.stages import (
     ArtifactDownloader,
@@ -10,6 +12,9 @@ from pulpcore.plugin.stages import (
     ResolveContentFutures,
     QueryExistingArtifacts,
     QueryExistingContents,
+    ContentAssociation,
+    EndStage,
+    create_pipeline,
 )
 
 from .sync_stages import InterrelateContent, ContainerFirstStage
@@ -77,3 +82,23 @@ class ContainerDeclarativeVersion(DeclarativeVersion):
         ]
 
         return pipeline
+
+    def create(self):
+        """
+        Perform the work. This is the long-blocking call where all syncing occurs.
+
+        Returns: The created RepositoryVersion or None if it represents no change from the latest.
+        """
+
+        # This method is copied from pulpcore with the addition of maxsize=100 to circumvent sync
+        # issues with remote artifact creation.
+        with tempfile.TemporaryDirectory(dir="."):
+            with self.repository.new_version() as new_version:
+                loop = asyncio.get_event_loop()
+                stages = self.pipeline_stages(new_version)
+                stages.append(ContentAssociation(new_version, self.mirror))
+                stages.append(EndStage())
+                pipeline = create_pipeline(stages, maxsize=100)
+                loop.run_until_complete(pipeline)
+
+        return new_version if new_version.complete else None
