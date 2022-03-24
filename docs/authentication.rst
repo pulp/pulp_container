@@ -38,7 +38,7 @@ To set up the remote webserver authentication, update the Pulp settings in the f
     REMOTE_USER_ENVIRON_NAME = "HTTP_REMOTE_USER"
 
     AUTHENTICATION_BACKENDS = [
-        "pulpcore.app.authentication.PulpNoCreateRemoteUserBackend",
+        "pulpcore.app.authentication.PulpRemoteUserAuthentication",
         "guardian.backends.ObjectPermissionBackend",
         "pulpcore.backends.ObjectRolePermissionBackend",
     ]
