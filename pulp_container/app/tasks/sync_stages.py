@@ -176,8 +176,8 @@ class ContainerFirstStage(Stage):
                                         "manifest list {ml_digest} (tagged as `{tag}`) can't be "
                                         "synced due to a requirement to sync signed content only. "
                                         "The whole manifest list is skipped.".format(
-                                            img_digest=man_dc.d_content.digest,
-                                            ml_digest=list_dc.d_content.digest,
+                                            img_digest=man_dc.content.digest,
+                                            ml_digest=list_dc.content.digest,
                                             tag=tag_name,
                                         )
                                     )
