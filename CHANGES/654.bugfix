@@ -1,0 +1,1 @@
+Fixed sync of signed content failing with the error `DeclarativeContent' object has no attribute 'd_content'`.
