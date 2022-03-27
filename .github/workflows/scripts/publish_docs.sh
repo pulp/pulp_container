@@ -31,3 +31,33 @@ eval "$(ssh-agent -s)" #start the ssh agent
 ssh-add ~/.ssh/pulp-infra
 
 python3 .github/workflows/scripts/docs-publisher.py --build-type $1 --branch $2
+
+if [[ "$GITHUB_WORKFLOW" == "Container changelog update" ]]; then
+  # Do not build bindings docs on changelog update
+  exit
+fi
+
+pip install mkdocs pymdown-extensions "Jinja2<3.1"
+
+mkdir -p ../bindings
+tar -xvf python-client-docs.tar --directory ../bindings
+cd ../bindings
+cat >> mkdocs.yml << DOCSYAML
+---
+site_name: PulpContainer Client
+site_description: Container bindings
+site_author: Pulp Team
+site_url: https://docs.pulpproject.org/pulp_container_client/
+repo_name: pulp/pulp_container
+repo_url: https://github.com/pulp/pulp_container
+theme: readthedocs
+DOCSYAML
+
+# Building the bindings docs
+mkdocs build
+
+# publish to docs.pulpproject.org/pulp_container_client
+rsync -avzh site/ doc_builder_pulp_container@docs.pulpproject.org:/var/www/docs.pulpproject.org/pulp_container_client/
+
+# publish to docs.pulpproject.org/pulp_container_client/en/{release}
+rsync -avzh site/ doc_builder_pulp_container@docs.pulpproject.org:/var/www/docs.pulpproject.org/pulp_container_client/en/"$2"
