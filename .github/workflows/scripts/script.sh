@@ -46,7 +46,9 @@ if [[ "$TEST" = "docs" ]]; then
 fi
 
 if [[ "${RELEASE_WORKFLOW:-false}" == "true" ]]; then
-  REPORTED_VERSION=$(http $PULP_URL/pulp/api/v3/status/ | jq --arg plugin container --arg legacy_plugin pulp_container -r '.versions[] | select(.component == $plugin or .component == $legacy_plugin) | .version')
+  STATUS_ENDPOINT="${PULP_URL}/pulp/api/v3/status/"
+  echo $STATUS_ENDPOINT
+  REPORTED_VERSION=$(http $STATUS_ENDPOINT | jq --arg plugin container --arg legacy_plugin pulp_container -r '.versions[] | select(.component == $plugin or .component == $legacy_plugin) | .version')
   response=$(curl --write-out %{http_code} --silent --output /dev/null https://pypi.org/project/pulp-container/$REPORTED_VERSION/)
   if [ "$response" == "200" ];
   then
@@ -163,7 +165,7 @@ if [ -f $FUNC_TEST_SCRIPT ]; then
   source $FUNC_TEST_SCRIPT
 else
 
-    if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+    if [[ "$GITHUB_WORKFLOW" == "Container Nightly CI/CD" ]]; then
         pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m parallel -n 8
         pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional -m "not parallel"
     else
