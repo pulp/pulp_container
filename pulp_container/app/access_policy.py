@@ -99,6 +99,36 @@ class NamespacedAccessPolicyMixin:
             return True
         return False
 
+    def has_namespace_param_model_or_obj_perms(self, request, view, action):
+        """
+        Checks if the current user has object-level permission on the ``namespace`` object.
+
+        Since distribution is tightly coupled with the namespace, a new namespace will be created
+        in case an existing one, matching the first component of base_path is not found.
+        Model-level permissions are checked in case a new namespace is neded to be created.
+
+        Args:
+            request (rest_framework.request.Request): The request being made.
+            view (subclass rest_framework.viewsets.GenericViewSet): The view being checked for
+                authorization.
+            action (str): The action being performed, e.g. "destroy".
+
+        Returns:
+            True if the user has not provided the base_path in the request or in case user has
+            according object/model level permissions on the namespace.
+        """
+
+        view_perm = "container.view_containernamespace"
+        base_path = request.data.get("base_path")
+        if base_path:
+            namespace_name = base_path.split("/")[0]
+            try:
+                namespace = models.ContainerNamespace.objects.get(name=namespace_name)
+            except models.ContainerNamespace.DoesNotExist:
+                return self.has_namespace_model_perms(request, view, action)
+            return request.user.has_perm(view_perm) or request.user.has_perm(view_perm, namespace)
+        return True
+
 
 class NamespacedAccessPolicyFromDB(AccessPolicyFromDB, NamespacedAccessPolicyMixin):
     """

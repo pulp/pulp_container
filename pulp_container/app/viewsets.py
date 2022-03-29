@@ -174,6 +174,7 @@ class ContainerContentQuerySetMixin:
                 if repo.pulp_type == repo_info.push_type:
                     if request.user.has_perm(repo_info.push_perm) or any(
                         request.user.has_perm(repo_info.push_perm, dist.cast())
+                        # and container.view_namespace?
                         or request.user.has_perm(
                             "container.namespace_view_containerdistribution", dist.cast().namespace
                         )
@@ -575,7 +576,10 @@ class ContainerRepositoryViewSet(
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_perms:container.add_containerrepository",
+                "condition": [
+                    "has_model_perms:container.add_containerrepository",
+                    "has_remote_param_model_or_obj_perms:container.view_containerremote",
+                ],
             },
             {
                 "action": ["retrieve"],
@@ -599,6 +603,7 @@ class ContainerRepositoryViewSet(
                 "condition": [
                     "has_model_or_obj_perms:container.change_containerrepository",
                     "has_model_or_obj_perms:container.view_containerrepository",
+                    "has_remote_param_model_or_obj_perms:container.view_containerremote",
                 ],
             },
             {
@@ -983,6 +988,7 @@ class ContainerPushRepositoryViewSet(
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition_expression": [
+                    # should this be has_namespace_obj_perms:container.namespace_view_containerdistribution instead?
                     "has_namespace_obj_perms:container.namespace_view_containerpush_repository or "
                     "has_distribution_perms:container.view_containerdistribution",
                 ],
@@ -993,6 +999,7 @@ class ContainerPushRepositoryViewSet(
                 "effect": "allow",
                 "condition_expression": [
                     "has_namespace_obj_perms:container.namespace_modify_content_containerpushrepository or "  # noqa
+                    # this one does not seem to exist anymore
                     "has_distribution_perms:container.modify_content_containerpushrepository",
                 ],
             },
@@ -1001,6 +1008,7 @@ class ContainerPushRepositoryViewSet(
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition_expression": [
+                    # should this be has_namespace_obj_perms:container.namespace_change_containerdistribution instead?
                     "has_namespace_obj_perms:container.namespace_change_containerpushrepository or "
                     "has_distribution_perms:container.change_containerdistribution",
                 ],
@@ -1093,6 +1101,7 @@ class ContainerPushRepositoryViewSet(
         public_repository_pks = models.ContainerDistribution.objects.filter(
             private=False
         ).values_list("repository")
+        # and namespace_view_containerdistribution?
         return qs.filter(
             Q(pk__in=ns_repository_pks)
             | Q(pk__in=dist_repository_pks)
@@ -1155,17 +1164,24 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
                 "principal": "authenticated",
                 "effect": "allow",
             },
+            # is this redundant?
+            # {
+            #    "action": ["create"],
+            #    "principal": "authenticated",
+            #    "effect": "allow",
+            #    "condition": "has_namespace_model_perms",
+            # },
             {
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_namespace_model_perms",
-            },
-            {
-                "action": ["create"],
-                "principal": "authenticated",
-                "effect": "allow",
-                "condition": "has_namespace_perms:container.add_containerdistribution",
+                "condition": [
+                    "has_namespace_perms:container.add_containerdistribution",
+                    "has_repo_or_repo_ver_param_model_or_obj_perms:container.view_containerrepository",
+                    # not correct
+                    "has_repo_or_repo_ver_param_model_or_obj_perms:container.view_containerpushrepository",
+                    "has_namespace_param_model_or_obj_perms",
+                ],
             },
             {
                 "action": ["create"],
@@ -1205,6 +1221,10 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
                 "condition": [
                     "has_namespace_or_obj_perms:container.change_containerdistribution",
                     "has_namespace_or_obj_perms:container.view_containerdistribution",
+                    "has_namespace_param_model_or_obj_perms",
+                    "has_repo_or_repo_ver_param_model_or_obj_perms:view_containerrepository",
+                    # not correct
+                    "has_repo_or_repo_ver_param_model_or_obj_perms:container.view_containerpushrepository",
                 ],
             },
             {

@@ -1,0 +1,2 @@
+Added missed permissions for Repo and Distribution viewsets.
+For example, to sync repo one should also have view permision on the remote.
