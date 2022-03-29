@@ -12,7 +12,6 @@ from collections import namedtuple
 
 from django.db import IntegrityError
 from django.db.models import Q
-from django.http import Http404
 
 from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
@@ -522,35 +521,6 @@ class SignOperationsMixin:
             },
         )
         return OperationPostponedResponse(result, request)
-
-
-class RepositoryVersionQuerySetMixin:
-    """
-    A mixin which provides with a custom `get_queryset` method for repository version viewsets.
-    """
-
-    def get_queryset(self):
-        """
-        Gets a QuerySet based on the current request.
-
-        Filtered by a permission for a corresponding repository.
-
-        Returns:
-            django.db.models.query.QuerySet: The queryset returned by the superclass filtered by
-                the permission for a corresponding repository.
-
-        """
-        qs = super().get_queryset()
-        try:
-            perm = self.queryset_filtering_required_repo_permission
-        except AttributeError:
-            pass
-        else:
-            repo_version = qs.first()
-            repo = repo_version.repository.cast()
-            if not (self.request.user.has_perm(perm) or self.request.user.has_perm(perm, repo)):
-                raise Http404(_("detail not found"))
-        return qs
 
 
 class ContainerRepositoryViewSet(
