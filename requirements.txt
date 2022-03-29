@@ -3,3 +3,4 @@ pulpcore>=3.18.0.dev
 ecdsa~=0.14
 pyjwkest~=1.4.0
 pyjwt[crypto]~=1.7.1
+jsonschema~=4.4.0

@@ -5,12 +5,15 @@ import json
 import logging
 import time
 
+from jsonschema import Draft7Validator
 from rest_framework.exceptions import Throttled
 
 from pulpcore.plugin.models import Task
 
-from pulp_container.constants import SIGNATURE_TYPE
+from pulp_container.app.json_schemas import SIGNATURE_SCHEMA
 
+
+validator = Draft7Validator(json.loads(SIGNATURE_SCHEMA))
 
 log = logging.getLogger(__name__)
 
@@ -89,16 +92,12 @@ def extract_data_from_signature(signature_raw, man_digest):
         )
         return
 
-    signature_type = sig_json["critical"].get("type") if "critical" in sig_json else None
-    # Currently, the only supported type is ATOMIC.
-    if signature_type != SIGNATURE_TYPE.ATOMIC_FULL:
-        log.info(
-            _(
-                "Unsupported signature type {}, signature is not synced for {}.".format(
-                    signature_type, man_digest
-                )
-            )
-        )
+    errors = []
+    for error in validator.iter_errors(sig_json):
+        errors.append(error.message)
+
+    if errors:
+        log.info(_("The signature for {} is not synced due to: {}".format(man_digest, errors)))
         return
 
     sig_json["signing_key_id"] = crypt_obj.key_id
