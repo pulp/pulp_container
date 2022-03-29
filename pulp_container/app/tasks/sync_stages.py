@@ -434,6 +434,7 @@ class ContainerFirstStage(Stage):
             def _get_content_data_blocking():
                 saved_artifact = manifest.contentartifact_set.first().artifact
                 content_data = json.load(saved_artifact.file)
+                saved_artifact.file.close()
                 return saved_artifact, content_data
 
             saved_artifact, content_data = await sync_to_async(_get_content_data_blocking)()

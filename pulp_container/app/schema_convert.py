@@ -327,7 +327,9 @@ def _get_manifest_dict(manifest):
 
 def _get_dict(artifact):
     try:
-        return json.load(artifact.file)
+        data = json.load(artifact.file)
+        artifact.file.close()
+        return data
     except FileNotFoundError:
         raise Exception(
             _(
