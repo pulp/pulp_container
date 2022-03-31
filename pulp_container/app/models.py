@@ -226,13 +226,13 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
         group = Group.objects.create(
             name="{}.{}.{}".format("container.namespace", group_type, self.name)
         )
-        current_user = get_current_authenticated_user()
         owners_group = Group.objects.get(
             name="{}.{}".format("container.namespace.owners", self.name)
         )
         assign_perm("core.change_group", owners_group, group)
         assign_perm("core.view_group", owners_group, group)
-        if add_user_to_group:
+        current_user = get_current_authenticated_user()
+        if current_user and add_user_to_group:
             current_user.groups.add(group)
         self.add_for_groups(permissions, group.name)
 
@@ -434,7 +434,7 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPer
             name="{}.{}.{}".format("container.distribution", group_type, suffix)
         )
         current_user = get_current_authenticated_user()
-        if add_user_to_group:
+        if current_user and add_user_to_group:
             current_user.groups.add(group)
         self.add_for_groups(permissions, group.name)
 
@@ -516,13 +516,13 @@ class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
         group = Group.objects.create(
             name="{}.{}.{}".format("container.distribution", group_type, self.pk)
         )
-        current_user = get_current_authenticated_user()
         owners_group = Group.objects.get(
             name="{}.{}".format("container.distribution.owners", self.pk)
         )
         assign_perm("core.change_group", owners_group, group)
         assign_perm("core.view_group", owners_group, group)
-        if add_user_to_group:
+        current_user = get_current_authenticated_user()
+        if current_user and add_user_to_group:
             current_user.groups.add(group)
         self.add_for_groups(permissions, group.name)
 
