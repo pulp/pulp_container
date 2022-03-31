@@ -1,0 +1,1 @@
+Fixed group related creation hooks that failed if no current user could be identified.
