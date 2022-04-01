@@ -18,6 +18,7 @@ from pulpcore.client.pulp_container import (
     ApiException,
     ContainerContainerDistribution,
     DistributionsContainerApi,
+    PulpContainerNamespacesApi,
 )
 
 
@@ -29,44 +30,60 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
         """Create class wide-variables."""
         client_api = gen_container_client()
         cls.distribution_api = DistributionsContainerApi(client_api)
-        cls.distribution = {}
+        cls.namespace_api = PulpContainerNamespacesApi(client_api)
 
-    def test_01_create_distribution(self):
+    def test_workflow(self):
+        """Perform test workflow for CRUD distributions."""
+        self._create_distribution()
+        self._create_same_name()
+        self._read_distribution()
+        self._read_distribution_with_specific_fields()
+        self._read_distribution_without_specific_fields()
+        self._read_distributions()
+        self._partially_update()
+        self._fully_update()
+        self._delete()
+
+    def _create_distribution(self):
         """Create a distribution."""
         body = gen_distribution()
+        body["base_path"] = body["base_path"].replace("-", "/")
         distribution_data = ContainerContainerDistribution(**body)
         distribution_response = self.distribution_api.create(distribution_data)
         created_resources = monitor_task(distribution_response.task).created_resources
 
-        distribution_obj = self.distribution_api.read(created_resources[0])
-        self.distribution.update(distribution_obj.to_dict())
+        self.distribution = self.distribution_api.read(created_resources[0])
         for key, val in body.items():
             with self.subTest(key=key):
-                self.assertEqual(self.distribution[key], val)
+                self.assertEqual(self.distribution.to_dict()[key], val)
+        # assert that namespace was created and it matches first component of base_path
+        base_path = self.distribution.base_path
+        namespace_obj = self.namespace_api.read(self.distribution.namespace)
+        assert namespace_obj.name == base_path.split("/")[0]
 
     @skip_if(bool, "distribution", False)
-    def test_02_create_same_name(self):
+    def _create_same_name(self):
         """Try to create a second distribution with an identical name.
 
         See: `Pulp Smash #1055
         <https://github.com/pulp/pulp-smash/issues/1055>`_.
         """
         body = gen_distribution()
-        body["name"] = self.distribution["name"]
+        body["name"] = self.distribution.name
         distribution_data = ContainerContainerDistribution(**body)
         with self.assertRaises(ApiException):
             self.distribution_api.create(distribution_data)
 
     @skip_if(bool, "distribution", False)
-    def test_02_read_distribution(self):
+    def _read_distribution(self):
         """Read a distribution by its pulp_href."""
-        distribution_obj = self.distribution_api.read(self.distribution["pulp_href"])
-        for key, val in self.distribution.items():
+        distribution_obj = self.distribution_api.read(self.distribution.pulp_href)
+        for key, val in self.distribution.to_dict().items():
             with self.subTest(key=key):
                 self.assertEqual(getattr(distribution_obj, key), val)
 
     @skip_if(bool, "distribution", False)
-    def test_02_read_distribution_with_specific_fields(self):
+    def _read_distribution_with_specific_fields(self):
         """Read a distribution by its href providing specific field list.
 
         Permutate field list to ensure different combinations on result.
@@ -74,7 +91,7 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
         for field_pair in permutations(("base_path", "name")):
             with self.subTest(field_pair=field_pair):
                 distribution = self.distribution_api.read(
-                    self.distribution["pulp_href"], fields=",".join(field_pair)
+                    self.distribution.pulp_href, fields=",".join(field_pair)
                 ).to_dict()
                 # a distribution object contains always all fields; due to that, it is
                 # necessary to filter out only the keys which do not have the None value
@@ -82,7 +99,7 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
                 self.assertEqual(sorted(field_pair), sorted(filtered_keys))
 
     @skip_if(bool, "distribution", False)
-    def test_02_read_distribution_without_specific_fields(self):
+    def _read_distribution_without_specific_fields(self):
         """Read a distribution by its href excluding specific fields."""
         for field_pair in permutations(("pulp_href", "registry_path")):
             with self.subTest(field_pair=field_pair):
@@ -91,73 +108,87 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
                 #  fields 'base_path' and 'name'; these two fields have to be present at the time
                 #  of the instantiation
                 distribution = self.distribution_api.read(
-                    self.distribution["pulp_href"], exclude_fields=",".join(field_pair)
+                    self.distribution.pulp_href, exclude_fields=",".join(field_pair)
                 ).to_dict()
                 filtered_keys = list(filter(lambda x: bool(distribution[x]), distribution))
                 self.assertNotIn("pulp_href", filtered_keys)
                 self.assertNotIn("registry_path", filtered_keys)
 
     @skip_if(bool, "distribution", False)
-    def test_02_read_distributions(self):
+    def _read_distributions(self):
         """Read a distribution using query parameters.
 
         See: `Pulp #3082 <https://pulp.plan.io/issues/3082>`_
         """
         unique_params = (
-            {"name": self.distribution["name"]},
-            {"base_path": self.distribution["base_path"]},
+            {"name": self.distribution.name},
+            {"base_path": self.distribution.base_path},
         )
         for params in unique_params:
             with self.subTest(params=params):
                 page = self.distribution_api.list(**params)
                 self.assertEqual(len(page.results), 1)
-                for key, val in self.distribution.items():
+                for key, val in self.distribution.to_dict().items():
                     with self.subTest(key=key):
                         self.assertEqual(getattr(page.results[0], key), val)
 
     @skip_if(bool, "distribution", False)
-    def test_03_partially_update(self):
+    def _partially_update(self):
         """Update a distribution using HTTP PATCH."""
+        old_namespace = self.distribution.namespace
+        self.addCleanup(self.namespace_api.delete, old_namespace)
         body = gen_distribution()
+        body["base_path"] = body["base_path"].replace("-", "/")
         distribution_data = ContainerContainerDistribution(**body)
         distribution_response = self.distribution_api.partial_update(
-            self.distribution["pulp_href"], distribution_data
+            self.distribution.pulp_href, distribution_data
         )
         monitor_task(distribution_response.task)
 
-        distribution_obj = self.distribution_api.read(self.distribution["pulp_href"])
+        self.distribution = self.distribution_api.read(self.distribution.pulp_href)
 
-        self.distribution.clear()
-        self.distribution.update(distribution_obj.to_dict())
         for key, val in body.items():
             with self.subTest(key=key):
-                self.assertEqual(self.distribution[key], val)
+                self.assertEqual(self.distribution.to_dict()[key], val)
+
+        # assert that new namespace was created and it matches first component of base_path
+        base_path = self.distribution.base_path
+        namespace_obj = self.namespace_api.read(self.distribution.namespace)
+        assert namespace_obj.name == base_path.split("/")[0] == body["base_path"].split("/")[0]
 
     @skip_if(bool, "distribution", False)
-    def test_04_fully_update(self):
+    def _fully_update(self):
         """Update a distribution using HTTP PUT."""
+        old_namespace = self.distribution.namespace
+        self.addCleanup(self.namespace_api.delete, old_namespace)
         body = gen_distribution()
+        body["base_path"] = body["base_path"].replace("-", "/")
         distribution_data = ContainerContainerDistribution(**body)
         distribution_response = self.distribution_api.update(
-            self.distribution["pulp_href"], distribution_data
+            self.distribution.pulp_href, distribution_data
         )
         monitor_task(distribution_response.task)
 
-        distribution_obj = self.distribution_api.read(self.distribution["pulp_href"])
+        self.distribution = self.distribution_api.read(self.distribution.pulp_href)
 
-        self.distribution.clear()
-        self.distribution.update(distribution_obj.to_dict())
         for key, val in body.items():
             with self.subTest(key=key):
-                self.assertEqual(self.distribution[key], val)
+                self.assertEqual(self.distribution.to_dict()[key], val)
+
+        # assert that new namespace was created and it matches first component of base_path
+        base_path = self.distribution.base_path
+        namespace_obj = self.namespace_api.read(self.distribution.namespace)
+        assert namespace_obj.name == base_path.split("/")[0] == body["base_path"].split("/")[0]
 
     @skip_if(bool, "distribution", False)
-    def test_05_delete(self):
+    def _delete(self):
         """Delete a distribution."""
-        delete_response = self.distribution_api.delete(self.distribution["pulp_href"])
+        namespace = self.distribution.namespace
+        self.addCleanup(self.namespace_api.delete, namespace)
+        delete_response = self.distribution_api.delete(self.distribution.pulp_href)
         monitor_task(delete_response.task)
         with self.assertRaises(ApiException):
-            self.distribution_api.read(self.distribution["pulp_href"])
+            self.distribution_api.read(self.distribution.pulp_href)
 
     def test_negative_create_distribution_with_invalid_parameter(self):
         """Attempt to create distribution passing invalid parameter.
@@ -187,47 +218,52 @@ class DistributionBasePathTestCase(unittest.TestCase):
         """Create class-wide variables."""
         client_api = gen_container_client()
         cls.distribution_api = DistributionsContainerApi(client_api)
+        cls.namespace_api = PulpContainerNamespacesApi(client_api)
 
+    def test_workflow(self):
+        """Perform test workflow for distributions base_path"""
+        self._test_unique_base_path()
+        self._test_spaces()
+        self._test_begin_slash()
+        self._test_end_slash()
+
+    def _test_spaces(self):
+        """Test that spaces can not be part of ``base_path``."""
+        self._try_create_distribution(base_path=utils.uuid4().replace("-", " "))
+        self._try_update_distribution(
+            self.distribution.pulp_href, base_path=utils.uuid4().replace("-", " ")
+        )
+
+    def _test_begin_slash(self):
+        """Test that slash cannot be in the begin of ``base_path``."""
+        self._try_create_distribution(base_path="/" + utils.uuid4())
+        self._try_update_distribution(self.distribution.pulp_href, base_path="/" + utils.uuid4())
+
+    def _test_end_slash(self):
+        """Test that slash cannot be in the end of ``base_path``."""
+        self._try_create_distribution(base_path=utils.uuid4() + "/")
+        self._try_update_distribution(self.distribution.pulp_href, base_path=utils.uuid4() + "/")
+
+    def _test_unique_base_path(self):
+        """Test that ``base_path`` can not be duplicated."""
         body = gen_distribution()
         body["base_path"] = body["base_path"].replace("-", "/")
         distribution_data = ContainerContainerDistribution(**body)
-        distribution_response = cls.distribution_api.create(distribution_data)
+        distribution_response = self.distribution_api.create(distribution_data)
         created_resources = monitor_task(distribution_response.task).created_resources
 
-        cls.distribution = cls.distribution_api.read(created_resources[0])
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up resources."""
-        cls.distribution_api.delete(cls.distribution.pulp_href)
-
-    def test_spaces(self):
-        """Test that spaces can not be part of ``base_path``."""
-        self.try_create_distribution(base_path=utils.uuid4().replace("-", " "))
-        self.try_update_distribution(base_path=utils.uuid4().replace("-", " "))
-
-    def test_begin_slash(self):
-        """Test that slash cannot be in the begin of ``base_path``."""
-        self.try_create_distribution(base_path="/" + utils.uuid4())
-        self.try_update_distribution(base_path="/" + utils.uuid4())
-
-    def test_end_slash(self):
-        """Test that slash cannot be in the end of ``base_path``."""
-        self.try_create_distribution(base_path=utils.uuid4() + "/")
-        self.try_update_distribution(base_path=utils.uuid4() + "/")
-
-    def test_unique_base_path(self):
-        """Test that ``base_path`` can not be duplicated."""
-        self.try_create_distribution(base_path=self.distribution.base_path)
+        self.distribution = self.distribution_api.read(created_resources[0])
+        self.addCleanup(self.namespace_api.delete, self.distribution.namespace)
+        self._try_create_distribution(base_path=self.distribution.base_path)
 
     def test_invalid_base_paths(self):
         """Test the validation for base paths."""
-        self.try_create_distribution(base_path="i/am/an/very:bad:repo/name.py")
-        self.try_create_distribution(base_path="invalid_")
-        self.try_create_distribution(base_path="_invalid")
-        self.try_create_distribution(base_path="another/invalid..reponame")
+        self._try_create_distribution(base_path="i/am/an/very:bad:repo/name.py")
+        self._try_create_distribution(base_path="invalid_")
+        self._try_create_distribution(base_path="_invalid")
+        self._try_create_distribution(base_path="another/invalid..reponame")
 
-    def try_create_distribution(self, **kwargs):
+    def _try_create_distribution(self, **kwargs):
         """Unsuccessfully create a distribution.
 
         Merge the given kwargs into the body of the request.
@@ -237,10 +273,10 @@ class DistributionBasePathTestCase(unittest.TestCase):
         with self.assertRaises(ApiException):
             self.distribution_api.create(body)
 
-    def try_update_distribution(self, **kwargs):
+    def _try_update_distribution(self, distribution, **kwargs):
         """Unsuccessfully update a distribution with HTTP PATCH.
 
         Use the given kwargs as the body of the request.
         """
         with self.assertRaises(ApiException):
-            self.distribution_api.partial_update(self.distribution.pulp_href, kwargs)
+            self.distribution_api.partial_update(distribution, kwargs)

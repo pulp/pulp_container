@@ -333,19 +333,12 @@ class ContainerDistributionSerializer(DistributionSerializer):
                     )
                 )
 
-        if "base_path" in validated_data:
-            base_path = validated_data["base_path"]
+        base_path = validated_data.get("base_path")
+        if base_path:
             namespace_name = base_path.split("/")[0]
-
-            if validated_data.get("namespace"):
-                if validated_data["namespace"].name != namespace_name:
-                    raise serializers.ValidationError(
-                        _("Selected namespace does not match first component of base_path.")
-                    )
-            else:
-                validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
-                    {"name": namespace_name}
-                )
+            validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
+                {"name": namespace_name}
+            )
         return validated_data
 
     def validate_base_path(self, value):

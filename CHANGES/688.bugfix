@@ -1,0 +1,2 @@
+Removed Namespace validation.
+Namespaces are managed transparently on behalf of the user.
