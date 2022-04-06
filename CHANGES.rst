@@ -93,6 +93,22 @@ Misc
 ----
 
 
+2.10.3 (2022-04-05)
+===================
+
+
+Bugfixes
+--------
+
+- Accept token under access_token for compat reasons.
+  `#619 <https://github.com/pulp/pulp_container/issues/619>`__
+- Fixed group related creation hooks that failed if no current user could be identified.
+  `#673 <https://github.com/pulp/pulp_container/issues/673>`__
+
+
+----
+
+
 2.10.2 (2022-03-04)
 ===================
 
