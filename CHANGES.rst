@@ -279,6 +279,20 @@ Misc
 ----
 
 
+2.8.7 (2022-04-05)
+==================
+
+
+Bugfixes
+--------
+
+- Accept token under access_token for compat reasons.
+  `#619 <https://github.com/pulp/pulp_container/issues/619>`__
+
+
+----
+
+
 2.8.6 (2022-03-04)
 ===================
 
