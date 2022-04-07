@@ -669,6 +669,9 @@ class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
         ),
     )
     description = models.TextField(null=True)
+    temporary_repository = models.ForeignKey(
+        Repository, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     def get_repository_version(self):
         """

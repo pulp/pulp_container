@@ -33,6 +33,7 @@ from pulp_container.app.utils import extract_data_from_signature, urlpath_saniti
 
 log = logging.getLogger(__name__)
 
+BATCH_SIZE = 500
 
 V2_ACCEPT_HEADERS = {
     "Accept": ",".join(
@@ -83,7 +84,6 @@ class ContainerFirstStage(Stage):
         """
 
         to_download = []
-        BATCH_SIZE = 500
 
         signature_source = await self.get_signature_source()
 
@@ -118,97 +118,99 @@ class ContainerFirstStage(Stage):
             code="sync.processing.tag",
             total=len(tag_list),
         ) as pb_parsed_tags:
-
             for download_tag in asyncio.as_completed(to_download):
-                dl_res = await download_tag
-                with open(dl_res.path, "rb") as content_file:
-                    raw_data = content_file.read()
-                dl_res.artifact_attributes["file"] = dl_res.path
-                saved_artifact = await sync_to_async(_save_artifact_blocking)(
-                    dl_res.artifact_attributes
-                )
-
-                tag_name = dl_res.url.split("/")[-1]
-                tag_dc = DeclarativeContent(Tag(name=tag_name))
-
-                content_data = json.loads(raw_data)
-                media_type = content_data.get("mediaType")
-                if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
-                    list_dc = self.create_tagged_manifest_list(
-                        tag_name, saved_artifact, content_data
-                    )
-                    for listed_manifest_task in asyncio.as_completed(
-                        [
-                            self.create_listed_manifest(list_dc, manifest_data)
-                            for manifest_data in content_data.get("manifests")
-                        ]
-                    ):
-                        listed_manifest = await listed_manifest_task
-                        man_dc = listed_manifest["manifest_dc"]
-                        if signature_source is not None:
-                            man_sig_dcs = await self.create_signatures(man_dc, signature_source)
-                            if self.signed_only and not man_sig_dcs:
-                                log.info(
-                                    _(
-                                        "The unsigned image {img_digest} which is a part of the "
-                                        "manifest list {ml_digest} (tagged as `{tag}`) can't be "
-                                        "synced due to a requirement to sync signed content only. "
-                                        "The whole manifest list is skipped.".format(
-                                            img_digest=man_dc.content.digest,
-                                            ml_digest=list_dc.content.digest,
-                                            tag=tag_name,
-                                        )
-                                    )
-                                )
-                                # do not pass down the pipeline a manifest list with unsigned
-                                # manifests.
-                                break
-                            self.signature_dcs.extend(man_sig_dcs)
-                        list_dc.extra_data["listed_manifests"].append(listed_manifest)
-
-                    else:
-                        # only pass the manifest list and tag down the pipeline if there were no
-                        # issues with signatures (no `break` in the `for` loop)
-                        tag_dc.extra_data["tagged_manifest_dc"] = list_dc
-                        for listed_manifest in list_dc.extra_data["listed_manifests"]:
-                            await self.handle_blobs(
-                                listed_manifest["manifest_dc"], listed_manifest["content_data"]
-                            )
-                            self.manifest_dcs.append(listed_manifest["manifest_dc"])
-                        self.manifest_list_dcs.append(list_dc)
-                        self.tag_dcs.append(tag_dc)
-
-                else:
-                    # Simple tagged manifest
-                    man_dc = self.create_tagged_manifest(
-                        tag_name, saved_artifact, content_data, raw_data
-                    )
-                    if signature_source is not None:
-                        man_sig_dcs = await self.create_signatures(man_dc, signature_source)
-                        if self.signed_only and not man_sig_dcs:
-                            # do not pass down the pipeline unsigned manifests
-                            continue
-                        self.signature_dcs.extend(man_sig_dcs)
-                    tag_dc.extra_data["tagged_manifest_dc"] = man_dc
-                    await self.handle_blobs(man_dc, content_data)
-                    self.tag_dcs.append(tag_dc)
-                    self.manifest_dcs.append(man_dc)
-
-                # Count the skipped tasks as parsed too.
-                await pb_parsed_tags.aincrement()
-
-                # Flush the queues to prevent overly excessive memory usage.
-                # This will cap the number of in flight high level objects to about BATCH_SIZE.
-                if (
-                    len(self.tag_dcs)
-                    + len(self.signature_dcs)
-                    + len(self.manifest_dcs)
-                    + len(self.manifest_list_dcs)
-                    >= BATCH_SIZE
-                ):
-                    await self.resolve_flush()
+                await self.process_single_tag(download_tag, signature_source, pb_parsed_tags)
 
         await self.resolve_flush()
+
+    async def process_single_tag(self, download_tag, signature_source, pb_parsed_tags):
+        dl_res = await download_tag
+        with open(dl_res.path, "rb") as content_file:
+            raw_data = content_file.read()
+        dl_res.artifact_attributes["file"] = dl_res.path
+        saved_artifact = await sync_to_async(_save_artifact_blocking)(
+            dl_res.artifact_attributes
+        )
+
+        tag_name = dl_res.url.split("/")[-1]
+        tag_dc = DeclarativeContent(Tag(name=tag_name))
+
+        content_data = json.loads(raw_data)
+        media_type = content_data.get("mediaType")
+        if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
+            list_dc = self.create_tagged_manifest_list(
+                tag_name, saved_artifact, content_data
+            )
+            for listed_manifest_task in asyncio.as_completed(
+                    [
+                        self.create_listed_manifest(list_dc, manifest_data)
+                        for manifest_data in content_data.get("manifests")
+                    ]
+            ):
+                listed_manifest = await listed_manifest_task
+                man_dc = listed_manifest["manifest_dc"]
+                if signature_source is not None:
+                    man_sig_dcs = await self.create_signatures(man_dc, signature_source)
+                    if self.signed_only and not man_sig_dcs:
+                        log.info(
+                            _(
+                                "The unsigned image {img_digest} which is a part of the "
+                                "manifest list {ml_digest} (tagged as `{tag}`) can't be "
+                                "synced due to a requirement to sync signed content only. "
+                                "The whole manifest list is skipped.".format(
+                                    img_digest=man_dc.content.digest,
+                                    ml_digest=list_dc.content.digest,
+                                    tag=tag_name,
+                                )
+                            )
+                        )
+                        # do not pass down the pipeline a manifest list with unsigned
+                        # manifests.
+                        break
+                    self.signature_dcs.extend(man_sig_dcs)
+                list_dc.extra_data["listed_manifests"].append(listed_manifest)
+
+            else:
+                # only pass the manifest list and tag down the pipeline if there were no
+                # issues with signatures (no `break` in the `for` loop)
+                tag_dc.extra_data["tagged_manifest_dc"] = list_dc
+                for listed_manifest in list_dc.extra_data["listed_manifests"]:
+                    await self.handle_blobs(
+                        listed_manifest["manifest_dc"], listed_manifest["content_data"]
+                    )
+                    self.manifest_dcs.append(listed_manifest["manifest_dc"])
+                self.manifest_list_dcs.append(list_dc)
+                self.tag_dcs.append(tag_dc)
+
+        else:
+            # Simple tagged manifest
+            man_dc = self.create_tagged_manifest(
+                tag_name, saved_artifact, content_data, raw_data
+            )
+            if signature_source is not None:
+                man_sig_dcs = await self.create_signatures(man_dc, signature_source)
+                if self.signed_only and not man_sig_dcs:
+                    # do not pass down the pipeline unsigned manifests
+                    return
+                self.signature_dcs.extend(man_sig_dcs)
+            tag_dc.extra_data["tagged_manifest_dc"] = man_dc
+            await self.handle_blobs(man_dc, content_data)
+            self.tag_dcs.append(tag_dc)
+            self.manifest_dcs.append(man_dc)
+
+        # Count the skipped tasks as parsed too.
+        await pb_parsed_tags.aincrement()
+
+        # Flush the queues to prevent overly excessive memory usage.
+        # This will cap the number of in flight high level objects to about BATCH_SIZE.
+        if (
+                len(self.tag_dcs)
+                + len(self.signature_dcs)
+                + len(self.manifest_dcs)
+                + len(self.manifest_list_dcs)
+                >= BATCH_SIZE
+        ):
+            await self.resolve_flush()
 
     async def get_signature_source(self):
         """

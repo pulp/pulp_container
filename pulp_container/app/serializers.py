@@ -309,6 +309,13 @@ class ContainerDistributionSerializer(DistributionSerializer):
     repository_version = RepositoryVersionRelatedField(
         required=False, help_text=_("RepositoryVersion to be served"), allow_null=True
     )
+    remote = DetailRelatedField(
+        required=False,
+        help_text=_('Remote that can be used to fetch content when using pull-through caching.'),
+        view_name_pattern=r"remotes(-.*/.*)?-detail",
+        queryset=models.ContainerRemote.objects.all(),
+        allow_null=True
+    )
 
     def validate(self, data):
         """
@@ -370,6 +377,7 @@ class ContainerDistributionSerializer(DistributionSerializer):
             "namespace",
             "private",
             "description",
+            "remote",
         )
 
 

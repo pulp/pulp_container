@@ -64,6 +64,7 @@ from pulp_container.app.redirects import (
     S3StorageRedirects,
     AzureStorageRedirects,
 )
+from pulp_container.app.tasks.pull_through_stages import pull_tag_from_remote
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
     TokenAuthentication,
@@ -271,7 +272,10 @@ class ContainerRegistryApiMixin:
         elif distribution.repository_version:
             repository_version = distribution.repository_version
         else:
-            raise RepositoryNotFound(name=path)
+            if distribution.remote:
+                return None
+            else:
+                raise RepositoryNotFound(name=path)
         return distribution, distribution.repository, repository_version
 
     def get_dr_push(self, request, path, create=False):
@@ -815,7 +819,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to safe requests about manifests by reference
         """
-        distribution, _, repository_version = self.get_drv_pull(path)
+        distribution, repository, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)
 
         try:
@@ -825,7 +829,78 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             else:
                 manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
         except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
-            raise ManifestNotFound(reference=pk)
+            if distribution.remote:
+                if distribution.temporary_repository:
+                    try:
+                        cached_tag = models.Tag.objects.get(
+                            name=pk, pk__in=distribution.temporary_repository.latest_version()
+                        )
+                    except models.Tag.DoesNotExist:
+                        if not (repository or repository_version):
+                            # TODO: when having no repository (just a distribution with a remote),
+                            #   should we rather preserve the temporary repository and mark it as
+                            #   a normal repository? Otherwise, Pulp will work as a proxy. Once an
+                            #   orphan-cleanup task is executed, the temporary repository will be
+                            #   purged.
+                            repo_serializer = serializers.ContainerPushRepositorySerializer(
+                                data={"name": path}, context={"request": request}
+                            )
+                            repo_serializer.is_valid(raise_exception=True)
+                            temp_repo = repo_serializer.create(repo_serializer.validated_data)
+                            distribution.temporary_repository = temp_repo
+                            distribution.save(update_fields=["temporary_repository"])
+
+                        dispatched_task = dispatch(
+                            pull_tag_from_remote,
+                            exclusive_resources=[temp_repo],
+                            kwargs={
+                                "tag_name": pk,
+                                "remote_pk": distribution.remote.pk,
+                                "repository_pk": str(temp_repo.pk),
+                                "signed_only": False  # temporarily set to False
+                            },
+                        )
+
+                        if not has_task_completed(dispatched_task):
+                            raise ManifestNotFound(reference=pk)
+
+                        cached_tag = models.Tag.objects.get(
+                            name=pk, pk__in=distribution.temporary_repository.latest_version()
+                        )
+
+                    return redirects.issue_tag_redirect(cached_tag)
+                else:
+                    new_repository = models.ContainerRepository
+                    dispatched_task = dispatch(
+                        add_and_remove,
+                        exclusive_resources=[repository],
+                        kwargs={
+                            "repository_pk": str(new_repository.pk),
+                            "base_version_pk": repository.pk,
+                            "add_content_units": [],
+                            "remove_content_units": [],
+                        },
+                    )
+                    has_task_completed(dispatched_task)
+
+                dispatched_task = dispatch(
+                    pull_tag_from_remote,
+                    exclusive_resources=[repository],
+                    kwargs={
+                        "tag_name": pk,
+                        "remote_pk": distribution.remote.pk,
+                        "repository_pk": str(repository.pk),
+                        "signed_only": False  # temporarily set to False
+                    },
+                )
+
+                if not has_task_completed(dispatched_task):
+                    raise ManifestNotFound(reference=pk)
+
+                tag = models.Tag.objects.get(name=pk)
+                return redirects.issue_tag_redirect(tag)
+            else:
+                raise ManifestNotFound(reference=pk)
 
         return redirects.issue_manifest_redirect(manifest)
 
