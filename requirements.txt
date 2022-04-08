@@ -1,5 +1,5 @@
 # remember to also update unittest_requirements.txt when updating this file
-pulpcore>=3.18.0.dev
+pulpcore>=3.19.0.dev
 ecdsa~=0.14
 pyjwkest~=1.4.0
 pyjwt[crypto]~=1.7.1
