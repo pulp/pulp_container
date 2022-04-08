@@ -113,7 +113,7 @@ def build_image_from_containerfile(
     containerfile = Artifact.objects.get(pk=containerfile_pk)
     repository = ContainerRepository.objects.get(pk=repository_pk)
     name = str(uuid4())
-    with tempfile.TemporaryDirectory(".") as working_directory:
+    with tempfile.TemporaryDirectory(dir=".") as working_directory:
         path = "{}/".format(working_directory.path)
         for key, val in artifacts.items():
             artifact = Artifact.objects.get(pk=key)
