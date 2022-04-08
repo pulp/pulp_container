@@ -43,7 +43,7 @@ from pulpcore.plugin.viewsets import (
     OperationPostponedResponse,
 )
 
-from pulp_container.app import access_policy, models, serializers, tasks
+from pulp_container.app import models, serializers, tasks
 
 
 log = logging.getLogger(__name__)
@@ -939,7 +939,6 @@ class ContainerPushRepositoryViewSet(
     endpoint_name = "container-push"
     queryset = models.ContainerPushRepository.objects.all()
     serializer_class = serializers.ContainerPushRepositorySerializer
-    permission_classes = (access_policy.PushRepositoryAccessPolicy,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -1083,7 +1082,6 @@ class ContainerPushRepositoryVersionViewSet(
     """
 
     parent_viewset = ContainerPushRepositoryViewSet
-    permission_classes = (access_policy.PushRepositoryVersionAccessPolicy,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -1111,7 +1109,6 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
     queryset = models.ContainerDistribution.objects.all()
     serializer_class = serializers.ContainerDistributionSerializer
     filterset_class = ContainerDistributionFilter
-    permission_classes = (access_policy.NamespacedAccessPolicyFromDB,)
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [
@@ -1308,7 +1305,6 @@ class ContainerNamespaceViewSet(
     queryset = models.ContainerNamespace.objects.all()
     serializer_class = serializers.ContainerNamespaceSerializer
     filterset_class = ContainerNamespaceFilter
-    permission_classes = (access_policy.NamespaceAccessPolicy,)
     queryset_filtering_required_permission = "container.view_containernamespace"
 
     DEFAULT_ACCESS_POLICY = {
