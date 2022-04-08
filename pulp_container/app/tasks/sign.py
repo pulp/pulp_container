@@ -89,7 +89,7 @@ def create_signature(manifest, reference, signing_service):
         pk of created ManifestSignature.
 
     """
-    with tempfile.TemporaryDirectory(".") as working_directory:
+    with tempfile.TemporaryDirectory(dir=".") as working_directory:
         # download and write file for object storage
         if settings.DEFAULT_FILE_STORAGE != "pulpcore.app.models.storage.FileSystem":
             manifest_file = tempfile.NamedTemporaryFile(dir=working_directory, delete=False)
