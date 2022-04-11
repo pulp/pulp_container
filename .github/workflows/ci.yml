@@ -54,6 +54,9 @@ jobs:
       - name: Run flake8
         run: flake8 --config flake8.cfg
 
+      - name: Run extra lint checks
+        run: "[ ! -x .ci/scripts/extra_linting.sh ] || .ci/scripts/extra_linting.sh"
+
       # check for any files unintentionally left out of MANIFEST.in
       - name: Check manifest
         run: check-manifest
@@ -189,19 +192,5 @@ jobs:
           docker exec pulp ls -latr /etc/yum.repos.d/ || true
           docker exec pulp cat /etc/yum.repos.d/* || true
           docker exec pulp pip3 list
-  deprecations:
-    runs-on: ubuntu-latest
-    if: always()
-    needs: test
-    steps:
-      - name: Fail on deprecations
-        run: |
-          test -z "${{ needs.test.outputs.deprecations-pulp }}"
-          test -z "${{ needs.test.outputs.deprecations-s3 }}"
-      - name: Print deprecations
-        if: failure()
-        run: |
-          echo "${{ needs.test.outputs.deprecations-pulp }}" | base64 -d
-          echo "${{ needs.test.outputs.deprecations-s3 }}" | base64 -d
 
 
