@@ -12,7 +12,7 @@ Recommended Tools
 
 **httpie**:
 The REST API examples provided in this documentation use `httpie <https://httpie.org/doc>`_. A user
-executing the commands via ``httpie`` is expected to have created the file ``.netrc`` in the home
+executing commands via ``httpie`` is expected to have created the file ``.netrc`` in the home
 directory. The file ``.netrc`` should have the following configuration:
 
 .. code-block:: bash
