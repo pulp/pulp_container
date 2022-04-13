@@ -45,6 +45,9 @@ def distribution(
     add_to_cleanup,
 ):
     """Return a distribution created after pushing a signed content to the Pulp Registry."""
+    if registry_client.name != "podman":
+        pytest.skip("This test requires podman to sign pulled content", allow_module_level=True)
+
     registry_client.pull(f"{REGISTRY_V2_REPO_PULP}:manifest_a")
 
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
