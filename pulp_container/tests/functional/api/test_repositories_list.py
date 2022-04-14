@@ -1,4 +1,3 @@
-# coding=utf-8
 """Tests for fetching the list of all repositories."""
 import unittest
 

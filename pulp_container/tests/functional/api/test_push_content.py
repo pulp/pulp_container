@@ -1,4 +1,3 @@
-# coding=utf-8
 """Tests that verify that images can be pushed to Pulp."""
 import pytest
 import unittest
