@@ -164,16 +164,6 @@ def get_container_image_paths(repo, version_href=None):
     ]
 
 
-def gen_container_content_attrs(artifact):
-    """Generate a dict with content unit attributes.
-
-    :param artifact: An artifact.
-    :returns: A semi-random dict for use in creating a content unit.
-    """
-    # FIXME: Add content specific metadata here.
-    return {"_artifact": artifact.pulp_href}
-
-
 def populate_pulp(url=REGISTRY_V2_FEED_URL):
     """Add container contents to Pulp.
 
