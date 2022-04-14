@@ -1,4 +1,3 @@
-# coding=utf-8
 """Tests that verify that RBAC for push repository works properly."""
 import pytest
 

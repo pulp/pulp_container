@@ -1,4 +1,3 @@
-# coding=utf-8
 """Tests that verify that images served by Pulp can be pulled."""
 import contextlib
 import hashlib

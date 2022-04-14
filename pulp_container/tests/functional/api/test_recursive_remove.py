@@ -1,4 +1,3 @@
-# # coding=utf-8
 """Tests that recursively remove container content from repositories."""
 import unittest
 

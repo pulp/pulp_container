@@ -1,4 +1,3 @@
-# coding=utf-8
 """Tests for tagging and untagging images."""
 import unittest
 
