@@ -1,4 +1,3 @@
-from gettext import gettext as _
 import logging
 
 from pulpcore.plugin.stages import (
@@ -36,9 +35,7 @@ def synchronize(remote_pk, repository_pk, mirror, signed_only):
     """
     remote = ContainerRemote.objects.get(pk=remote_pk)
     repository = ContainerRepository.objects.get(pk=repository_pk)
-    if not remote.url:
-        raise ValueError(_("A remote must have a url specified to synchronize."))
-    log.info(_("Synchronizing: repository={r} remote={p}").format(r=repository.name, p=remote.name))
+    log.info("Synchronizing: repository={r} remote={p}".format(r=repository.name, p=remote.name))
     first_stage = ContainerFirstStage(remote, signed_only)
     dv = ContainerDeclarativeVersion(first_stage, repository, mirror)
     return dv.create()

@@ -506,17 +506,13 @@ class ManifestSigningService(SigningService):
                 verified = gpg.verify_file(fp)
                 if verified.trust_level is None or verified.trust_level < verified.TRUST_FULLY:
                     raise RuntimeError(
-                        _(
-                            "The signature could not be verified or the trust level is too "
-                            "low. The signing script may generate invalid signatures."
-                        )
+                        "The signature could not be verified or the trust level is too "
+                        "low. The signing script may generate invalid signatures."
                     )
                 elif verified.pubkey_fingerprint != self.pubkey_fingerprint:
                     raise RuntimeError(
-                        _(
-                            "Fingerprints of the provided public key and the verified public "
-                            "key are not equal. The signing script is probably not valid."
-                        )
+                        "Fingerprints of the provided public key and the verified public "
+                        "key are not equal. The signing script is probably not valid."
                     )
 
 
