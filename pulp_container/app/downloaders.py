@@ -1,5 +1,3 @@
-from gettext import gettext as _
-
 import aiohttp
 import asyncio
 import json
@@ -118,7 +116,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             try:
                 token_base_url = auth_query_dict.pop("realm")
             except KeyError:
-                raise IOError(_("No realm specified for token auth challenge."))
+                raise IOError("No realm specified for token auth challenge.")
 
             # self defense strategy in cases when registry does not provide the scope
             if "scope" not in auth_query_dict:

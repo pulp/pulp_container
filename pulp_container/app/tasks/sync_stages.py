@@ -6,7 +6,6 @@ import hashlib
 import json
 import logging
 
-from gettext import gettext as _
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from asgiref.sync import sync_to_async
@@ -89,11 +88,9 @@ class ContainerFirstStage(Stage):
 
         if signature_source is None and self.signed_only:
             raise ValueError(
-                _(
-                    "It is requested to sync only signed content but no sigstore URL is "
-                    "provided. Please configure a `sigstore` on your Remote or set "
-                    "`signed_only` to `False` for your sync request."
-                )
+                "It is requested to sync only signed content but no sigstore URL is "
+                "provided. Please configure a `sigstore` on your Remote or set "
+                "`signed_only` to `False` for your sync request."
             )
 
         async with ProgressReport(
@@ -149,15 +146,13 @@ class ContainerFirstStage(Stage):
                             man_sig_dcs = await self.create_signatures(man_dc, signature_source)
                             if self.signed_only and not man_sig_dcs:
                                 log.info(
-                                    _(
-                                        "The unsigned image {img_digest} which is a part of the "
-                                        "manifest list {ml_digest} (tagged as `{tag}`) can't be "
-                                        "synced due to a requirement to sync signed content only. "
-                                        "The whole manifest list is skipped.".format(
-                                            img_digest=man_dc.content.digest,
-                                            ml_digest=list_dc.content.digest,
-                                            tag=tag_name,
-                                        )
+                                    "The unsigned image {img_digest} which is a part of the "
+                                    "manifest list {ml_digest} (tagged as `{tag}`) can't be "
+                                    "synced due to a requirement to sync signed content only. "
+                                    "The whole manifest list is skipped.".format(
+                                        img_digest=man_dc.content.digest,
+                                        ml_digest=list_dc.content.digest,
+                                        tag=tag_name,
                                     )
                                 )
                                 # do not pass down the pipeline a manifest list with unsigned
@@ -533,10 +528,8 @@ class ContainerFirstStage(Stage):
                 except aiohttp.client_exceptions.ClientResponseError as exc:
                     if exc.status != 404:
                         log.info(
-                            _(
-                                "{} is not accessible, can't sync an image signature. "
-                                "Error: {} {}".format(signature_url, exc.status, exc.message)
-                            )
+                            "{} is not accessible, can't sync an image signature. "
+                            "Error: {} {}".format(signature_url, exc.status, exc.message)
                         )
                     # 404 is fine, it means there are no or no more signatures available
                     break
@@ -593,7 +586,7 @@ class ContainerFirstStage(Stage):
         layer_type = layer.get("mediaType", MEDIA_TYPE.REGULAR_BLOB)
         is_foreign = layer_type in (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB_OCI)
         if is_foreign and foreign_excluded:
-            log.debug(_("Foreign Layer: %(d)s EXCLUDED"), dict(d=layer))
+            log.debug("Foreign Layer: %(d)s EXCLUDED", dict(d=layer))
             return False
         return True
 
@@ -663,7 +656,7 @@ class ContainerFirstStage(Stage):
         # It is illegal base64 for the remainder to be 1 when the length of the block is
         # divided by 4.
         if len(unpadded_b64) % 4 == 1:
-            raise ValueError(_("Invalid base64: {t}").format(t=unpadded_b64))
+            raise ValueError("Invalid base64: {t}".format(t=unpadded_b64))
         # Add back the missing padding characters, based on the length of the encoded string
         paddings = {0: "", 2: "==", 3: "="}
         return unpadded_b64 + paddings[len(unpadded_b64) % 4]

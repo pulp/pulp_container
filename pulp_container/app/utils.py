@@ -1,5 +1,3 @@
-from gettext import gettext as _
-
 import gnupg
 import json
 import logging
@@ -73,11 +71,7 @@ def extract_data_from_signature(signature_raw, man_digest):
     crypt_obj = gpg.decrypt(signature_raw)
     if not crypt_obj.data:
         log.info(
-            _(
-                "It is not possible to read the signed document, GPG error: {}".format(
-                    crypt_obj.stderr
-                )
-            )
+            "It is not possible to read the signed document, GPG error: {}".format(crypt_obj.stderr)
         )
         return
 
@@ -85,10 +79,8 @@ def extract_data_from_signature(signature_raw, man_digest):
         sig_json = json.loads(crypt_obj.data)
     except Exception as exc:
         log.info(
-            _(
-                "Signed document cannot be parsed to create a signature for {}."
-                " Error: {}".format(man_digest, str(exc))
-            )
+            "Signed document cannot be parsed to create a signature for {}."
+            " Error: {}".format(man_digest, str(exc))
         )
         return
 
@@ -97,7 +89,7 @@ def extract_data_from_signature(signature_raw, man_digest):
         errors.append(error.message)
 
     if errors:
-        log.info(_("The signature for {} is not synced due to: {}".format(man_digest, errors)))
+        log.info("The signature for {} is not synced due to: {}".format(man_digest, errors))
         return
 
     sig_json["signing_key_id"] = crypt_obj.key_id

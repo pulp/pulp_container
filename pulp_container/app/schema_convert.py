@@ -7,8 +7,6 @@ import itertools
 import json
 import logging
 
-from gettext import gettext as _
-
 from collections import namedtuple
 from jwkest import jws, jwk, ecc
 
@@ -332,7 +330,7 @@ def _get_dict(artifact):
         return data
     except FileNotFoundError:
         raise Exception(
-            _(
-                "Expected manifest file 'sha256:{}' needed for schema conversion is not found"
-            ).format(artifact.sha256)
+            "Expected manifest file 'sha256:{}' needed for schema conversion is not found".format(
+                artifact.sha256
+            )
         )

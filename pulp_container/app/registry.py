@@ -1,6 +1,5 @@
 import logging
 import os
-from gettext import gettext as _
 
 from asgiref.sync import sync_to_async
 
@@ -67,7 +66,7 @@ class Registry(Handler):
         """
         path = os.path.join(settings.MEDIA_ROOT, file.name)
         if not os.path.exists(path):
-            raise Exception(_("Expected path '{}' is not found").format(path))
+            raise Exception("Expected path '{}' is not found".format(path))
 
         full_headers = MultiDict()
 
@@ -121,7 +120,7 @@ class Registry(Handler):
             and tag.tagged_manifest.media_type not in accepted_media_types
         ):
             log.warn(
-                _("OCI format found, but the client only accepts {accepted_media_types}.").format(
+                "OCI format found, but the client only accepts {accepted_media_types}.".format(
                     accepted_media_types=accepted_media_types
                 )
             )
