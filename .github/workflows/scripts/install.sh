@@ -15,13 +15,6 @@ set -euv
 
 source .github/workflows/scripts/utils.sh
 
-if [ "${GITHUB_REF##refs/tags/}" = "${GITHUB_REF}" ]
-then
-  TAG_BUILD=0
-else
-  TAG_BUILD=1
-fi
-
 if [[ "$TEST" = "docs" || "$TEST" = "publish" ]]; then
   pip install -r ../pulpcore/doc_requirements.txt
   pip install -r doc_requirements.txt
@@ -34,10 +27,12 @@ cd .ci/ansible/
 TAG=ci_build
 if [[ "$TEST" == "plugin-from-pypi" ]]; then
   PLUGIN_NAME=pulp_container
+elif [[ "${RELEASE_WORKFLOW:-false}" == "true" ]]; then
+  PLUGIN_NAME=./pulp_container/dist/pulp_container-$PLUGIN_VERSION-py3-none-any.whl
 else
   PLUGIN_NAME=./pulp_container
 fi
-if [ "${TAG_BUILD}" = "1" ]; then
+if [[ "${RELEASE_WORKFLOW:-false}" == "true" ]]; then
   # Install the plugin only and use published PyPI packages for the rest
   # Quoting ${TAG} ensures Ansible casts the tag as a string.
   cat >> vars/main.yaml << VARSYAML
@@ -75,7 +70,15 @@ fi
 
 cat >> vars/main.yaml << VARSYAML
 pulp_settings: {"allowed_content_checksums": ["sha1", "sha224", "sha256", "sha384", "sha512"]}
+pulp_scheme: https
+
+pulp_container_tag: https
+
 VARSYAML
+
+if [ "$TEST" = "upgrade" ]; then
+  sed -i "/^pulp_container_tag:.*/s//pulp_container_tag: upgrade-https/" vars/main.yaml
+fi
 
 if [ "$TEST" = "s3" ]; then
   export MINIO_ACCESS_KEY=AKIAIT2Z5TDYPX3ARJBA
@@ -92,8 +95,39 @@ minio_access_key: "'$MINIO_ACCESS_KEY'"\
 minio_secret_key: "'$MINIO_SECRET_KEY'"' vars/main.yaml
 fi
 
+if [ "${PULP_API_ROOT:-}" ]; then
+  sed -i -e '$a api_root: "'"$PULP_API_ROOT"'"' vars/main.yaml
+fi
+
 ansible-playbook build_container.yaml
 ansible-playbook start_container.yaml
+echo ::group::SSL
+# Copy pulp CA
+sudo docker cp pulp:/etc/pulp/certs/pulp_webserver.crt /usr/local/share/ca-certificates/pulp_webserver.crt
+
+# Hack: adding pulp CA to certifi.where()
+CERTIFI=$(python -c 'import certifi; print(certifi.where())')
+cat /usr/local/share/ca-certificates/pulp_webserver.crt | sudo tee -a "$CERTIFI" > /dev/null
+if [ "$TEST" = "azure" ]; then
+  cat /usr/local/share/ca-certificates/azcert.crt | sudo tee -a "$CERTIFI" > /dev/null
+fi
+
+# Hack: adding pulp CA to default CA file
+CERT=$(python -c 'import ssl; print(ssl.get_default_verify_paths().openssl_cafile)')
+cat "$CERTIFI" | sudo tee -a "$CERT" > /dev/null
+
+# Updating certs
+sudo update-ca-certificates
+echo ::endgroup::
+
+if [ "$TEST" = "azure" ]; then
+  AZCERTIFI=$(/opt/az/bin/python3 -c 'import certifi; print(certifi.where())')
+  cat /usr/local/share/ca-certificates/azcert.crt >> $AZCERTIFI
+  cat /usr/local/share/ca-certificates/azcert.crt | cmd_stdin_prefix tee -a /usr/local/lib/python3.8/site-packages/certifi/cacert.pem > /dev/null
+  cat /usr/local/share/ca-certificates/azcert.crt | cmd_stdin_prefix tee -a /etc/pki/tls/cert.pem > /dev/null
+  AZURE_STORAGE_CONNECTION_STRING='DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=https://ci-azurite:10000/devstoreaccount1;'
+  az storage container create --name pulp-test --connection-string $AZURE_STORAGE_CONNECTION_STRING
+fi
 
 echo ::group::PIP_LIST
 cmd_prefix bash -c "pip3 list && pip3 install pipdeptree && pipdeptree"
