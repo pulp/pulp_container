@@ -4,3 +4,4 @@ pulpcore>=3.18.0,<3.20
 ecdsa~=0.14
 pyjwkest~=1.4.0
 pyjwt[crypto]~=1.7.1
+pytest-django
