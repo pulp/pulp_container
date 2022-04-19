@@ -89,14 +89,14 @@ class TestTagOperationSerializer(TestCase):
     def test_valid_tag(self):
         """Test the serializer while passing a valid tag."""
         serializer = TagOperationSerializer(
-            data={"tag": "valid-tag", "repository": self.repository}
+            data={"tag": "valid-tag"}, context={"repository": self.repository}
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_invalid_tag(self):
         """Test the serializer while passing an invalid tag."""
         serializer = TagOperationSerializer(
-            data={"tag": ".invalid-tag", "repository": self.repository}
+            data={"tag": ".invalid-tag"}, context={"repository": self.repository}
         )
         self.assertFalse(serializer.is_valid())
         self.assertIn("tag", serializer.errors)

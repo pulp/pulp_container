@@ -427,9 +427,10 @@ class TagOperationsMixin:
         Create a task which is responsible for creating a new tag.
         """
         repository = self.get_object()
-        request.data["repository"] = repository
 
-        serializer = serializers.TagImageSerializer(data=request.data, context={"request": request})
+        serializer = serializers.TagImageSerializer(
+            data=request.data, context={"request": request, "repository": repository}
+        )
         serializer.is_valid(raise_exception=True)
 
         manifest = serializer.validated_data["manifest"]
@@ -457,10 +458,9 @@ class TagOperationsMixin:
         Create a task which is responsible for untagging an image.
         """
         repository = self.get_object()
-        request.data["repository"] = repository
 
         serializer = serializers.UnTagImageSerializer(
-            data=request.data, context={"request": request}
+            data=request.data, context={"request": request, "repository": repository}
         )
         serializer.is_valid(raise_exception=True)
 
@@ -984,10 +984,9 @@ class ContainerPushRepositoryViewSet(
         Create a task which deletes an image by the passed digest.
         """
         repository = self.get_object()
-        request.data["repository"] = repository
 
         serializer = serializers.RemoveImageSerializer(
-            data=request.data, context={"request": request}
+            data=request.data, context={"request": request, "repository": repository}
         )
         serializer.is_valid(raise_exception=True)
 
@@ -1011,10 +1010,9 @@ class ContainerPushRepositoryViewSet(
         Create a task which deletes signatures by the passed key_id.
         """
         repository = self.get_object()
-        request.data["repository"] = repository
 
         serializer = serializers.RemoveSignaturesSerializer(
-            data=request.data, context={"request": request}
+            data=request.data, context={"request": request, "repository": repository}
         )
         serializer.is_valid(raise_exception=True)
 

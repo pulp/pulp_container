@@ -27,7 +27,7 @@ from pulpcore.plugin.serializers import (
     RepositorySyncURLSerializer,
     RepositoryVersionRelatedField,
     SingleArtifactContentSerializer,
-    validate_unknown_fields,
+    ValidateFieldsMixin,
 )
 
 from pulp_container.app import models
@@ -366,7 +366,7 @@ class ContainerDistributionSerializer(DistributionSerializer):
         )
 
 
-class TagOperationSerializer(serializers.Serializer):
+class TagOperationSerializer(ValidateFieldsMixin, serializers.Serializer):
     """
     A base serializer for tagging and untagging manifests.
     """
@@ -383,30 +383,6 @@ class TagOperationSerializer(serializers.Serializer):
             )
         },
     )
-
-    def validate(self, data):
-        """
-        Validate data passed through a request call.
-
-        Check if a repository has got a reference to a latest repository version. A
-        new dictionary object is initialized by the passed data and altered by a latest
-        repository version.
-        """
-        new_data = {}
-        new_data.update(self.initial_data)
-
-        latest_version = new_data["repository"].latest_version()
-        if not latest_version:
-            raise serializers.ValidationError(
-                _(
-                    "The latest repository version of '{}' was not found".format(
-                        new_data["repository"]
-                    )
-                )
-            )
-
-        new_data["latest_version"] = latest_version
-        return new_data
 
 
 class TagImageSerializer(TagOperationSerializer):
@@ -425,10 +401,11 @@ class TagImageSerializer(TagOperationSerializer):
         method checks if the tag exists within the repository.
         """
         new_data = super().validate(data)
+        latest_version = self.context["repository"].latest_version()
 
         try:
             manifest = models.Manifest.objects.get(
-                pk__in=new_data["latest_version"].content.all(), digest=new_data["digest"]
+                pk__in=latest_version.content.all(), digest=new_data["digest"]
             )
             manifest.touch()
         except models.Manifest.DoesNotExist:
@@ -436,7 +413,7 @@ class TagImageSerializer(TagOperationSerializer):
                 _(
                     "A manifest with the digest '{}' does not "
                     "exist in the latest repository version '{}'".format(
-                        new_data["digest"], new_data["latest_version"]
+                        new_data["digest"], latest_version
                     )
                 )
             )
@@ -457,16 +434,15 @@ class UnTagImageSerializer(TagOperationSerializer):
         The method checks if the tag exists within the latest repository version.
         """
         new_data = super().validate(data)
+        latest_version = self.context["repository"].latest_version()
 
         try:
-            models.Tag.objects.get(
-                pk__in=new_data["latest_version"].content.all(), name=new_data["tag"]
-            )
+            models.Tag.objects.get(pk__in=latest_version.content.all(), name=new_data["tag"])
         except models.Tag.DoesNotExist:
             raise serializers.ValidationError(
                 _(
                     "The tag '{}' does not exist in the latest repository version '{}'".format(
-                        new_data["tag"], new_data["latest_version"]
+                        new_data["tag"], latest_version
                     )
                 )
             )
@@ -474,7 +450,7 @@ class UnTagImageSerializer(TagOperationSerializer):
         return new_data
 
 
-class RecursiveManageSerializer(serializers.Serializer):
+class RecursiveManageSerializer(ValidateFieldsMixin, serializers.Serializer):
     """
     Serializer for adding and removing content to/from a Container repository.
     """
@@ -487,6 +463,8 @@ class RecursiveManageSerializer(serializers.Serializer):
         """
         Validate data passed through a request call.
         """
+        data = super().validate(data)
+
         content_units = data.get("content_units", None)
         if content_units:
             if "*" in content_units and len(content_units) > 1:
@@ -496,7 +474,7 @@ class RecursiveManageSerializer(serializers.Serializer):
         return data
 
 
-class CopySerializer(serializers.Serializer):
+class CopySerializer(ValidateFieldsMixin, serializers.Serializer):
     """
     Serializer for copying units from a source repository to a destination repository.
     """
@@ -519,8 +497,7 @@ class CopySerializer(serializers.Serializer):
 
     def validate(self, data):
         """Ensure that source_repository or source_rpository_version is pass, but not both."""
-        if hasattr(self, "initial_data"):
-            validate_unknown_fields(self.initial_data, self.fields)
+        data = super().validate(data)
 
         repository = data.pop("source_repository", None)
         repository_version = data.get("source_repository_version")
@@ -573,7 +550,7 @@ class ManifestCopySerializer(CopySerializer):
     )
 
 
-class RemoveImageSerializer(serializers.Serializer):
+class RemoveImageSerializer(ValidateFieldsMixin, serializers.Serializer):
     """
     A serializer for parsing and validating data associated with the image removal.
     """
@@ -585,31 +562,19 @@ class RemoveImageSerializer(serializers.Serializer):
         Validate and extract the latest repository version, manifest, signatures and tags
         from the passed data.
         """
-        new_data = {}
-        new_data.update(self.initial_data)
-
-        latest_version = new_data["repository"].latest_version()
-        if not latest_version:
-            raise serializers.ValidationError(
-                _(
-                    "The latest repository version of '{}' was not found".format(
-                        new_data["repository"]
-                    )
-                )
-            )
-
-        new_data["latest_version"] = latest_version
+        new_data = super().validate(data)
+        latest_version = self.context["repository"].latest_version()
 
         try:
             manifest = models.Manifest.objects.get(
-                pk__in=new_data["latest_version"].content.all(), digest=new_data["digest"]
+                pk__in=latest_version.content.all(), digest=new_data["digest"]
             )
         except models.Manifest.DoesNotExist:
             raise serializers.ValidationError(
                 _(
                     "A manifest with the digest '{}' does not "
                     "exist in the latest repository version '{}'".format(
-                        new_data["digest"], new_data["latest_version"]
+                        new_data["digest"], latest_version
                     )
                 )
             )
@@ -617,18 +582,18 @@ class RemoveImageSerializer(serializers.Serializer):
         new_data["manifest"] = manifest
 
         tags_pks = models.Tag.objects.filter(
-            pk__in=new_data["latest_version"].content.all(), tagged_manifest=new_data["manifest"]
+            pk__in=latest_version.content.all(), tagged_manifest=new_data["manifest"]
         ).values_list("pk", flat=True)
         new_data["tags_pks"] = tags_pks
         sigs_pks = models.ManifestSignature.objects.filter(
-            pk__in=new_data["latest_version"].content.all(), signed_manifest=new_data["manifest"]
+            pk__in=latest_version.content.all(), signed_manifest=new_data["manifest"]
         ).values_list("pk", flat=True)
         new_data["sigs_pks"] = sigs_pks
 
         return new_data
 
 
-class RemoveSignaturesSerializer(serializers.Serializer):
+class RemoveSignaturesSerializer(ValidateFieldsMixin, serializers.Serializer):
     """
     A serializer for parsing and validating data associated with the signatures removal.
     """
@@ -641,30 +606,18 @@ class RemoveSignaturesSerializer(serializers.Serializer):
         """
         Validate and extract the latest repository version, signatures from the passed data.
         """
-        new_data = {}
-        new_data.update(self.initial_data)
+        new_data = super().validate(data)
+        latest_version = self.context["repository"].latest_version()
 
-        latest_version = new_data["repository"].latest_version()
-        if not latest_version:
-            raise serializers.ValidationError(
-                _(
-                    "The latest repository version of '{}' was not found".format(
-                        new_data["repository"]
-                    )
-                )
-            )
-
-        new_data["latest_version"] = latest_version
         sigs_pks = models.ManifestSignature.objects.filter(
-            pk__in=new_data["latest_version"].content.all(),
-            key_id=new_data["signed_with_key_id"],
+            pk__in=latest_version.content.all(), key_id=new_data["signed_with_key_id"]
         ).values_list("pk", flat=True)
         if not sigs_pks:
             raise serializers.ValidationError(
                 _(
                     "There are no signatures in the latest repository version '{}' "
                     "produced with the specified key_id '{}'".format(
-                        new_data["latest_version"], new_data["signed_with_key_id"]
+                        latest_version, new_data["signed_with_key_id"]
                     )
                 )
             )
@@ -674,7 +627,7 @@ class RemoveSignaturesSerializer(serializers.Serializer):
         return new_data
 
 
-class OCIBuildImageSerializer(serializers.Serializer):
+class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
     """
     Serializer for building an OCI container image from a Containerfile.
 
@@ -772,7 +725,7 @@ class ContainerRepositorySyncURLSerializer(RepositorySyncURLSerializer):
     )
 
 
-class RepositorySignSerializer(serializers.Serializer):
+class RepositorySignSerializer(ValidateFieldsMixin, serializers.Serializer):
     """
     Serializer for container images signing.
     """
