@@ -420,7 +420,6 @@ class TagOperationsMixin:
         description="Trigger an asynchronous task to tag an image in the repository",
         summary="Create a Tag",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.TagImageSerializer,
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.TagImageSerializer)
     def tag(self, request, pk):
@@ -451,7 +450,6 @@ class TagOperationsMixin:
         description="Trigger an asynchronous task to untag an image in the repository",
         summary="Delete a tag",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.UnTagImageSerializer,
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.UnTagImageSerializer)
     def untag(self, request, pk):
@@ -643,7 +641,6 @@ class ContainerRepositoryViewSet(
         description="Trigger an asynchronous task to sync content.",
         summary="Sync from a remote",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.ContainerRepositorySyncURLSerializer,
     )
     @action(
         detail=True,
@@ -682,7 +679,6 @@ class ContainerRepositoryViewSet(
         description="Trigger an asynchronous task to recursively add container content.",
         summary="Add content",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.RecursiveManageSerializer,
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.RecursiveManageSerializer)
     def add(self, request, pk):
@@ -730,7 +726,6 @@ class ContainerRepositoryViewSet(
         description="Trigger an async task to recursively remove container content.",
         summary="Remove content",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.RecursiveManageSerializer,
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.RecursiveManageSerializer)
     def remove(self, request, pk):
@@ -762,7 +757,6 @@ class ContainerRepositoryViewSet(
         description="Trigger an asynchronous task to copy tags",
         summary="Copy tags",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.TagCopySerializer,
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.TagCopySerializer)
     def copy_tags(self, request, pk):
@@ -796,7 +790,6 @@ class ContainerRepositoryViewSet(
         description="Trigger an asynchronous task to copy manifests",
         summary="Copy manifests",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.ManifestCopySerializer,
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.ManifestCopySerializer)
     def copy_manifests(self, request, pk):
@@ -837,9 +830,8 @@ class ContainerRepositoryViewSet(
         "Backwards compatibility when upgrading is not guaranteed.",
         summary="Build an Image",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.OCIBuildImageSerializer,
     )
-    @action(detail=True, methods=["post"], serializer_class=serializers.TagImageSerializer)
+    @action(detail=True, methods=["post"], serializer_class=serializers.OCIBuildImageSerializer)
     def build_image(self, request, pk):
         """
         Create a task which is responsible for creating a new image and tag.
@@ -985,7 +977,6 @@ class ContainerPushRepositoryViewSet(
         ),
         summary="Delete an image from a repository",
         responses={202: AsyncOperationResponseSerializer},
-        request=serializers.RemoveImageSerializer,
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.RemoveImageSerializer)
     def remove_image(self, request, pk):
