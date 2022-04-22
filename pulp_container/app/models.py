@@ -15,7 +15,6 @@ from django.shortcuts import redirect
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
     AutoAddObjPermsMixin,
-    AutoDeleteObjPermsMixin,
     BaseModel,
     Content,
     Remote,
@@ -263,7 +262,7 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
         ]
 
 
-class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
+class ContainerRemote(Remote, AutoAddObjPermsMixin):
     """
     A Remote for ContainerContent.
 
@@ -473,7 +472,6 @@ class ManifestSigningService(SigningService):
 class ContainerRepository(
     Repository,
     AutoAddObjPermsMixin,
-    AutoDeleteObjPermsMixin,
 ):
     """
     Repository for "container" content.
@@ -519,7 +517,7 @@ class ContainerRepository(
         validate_repo_version(new_version)
 
 
-class ContainerPushRepository(Repository, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
+class ContainerPushRepository(Repository, AutoAddObjPermsMixin):
     """
     Repository for "container" content.
 
