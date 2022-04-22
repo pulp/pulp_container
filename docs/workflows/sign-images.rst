@@ -35,7 +35,7 @@ The example below demonstrates how a manifest signing service can be created usi
         # Check the exit status
         STATUS=$?
         if [ $STATUS -eq 0 ]; then
-          echo {\"signature_path\": \"$SIG_PATH\"
+          echo {\"signature_path\": \"$SIG_PATH\"}
         else
           exit $STATUS
         fi
