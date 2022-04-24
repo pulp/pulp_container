@@ -84,6 +84,7 @@ jobs:
           - TEST: docs
           - TEST: azure
           - TEST: s3
+          - TEST: stream
           - TEST: generate-bindings
 
     steps:
@@ -137,6 +138,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Install
         run: |
@@ -151,6 +153,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
         shell: bash
 
       - name: Before Script
@@ -166,6 +169,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
           REDIS_DISABLED: ${{ contains('', matrix.env.TEST) }}
 
       - name: Setting secrets
@@ -201,6 +205,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Upload python client packages
         if: ${{ env.TEST == 'bindings' || env.TEST == 'generate-bindings' }}

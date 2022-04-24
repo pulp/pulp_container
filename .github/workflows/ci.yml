@@ -57,6 +57,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
         run: sh .github/workflows/scripts/check_commit.sh
 
       # run black separately from flake8 to get a diff
@@ -94,8 +95,10 @@ jobs:
           - TEST: docs
           - TEST: azure
           - TEST: s3
+          - TEST: stream
     outputs:
       deprecations-pulp: ${{ steps.deprecations.outputs.deprecations-pulp }}
+      deprecations-stream: ${{ steps.deprecations.outputs.deprecations-stream }}
       deprecations-azure: ${{ steps.deprecations.outputs.deprecations-azure }}
       deprecations-s3: ${{ steps.deprecations.outputs.deprecations-s3 }}
 
@@ -134,6 +137,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Install
         
@@ -148,6 +152,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Install Python client
         
@@ -172,6 +177,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
           REDIS_DISABLED: ${{ contains('', matrix.env.TEST) }}
 
       - name: Setting secrets
@@ -193,6 +199,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Extract Deprecations from Logs
         id: deprecations
@@ -267,6 +274,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Install
         
@@ -281,6 +289,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Install Python client
         
@@ -300,6 +309,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
           REDIS_DISABLED: ${{ contains('', matrix.env.TEST) }}
 
       - name: Setting secrets
@@ -321,6 +331,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Extract Deprecations from Logs
         id: deprecations
@@ -345,6 +356,7 @@ jobs:
       - name: Fail on deprecations
         run: |
           test -z "${{ needs.test.outputs.deprecations-pulp }}"
+          test -z "${{ needs.test.outputs.deprecations-stream }}"
           test -z "${{ needs.test.outputs.deprecations-azure }}"
           test -z "${{ needs.test.outputs.deprecations-s3 }}"
           test -z "${{ needs.test.outputs.deprecations-upgrade }}"
@@ -352,6 +364,7 @@ jobs:
         if: failure()
         run: |
           echo "${{ needs.test.outputs.deprecations-pulp }}" | base64 -d
+          echo "${{ needs.test.outputs.deprecations-stream }}" | base64 -d
           echo "${{ needs.test.outputs.deprecations-azure }}" | base64 -d
           echo "${{ needs.test.outputs.deprecations-s3 }}" | base64 -d
           echo "${{ needs.test.outputs.deprecations-upgrade }}" | base64 -d

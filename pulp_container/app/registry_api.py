@@ -745,7 +745,10 @@ class RedirectsMixin:
         """
         super().__init__(*args, **kwargs)
 
-        if settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem":
+        if (
+            settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem"
+            or not settings.REDIRECT_TO_OBJECT_STORAGE
+        ):
             self.redirects_class = FileStorageRedirects
         elif settings.DEFAULT_FILE_STORAGE == "storages.backends.s3boto3.S3Boto3Storage":
             self.redirects_class = S3StorageRedirects
