@@ -26,6 +26,7 @@ jobs:
           - TEST: docs
           - TEST: azure
           - TEST: s3
+          - TEST: stream
           - TEST: generate-bindings
           - TEST: plugin-from-pypi
 
@@ -64,6 +65,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - uses: ruby/setup-ruby@v1
         if: ${{ env.TEST == 'bindings' || env.TEST == 'generate-bindings' }}
@@ -83,6 +85,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Before Script
         
@@ -97,6 +100,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
           REDIS_DISABLED: ${{ contains('', matrix.env.TEST) }}
 
       - name: Setting secrets
@@ -128,6 +132,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Upload python client packages
         if: ${{ env.TEST == 'bindings' || env.TEST == 'generate-bindings' }}
@@ -264,6 +269,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Install
         
@@ -278,6 +284,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
 
       - name: Install Python client
         
@@ -302,6 +309,7 @@ jobs:
           GITHUB_REPO_SLUG: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
+          PULP_LOGGING: docker
           REDIS_DISABLED: ${{ contains('', matrix.env.TEST) }}
 
       - name: Setting secrets
