@@ -438,7 +438,7 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin, AutoDeleteObjPermsMixin):
         as the namespace.
         """
         # Docker's registry aligns non-namespaced images to the library namespace.
-        container_registry = re.search(r"registry[-,\w]*.docker.io", self.url, re.IGNORECASE)
+        container_registry = re.search(r"registry[-,\w]*\.docker\.io", self.url, re.IGNORECASE)
         if "/" not in self.upstream_name and container_registry:
             return "library/{name}".format(name=self.upstream_name)
         else:
