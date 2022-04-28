@@ -1,39 +1,10 @@
 """Tests that verify that an image signature can be pushed to Pulp."""
-import gnupg
 import base64
 import json
-import requests
 import pytest
-import tempfile
 
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.constants import SIGNATURE_TYPE
-
-KEY = "https://raw.githubusercontent.com/pulp/pulp-fixtures/master/common/GPG-PRIVATE-KEY-pulp-qe"
-
-
-@pytest.fixture(scope="session")
-def tempdir():
-    """A temporary directory."""
-    with tempfile.TemporaryDirectory() as directory:
-        yield directory
-
-
-@pytest.fixture(scope="session")
-def gpg_metadata(tempdir):
-    """A fixture for a GPG instance and related metadata."""
-    private_key = requests.get(KEY).text
-
-    gpg = gnupg.GPG(gnupghome=tempdir)
-
-    gpg.import_keys(private_key)
-
-    fingerprint = gpg.list_keys()[0]["fingerprint"]
-    keyid = gpg.list_keys()[0]["keyid"]
-
-    gpg.trust_keys(fingerprint, "TRUST_ULTIMATE")
-
-    return gpg, fingerprint, keyid
 
 
 @pytest.fixture
@@ -41,17 +12,17 @@ def distribution(
     registry_client,
     local_registry,
     container_distribution_api,
-    gpg_metadata,
+    signing_gpg_metadata,
     add_to_cleanup,
 ):
     """Return a distribution created after pushing a signed content to the Pulp Registry."""
     if registry_client.name != "podman":
         pytest.skip("This test requires podman to sign pulled content", allow_module_level=True)
 
-    registry_client.pull(f"{REGISTRY_V2_REPO_PULP}:manifest_a")
-
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-    gpg, fingerprint, keyid = gpg_metadata
+    registry_client.pull(image_path)
+
+    gpg, fingerprint, keyid = signing_gpg_metadata
 
     with registry_client._client.machine.env(GNUPGHOME=gpg.gnupghome):
         local_registry.tag_and_push(image_path, "test-1:manifest_a", "--sign-by", keyid)
@@ -70,11 +41,11 @@ def test_assert_signed_image(
     container_push_repository_api,
     container_manifest_api,
     container_signature_api,
-    gpg_metadata,
+    signing_gpg_metadata,
     distribution,
 ):
     """Test whether an admin user can fetch a signature from the Pulp Registry."""
-    gpg, fingerprint, keyid = gpg_metadata
+    gpg, fingerprint, keyid = signing_gpg_metadata
 
     repository = container_push_repository_api.read(distribution.repository)
     manifest = container_manifest_api.list(

@@ -1,6 +1,5 @@
 from gettext import gettext as _
 
-import gnupg
 import json
 import os
 import re
@@ -26,6 +25,7 @@ from pulpcore.plugin.models import (
     Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
+from pulpcore.plugin.util import verify_signature
 
 
 from . import downloaders
@@ -452,19 +452,7 @@ class ManifestSigningService(SigningService):
                 manifest_file.name, env_vars={"REFERENCE": "test", "SIG_PATH": sig_path}
             )
 
-            with open(signed["signature_path"], "rb") as fp:
-                gpg = gnupg.GPG()
-                verified = gpg.verify_file(fp)
-                if verified.trust_level is None or verified.trust_level < verified.TRUST_FULLY:
-                    raise RuntimeError(
-                        "The signature could not be verified or the trust level is too "
-                        "low. The signing script may generate invalid signatures."
-                    )
-                elif verified.pubkey_fingerprint != self.pubkey_fingerprint:
-                    raise RuntimeError(
-                        "Fingerprints of the provided public key and the verified public "
-                        "key are not equal. The signing script is probably not valid."
-                    )
+            verify_signature(signed["signature_path"], self.public_key)
 
 
 class ContainerRepository(
