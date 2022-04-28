@@ -1,9 +1,13 @@
+import os
+import stat
 import pytest
+import requests
 
 from urllib.parse import urljoin, urlparse
 
-import requests
+from pulp_smash.utils import execute_pulpcore_python, uuid4
 from pulp_smash.cli import RegistryClient
+
 from pulpcore.client.pulp_container import (
     ApiClient,
     PulpContainerNamespacesApi,
@@ -143,6 +147,78 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
             return registry_client.inspect(local_image_path)
 
     return _LocalRegistry()
+
+
+@pytest.fixture(scope="session")
+def signing_script_filename(signing_gpg_homedir_path):
+    """A fixture for a script that is suited for signing manifests."""
+    raw_script = (
+        "#!/usr/bin/env bash",
+        "",
+        "# use the side channel to set the GNUPGHOME variable",
+        f'export GNUPGHOME="{signing_gpg_homedir_path}"',
+        "",
+        "MANIFEST_PATH=$1",
+        'FINGEPRINT="$PULP_SIGNING_KEY_FINGERPRINT"',
+        "",
+        "skopeo standalone-sign $MANIFEST_PATH $REFERENCE $FINGEPRINT -o $SIG_PATH",
+        "",
+        "STATUS=$?",
+        "if [ $STATUS -eq 0 ]; then",
+        '   echo {\\"signature_path\\": \\"$SIG_PATH\\"}',
+        "else",
+        "   exit $STATUS",
+        "fi",
+        "",
+    )
+
+    with open(os.path.join(signing_gpg_homedir_path, "bash-script.sh"), "w") as f:
+        f.write("\n".join(raw_script))
+
+    return f.name
+
+
+@pytest.fixture
+def container_signing_service(
+    cli_client,
+    signing_gpg_metadata,
+    signing_script_filename,
+    signing_service_api_client,
+):
+    """A fixture for a signing service."""
+    st = os.stat(signing_script_filename)
+    os.chmod(signing_script_filename, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    gpg, fingerprint, keyid = signing_gpg_metadata
+
+    service_name = uuid4()
+    cmd = (
+        "pulpcore-manager",
+        "add-signing-service",
+        service_name,
+        signing_script_filename,
+        keyid,
+        "--class",
+        "container:ManifestSigningService",
+        "--gnupghome",
+        gpg.gnupghome,
+    )
+
+    response = cli_client.run(cmd)
+
+    assert response.returncode == 0
+
+    signing_service = signing_service_api_client.list(name=service_name).results[0]
+    assert signing_service.pubkey_fingerprint == fingerprint
+    assert signing_service.public_key == gpg.export_keys(keyid)
+
+    yield signing_service
+
+    cmd = (
+        "from pulpcore.app.models import SigningService;"
+        f"SigningService.objects.filter(name='{service_name}').delete()"
+    )
+    execute_pulpcore_python(cli_client, cmd)
 
 
 @pytest.fixture(scope="session")
