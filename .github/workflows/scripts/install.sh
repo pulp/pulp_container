@@ -15,18 +15,12 @@ set -euv
 
 source .github/workflows/scripts/utils.sh
 
-if [ "${GITHUB_REF##refs/tags/}" = "${GITHUB_REF}" ]
-then
-  TAG_BUILD=0
-else
-  TAG_BUILD=1
-fi
-
 if [[ "$TEST" = "docs" || "$TEST" = "publish" ]]; then
   pip install -r ../pulpcore/doc_requirements.txt
   pip install -r doc_requirements.txt
 fi
 
+pip install -e ../pulpcore
 pip install -r functest_requirements.txt
 
 cd .ci/ansible/
@@ -34,10 +28,12 @@ cd .ci/ansible/
 TAG=ci_build
 if [[ "$TEST" == "plugin-from-pypi" ]]; then
   PLUGIN_NAME=pulp_container
+elif [[ "${RELEASE_WORKFLOW:-false}" == "true" ]]; then
+  PLUGIN_NAME=./pulp_container/dist/pulp_container-$PLUGIN_VERSION-py3-none-any.whl
 else
   PLUGIN_NAME=./pulp_container
 fi
-if [ "${TAG_BUILD}" = "1" ]; then
+if [[ "${RELEASE_WORKFLOW:-false}" == "true" ]]; then
   # Install the plugin only and use published PyPI packages for the rest
   # Quoting ${TAG} ensures Ansible casts the tag as a string.
   cat >> vars/main.yaml << VARSYAML
@@ -49,11 +45,6 @@ plugins:
     source: pulpcore>=3.7,<3.9
   - name: pulp_container
     source:  "${PLUGIN_NAME}"
-services:
-  - name: pulp
-    image: "pulp:${TAG}"
-    volumes:
-      - ./settings:/etc/pulp
 VARSYAML
 else
   cat >> vars/main.yaml << VARSYAML
@@ -65,17 +56,29 @@ plugins:
     source: "${PLUGIN_NAME}"
   - name: pulpcore
     source: ./pulpcore
+VARSYAML
+fi
+
+cat >> vars/main.yaml << VARSYAML
 services:
   - name: pulp
     image: "pulp:${TAG}"
     volumes:
       - ./settings:/etc/pulp
+      - ./ssh:/keys/
 VARSYAML
-fi
 
 cat >> vars/main.yaml << VARSYAML
 pulp_settings: {}
+pulp_scheme: http
+
+pulp_container_tag: python36
+
 VARSYAML
+
+if [ "$TEST" = "upgrade" ]; then
+  sed -i "/^pulp_container_tag:.*/s//pulp_container_tag: upgrade/" vars/main.yaml
+fi
 
 if [ "$TEST" = "s3" ]; then
   export MINIO_ACCESS_KEY=AKIAIT2Z5TDYPX3ARJBA
@@ -92,8 +95,17 @@ minio_access_key: "'$MINIO_ACCESS_KEY'"\
 minio_secret_key: "'$MINIO_SECRET_KEY'"' vars/main.yaml
 fi
 
+if [ "${PULP_API_ROOT:-}" ]; then
+  sed -i -e '$a api_root: "'"$PULP_API_ROOT"'"' vars/main.yaml
+fi
+
 ansible-playbook build_container.yaml
 ansible-playbook start_container.yaml
+
+if [[ "$TEST" = "azure" ]]; then
+  AZURE_STORAGE_CONNECTION_STRING='DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://ci-azurite:10000/devstoreaccount1;'
+  az storage container create --name pulp-test --connection-string $AZURE_STORAGE_CONNECTION_STRING
+fi
 
 echo ::group::PIP_LIST
 cmd_prefix bash -c "pip3 list && pip3 install pipdeptree && pipdeptree"
