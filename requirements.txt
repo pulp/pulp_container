@@ -3,4 +3,3 @@ ecdsa~=0.13.2
 pyjwkest~=1.4.0
 pyjwt[crypto]~=1.7.1
 url-normalize~=1.4.2
-Django>=2.2.16,<2.2.21
