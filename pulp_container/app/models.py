@@ -358,13 +358,10 @@ class ContainerDistribution(RepositoryVersionDistribution):
         default_related_name = "%(app_label)s_%(model_name)s"
 
 
-INCOMPLETE_EXT = ".part"
-
-
 def generate_filename(instance, filename):
     """Method for generating upload file name"""
-    filename = os.path.join(instance.upload_dir, str(instance.pk) + INCOMPLETE_EXT)
-    return time.strftime(filename)
+    filename = os.path.join(instance.upload_dir, str(instance.pulp_id))
+    return time.strftime(os.path.basename(filename))
 
 
 class Upload(BaseModel):

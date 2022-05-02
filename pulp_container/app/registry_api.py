@@ -447,7 +447,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         if upload.sha256 == digest[len("sha256:") :]:
             try:
                 artifact = Artifact(
-                    file=upload.file.name,
+                    file=upload.file.path,
                     md5=upload.md5,
                     sha1=upload.sha1,
                     sha256=upload.sha256,
