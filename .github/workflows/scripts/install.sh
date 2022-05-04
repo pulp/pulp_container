@@ -42,7 +42,7 @@ image:
   tag: "${TAG}"
 plugins:
   - name: pulpcore
-    source: pulpcore
+    source: pulpcore>=3.19.0,<3.20
   - name: pulp_container
     source:  "${PLUGIN_NAME}"
 VARSYAML
