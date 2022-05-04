@@ -10,6 +10,7 @@ from multidict import MultiDict
 
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
+from pulpcore.plugin.content import ArtifactResponse
 
 from pulp_container.app.cache import RegistryContentCache
 from pulp_container.app.models import ContainerDistribution, Tag, Blob
@@ -46,14 +47,14 @@ class Registry(Handler):
         return [path]
 
     @staticmethod
-    async def _dispatch(file, headers):
+    async def _dispatch(artifact, headers):
         """
         Stream a file back to the client.
 
         Stream the bits.
 
         Args:
-            file (:class:`django.db.models.fields.files.FieldFile`): File to respond with
+            artifact (:class:`pulpcore.app.models.Artifact`): Artifact to respond with
             headers (dict): A dictionary of response headers.
 
         Raises:
@@ -61,20 +62,25 @@ class Registry(Handler):
             NotImplementedError: If file is stored in a file storage we can't handle
 
         Returns:
-            The :class:`aiohttp.web.FileResponse` for the file.
+            The :class:`aiohttp.web.StreamedResponse` for the Artifact.
 
         """
-        path = os.path.join(settings.MEDIA_ROOT, file.name)
-        if not os.path.exists(path):
-            raise Exception("Expected path '{}' is not found".format(path))
-
         full_headers = MultiDict()
 
         full_headers["Content-Type"] = headers["Content-Type"]
         full_headers["Docker-Content-Digest"] = headers["Docker-Content-Digest"]
         full_headers["Docker-Distribution-API-Version"] = "registry/2.0"
-        file_response = web.FileResponse(path, headers=full_headers)
-        return file_response
+
+        if settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem":
+            file = artifact.file
+            path = os.path.join(settings.MEDIA_ROOT, file.name)
+            if not os.path.exists(path):
+                raise Exception("Expected path '{}' is not found".format(path))
+            return web.FileResponse(path, headers=full_headers)
+        elif not settings.REDIRECT_TO_OBJECT_STORAGE:
+            return ArtifactResponse(artifact=artifact, headers=headers)
+        else:
+            raise NotImplementedError("Redirecting to this storage is not implemented.")
 
     @RegistryContentCache(
         base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
@@ -169,7 +175,7 @@ class Registry(Handler):
             ca = await sync_to_async(lambda x: x[0])(tag.tagged_manifest.contentartifact_set.all())
             return await self._stream_content_artifact(request, web.StreamResponse(), ca)
         else:
-            return await Registry._dispatch(artifact.file, response_headers)
+            return await Registry._dispatch(artifact, response_headers)
 
     @staticmethod
     async def dispatch_converted_schema(tag, accepted_media_types, path):
@@ -244,7 +250,7 @@ class Registry(Handler):
         else:
             artifact = ca.artifact
             if artifact:
-                return await Registry._dispatch(artifact.file, headers)
+                return await Registry._dispatch(artifact, headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
 
