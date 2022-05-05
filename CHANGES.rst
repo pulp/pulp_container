@@ -13,6 +13,59 @@ Changelog
 
 .. towncrier release notes start
 
+2.12.0 (2022-05-05)
+===================
+
+
+Features
+--------
+
+- Added more robust validation for unknown fields passed via REST API requests.
+  `#475 <https://github.com/pulp/pulp_container/issues/475>`__
+- Added validation for signatures' payloads.
+  `#512 <https://github.com/pulp/pulp_container/issues/512>`__
+- Log messages are now not being translated.
+  `#690 <https://github.com/pulp/pulp_container/issues/690>`__
+
+
+Bugfixes
+--------
+
+- Fixed url of the registry root endpoint during signature source check.
+  `#646 <https://github.com/pulp/pulp_container/issues/646>`__
+- Fixed sync of signed content failing with the error `DeclarativeContent' object has no attribute 'd_content'`.
+  `#654 <https://github.com/pulp/pulp_container/issues/654>`__
+- Fixed group related creation hooks that failed if no current user could be identified.
+  `#673 <https://github.com/pulp/pulp_container/issues/673>`__
+- Fixed other instances of fd leak.
+  `#679 <https://github.com/pulp/pulp_container/issues/679>`__
+- Removed Namespace validation.
+  Namespaces are managed transparently on behalf of the user.
+  `#688 <https://github.com/pulp/pulp_container/issues/688>`__
+- Fixed some tasks that were using /tmp/ instead of the worker working directory.
+  `#696 <https://github.com/pulp/pulp_container/issues/696>`__
+- Fixed the reference to a serializer for building images.
+  `#718 <https://github.com/pulp/pulp_container/issues/718>`__
+- Fixed the regular expression for matching dockerhub URLs.
+  `#736 <https://github.com/pulp/pulp_container/issues/736>`__
+
+
+Improved Documentation
+----------------------
+
+- Added docs for client signature verification policy.
+  `#530 <https://github.com/pulp/pulp_container/issues/530>`__
+
+
+Misc
+----
+
+- `#486 <https://github.com/pulp/pulp_container/issues/486>`__, `#495 <https://github.com/pulp/pulp_container/issues/495>`__, `#606 <https://github.com/pulp/pulp_container/issues/606>`__, `#640 <https://github.com/pulp/pulp_container/issues/640>`__, `#665 <https://github.com/pulp/pulp_container/issues/665>`__
+
+
+----
+
+
 2.11.0 (2022-03-16)
 ===================
 
