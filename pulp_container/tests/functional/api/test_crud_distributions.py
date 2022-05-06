@@ -255,12 +255,27 @@ class DistributionBasePathTestCase(unittest.TestCase):
         self.addCleanup(self.namespace_api.delete, self.distribution.namespace)
         self._try_create_distribution(base_path=self.distribution.base_path)
 
+    def test_valid_base_paths(self):
+        """Test the validation for base paths."""
+        distributions_data = [
+            ContainerContainerDistribution(**gen_distribution(base_path="0000001/000/000")),
+            ContainerContainerDistribution(**gen_distribution(base_path="0000002/a_a/000")),
+            ContainerContainerDistribution(**gen_distribution(base_path="0000003/a_a/0-0")),
+            ContainerContainerDistribution(**gen_distribution(base_path="0000004/a__a/000")),
+            ContainerContainerDistribution(**gen_distribution(base_path="0000005/a__a/a.a")),
+        ]
+        for data in distributions_data:
+            task = monitor_task(self.distribution_api.create(data).task)
+            distribution = self.distribution_api.read(task.created_resources[0])
+            self.addCleanup(self.namespace_api.delete, distribution.namespace)
+
     def test_invalid_base_paths(self):
         """Test the validation for base paths."""
         self._try_create_distribution(base_path="i/am/an/very:bad:repo/name.py")
         self._try_create_distribution(base_path="invalid_")
         self._try_create_distribution(base_path="_invalid")
         self._try_create_distribution(base_path="another/invalid..reponame")
+        self._try_create_distribution(base_path="also/invalid___reponame")
 
     def _try_create_distribution(self, **kwargs):
         """Unsuccessfully create a distribution.
