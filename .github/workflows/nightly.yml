@@ -28,7 +28,6 @@ jobs:
           - TEST: s3
           - TEST: stream
           - TEST: generate-bindings
-          - TEST: plugin-from-pypi
 
     steps:
       - uses: actions/checkout@v3
