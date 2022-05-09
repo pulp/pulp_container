@@ -40,8 +40,7 @@ class Blob(Content):
     The actual blob file is stored as an artifact.
 
     Fields:
-        digest (models.CharField): The blob digest.
-        media_type (models.CharField): The blob media type.
+        digest (models.TextField): The blob digest.
 
     Relations:
         manifest (models.ForeignKey): Many-to-one relationship with Manifest.
@@ -51,7 +50,7 @@ class Blob(Content):
 
     TYPE = "blob"
 
-    digest = models.CharField(max_length=255, db_index=True)
+    digest = models.TextField(db_index=True)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
@@ -65,9 +64,9 @@ class Manifest(Content):
     This content has one artifact.
 
     Fields:
-        digest (models.CharField): The manifest digest.
+        digest (models.TextField): The manifest digest.
         schema_version (models.IntegerField): The manifest schema version.
-        media_type (models.CharField): The manifest media type.
+        media_type (models.TextField): The manifest media type.
 
     Relations:
         blobs (models.ManyToManyField): Many-to-many relationship with Blob.
@@ -87,9 +86,9 @@ class Manifest(Content):
         (MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.MANIFEST_OCI),
         (MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.INDEX_OCI),
     )
-    digest = models.CharField(max_length=255, db_index=True)
+    digest = models.TextField(db_index=True)
     schema_version = models.IntegerField()
-    media_type = models.CharField(max_length=60, choices=MANIFEST_CHOICES)
+    media_type = models.TextField(choices=MANIFEST_CHOICES)
 
     blobs = models.ManyToManyField(Blob, through="BlobManifest")
     config_blob = models.ForeignKey(
@@ -126,24 +125,24 @@ class ManifestListManifest(models.Model):
     The manifest referenced by a manifest list.
 
     Fields:
-        architecture (models.CharField): The platform architecture.
-        variant (models.CharField): The platform variant.
+        architecture (models.TextField): The platform architecture.
+        variant (models.TextField): The platform variant.
         features (models.TextField): The platform features.
-        os (models.CharField): The platform OS name.
-        os_version (models.CharField): The platform OS version.
+        os (models.TextField): The platform OS name.
+        os_version (models.TextField): The platform OS version.
         os_features (models.TextField): The platform OS features.
 
     Relations:
-        manifest (models.ForeignKey): Many-to-one relationship with Manifest.
+        image_manifest (models.ForeignKey): Many-to-one relationship with Manifest.
         manifest_list (models.ForeignKey): Many-to-one relationship with ManifestList.
     """
 
-    architecture = models.CharField(max_length=255)
-    os = models.CharField(max_length=255)
-    os_version = models.CharField(max_length=255, default="", blank=True)
+    architecture = models.TextField()
+    os = models.TextField()
+    os_version = models.TextField(default="", blank=True)
     os_features = models.TextField(default="", blank=True)
     features = models.TextField(default="", blank=True)
-    variant = models.CharField(max_length=255, default="", blank=True)
+    variant = models.TextField(default="", blank=True)
 
     image_manifest = models.ForeignKey(
         Manifest, related_name="image_manifests", on_delete=models.CASCADE
@@ -161,7 +160,7 @@ class Tag(Content):
     A tagged Manifest.
 
     Fields:
-        name (models.CharField): The tag name.
+        name (models.TextField): The tag name.
 
     Relations:
         tagged_manifest (models.ForeignKey): A referenced Manifest.
@@ -171,7 +170,7 @@ class Tag(Content):
     TYPE = "tag"
     repo_key_fields = ("name",)
 
-    name = models.CharField(max_length=255, db_index=True)
+    name = models.TextField(db_index=True)
 
     tagged_manifest = models.ForeignKey(
         Manifest, null=False, related_name="tagged_manifests", on_delete=models.CASCADE
@@ -187,13 +186,13 @@ class ManifestSignature(Content):
     A signature for a manifest.
 
     Fields:
-        name (models.CharField): A signature name in the 'manifest_digest@random_name' format.
-        digest (models.CharField): A signature sha256 digest prepended with its algorithm `sha256:`.
-        type (models.CharField): A signature type as specified in signature metadata. Currently
+        name (models.TextField): A signature name in the 'manifest_digest@random_name' format.
+        digest (models.TextField): A signature sha256 digest prepended with its algorithm `sha256:`.
+        type (models.TextField): A signature type as specified in signature metadata. Currently
                                  it's only "atomic container signature".
-        key_id (models.CharField): A key id identified by gpg (last 8 bytes of the fingerprint).
+        key_id (models.TextField): A key id identified by gpg (last 8 bytes of the fingerprint).
         timestamp (models.PositiveIntegerField): A signature timestamp identified by gpg.
-        creator (models.CharField): A signature creator.
+        creator (models.TextField): A signature creator.
         data (models.TextField): A signature, base64 encoded.
 
     Relations:
@@ -205,12 +204,12 @@ class ManifestSignature(Content):
 
     SIGNATURE_CHOICES = ((SIGNATURE_TYPE.ATOMIC_SHORT, SIGNATURE_TYPE.ATOMIC_SHORT),)
 
-    name = models.CharField(max_length=255, db_index=True)
-    digest = models.CharField(max_length=255)
-    type = models.CharField(max_length=255, choices=SIGNATURE_CHOICES)
-    key_id = models.CharField(max_length=255, db_index=True)
+    name = models.TextField(db_index=True)
+    digest = models.TextField()
+    type = models.TextField(choices=SIGNATURE_CHOICES)
+    key_id = models.TextField(db_index=True)
     timestamp = models.PositiveIntegerField()
-    creator = models.CharField(max_length=255, blank=True)
+    creator = models.TextField(blank=True)
     data = models.TextField()
 
     signed_manifest = models.ForeignKey(
@@ -229,10 +228,10 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
     Namespace for the container registry.
 
     Fields:
-        name (models.CharField): The name of the namespace.
+        name (models.TextField): The name of the namespace.
     """
 
-    name = models.CharField(max_length=255, db_index=True)
+    name = models.TextField(db_index=True)
 
     class Meta:
         unique_together = (("name",),)
@@ -264,7 +263,7 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
     A Remote for ContainerContent.
 
     Fields:
-        upstream_name (models.CharField): The name of the image at the remote.
+        upstream_name (models.TextField): The name of the image at the remote.
         include_foreign_layers (models.BooleanField): Foreign layers in the remote
             are included. They are not included by default.
         include_tags (fields.ArrayField): List of tags to include during sync.
@@ -273,10 +272,10 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
             should be synced from.
     """
 
-    upstream_name = models.CharField(max_length=255, db_index=True)
+    upstream_name = models.TextField(db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
-    include_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
-    exclude_tags = fields.ArrayField(models.CharField(max_length=255, null=True), null=True)
+    include_tags = fields.ArrayField(models.TextField(null=True), null=True)
+    exclude_tags = fields.ArrayField(models.TextField(null=True), null=True)
     sigstore = models.TextField(null=True)
 
     TYPE = "container"
