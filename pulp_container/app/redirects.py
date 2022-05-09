@@ -110,7 +110,7 @@ class S3StorageRedirects(CommonRedirects):
         filename = os.path.basename(artifact.file.name)
         parameters = {
             "ResponseContentType": return_media_type,
-            "ResponseContentDisposition": f"attachment;filename={filename}",
+            "ResponseContentDisposition": f"attachment%3Bfilename={filename}",
         }
         content_url = artifact.file.storage.url(
             artifact.file.name, parameters=parameters, http_method=self.request.method
@@ -130,7 +130,7 @@ class AzureStorageRedirects(S3StorageRedirects):
         filename = os.path.basename(artifact.file.name)
         parameters = {
             "content_type": return_media_type,
-            "content_disposition": f"attachment;filename={filename}",
+            "content_disposition": f"attachment%3Bfilename={filename}",
         }
         content_url = artifact.file.storage.url(artifact.file.name, parameters=parameters)
         return redirect(content_url)
