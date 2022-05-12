@@ -93,6 +93,7 @@ if [ -n "$PULP_SMASH_PR_NUMBER" ]; then
 fi
 
 pip install --upgrade --force-reinstall ./pulp-smash
+pip install --upgrade --force-reinstall click==7.*
 
 
 git clone --depth=1 https://github.com/pulp/pulp-openapi-generator.git
