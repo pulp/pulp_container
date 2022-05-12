@@ -83,17 +83,6 @@ fi
 cd ..
 
 
-git clone --depth=1 --branch=click https://github.com/pulp/pulp-smash.git
-
-if [ -n "$PULP_SMASH_PR_NUMBER" ]; then
-  cd pulp-smash
-  git fetch --depth=1 origin pull/$PULP_SMASH_PR_NUMBER/head:$PULP_SMASH_PR_NUMBER
-  git checkout $PULP_SMASH_PR_NUMBER
-  cd ..
-fi
-
-pip install --upgrade --force-reinstall ./pulp-smash
-pip install --upgrade --force-reinstall click==7.*
 
 
 git clone --depth=1 https://github.com/pulp/pulp-openapi-generator.git
@@ -117,6 +106,17 @@ fi
 cd ..
 
 
+git clone --depth=1 --branch=click https://github.com/pulp/pulp-smash.git
+
+if [ -n "$PULP_SMASH_PR_NUMBER" ]; then
+  cd pulp-smash
+  git fetch --depth=1 origin pull/$PULP_SMASH_PR_NUMBER/head:$PULP_SMASH_PR_NUMBER
+  git checkout $PULP_SMASH_PR_NUMBER
+  cd ..
+fi
+
+pip install --upgrade --force-reinstall ./pulp-smash
+pip install --upgrade --force-reinstall click==7.*
 
 
 # Intall requirements for ansible playbooks
