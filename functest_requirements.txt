@@ -1,2 +1,2 @@
-pulp-smash==1!0.13.0
+pulp-smash @ git+https://github.com/pulp/pulp-smash.git@click
 pytest
