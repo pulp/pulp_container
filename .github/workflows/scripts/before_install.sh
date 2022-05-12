@@ -83,7 +83,7 @@ fi
 cd ..
 
 
-git clone --depth=1 https://github.com/pulp/pulp-smash.git
+git clone --depth=1 --branch=click https://github.com/pulp/pulp-smash.git
 
 if [ -n "$PULP_SMASH_PR_NUMBER" ]; then
   cd pulp-smash

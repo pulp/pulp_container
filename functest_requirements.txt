@@ -1,2 +1,2 @@
-pulp-smash
+pulp-smash==1!0.13.0
 pytest
