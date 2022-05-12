@@ -13,6 +13,19 @@ Changelog
 
 .. towncrier release notes start
 
+2.1.3 (2022-05-12)
+==================
+
+
+Misc
+----
+
+- `#744 <https://pulp.plan.io/issues/744>`_
+
+
+----
+
+
 2.1.2 (2021-05-04)
 ==================
 
