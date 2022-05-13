@@ -13,6 +13,19 @@ Changelog
 
 .. towncrier release notes start
 
+2.12.1 (2022-05-12)
+===================
+
+
+Misc
+----
+
+- `#772 <https://github.com/pulp/pulp_container/issues/772>`__
+
+
+----
+
+
 2.12.0 (2022-05-05)
 ===================
 
@@ -882,6 +895,19 @@ Misc
 ----
 
 - `#7649 <https://pulp.plan.io/issues/7649>`_
+
+
+----
+
+
+2.1.3 (2022-05-12)
+==================
+
+
+Misc
+----
+
+- `#744 <https://github.com/pulp/pulp_container/issues/744>`_
 
 
 ----
