@@ -202,8 +202,6 @@ class ManifestSignature(Content):
 
     """
 
-    PROTECTED_FROM_RECLAIM = False
-
     TYPE = "signature"
 
     SIGNATURE_CHOICES = ((SIGNATURE_TYPE.ATOMIC_SHORT, SIGNATURE_TYPE.ATOMIC_SHORT),)
