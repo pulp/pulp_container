@@ -173,9 +173,8 @@ class Tag(Content):
 
     name = models.CharField(max_length=255, db_index=True)
 
-    # TODO This should be 'null=False'.
     tagged_manifest = models.ForeignKey(
-        Manifest, null=True, related_name="tagged_manifests", on_delete=models.CASCADE
+        Manifest, null=False, related_name="tagged_manifests", on_delete=models.CASCADE
     )
 
     class Meta:

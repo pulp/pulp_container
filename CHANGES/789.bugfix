@@ -1,0 +1,2 @@
+Enforced the reference to manifests from tags. Note that this bugfix introduces a migration that
+removes tags without any reference to the manifests.
