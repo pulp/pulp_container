@@ -861,8 +861,7 @@ class ContainerRepositoryViewSet(
         tag = serializer.validated_data["tag"]
 
         artifacts = serializer.validated_data["artifacts"]
-        for artifact in artifacts:
-            artifact.touch()
+        Artifact.objects.filter(pk__in=artifacts.keys()).touch()
 
         result = dispatch(
             tasks.build_image_from_containerfile,

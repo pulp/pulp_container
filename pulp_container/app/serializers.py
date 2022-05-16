@@ -496,27 +496,21 @@ class CopySerializer(ValidateFieldsMixin, serializers.Serializer):
     )
 
     def validate(self, data):
-        """Ensure that source_repository or source_rpository_version is pass, but not both."""
+        """Ensure that source_repository or source_repository_version is passed, but not both."""
         data = super().validate(data)
 
         repository = data.pop("source_repository", None)
         repository_version = data.get("source_repository_version")
         if not repository and not repository_version:
             raise serializers.ValidationError(
-                _("Either the 'repository' or 'repository_version' need to be specified")
+                _("Either the 'repository' or 'repository_version' needs to be specified")
             )
         elif not repository and repository_version:
             return data
         elif repository and not repository_version:
-            version = repository.latest_version()
-            if version:
-                new_data = {"source_repository_version": version}
-                new_data.update(data)
-                return new_data
-            else:
-                raise serializers.ValidationError(
-                    detail=_("Source repository has no version available to copy content from")
-                )
+            new_data = {"source_repository_version": repository.latest_version()}
+            new_data.update(data)
+            return new_data
         raise serializers.ValidationError(
             _(
                 "Either the 'repository' or 'repository_version' need to be specified "
@@ -640,10 +634,12 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
         lookup_field="pk",
         view_name="artifacts-detail",
         queryset=Artifact.objects.all(),
-        help_text=_("Artifact representing the Containerfile that should be used to run buildah."),
+        help_text=_(
+            "Artifact representing the Containerfile that should be used to run podman-build."
+        ),
     )
     containerfile = serializers.FileField(
-        help_text=_("An uploaded Containerfile that should be used to run buildah."),
+        help_text=_("An uploaded Containerfile that should be used to run podman-build."),
         required=False,
     )
     tag = serializers.CharField(
@@ -693,7 +689,7 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
                 try:
                     artifact = artifactfield.run_validation(data=url)
                     artifact.touch()
-                    artifacts[artifact.pk] = relative_path
+                    artifacts[str(artifact.pk)] = relative_path
                 except serializers.ValidationError as e:
                     # Append the URL of missing Artifact to the error message
                     e.detail[0] = "%s %s" % (e.detail[0], url)

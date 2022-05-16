@@ -69,16 +69,9 @@ Run Services
    sudo systemctl restart pulpcore-worker@1
    sudo systemctl restart pulpcore-worker@2
 
-Enable OCI Container Image building
------------------------------------
+OCI Container Image building
+----------------------------
 
-Pulp container plugin can be used to build an OCI format image from a Containerfile. The plugin uses
-`buildah <https://github.com/containers/buildah/>`_ to build the container image. Buildah 1.14+
-must be installed on the same machine that is running pulpcore-worker processes.
-
-The pulpcore-worker processes needs to have `/usr/bin/` in its `PATH`. The user that is running
-pulpcore-worker process needs to be able to manage subordinate user ids and group ids. The range of
-subordinate user ids is specified in `/etc/subuid` and the range of subordinate group ids is
-specified in `/etc/subgid`. More details can be found in `buildah documentation <https://github.com
-/containers/libpod/blob/master/docs/tutorials/rootless_tutorial.md#enable-user-namespaces-on-rhel7-
-machines>`_.
+The plugin can be used to build an OCI format image from a Containerfile. The plugin uses podman
+to build containers. Refer to `podman-build documentation <https://docs.podman.io/en/latest/markdown/podman-build.1.html>`_
+for more details.

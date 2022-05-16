@@ -137,6 +137,11 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
                 registry_client.rmi(local_image_path)
                 registry_client.logout(registry_name)
 
+        @staticmethod
+        def inspect(local_url):
+            local_image_path = "/".join([registry_name, local_url])
+            return registry_client.inspect(local_image_path)
+
     return _LocalRegistry()
 
 
