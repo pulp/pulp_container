@@ -4,7 +4,7 @@ Authentication
 ==============
 
 The Pulp Registry supports `token authentication <https://docs.docker.com/registry/spec/auth/token/>`_.
-The token authentication is enabled by default and does not come pre-configured out of the box. See
+The token authentication is enabled by default and **does not** come pre-configured out of the box. See
 the section :ref:`token-authentication-label` for more details.
 
 The token authentication can be disabled via the pulp settings by declaring ``TOKEN_AUTH_DISABLED=True``.

@@ -1,25 +1,16 @@
-Role Based Access Control
-=========================
+.. _permissions:
 
-Role based access control in Pulp Container is configured using Access Policies for the following
-``viewset_names``:
+Permissions
+===========
 
-* ``pulp_container/namespaces``
-* ``distributions/container/container``
-* ``repositories/container/container-push``
-* ``remotes/container/container``
-* ``repositories/container/container``
-* ``repositories/container/container-push/versions``
-* ``repositories/container/container/versions``
-* ``content/container/blobs``
-* ``content/container/manifests``
-* ``content/container/tags``
+A role is defined by one or more permissions. In this section, details of permissions used within
+the container plugin are discussed.
 
-This document describes the default access policies shipped with Pulp Container. Each of the above
-policies can be modified to achieve a different RBAC behavior.
+.. warning::
 
-Repositories that are created using ``podman push`` or ``docker push`` are considered public and anyone
-can ``pull`` the images from them. See below about creating private repositories.
+    The concept of managing granular permissions is obsolete. As of release 2.11.0, the plugin uses
+    :ref:`roles` instead of separate permission classes. To migrate the customized permission
+    classes to roles, follow the instructions shown at :ref:`migrating-perms-to-roles`.
 
 Namespaces
 ----------
@@ -171,10 +162,6 @@ public, then anyone can ``pull`` from the repository associated with the Distrib
 
 Private Repositories
 --------------------
-
-A private repository can be created using Pulp's API for Container Distributions. A distribution
-can be created before pushing to the repository or an existing distribution can be updated with
-``private=True``.
 
 Users wishing to ``pull`` from a Container Distribution with ``private=True``
 will require the following object level permission on the Distribution::
