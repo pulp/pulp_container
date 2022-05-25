@@ -51,6 +51,7 @@ from pulp_container.app.access_policy import RegistryAccessPolicy
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.cache import find_base_path_cached, RegistryApiCache
 from pulp_container.app.exceptions import (
+    InvalidRequest,
     RepositoryNotFound,
     RepositoryInvalid,
     BlobNotFound,
@@ -547,11 +548,13 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
     model = models.Upload
     queryset = models.Upload.objects.all()
 
-    content_range_pattern = re.compile(r"^(?P<start>\d+)-(?P<end>\d+)$")
+    content_range_pattern = re.compile(r"^([0-9]+)-([0-9]+)$")
 
     def create(self, request, path):
         """
         Create a new upload.
+
+        Note: We do not support monolithic upload.
         """
         _, repository = self.get_dr_push(request, path, create=True)
 
@@ -620,28 +623,47 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         Process a chunk that will be appended to an existing upload.
         """
         _, repository = self.get_dr_push(request, path)
-        chunk = request.META["wsgi.input"]
-        if "Content-Range" in request.headers or "digest" not in request.query_params:
-            whole = False
-        else:
-            whole = True
-
-        if whole:
-            start = 0
-        else:
-            content_range = request.META.get("HTTP_CONTENT_RANGE", "")
-            match = self.content_range_pattern.match(content_range)
-            start = 0 if not match else int(match.group("start"))
-
         upload = get_object_or_404(models.Upload, repository=repository, pk=pk)
+        chunk = request.META["wsgi.input"]
+        if range_header := request.headers.get("Content-Range"):
+            found = self.content_range_pattern.match(range_header)
+            if not found:
+                raise InvalidRequest(message="Invalid range header")
+            start = int(found.group(1))
+            end = int(found.group(2))
+            length = end - start + 1
 
-        chunk = ContentFile(chunk.read())
+        else:
+            length = int(request.headers["Content-Length"])
+            start = 0
+
         with transaction.atomic():
             if upload.size != start:
                 raise Exception
 
-            upload.append(chunk, upload.size)
-            upload.size += chunk.size
+            # if more chunks
+            if range_header:
+                chunk = ContentFile(chunk.read())
+                upload.append(chunk, upload.size)
+            else:
+                # 1 chunk
+                # do not add to the upload, create artifact right away
+                with NamedTemporaryFile("ab") as temp_file:
+                    temp_file.write(chunk.read())
+                    temp_file.flush()
+
+                    uploaded_file = PulpTemporaryUploadedFile.from_file(
+                        File(open(temp_file.name, "rb"))
+                    )
+                try:
+                    artifact = Artifact.init_and_validate(uploaded_file)
+                    artifact.save()
+                except IntegrityError:
+                    artifact = Artifact.objects.get(sha256=artifact.sha256)
+                    artifact.touch()
+                upload.artifact = artifact
+
+            upload.size += length
             upload.save()
 
         return UploadResponse(upload=upload, path=path, request=request, status=204)
@@ -649,6 +671,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
     def put(self, request, path, pk=None):
         """
         Create a blob from uploaded chunks.
+
+        Note: We do not support monolithic upload.
         """
         _, repository = self.get_dr_push(request, path)
 
@@ -682,23 +706,32 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 task.delete()
                 raise Exception(str(error))
 
-        chunks = UploadChunk.objects.filter(upload=upload).order_by("offset")
+        if artifact := upload.artifact:
+            if artifact.sha256 != digest[len("sha256:") :]:
+                raise Exception("The digest did not match")
+            artifact.touch()
+        else:
+            chunks = UploadChunk.objects.filter(upload=upload).order_by("offset")
+            with NamedTemporaryFile("ab") as temp_file:
+                for chunk in chunks:
+                    temp_file.write(chunk.file.read())
+                    chunk.file.close()
+                temp_file.flush()
 
-        with NamedTemporaryFile("ab") as temp_file:
-            for chunk in chunks:
-                temp_file.write(chunk.file.read())
-                chunk.file.close()
-            temp_file.flush()
-
-            uploaded_file = PulpTemporaryUploadedFile.from_file(File(open(temp_file.name, "rb")))
-
-        if uploaded_file.hashers["sha256"].hexdigest() == digest[len("sha256:") :]:
+                uploaded_file = PulpTemporaryUploadedFile.from_file(
+                    File(open(temp_file.name, "rb"))
+                )
+            if uploaded_file.hashers["sha256"].hexdigest() != digest[len("sha256:") :]:
+                upload.delete()
+                raise Exception("The digest did not match")
             try:
                 artifact = Artifact.init_and_validate(uploaded_file)
                 artifact.save()
             except IntegrityError:
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
                 artifact.touch()
+
+        with transaction.atomic():
             try:
                 blob = models.Blob(digest=digest)
                 blob.save()
@@ -715,23 +748,21 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 if not ca.artifact:
                     ca.artifact = artifact
                     ca.save(update_fields=["artifact"])
-            upload.delete()
+        upload.delete()
 
-            dispatched_task = dispatch(
-                add_and_remove,
-                shared_resources=[f"upload:{pk}"],
-                exclusive_resources=[repository],
-                kwargs={
-                    "repository_pk": str(repository.pk),
-                    "add_content_units": [str(blob.pk)],
-                    "remove_content_units": [],
-                },
-            )
+        dispatched_task = dispatch(
+            add_and_remove,
+            shared_resources=[f"upload:{pk}"],
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "add_content_units": [str(blob.pk)],
+                "remove_content_units": [],
+            },
+        )
 
-            if has_task_completed(dispatched_task):
-                return BlobResponse(blob, path, 201, request)
-        else:
-            raise Exception("The digest did not match")
+        if has_task_completed(dispatched_task):
+            return BlobResponse(blob, path, 201, request)
 
 
 class RedirectsMixin:
