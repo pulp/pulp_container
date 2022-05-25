@@ -82,13 +82,12 @@ class AuthorizationService:
         )
 
         with open(settings.PRIVATE_KEY_PATH, "rb") as private_key:
-            binary_token = jwt.encode(
+            token = jwt.encode(
                 claim_set,
                 private_key.read(),
                 algorithm=settings.TOKEN_SIGNATURE_ALGORITHM,
                 headers={"kid": kid},
             )
-        token = binary_token.decode("utf8")
         current_datetime_utc = current_datetime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         return {
             "expires_in": TOKEN_EXPIRATION_TIME,

@@ -1,6 +1,6 @@
 # remember to also update unittest_requirements.txt when updating this file
 pulpcore>=3.20.0.dev
 ecdsa~=0.14
-pyjwkest~=1.4.0
-pyjwt[crypto]~=1.7.1
+pyjwkest~=1.4
+pyjwt[crypto]~=2.4
 jsonschema~=4.4
