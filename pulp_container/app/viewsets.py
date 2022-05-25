@@ -8,8 +8,6 @@ import logging
 
 from gettext import gettext as _
 
-from collections import namedtuple
-
 from django.db import IntegrityError
 from django.db.models import Q
 
@@ -134,21 +132,12 @@ class ContainerNamespaceFilter(BaseFilterSet):
         }
 
 
-Repo = namedtuple("Repo", "push_perm, mirror_perm, push_type, mirror_type")
-repo_info = Repo(
-    "container.view_containerdistribution",
-    "container.view_containerrepository",
-    "container.container-push",
-    "container.container",
-)
-
-
 class ContainerContentQuerySetMixin:
     """
     A mixin that provides container content models with querying utilities.
     """
 
-    def _repo_query_params(self, request, view):
+    def _repo_query_params(self, request, view, push_perm, mirror_perm):
         """
         Checks if the requests' query_params contain repository_version.
 
@@ -170,23 +159,23 @@ class ContainerContentQuerySetMixin:
             if "repository_version" in key:
                 rv = NamedModelViewSet.get_resource(param, RepositoryVersion)
                 repo = rv.repository.cast()
-                if repo.pulp_type == repo_info.push_type:
-                    if request.user.has_perm(repo_info.push_perm) or any(
-                        request.user.has_perm(repo_info.push_perm, dist.cast())
+                if isinstance(repo, models.ContainerPushRepository):
+                    if request.user.has_perm(push_perm) or any(
+                        request.user.has_perm(push_perm, dist.cast())
                         or request.user.has_perm(
                             "container.namespace_view_containerdistribution", dist.cast().namespace
                         )
                         for dist in repo.distributions.all()
                     ):
                         repo_pks.append(repo.pk)
-                elif repo.pulp_type == repo_info.mirror_type:
-                    if request.user.has_perm(repo_info.mirror_perm) or request.user.has_perm(
-                        repo_info.mirror_perm, repo
+                elif isinstance(repo, models.ContainerRepository):
+                    if request.user.has_perm(mirror_perm) or request.user.has_perm(
+                        mirror_perm, repo
                     ):
                         repo_pks.append(repo.pk)
         return repo_pks
 
-    def get_queryset(self):
+    def get_content_qs(self, qs, push_perm, mirror_perm):
         """
         Gets a QuerySet based on the current request.
 
@@ -197,27 +186,26 @@ class ContainerContentQuerySetMixin:
             allowed to see based on the repo permissions.
 
         """
-        qs = super().get_queryset()
-        has_model_push_repo = self.request.user.has_perm(repo_info.push_perm)
-        has_model_repo = self.request.user.has_perm(repo_info.mirror_perm)
+        has_model_push_repo = self.request.user.has_perm(push_perm)
+        has_model_repo = self.request.user.has_perm(mirror_perm)
         # this will show also orphaned content
         if has_model_push_repo and has_model_repo:
             return qs
         query_params = self.request.query_params
         if query_params and "repository_version" in query_params:
-            repo_pks = self._repo_query_params(self.request, self)
+            repo_pks = self._repo_query_params(self.request, self, push_perm, mirror_perm)
             content_qs = qs.model.objects.filter(repositories__in=repo_pks)
         else:
             allowed_push_repos = models.ContainerPushRepository.objects.filter(
                 distributions__in=get_objects_for_user(
                     self.request.user,
-                    repo_info.push_perm,
+                    push_perm,
                     models.ContainerDistribution.objects.all(),
                 )
             ).only("pk")
             allowed_mirror_repos = get_objects_for_user(
                 self.request.user,
-                repo_info.mirror_perm,
+                mirror_perm,
                 models.ContainerRepository.objects.all(),
             ).only("pk")
             content_qs = qs.model.objects.filter(
@@ -250,6 +238,13 @@ class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
                 "effect": "allow",
             },
         ],
+        "queryset_scoping": {
+            "function": "get_content_qs",
+            "parameters": {
+                "push_perm": "container.view_containerdistribution",
+                "mirror_perm": "container.view_containerrepository",
+            },
+        },
     }
 
 
@@ -276,6 +271,13 @@ class ManifestViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
                 "effect": "allow",
             },
         ],
+        "queryset_scoping": {
+            "function": "get_content_qs",
+            "parameters": {
+                "push_perm": "container.view_containerdistribution",
+                "mirror_perm": "container.view_containerrepository",
+            },
+        },
     }
 
 
@@ -302,6 +304,13 @@ class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
                 "effect": "allow",
             },
         ],
+        "queryset_scoping": {
+            "function": "get_content_qs",
+            "parameters": {
+                "push_perm": "container.view_containerdistribution",
+                "mirror_perm": "container.view_containerrepository",
+            },
+        },
     }
 
 
@@ -328,6 +337,13 @@ class ManifestSignatureViewSet(ContainerContentQuerySetMixin, ReadOnlyContentVie
                 "effect": "allow",
             },
         ],
+        "queryset_scoping": {
+            "function": "get_content_qs",
+            "parameters": {
+                "push_perm": "container.view_containerdistribution",
+                "mirror_perm": "container.view_containerrepository",
+            },
+        },
     }
 
 
@@ -394,6 +410,7 @@ class ContainerRemoteViewSet(RemoteViewSet, RolesMixin):
                 "parameters": {"roles": "container.containerremote_owner"},
             },
         ],
+        "queryset_scoping": {"function": "scope_queryset"},
     }
     LOCKED_ROLES = {
         "container.containerremote_creator": [
@@ -610,6 +627,7 @@ class ContainerRepositoryViewSet(
                 "parameters": {"roles": "container.containerrepository_owner"},
             },
         ],
+        "queryset_scoping": {"function": "scope_queryset"},
     }
     LOCKED_ROLES = {
         "container.containerrepository_creator": ["container.add_containerrepository"],
@@ -967,6 +985,13 @@ class ContainerPushRepositoryViewSet(
                 ],
             },
         ],
+        "queryset_scoping": {
+            "function": "get_push_repos_qs",
+            "parameters": {
+                "ns_perm": "container.view_containernamespace",
+                "dist_perm": "container.view_containerdistribution",
+            },
+        },
     }
     LOCKED_ROLES = {}
 
@@ -1028,7 +1053,7 @@ class ContainerPushRepositoryViewSet(
         )
         return OperationPostponedResponse(result, request)
 
-    def get_queryset(self):
+    def get_push_repos_qs(self, qs, ns_perm, dist_perm):
         """
         Returns a queryset by filtering by namespace permission to view distributions and
         distribution level permissions.
@@ -1037,7 +1062,7 @@ class ContainerPushRepositoryViewSet(
         qs = models.ContainerPushRepository.objects.all()
         namespaces = get_objects_for_user(
             self.request.user,
-            "container.view_containernamespace",
+            ns_perm,
             models.ContainerNamespace.objects.all(),
         )
         ns_repository_pks = models.ContainerDistribution.objects.filter(
@@ -1045,7 +1070,7 @@ class ContainerPushRepositoryViewSet(
         ).values_list("repository")
         dist_repository_pks = get_objects_for_user(
             self.request.user,
-            "container.view_containerdistribution",
+            dist_perm,
             models.ContainerDistribution.objects.all(),
         ).values_list("repository")
         public_repository_pks = models.ContainerDistribution.objects.filter(
@@ -1207,6 +1232,13 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
                 },
             },
         ],
+        "queryset_scoping": {
+            "function": "get_dist_qs",
+            "parameters": {
+                "ns_perm": "container.view_containernamespace",
+                "dist_perm": "container.view_containerdistribution",
+            },
+        },
     }
     LOCKED_ROLES = {
         "container.containerdistribution_creator": ["container.add_containerdistribution"],
@@ -1229,7 +1261,7 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
         ],
     }
 
-    def get_queryset(self):
+    def get_dist_qs(self, qs, ns_perm, dist_perm):
         """
         Returns a queryset of distributions filtered by namespace permissions and public status.
         """
@@ -1237,17 +1269,17 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
         public_qs = models.ContainerDistribution.objects.filter(private=False)
         obj_perm_qs = get_objects_for_user(
             self.request.user,
-            "container.view_containerdistribution",
+            dist_perm,
             models.ContainerDistribution.objects.all(),
         )
         namespaces = get_objects_for_user(
             self.request.user,
-            "container.view_containernamespace",
+            ns_perm,
             models.ContainerNamespace.objects.all(),
         )
         namespaces |= get_objects_for_user(
             self.request.user,
-            "container.namespace_view_containerdistribution",
+            dist_perm,
             models.ContainerNamespace.objects.all(),
         )
         ns_qs = models.ContainerDistribution.objects.filter(namespace__in=namespaces)
@@ -1357,6 +1389,7 @@ class ContainerNamespaceViewSet(
                 },
             }
         ],
+        "queryset_scoping": {"function": "scope_queryset"},
     }
 
     LOCKED_ROLES = {
