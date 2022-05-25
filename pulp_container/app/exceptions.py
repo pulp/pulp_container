@@ -120,3 +120,22 @@ class ManifestSignatureInvalid(ParseError):
                 ]
             }
         )
+
+
+class InvalidRequest(ParseError):
+    """An exception to render an HTTP 400 response."""
+
+    def __init__(self, message):
+        """Initialize the exception with the digest of a signed manifest."""
+        message = message or "Invalid request."
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "INVALID_REQUEST",
+                        "message": message,
+                        "detail": {},
+                    }
+                ]
+            }
+        )

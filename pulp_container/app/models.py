@@ -15,6 +15,7 @@ from django.shortcuts import redirect
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
+    Artifact,
     AutoAddObjPermsMixin,
     BaseModel,
     Content,
@@ -633,3 +634,6 @@ class Upload(CoreUpload):
     """
 
     repository = models.ForeignKey(Repository, related_name="uploads", on_delete=models.CASCADE)
+    artifact = models.ForeignKey(
+        Artifact, related_name="uploads", null=True, on_delete=models.SET_NULL
+    )
