@@ -19,7 +19,7 @@ The example below demonstrates how a manifest signing service can be created usi
 
        {"signature_path": "signature"}
 
-   Below is an example of a signing script:
+   Below is a snippet of the signing script to be used for signing content:
 
    .. code-block:: bash
 
@@ -27,15 +27,15 @@ The example below demonstrates how a manifest signing service can be created usi
 
         MANIFEST_PATH1=$1
         FINGEPRINT="$PULP_SIGNING_KEY_FINGERPRINT"
-        REFERENCE="$IMAGE_REFERENCE"
-        SIG_PATH="$SIGNATURE_PATH"
+        IMAGE_REFERENCE="$REFERENCE"
+        SIGNATURE_PATH="$SIG_PATH"
 
         # Create container signature
-        skopeo standalone-sign $MANIFEST_PATH $REFERENCE $FINGEPRINT --output $SIG_PATH
+        skopeo standalone-sign $MANIFEST_PATH $IMAGE_REFERENCE $FINGEPRINT --output $SIGNATURE_PATH
         # Check the exit status
         STATUS=$?
         if [ $STATUS -eq 0 ]; then
-          echo {\"signature_path\": \"$SIG_PATH\"}
+          echo {\"signature_path\": \"$SIGNATURE_PATH\"}
         else
           exit $STATUS
         fi
@@ -45,6 +45,8 @@ The example below demonstrates how a manifest signing service can be created usi
        Make sure the script contains a proper shebang and Pulp has got valid permissions
        to execute it.
        Since the script invokes a ``skopeo`` command, it should be installed as well.
+       Environment variables passed to the script cannot be changed since these are the
+       variables expected by the signing facility.
 
 3. Create a signing service consisting of an absolute path to the script and a meaningful
    name describing the script's purpose. It is possible to create a signing service by using the
