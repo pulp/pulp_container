@@ -6,8 +6,6 @@ Check `Plugin Writer's Guide`_ for more details.
 """
 import logging
 
-from gettext import gettext as _
-
 from django.db import IntegrityError
 from django.db.models import Q
 
@@ -16,8 +14,8 @@ from drf_spectacular.utils import extend_schema
 
 from rest_framework import mixins
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 
+from pulpcore.plugin.actions import raise_for_unknown_content_units
 from pulpcore.plugin.models import RepositoryVersion
 from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
 from pulpcore.plugin.models import Artifact, Content
@@ -730,15 +728,7 @@ class ContainerRepositoryViewSet(
         existing_content_units = Content.objects.filter(pk__in=content_units_pks)
         existing_content_units.touch()
 
-        existing_content_units_pks = existing_content_units.values_list("pk", flat=True)
-        existing_content_units_pks = {str(pk) for pk in existing_content_units_pks}
-
-        missing_pks = content_units_pks - existing_content_units_pks
-        if missing_pks:
-            missing_hrefs = [content_units[pk] for pk in missing_pks]
-            raise ValidationError(
-                _("Could not find the following content units: {}").format(missing_hrefs)
-            )
+        raise_for_unknown_content_units(existing_content_units, content_units)
 
     @extend_schema(
         description="Trigger an async task to recursively remove container content.",
