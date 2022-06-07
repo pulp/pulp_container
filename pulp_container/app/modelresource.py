@@ -1,7 +1,63 @@
 from import_export import fields, widgets
 from pulpcore.plugin.importexport import QueryModelResource, BaseContentResource
+from pulpcore.plugin.modelresources import RepositoryResource
 
-from pulp_container.app.models import Blob, Manifest, ManifestListManifest, ManifestSignature, Tag
+from pulp_container.app.models import (
+    Blob,
+    ContainerRepository,
+    ContainerPushRepository,
+    Manifest,
+    ManifestListManifest,
+    ManifestSignature,
+    Tag,
+)
+
+
+class ContainerRepositoryResource(RepositoryResource):
+    """
+    A resource for importing/exporting repositories of the sync type
+    """
+
+    def set_up_queryset(self):
+        """
+        :return: A queryset containing one sync repository that will be exported.
+        """
+        return ContainerRepository.objects.filter(pk=self.repo_version.repository)
+
+    class Meta:
+        model = ContainerRepository
+        exclude = RepositoryResource.Meta.exclude + ("manifest_signing_service",)
+
+
+class ContainerPushRepositoryResource(RepositoryResource):
+    """
+    A resource for importing/exporting repositories of the push type
+    """
+
+    class PushRepositoryPulpTypeField(fields.Field):
+        """A firld that exports the value of pulp_type.
+
+        This is required since an exported push repository will be imported as a sync repository.
+        Changing the model of the resource is not enough. It is also necessary to update the fields
+        that still store the information about the type of a repository.
+        """
+
+        def export(self, obj):
+            """Return a converted value of the pulp_type field of a push repository."""
+            return "container.container"
+
+    pulp_type = PushRepositoryPulpTypeField(column_name="pulp_type", attribute="pulp_type")
+
+    def set_up_queryset(self):
+        """
+        :return: A queryset containing one push repository that will be exported.
+        """
+        return ContainerPushRepository.objects.filter(pk=self.repo_version.repository)
+
+    class Meta:
+        # import the repository as a repository of the sync type
+        model = ContainerRepository
+        exclude = RepositoryResource.Meta.exclude + ("manifest_signing_service",)
 
 
 class BlobResource(BaseContentResource):
@@ -128,4 +184,6 @@ IMPORT_ORDER = [
     ManifestListManifestResource,
     ManifestSignatureResource,
     TagResource,
+    ContainerRepositoryResource,
+    ContainerPushRepositoryResource,
 ]

@@ -4,8 +4,9 @@ Tests PulpExporter and PulpImporter functionality
 NOTE: assumes ALLOWED_EXPORT_PATHS setting contains "/tmp" - all tests will fail if this is not
 the case.
 """
-import unittest
-from pulp_smash.utils import uuid4
+import pytest
+import uuid
+
 from pulp_smash.pulp3.bindings import (
     delete_orphans,
     monitor_task,
@@ -13,99 +14,149 @@ from pulp_smash.pulp3.bindings import (
 )
 from pulp_smash.pulp3.utils import gen_repo
 
-from pulpcore.client.pulpcore import (
-    ApiClient as CoreApiClient,
-    ExportersPulpApi,
-    ExportersPulpExportsApi,
-    ImportersPulpApi,
-    ImportersPulpImportsApi,
-)
+from pulpcore.client.pulp_container import ContainerRepositorySyncURL
 
-from pulpcore.client.pulp_container import (
-    ApiClient as ContainerApiClient,
-    ContentManifestsApi,
-    ContainerRepositorySyncURL,
-    RepositoriesContainerApi,
-    RepositoriesContainerVersionsApi,
-    RemotesContainerApi,
-)
-from pulp_container.tests.functional.utils import configuration, gen_container_remote
+from pulp_container.tests.functional.utils import gen_container_remote
+from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
 
-class PulpImportExportTestCase(unittest.TestCase):
-    """
-    Test exporting and importing of a container repository.
-    """
+def test_import_export_standard(
+    container_remote_api,
+    container_repository_api,
+    container_repository_version_api,
+    container_manifest_api,
+    exporters_pulp_api_client,
+    exporters_pulp_exports_api_client,
+    importers_pulp_api_client,
+    importers_pulp_imports_api_client,
+    gen_object_with_cleanup,
+):
+    """Test exporting and importing of a container repository."""
+    remote = container_remote_api.create(gen_container_remote())
+    sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
+    repository = gen_object_with_cleanup(container_repository_api, gen_repo())
+    sync_response = container_repository_api.sync(repository.pulp_href, sync_data)
+    monitor_task(sync_response.task)
 
-    def test_import_export(self):
-        """
-        Test exporting and importing of a container repository.
-        """
-        core_client = CoreApiClient(configuration)
-        container_client = ContainerApiClient(configuration)
-        remotes_api = RemotesContainerApi(container_client)
-        repositories_api = RepositoriesContainerApi(container_client)
-        repository_versions_api = RepositoriesContainerVersionsApi(container_client)
-        manifests_api = ContentManifestsApi(container_client)
-        exporters_api = ExportersPulpApi(core_client)
-        exports_api = ExportersPulpExportsApi(core_client)
-        importers_api = ImportersPulpApi(core_client)
-        imports_api = ImportersPulpImportsApi(core_client)
+    # Export the repository
+    body = {
+        "name": str(uuid.uuid4()),
+        "path": f"/tmp/{uuid.uuid4()}/",
+        "repositories": [repository.pulp_href],
+    }
+    exporter = gen_object_with_cleanup(exporters_pulp_api_client, body)
 
-        # Setup
-        remote = remotes_api.create(gen_container_remote())
-        self.addCleanup(remotes_api.delete, remote.pulp_href)
-        sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
-        repository = repositories_api.create(gen_repo())
-        self.addCleanup(repositories_api.delete, repository.pulp_href)
-        sync_response = repositories_api.sync(repository.pulp_href, sync_data)
-        monitor_task(sync_response.task).created_resources
+    export_response = exporters_pulp_exports_api_client.create(exporter.pulp_href, {})
+    export_href = monitor_task(export_response.task).created_resources[0]
+    export = exporters_pulp_exports_api_client.read(export_href)
 
-        # Export the repository
-        body = {
-            "name": uuid4(),
-            "path": "/tmp/{}/".format(uuid4()),
-            "repositories": [repository.pulp_href],
-        }
-        exporter = exporters_api.create(body)
-        self.addCleanup(exporters_api.delete, exporter.pulp_href)
+    # Clean the old repository out
+    monitor_task(container_repository_version_api.delete(repository.latest_version_href).task)
+    delete_orphans()
 
-        export_response = exports_api.create(exporter.pulp_href, {})
-        export_href = monitor_task(export_response.task).created_resources[0]
-        export = exports_api.read(export_href)
+    # Import the repository
+    import_repository = gen_object_with_cleanup(container_repository_api, gen_repo())
 
-        # Clean the old repository out
-        monitor_task(repository_versions_api.delete(repository.latest_version_href).task)
-        delete_orphans()
+    body = {
+        "name": str(uuid.uuid4()),
+        "repo_mapping": {repository.name: import_repository.name},
+    }
+    importer = gen_object_with_cleanup(importers_pulp_api_client, body)
 
-        # Import the repository
-        import_repository = repositories_api.create(gen_repo())
-        self.addCleanup(repositories_api.delete, import_repository.pulp_href)
+    filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
+    import_response = importers_pulp_imports_api_client.create(
+        importer.pulp_href, {"path": filenames[0]}
+    )
+    if hasattr(import_response, "task_group"):
+        task_group_href = import_response.task_group
+    else:
+        task_group_href = monitor_task(import_response.task).created_resources[1]
+    monitor_task_group(task_group_href)
 
-        body = {
-            "name": uuid4(),
-            "repo_mapping": {repository.name: import_repository.name},
-        }
-        importer = importers_api.create(body)
-        self.addCleanup(importers_api.delete, importer.pulp_href)
+    # Verify that the imported repository contains the right associations
+    import_repository = container_repository_api.read(import_repository.pulp_href)
+    manifests = container_manifest_api.list(
+        repository_version=import_repository.latest_version_href
+    ).results
 
-        filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
-        import_response = imports_api.create(importer.pulp_href, {"path": filenames[0]})
-        if hasattr(import_response, "task_group"):
-            task_group_href = import_response.task_group
+    for manifest in manifests:
+        if "manifest.list" in manifest.media_type:
+            assert manifest.listed_manifests != []
         else:
-            task_group_href = monitor_task(import_response.task).created_resources[1]
-        monitor_task_group(task_group_href)
+            assert manifest.blobs != []
+            assert manifest.config_blob is not None
 
-        # Verify that the imported repository contains the right associations
-        import_repository = repositories_api.read(import_repository.pulp_href)
-        manifests = manifests_api.list(
-            repository_version=import_repository.latest_version_href
-        ).results
 
-        for manifest in manifests:
-            if "manifest.list" in manifest.media_type:
-                self.assertNotEqual(manifest.listed_manifests, [])
-            else:
-                self.assertNotEqual(manifest.blobs, [])
-                self.assertIsNotNone(manifest.config_blob)
+def test_import_export_create_repositories(
+    registry_client,
+    local_registry,
+    container_distribution_api,
+    container_repository_api,
+    container_tag_api,
+    container_manifest_api,
+    exporters_pulp_api_client,
+    exporters_pulp_exports_api_client,
+    importers_pulp_api_client,
+    importers_pulp_imports_api_client,
+    gen_object_with_cleanup,
+):
+    """Test importing of a push repository without creating an initial repository manually."""
+    if registry_client.name != "podman":
+        pytest.skip("This test requires podman to push pulled content", allow_module_level=True)
+
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    registry_client.pull(image_path)
+
+    distribution_path = str(uuid.uuid4())
+    local_registry.tag_and_push(image_path, f"{distribution_path}:manifest_a")
+
+    distribution = container_distribution_api.list(name=distribution_path).results[0]
+
+    body = {
+        "name": str(uuid.uuid4()),
+        "path": f"/tmp/{uuid.uuid4()}/",
+        "repositories": [distribution.repository],
+    }
+    exporter = gen_object_with_cleanup(exporters_pulp_api_client, body)
+    export_response = exporters_pulp_exports_api_client.create(exporter.pulp_href, {})
+    export_href = monitor_task(export_response.task).created_resources[0]
+    export = exporters_pulp_exports_api_client.read(export_href)
+
+    # Clean the old repository out
+    monitor_task(container_distribution_api.delete(distribution.pulp_href).task)
+    delete_orphans()
+
+    body = {"name": str(uuid.uuid4())}
+    importer = gen_object_with_cleanup(importers_pulp_api_client, body)
+    filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
+
+    import_response = importers_pulp_imports_api_client.create(
+        importer.pulp_href, {"path": filenames[0], "create_repositories": True}
+    )
+    if hasattr(import_response, "task_group"):
+        task_group_href = import_response.task_group
+    else:
+        task_group_href = monitor_task(import_response.task).created_resources[1]
+    monitor_task_group(task_group_href)
+
+    repositories = container_repository_api.list(name=distribution_path).results
+    assert len(repositories) == 1
+
+    tags = container_tag_api.list(
+        name="manifest_a", repository_version=repositories[0].latest_version_href
+    ).results
+    assert len(tags) == 1
+
+    manifests = container_manifest_api.list(
+        repository_version=repositories[0].latest_version_href
+    ).results
+
+    for manifest in manifests:
+        if "manifest.list" in manifest.media_type:
+            assert manifest.listed_manifests != []
+        else:
+            assert manifest.blobs != []
+            assert manifest.config_blob is not None
+
+    monitor_task(container_repository_api.delete(repositories[0].pulp_href).task)
+    delete_orphans()

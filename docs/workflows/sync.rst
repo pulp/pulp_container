@@ -81,8 +81,8 @@ Reference: `Container Remote Usage <../restapi.html#tag/Remotes:-Container>`_
 
 .. _sync-repository:
 
-Sync repository using a Remote
-------------------------------
+Sync Content
+------------
 
 Use the remote object to kick off a synchronize task by specifying the repository to
 sync with. You are telling pulp to fetch content from the remote and add to the repository.

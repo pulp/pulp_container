@@ -1,6 +1,6 @@
 .. _push-workflow:
 
-Push content to a Repository
+Push Content to a Repository
 =============================
 
 Users can push images (manifests and manifest lists) to repositories hosted by the Container

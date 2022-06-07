@@ -1,7 +1,7 @@
 .. _sign-images:
 
-Image signature configuration
-==============================
+Image Signature Configuration
+=============================
 
 Administrators can add a container manifest signing service to The Pulp Registry using the command
 line tools. Users may then associate the signing service with container repositories.
@@ -81,8 +81,8 @@ The example below demonstrates how a manifest signing service can be created usi
 Afterwards, users are able to sign selected content by the provided script.
 
 
-Sign images that were pushed to the Pulp Registry
-=================================================
+Sign Images Pushed to the Registry
+==================================
 
 Given that an image is pushed to the Pulp Registry via ``podman/docker push`` or via the standard
 DockerRegistry v2 push API, a repository is created containing it::
@@ -201,8 +201,8 @@ Upon task complection, a signature is created and added to the repository::
         }
 
 
-Sign images that were mirrored into the Pulp Registry from a remote Registry
-============================================================================
+Sign Images Mirrored into the Registry
+======================================
 
 It is possible to sign content that was synchronized from remote registries.
 If the content was synced together with signatures, upon signing task completion new signatures will be
@@ -306,14 +306,14 @@ by proviging ``tags_list`` option to the call.
 Note that ``manifest lists`` are not signed, instead all the image manifests that manifest lists
 contain, are signed.
 
-Managing signatures via the Extensions API
-==========================================
+Manage Signatures via the Extensions API
+========================================
 
 This API exposes an endpoint for reading and writing image signatures. Users should configure the
 sigstore section in the `registries.d file <https://github.com/containers/image/blob/main/docs/containers-registries.d.5.md>`_
 accordingly to benefit from the API.
 
-Reading image signatures
+Reading Image Signatures
 ------------------------
 
 To read existing signatures, issue the following GET request::
@@ -323,7 +323,7 @@ To read existing signatures, issue the following GET request::
 Signatures are retrieved by container clients automatically if the policy requires so. The policy is
 defined in the file ``/etc/containers/policy.json``.
 
-Writing image signatures
+Writing Image Signatures
 ------------------------
 
 To add a new signature to an image, execute the following PUT request::
