@@ -1,7 +1,7 @@
 .. _content-management:
 
-Manage Container Content in a Repository
-========================================
+Manage Content in a Repository
+==============================
 
 There are multiple ways that users can manage Container content in repositories:
 
@@ -14,8 +14,8 @@ a new repository version will have been created.
 
 .. _tagging-workflow:
 
-Tagging
--------
+Tag an Image
+------------
 
 Images are described by manifests. The procedure of an image tagging is
 related to manifests because of that. In pulp, it is required to specify
@@ -44,8 +44,8 @@ Reference: `Container Tagging Usage <../restapi.html#tag/Content:-Tags>`_
 
 .. _untagging-workflow:
 
-Untagging
----------
+Untag an Image
+--------------
 
 An untagging is an inverse operation to the tagging. To remove a tag
 applied to an image, it is required to issue the following calls.
@@ -62,8 +62,8 @@ Reference: `Container Untagging Usage <../restapi.html#operation/repositories_co
 
 .. _recursive-add:
 
-Recursively Add Content to a Repository
----------------------------------------
+Add Content to a Repository
+---------------------------
 
 Any Container content can be added to a repository version with the
 recursive-add endpoint. Here, "recursive" means that the content will be
@@ -147,8 +147,8 @@ Reference: `Container Recursive Add Usage <../restapi.html#operation/repositorie
 
 .. _recursive-remove:
 
-Recursively Remove Content from a Repository
---------------------------------------------
+Remove Content from a Repository
+--------------------------------
 
 Any Container content can be removed from a repository version with the
 recursive-remove endpoint. Recursive remove is symmetrical with
@@ -214,8 +214,8 @@ Reference: `Container Recursive Remove Usage <../restapi.html#operation/reposito
 
 .. _tag-copy:
 
-Recursively Copy Tags from a Source Repository
-----------------------------------------------
+Copy Tags from a Repository
+---------------------------
 
 Tags in one repository can be copied to another repository using the tag
 copy endpoint.
@@ -284,8 +284,8 @@ Reference: `Container Copy Tags Usage <../restapi.html#operation/repositories_co
 
 .. _manifest-copy:
 
-Recursively Copy Manifests from a Source Repository
----------------------------------------------------
+Copy Manifests from a Repository
+--------------------------------
 
 Manifests in one repository can be copied to another repository using
 the manifest copy endpoint.

@@ -31,3 +31,8 @@ source tag_copy.sh
 source image_tagging.sh
 source download_after_tagging.sh
 source image_untagging.sh
+
+# Check import/export
+source export_repository.sh
+source cleanup_export.sh
+source import_repository.sh

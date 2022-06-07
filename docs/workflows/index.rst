@@ -45,8 +45,8 @@ set is the hostname and port::
    $ export BASE_ADDR=http://<hostname>:24817
 
 
-Container Workflows
--------------------
+Basic Workflows
+---------------
 
 .. toctree::
    :maxdepth: 2
@@ -58,5 +58,13 @@ Container Workflows
    build-containerfile
    managing-credentials
    push
+   import-export
+
+Managing Signatures
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
    sign-images
    verify-images

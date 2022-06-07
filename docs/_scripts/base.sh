@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 echo "Setting environment variables for default hostname/port for the API and the Content app"
 BASE_ADDR=${BASE_ADDR:-http://localhost:24817}
+REGISTRY_ADDR=${BASE_ADDR#*//}
 
 # Poll a Pulp task until it is finished.
 wait_until_task_finished() {

@@ -1,13 +1,13 @@
 .. _host:
 
-Host and Consume a Container Repository
-=======================================
+Host and Consume a Repository
+=============================
 
 This section assumes that you have a repository with content in it. To do this, see the
 :doc:`sync` documentation.
 
-Create a Container Distribution to serve your Repository Version
-----------------------------------------------------------------
+Create a Distribution to Serve a Repository Version
+---------------------------------------------------
 
 Container Distributions can be used to serve the Container registry API
 containing the content in a repository's latest version or a specified
@@ -35,7 +35,7 @@ Response:
 
 Reference: `Container Distribution Usage <../restapi.html#tag/Distributions:-Container>`_
 
-Pull and run an image from Pulp
+Pull and Run an Image from Pulp
 -------------------------------
 
 Once a distribution is configured to host a repository with Container

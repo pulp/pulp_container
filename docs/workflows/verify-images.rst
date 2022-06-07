@@ -1,6 +1,6 @@
 .. _verify-images:
 
-Configure client signature verification policy
+Configure Client Signature Verification Policy
 ==============================================
 
 In order to verify container images consumed from Pulp Container Registry the following files need
@@ -30,11 +30,8 @@ invalid fields cause the entire file, and usually the entire operation, to be re
 For full details and spec refer to https://github.com/containers/image/blob/main/docs/containers-policy.json.5.md
 
 
-Common use cases
-================
-
-Verify images mirrored with its original signature into Pulp Container Registry
--------------------------------------------------------------------------------
+Verify Images Mirrored with its Original Signature
+--------------------------------------------------
 
 Use case: Pulp Container Registy contains mirrored container images and their signatures from
 a remote registry.
@@ -167,8 +164,8 @@ the ``remapIdentity`` and full registry path prefix needs to be specified.
        podman pull fluffy.example.com/local-ubi8-repo:8.5
 
 
-Verify images pushed into Pulp Container registry
--------------------------------------------------
+Verify Images Pushed into the Registry
+--------------------------------------
 
 Use case: Pulp Container Registry serves container images that were pushed into it (signed or not).
 
@@ -214,7 +211,7 @@ Push an image into Pulp Container registry and sign it in one go:
         }
 
 
-Verify images from multiple registries
+Verify Images from Multiple Registries
 --------------------------------------
 
 Use case: Pull and verify content from Pulp Container registry and also other registries.
