@@ -9,6 +9,7 @@ import time
 from logging import getLogger
 
 from django.db import models
+from django.conf import settings
 from django.contrib.postgres import fields
 from django.shortcuts import redirect
 
@@ -440,7 +441,7 @@ class ManifestSigningService(SigningService):
             ],
         }
 
-        with tempfile.TemporaryDirectory() as temp_directory_name:
+        with tempfile.TemporaryDirectory(dir=settings.WORKING_DIRECTORY) as temp_directory_name:
             manifest_file = tempfile.NamedTemporaryFile(dir=temp_directory_name, delete=False)
             with open(manifest_file.name, "w") as outfile:
                 json.dump(test_manifest, outfile)
