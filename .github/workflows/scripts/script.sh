@@ -120,8 +120,8 @@ else
         pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulpcore.tests.functional -m "from_pulpcore_for_all_plugins and not parallel"  --nightly
     
     else
-        pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m parallel -n 8
-        pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional -m "not parallel"
+        pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional.api.test_content_cache::ContentCacheTestCache -m parallel -n 8
+        pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional.api.test_content_cache::ContentCacheTestCache -m "not parallel"
 
     
         pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulpcore.tests.functional -m "from_pulpcore_for_all_plugins and parallel" -n  8

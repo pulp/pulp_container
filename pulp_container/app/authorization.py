@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import logging
 import random
 import uuid
 
@@ -21,6 +22,9 @@ from pulp_container.app.access_policy import RegistryAccessPolicy
 TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
 
 FakeView = namedtuple("FakeView", ["action", "get_object"])
+
+
+log = logging.getLogger(__name__)
 
 
 class AuthorizationService:
@@ -192,6 +196,11 @@ class AuthorizationService:
                 # Check if user is allowed to create a new namespace
                 return self.has_permission(None, "POST", "create", {"name": namespace_name})
             # Check if user is allowed to view distributions in the namespace
+            log.info("USER")
+            log.info(self.user.username)
+            log.info("HAS GET VIEW DIST PERM")
+            x = self.has_permission(namespace, "GET", "view_distribution", {"name": namespace_name})
+            log.info(x)
             return self.has_permission(
                 namespace, "GET", "view_distribution", {"name": namespace_name}
             )
