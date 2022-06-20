@@ -358,25 +358,32 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         cls._pull(cls.manifest_c)
 
         # create a new manifest list composed of the pulled manifest images
-        cls.image_v2s2_tag = "manifest_list"
-        cls.image_v2s2_path = f"{REGISTRY_V2_REPO_PULP}:{cls.image_v2s2_tag}"
-        cls.local_v2s2_url = f"{cls.registry_name}/foo:{cls.image_v2s2_tag}"
-        cls.registry._dispatch_command("manifest", "create", cls.image_v2s2_path)
-        cls.registry._dispatch_command("manifest", "add", cls.image_v2s2_path, cls.manifest_a)
-        cls.registry._dispatch_command("manifest", "add", cls.image_v2s2_path, cls.manifest_b)
-        cls.registry._dispatch_command("manifest", "add", cls.image_v2s2_path, cls.manifest_c)
+        cls.v2s2_tag = "manifest_list"
+        cls.v2s2_image_path = f"{cls.registry_name}/foo:{cls.v2s2_tag}"
+        cls.registry._dispatch_command("manifest", "create", cls.v2s2_tag)
+        cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_a)
+        cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_b)
+        cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_c)
+
+        # create a new manifest list composed of the pulled manifest images
+        cls.oci_tag = "manifest_list_oci"
+        cls.oci_image_path = f"{cls.registry_name}/foo:{cls.oci_tag}"
+        cls.registry._dispatch_command("manifest", "create", cls.oci_tag)
+        cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_a)
+        cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_b)
+        cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_c)
 
         # create an empty manifest list
         cls.empty_image_tag = "empty_manifest_list"
-        cls.empty_image_path = f"{REGISTRY_V2_REPO_PULP}:{cls.empty_image_tag}"
-        cls.empty_image_local_url = f"{cls.registry_name}/foo:{cls.empty_image_tag}"
-        cls.registry._dispatch_command("manifest", "create", cls.empty_image_path)
+        cls.empty_image_path = f"{cls.registry_name}/foo:{cls.empty_image_tag}"
+        cls.registry._dispatch_command("manifest", "create", cls.empty_image_tag)
 
     @classmethod
     def tearDownClass(cls):
         """Clean up created images."""
-        cls.registry._dispatch_command("manifest", "rm", cls.image_v2s2_path)
-        cls.registry._dispatch_command("manifest", "rm", cls.empty_image_path)
+        cls.registry._dispatch_command("manifest", "rm", cls.v2s2_tag)
+        cls.registry._dispatch_command("manifest", "rm", cls.oci_tag)
+        cls.registry._dispatch_command("manifest", "rm", cls.empty_image_tag)
 
         cls.registry._dispatch_command("image", "rm", cls.manifest_a)
         cls.registry._dispatch_command("image", "rm", cls.manifest_b)
@@ -392,8 +399,8 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.registry._dispatch_command(
             "manifest",
             "push",
-            self.image_v2s2_path,
-            self.local_v2s2_url,
+            self.v2s2_tag,
+            self.v2s2_image_path,
             "--all",
             "--format",
             "v2s2",
@@ -403,8 +410,8 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.registry._dispatch_command(
             "manifest",
             "push",
-            self.image_v2s2_path,
-            self.local_v2s2_url,
+            self.v2s2_tag,
+            self.v2s2_image_path,
             "--all",
             "--format",
             "v2s2",
@@ -415,7 +422,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
         latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
-        assert latest_tag.name == self.image_v2s2_tag
+        assert latest_tag.name == self.v2s2_tag
 
         manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
         assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
@@ -450,8 +457,8 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.registry._dispatch_command(
             "manifest",
             "push",
-            self.image_v2s2_path,
-            self.local_v2s2_url,
+            self.oci_tag,
+            self.oci_image_path,
             "--all",
             "--format",
             "oci",
@@ -462,7 +469,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
         latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
-        assert latest_tag.name == self.image_v2s2_tag
+        assert latest_tag.name == self.oci_tag
 
         manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
         assert manifest_list.media_type == MEDIA_TYPE.INDEX_OCI
@@ -495,7 +502,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
             "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
         )
         self.registry._dispatch_command(
-            "manifest", "push", self.empty_image_path, self.empty_image_local_url
+            "manifest", "push", self.empty_image_tag, self.empty_image_path
         )
 
         distribution = self.distributions_api.list(name="foo").results[0]
