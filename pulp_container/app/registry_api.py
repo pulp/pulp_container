@@ -664,7 +664,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             # Upload has been deleted => task has started or even finished
             task = Task.objects.filter(
                 name__endswith="add_and_remove",
-                reserved_resources_record=[f"upload:{pk}"],
+                reserved_resources_record__contains=[f"shared:upload:{pk}"],
             ).last()
             if not task:
                 # No upload and no task for it => the upload probably never existed
