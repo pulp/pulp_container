@@ -1,8 +1,8 @@
 mock
 # include the top-level requirements.txt contents below
-pulpcore>=3.17.0.dev
+pulpcore>=3.20,<3.25
 ecdsa~=0.14
 pyjwkest~=1.4
 pyjwt[crypto]~=2.4
 pytest-django
-jsonschema~=4.4.0
+jsonschema~=4.4
