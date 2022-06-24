@@ -1,3 +1,0 @@
-Improved image upload process from podman/docker clients.
-These clients send data as one big chunk hence we don't need to save it
-as chunk but as an artifact directly.

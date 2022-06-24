@@ -13,6 +13,54 @@ Changelog
 
 .. towncrier release notes start
 
+2.13.0 (2022-06-24)
+===================
+
+
+Features
+--------
+
+- Added support for streaming artifacts from object storage.
+  `#731 <https://github.com/pulp/pulp_container/issues/731>`__
+
+
+Bugfixes
+--------
+
+- Fixed the machinery for building OCI images.
+  `#461 <https://github.com/pulp/pulp_container/issues/461>`__
+- Fixed the regular expression for matching base paths in distributions.
+  `#756 <https://github.com/pulp/pulp_container/issues/756>`__
+- Fixed generation of the redirect url to the object storage
+  `#767 <https://github.com/pulp/pulp_container/issues/767>`__
+- Enforced the reference to manifests from tags. Note that this bugfix introduces a migration that
+  removes tags without any reference to the manifests.
+  `#789 <https://github.com/pulp/pulp_container/issues/789>`__
+- Improved image upload process from podman/docker clients.
+  These clients send data as one big chunk hence we don't need to save it
+  as chunk but as an artifact directly.
+  `#797 <https://github.com/pulp/pulp_container/issues/797>`__
+- Fixed upload does not exist error during image push operation.
+  `#861 <https://github.com/pulp/pulp_container/issues/861>`__
+
+
+Improved Documentation
+----------------------
+
+- Improved the documentation for RBAC by adding a new section for roles and a new section for
+  migrating from permissions to roles.
+  `#641 <https://github.com/pulp/pulp_container/issues/641>`__
+
+
+Misc
+----
+
+- `#678 <https://github.com/pulp/pulp_container/issues/678>`__, `#772 <https://github.com/pulp/pulp_container/issues/772>`__, `#791 <https://github.com/pulp/pulp_container/issues/791>`__, `#809 <https://github.com/pulp/pulp_container/issues/809>`__
+
+
+----
+
+
 2.12.1 (2022-05-12)
 ===================
 
