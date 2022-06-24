@@ -115,9 +115,12 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
                 )
             else:
                 registry_client.logout(registry_name)
+
+            remote_image_path = "/".join([registry_name, image_path])
             try:
-                registry_client.pull("/".join([registry_name, image_path]))
+                registry_client.pull(remote_image_path)
             finally:
+                registry_client.rmi(remote_image_path)
                 registry_client.logout(registry_name)
 
         @staticmethod
