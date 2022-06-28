@@ -323,7 +323,13 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
         try:
             return self._noauth_download_factory
         except AttributeError:
-            self._noauth_download_factory = downloaders.NoAuthDownloaderFactory(self)
+            self._noauth_download_factory = downloaders.NoAuthDownloaderFactory(
+                self,
+                downloader_overrides={
+                    "http": downloaders.NoAuthSignatureDownloader,
+                    "https": downloaders.NoAuthSignatureDownloader,
+                },
+            )
             return self._noauth_download_factory
 
     def get_downloader(self, remote_artifact=None, url=None, **kwargs):

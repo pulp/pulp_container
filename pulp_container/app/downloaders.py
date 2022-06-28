@@ -165,6 +165,22 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         return {}
 
 
+class NoAuthSignatureDownloader(HttpDownloader):
+    """A downloader class suited for signature downloads."""
+
+    def raise_for_status(self, response):
+        """Log an error only if the status code of the response is not equal to 404.
+
+        Status codes equal to 404 signify that a signature could not be found on the server. This
+        case is still valid because it is not possible to determine the number of signatures
+        beforehand.
+        """
+        if response.status == 404:
+            raise FileNotFoundError()
+        else:
+            response.raise_for_status()
+
+
 class NoAuthDownloaderFactory(DownloaderFactory):
     """
     A downloader factory without any preset auth configuration, TLS or basic auth.

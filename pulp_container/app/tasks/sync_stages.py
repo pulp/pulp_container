@@ -525,14 +525,14 @@ class ContainerFirstStage(Stage):
                 signature_downloader = self.remote.get_noauth_downloader(url=signature_url)
                 try:
                     signature_download_result = await signature_downloader.run()
-                except aiohttp.client_exceptions.ClientResponseError as exc:
-                    if exc.status != 404:
-                        log.info(
-                            "{} is not accessible, can't sync an image signature. "
-                            "Error: {} {}".format(signature_url, exc.status, exc.message)
-                        )
+                except FileNotFoundError:
                     # 404 is fine, it means there are no or no more signatures available
                     break
+                except aiohttp.client_exceptions.ClientResponseError as exc:
+                    log.info(
+                        "{} is not accessible, can't sync an image signature. "
+                        "Error: {} {}".format(signature_url, exc.status, exc.message)
+                    )
 
                 with open(signature_download_result.path, "rb") as f:
                     signature_raw = f.read()
