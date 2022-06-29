@@ -453,7 +453,11 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
 
         repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
-        latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
+
+        tags = self.tags_api.list(repository_version=repo_version).results
+        assert len(tags) == 1
+
+        latest_tag = tags[0]
         assert latest_tag.name == self.v2s2_tag
 
         manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
@@ -500,7 +504,11 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
 
         repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
-        latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
+
+        tags = self.tags_api.list(repository_version=repo_version).results
+        assert len(tags) == 1
+
+        latest_tag = tags[0]
         assert latest_tag.name == self.oci_tag
 
         manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
