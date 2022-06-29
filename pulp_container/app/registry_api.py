@@ -988,23 +988,31 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 objs=thru, ignore_conflicts=True, batch_size=1000
             )
 
-        tag = models.Tag(name=pk, tagged_manifest=manifest)
-        try:
-            tag.save()
-        except IntegrityError:
-            tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
-            tag.touch()
+        # a manifest cannot tagged by its digest - an identifier specified in the 'pk' parameter
+        if not pk.startswith("sha256:"):
+            tag = models.Tag(name=pk, tagged_manifest=manifest)
+            try:
+                tag.save()
+            except IntegrityError:
+                tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
+                tag.touch()
 
-        tags_to_remove = models.Tag.objects.filter(
-            pk__in=repository.latest_version().content.all(), name=tag
-        ).exclude(tagged_manifest=manifest)
+            tags_to_remove = models.Tag.objects.filter(
+                pk__in=repository.latest_version().content.all(), name=tag
+            ).exclude(tagged_manifest=manifest)
+            add_content_units = [str(tag.pk), str(manifest.pk)]
+            remove_content_units = [str(pk) for pk in tags_to_remove.values_list("pk")]
+        else:
+            add_content_units = [str(manifest.pk)]
+            remove_content_units = []
+
         dispatched_task = dispatch(
             add_and_remove,
             exclusive_resources=[repository],
             kwargs={
                 "repository_pk": str(repository.pk),
-                "add_content_units": [str(tag.pk), str(manifest.pk)],
-                "remove_content_units": [str(pk) for pk in tags_to_remove.values_list("pk")],
+                "add_content_units": add_content_units,
+                "remove_content_units": remove_content_units,
             },
         )
 
