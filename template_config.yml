@@ -57,7 +57,7 @@ plugin_snake: pulp_container
 post_job_template: null
 pre_job_template: null
 publish_docs_to_pulpprojectdotorg: true
-pulp_scheme: http
+pulp_scheme: https
 pulp_settings:
   allowed_content_checksums:
   - sha1
