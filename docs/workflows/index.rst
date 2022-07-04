@@ -42,7 +42,7 @@ library with:
 To make these workflows copy/pastable, we make use of environment variables. The first variable to
 set is the hostname and port::
 
-   $ export BASE_ADDR=http://<hostname>:24817
+   $ export BASE_ADDR=https://<hostname>:24817
 
 
 Container Workflows
