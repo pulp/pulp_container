@@ -13,6 +13,22 @@ Changelog
 
 .. towncrier release notes start
 
+2.9.5 (2022-07-11)
+==================
+
+
+Bugfixes
+--------
+
+- Accept token under access_token for compat reasons.
+  `#619 <https://github.com/pulp/pulp_container/issues/619>`__
+- Fixed upload does not exist error during image push operation.
+  `#861 <https://github.com/pulp/pulp_container/issues/861>`__
+
+
+----
+
+
 2.9.4 (2022-03-04)
 ==================
 
