@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.10.4 (2022-07-11)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed upload does not exist error during image push operation.
+  `#861 <https://github.com/pulp/pulp_container/issues/861>`__
+
+
+----
+
+
 2.10.3 (2022-04-05)
 ===================
 
