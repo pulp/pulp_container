@@ -156,7 +156,7 @@ class RepositoryTaggingTestCase(TaggingTestCommons, unittest.TestCase):
         self.assertEqual(created_tag.name, "new_tag")
 
         created_tag_manifest = self.manifests_api.read(created_tag.tagged_manifest)
-        self.assertEqual(created_tag_manifest, manifest_b)
+        self.assertEqual(created_tag_manifest.digest, manifest_b.digest)
 
         removed_tag = self.tags_api.list(
             repository_version_removed=new_repository_version_href
