@@ -10,7 +10,7 @@ with open("README.rst") as f:
 
 setup(
     name="pulp-container",
-    version="2.9.5",
+    version="2.9.6.dev",
     description="Container plugin for the Pulp Project",
     long_description=long_description,
     license="GPLv2+",
