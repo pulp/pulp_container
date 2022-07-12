@@ -1,3 +1,5 @@
+import re
+import subprocess
 import gnupg
 import json
 import logging
@@ -10,6 +12,8 @@ from pulpcore.plugin.models import Task
 
 from pulp_container.app.json_schemas import SIGNATURE_SCHEMA
 
+KEY_ID_REGEX_COMPILED = re.compile(r"keyid ([0-9A-F]+)")
+TIMESTAMP_REGEX_COMPILED = re.compile(r"created ([0-9]+)")
 
 validator = Draft7Validator(json.loads(SIGNATURE_SCHEMA))
 
@@ -68,7 +72,7 @@ def extract_data_from_signature(signature_raw, man_digest):
 
     """
     gpg = gnupg.GPG()
-    crypt_obj = gpg.decrypt(signature_raw)
+    crypt_obj = gpg.decrypt(signature_raw, extra_args=["--skip-verify"])
     if not crypt_obj.data:
         log.info(
             "It is not possible to read the signed document, GPG error: {}".format(crypt_obj.stderr)
@@ -92,8 +96,13 @@ def extract_data_from_signature(signature_raw, man_digest):
         log.info("The signature for {} is not synced due to: {}".format(man_digest, errors))
         return
 
-    sig_json["signing_key_id"] = crypt_obj.key_id
-    sig_json["signature_timestamp"] = crypt_obj.timestamp
+    # decrypted and unverified signatures do not have prepopulated the key_id and timestamp
+    # fields; thus, it is necessary to use the debugging utilities of gpg to extract these
+    # fields since they are not encrypted and still readable without decrypting the signature first
+    packets = subprocess.check_output(["gpg", "--list-packets"], input=signature_raw).decode()
+    sig_json["signing_key_id"] = KEY_ID_REGEX_COMPILED.search(packets).group(1)
+    sig_json["signature_timestamp"] = TIMESTAMP_REGEX_COMPILED.search(packets).group(1)
+
     return sig_json
 
 
