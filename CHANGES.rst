@@ -61,6 +61,20 @@ Misc
 ----
 
 
+2.12.2 (2022-07-11)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed upload does not exist error during image push operation.
+  `#861 <https://github.com/pulp/pulp_container/issues/861>`__
+
+
+----
+
+
 2.12.1 (2022-05-12)
 ===================
 
@@ -207,6 +221,20 @@ Misc
 ----
 
 
+2.10.4 (2022-07-11)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed upload does not exist error during image push operation.
+  `#861 <https://github.com/pulp/pulp_container/issues/861>`__
+
+
+----
+
+
 2.10.3 (2022-04-05)
 ===================
 
@@ -268,6 +296,22 @@ Features
   `#9488 <https://pulp.plan.io/issues/9488>`_
 - Enabled rate_limit option on the remote. Rate limit defines N req/sec per connection.
   `#9607 <https://pulp.plan.io/issues/9607>`_
+
+
+----
+
+
+2.9.5 (2022-07-11)
+==================
+
+
+Bugfixes
+--------
+
+- Accept token under access_token for compat reasons.
+  `#619 <https://github.com/pulp/pulp_container/issues/619>`__
+- Fixed upload does not exist error during image push operation.
+  `#861 <https://github.com/pulp/pulp_container/issues/861>`__
 
 
 ----
