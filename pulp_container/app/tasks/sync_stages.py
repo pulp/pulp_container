@@ -28,7 +28,11 @@ from pulp_container.app.models import (
     ManifestSignature,
     Tag,
 )
-from pulp_container.app.utils import extract_data_from_signature, urlpath_sanitize
+from pulp_container.app.utils import (
+    extract_data_from_signature,
+    urlpath_sanitize,
+    determine_media_type,
+)
 
 log = logging.getLogger(__name__)
 
@@ -129,14 +133,16 @@ class ContainerFirstStage(Stage):
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
 
                 content_data = json.loads(raw_data)
-                media_type = content_data.get("mediaType")
+
+                media_type = determine_media_type(content_data, dl_res)
+
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
                     list_dc = self.create_tagged_manifest_list(
-                        tag_name, saved_artifact, content_data
+                        tag_name, saved_artifact, content_data, media_type
                     )
                     for listed_manifest_task in asyncio.as_completed(
                         [
-                            self.create_listed_manifest(list_dc, manifest_data)
+                            self.create_listed_manifest(manifest_data)
                             for manifest_data in content_data.get("manifests")
                         ]
                     ):
@@ -176,7 +182,7 @@ class ContainerFirstStage(Stage):
                 else:
                     # Simple tagged manifest
                     man_dc = self.create_tagged_manifest(
-                        tag_name, saved_artifact, content_data, raw_data
+                        tag_name, saved_artifact, content_data, raw_data, media_type
                     )
                     if signature_source is not None:
                         man_sig_dcs = await self.create_signatures(man_dc, signature_source)
@@ -315,7 +321,7 @@ class ContainerFirstStage(Stage):
             manifest_dc.extra_data["config_blob_dc"] = blob_dc
             await self.put(blob_dc)
 
-    def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data):
+    def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data, media_type):
         """
         Create a ManifestList.
 
@@ -323,13 +329,12 @@ class ContainerFirstStage(Stage):
             tag_name (str): A name of a tag
             saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_list_data (dict): Data about a ManifestList
+            media_type (str): The type of a manifest
 
         """
         digest = f"sha256:{saved_artifact.sha256}"
         manifest_list = Manifest(
-            digest=digest,
-            schema_version=manifest_list_data["schemaVersion"],
-            media_type=manifest_list_data["mediaType"],
+            digest=digest, schema_version=manifest_list_data["schemaVersion"], media_type=media_type
         )
 
         manifest_list_dc = self._create_manifest_declarative_content(
@@ -338,7 +343,7 @@ class ContainerFirstStage(Stage):
         manifest_list_dc.extra_data["listed_manifests"] = []
         return manifest_list_dc
 
-    def create_tagged_manifest(self, tag_name, saved_artifact, manifest_data, raw_data):
+    def create_tagged_manifest(self, tag_name, saved_artifact, manifest_data, raw_data, media_type):
         """
         Create an Image Manifest.
 
@@ -349,7 +354,6 @@ class ContainerFirstStage(Stage):
             raw_data: (str): The raw JSON representation of the ImageManifest.
 
         """
-        media_type = manifest_data.get("mediaType", MEDIA_TYPE.MANIFEST_V1)
         if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
             digest = f"sha256:{saved_artifact.sha256}"
         else:
@@ -407,12 +411,11 @@ class ContainerFirstStage(Stage):
         )
         return sig_dc
 
-    async def create_listed_manifest(self, list_dc, manifest_data):
+    async def create_listed_manifest(self, manifest_data):
         """
         Create an Image Manifest from manifest data in a ManifestList.
 
         Args:
-            list_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
             manifest_data (dict): Data about a single new ImageManifest.
 
         """
