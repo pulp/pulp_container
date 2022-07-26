@@ -10,6 +10,7 @@ from rest_framework.exceptions import Throttled
 
 from pulpcore.plugin.models import Task
 
+from pulp_container.constants import MEDIA_TYPE
 from pulp_container.app.json_schemas import SIGNATURE_SCHEMA
 
 KEY_ID_REGEX_COMPILED = re.compile(r"keyid ([0-9A-F]+)")
@@ -131,3 +132,27 @@ def has_task_completed(dispatched_task):
             task.delete()
             raise Exception(str(error))
     raise Throttled()
+
+
+def determine_media_type(content_data, response):
+    """Determine the media type of a manifest either from the JSON data or the response object."""
+    if media_type := content_data.get("mediaType"):
+        return media_type
+    elif media_type := response.headers.get("content-type"):
+        return media_type
+    elif manifests := content_data.get("manifests"):
+        if len(manifests):
+            if manifests[0].get("mediaType") in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V1):
+                return MEDIA_TYPE.MANIFEST_LIST
+            elif manifests[0].get("mediaType") in (MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI):
+                return MEDIA_TYPE.INDEX_OCI
+        return MEDIA_TYPE.MANIFEST_LIST
+    else:
+        if config := content_data.get("config"):
+            config_media_type = config.get("mediaType")
+            if config_media_type == MEDIA_TYPE.CONFIG_BLOB_OCI:
+                return MEDIA_TYPE.MANIFEST_OCI
+            else:
+                return MEDIA_TYPE.MANIFEST_V2
+        else:
+            return MEDIA_TYPE.MANIFEST_V1
