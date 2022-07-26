@@ -12,8 +12,12 @@ MEDIA_TYPE = SimpleNamespace(
     MANIFEST_OCI="application/vnd.oci.image.manifest.v1+json",
     INDEX_OCI="application/vnd.oci.image.index.v1+json",
     CONFIG_BLOB_OCI="application/vnd.oci.image.config.v1+json",
-    REGULAR_BLOB_OCI="application/vnd.oci.image.layer.v1.tar+gzip",
-    FOREIGN_BLOB_OCI="application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
+    REGULAR_BLOB_OCI_TAR="application/vnd.oci.image.layer.v1.tar",
+    REGULAR_BLOB_OCI_TAR_GZIP="application/vnd.oci.image.layer.v1.tar+gzip",
+    REGULAR_BLOB_OCI_TAR_ZSTD="application/vnd.oci.image.layer.v1.tar+zstd",
+    FOREIGN_BLOB_OCI_TAR="application/vnd.oci.image.layer.nondistributable.v1.tar",
+    FOREIGN_BLOB_OCI_TAR_GZIP="application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
+    FOREIGN_BLOB_OCI_TAR_ZSTD="application/vnd.oci.image.layer.nondistributable.v1.tar+zstd",
 )
 
 MANIFEST_MEDIA_TYPES = SimpleNamespace(

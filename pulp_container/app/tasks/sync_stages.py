@@ -32,6 +32,7 @@ from pulp_container.app.utils import (
     extract_data_from_signature,
     urlpath_sanitize,
     determine_media_type,
+    validate_manifest,
 )
 
 log = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ V2_ACCEPT_HEADERS = {
     "Accept": ",".join(
         [
             MEDIA_TYPE.MANIFEST_V2,
+            MEDIA_TYPE.MANIFEST_V1,
             MEDIA_TYPE.MANIFEST_LIST,
             MEDIA_TYPE.INDEX_OCI,
             MEDIA_TYPE.MANIFEST_OCI,
@@ -133,8 +135,9 @@ class ContainerFirstStage(Stage):
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
 
                 content_data = json.loads(raw_data)
-
                 media_type = determine_media_type(content_data, dl_res)
+                digest = dl_res.artifact_attributes["sha256"]
+                validate_manifest(content_data, media_type, digest)
 
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
                     list_dc = self.create_tagged_manifest_list(
@@ -352,6 +355,7 @@ class ContainerFirstStage(Stage):
             saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_data (dict): Data about a single new ImageManifest.
             raw_data: (str): The raw JSON representation of the ImageManifest.
+            media_type (str): The type of a manifest
 
         """
         if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
@@ -446,8 +450,11 @@ class ContainerFirstStage(Stage):
                 dl_res.artifact_attributes
             )
             content_data = json.loads(raw_data)
+            media_type = determine_media_type(content_data, dl_res)
+            validate_manifest(content_data, media_type, digest)
+
             manifest = Manifest(
-                digest=manifest_data["digest"],
+                digest=digest,
                 schema_version=2
                 if manifest_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
                 else 1,
@@ -587,7 +594,12 @@ class ContainerFirstStage(Stage):
         """
         foreign_excluded = not self.remote.include_foreign_layers
         layer_type = layer.get("mediaType", MEDIA_TYPE.REGULAR_BLOB)
-        is_foreign = layer_type in (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB_OCI)
+        is_foreign = layer_type in (
+            MEDIA_TYPE.FOREIGN_BLOB,
+            MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR,
+            MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_GZIP,
+            MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_ZSTD,
+        )
         if is_foreign and foreign_excluded:
             log.debug("Foreign Layer: %(d)s EXCLUDED", dict(d=layer))
             return False

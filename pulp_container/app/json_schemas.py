@@ -1,6 +1,223 @@
-SIGNATURE_SCHEMA = """{
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://example.com/product.schema.json",
+from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
+
+
+def get_descriptor_schema(
+    allowed_media_types, additional_properties=None, additional_required=None
+):
+    """Return a concrete descriptor schema for manifests."""
+    properties = {
+        "mediaType": {"type": "string", "enum": allowed_media_types},
+        "size": {"type": "number"},
+        "digest": {"type": "string"},
+        "annotations": {"type": "object", "additionalProperties": True},
+        "urls": {"type": "array", "items": {"type": "string"}},
+    }
+
+    if additional_properties:
+        properties.update(additional_properties)
+
+    required = ["mediaType", "size", "digest"]
+    if additional_required:
+        required.extend(additional_required)
+
+    return {"type": "object", "properties": properties, "required": required}
+
+
+OCI_INDEX_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "schemaVersion": {"type": "number", "minimum": 2, "maximum": 2},
+        "mediaType": {
+            "type": "string",
+            "enum": [MEDIA_TYPE.INDEX_OCI],
+        },
+        "manifests": {
+            "type": "array",
+            "items": get_descriptor_schema(
+                allowed_media_types=[
+                    MEDIA_TYPE.MANIFEST_OCI,
+                    MEDIA_TYPE.INDEX_OCI,
+                ],
+                additional_properties={
+                    "platform": {
+                        "type": "object",
+                        "properties": {
+                            "architecture": {"type": "string"},
+                            "os": {"type": "string"},
+                            "os.version": {"type": "string"},
+                            "os.features": {"type": "array", "items": {"type": "string"}},
+                            "variant": {"type": "string"},
+                            "features": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": ["architecture", "os"],
+                    },
+                },
+                additional_required=["platform"],
+            ),
+        },
+        "annotations": {"type": "object", "additionalProperties": True},
+    },
+    "required": ["schemaVersion", "manifests"],
+}
+
+OCI_MANIFEST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "schemaVersion": {"type": "number", "minimum": 2, "maximum": 2},
+        "mediaType": {
+            "type": "string",
+            "enum": [MEDIA_TYPE.MANIFEST_OCI],
+        },
+        "config": get_descriptor_schema([MEDIA_TYPE.CONFIG_BLOB_OCI]),
+        "layers": {
+            "type": "array",
+            "items": get_descriptor_schema(
+                [
+                    MEDIA_TYPE.REGULAR_BLOB_OCI_TAR,
+                    MEDIA_TYPE.REGULAR_BLOB_OCI_TAR_GZIP,
+                    MEDIA_TYPE.REGULAR_BLOB_OCI_TAR_ZSTD,
+                    MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR,
+                    MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_GZIP,
+                    MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_ZSTD,
+                ]
+            ),
+        },
+    },
+    "required": ["schemaVersion", "config", "layers"],
+}
+
+DOCKER_MANIFEST_LIST_V2_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "schemaVersion": {"type": "number", "minimum": 2, "maximum": 2},
+        "mediaType": {
+            "type": "string",
+            "enum": [MEDIA_TYPE.MANIFEST_LIST],
+        },
+        "manifests": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "mediaType": {
+                        "type": "string",
+                        "enum": [
+                            MEDIA_TYPE.MANIFEST_V2,
+                            MEDIA_TYPE.MANIFEST_V1,
+                        ],
+                    },
+                    "size": {"type": "number"},
+                    "digest": {"type": "string"},
+                    "platform": {
+                        "type": "object",
+                        "properties": {
+                            "architecture": {"type": "string"},
+                            "os": {"type": "string"},
+                            "os.version": {"type": "string"},
+                            "os.features": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "variant": {"type": "string"},
+                            "features": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "required": ["architecture", "os"],
+                    },
+                },
+                "required": ["mediaType", "size", "digest", "platform"],
+            },
+        },
+    },
+    "required": ["schemaVersion", "mediaType", "manifests"],
+}
+
+DOCKER_MANIFEST_V2_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "schemaVersion": {"type": "number", "minimum": 2, "maximum": 2},
+        "mediaType": {
+            "type": "string",
+            "enum": [MEDIA_TYPE.MANIFEST_V2],
+        },
+        "config": {
+            "type": "object",
+            "properties": {
+                "mediaType": {
+                    "type": "string",
+                    "enum": [MEDIA_TYPE.CONFIG_BLOB],
+                },
+                "size": {"type": "number"},
+                "digest": {"type": "string"},
+            },
+            "required": ["mediaType", "size", "digest"],
+        },
+        "layers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "mediaType:": {
+                        "type": "string",
+                        "enum": [
+                            MEDIA_TYPE.REGULAR_BLOB,
+                            MEDIA_TYPE.FOREIGN_BLOB,
+                        ],
+                    },
+                    "size": {"type": "number"},
+                    "digest": {"type": "string"},
+                },
+                "required": ["mediaType", "size", "digest"],
+            },
+        },
+    },
+    "required": ["schemaVersion", "mediaType", "config", "layers"],
+}
+
+DOCKER_MANIFEST_V1_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "signatures": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "protected": {"type": "string"},
+                    "header": {
+                        "type": "object",
+                        "properties": {"alg": {"type": "string"}, "jwk": {"type": "object"}},
+                        "required": ["alg", "jwk"],
+                    },
+                    "signature": {"type": "string"},
+                },
+                "required": ["protected", "header", "signature"],
+            },
+        },
+        "tag": {"type": "string"},
+        "name": {"type": "string"},
+        "history": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"v1Compatibility": {"type": "string"}},
+                "required": ["v1Compatibility"],
+            },
+        },
+        "fsLayers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"blobSum": {"type": "string"}},
+                "required": ["blobSum"],
+            },
+        },
+    },
+    "required": ["tag", "name", "fsLayers", "history"],
+}
+
+SIGNATURE_SCHEMA = {
     "title": "Atomic Container Signature",
     "description": "JSON Schema Validation for the Signature Payload",
     "type": "object",
@@ -8,47 +225,31 @@ SIGNATURE_SCHEMA = """{
         "critical": {
             "type": "object",
             "properties": {
-                "type": {
-                    "type": "string",
-                    "const": "atomic container signature"
-                },
+                "type": {"type": "string", "const": SIGNATURE_TYPE.ATOMIC_FULL},
                 "image": {
                     "type": "object",
-                    "properties": {
-                        "docker-manifest-digest": {
-                            "type": "string"
-                        }
-                    },
+                    "properties": {"docker-manifest-digest": {"type": "string"}},
                     "required": ["docker-manifest-digest"],
-                    "additionalProperties": false
+                    "additionalProperties": False,
                 },
                 "identity": {
                     "type": "object",
-                    "properties": {
-                        "docker-reference": {
-                            "type": "string"
-                        }
-                    },
+                    "properties": {"docker-reference": {"type": "string"}},
                     "required": ["docker-reference"],
-                    "additionalProperties": false
-                }
+                    "additionalProperties": False,
+                },
             },
             "required": ["type", "image", "identity"],
-            "additionalProperties": false
+            "additionalProperties": False,
         },
         "optional": {
             "type": "object",
             "properties": {
-                "creator": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "number",
-                    "minimum": 0
-                }
-            }
-        }
+                "creator": {"type": "string"},
+                "timestamp": {"type": "number", "minimum": 0},
+            },
+        },
     },
     "required": ["critical", "optional"],
-    "additionalProperties": false
-}"""
+    "additionalProperties": False,
+}
