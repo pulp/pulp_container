@@ -5,18 +5,26 @@ import json
 import logging
 import time
 
-from jsonschema import Draft7Validator
+from jsonschema import Draft7Validator, validate, ValidationError
 from rest_framework.exceptions import Throttled
 
 from pulpcore.plugin.models import Task
 
 from pulp_container.constants import MEDIA_TYPE
-from pulp_container.app.json_schemas import SIGNATURE_SCHEMA
+from pulp_container.app.exceptions import ManifestInvalid
+from pulp_container.app.json_schemas import (
+    OCI_INDEX_SCHEMA,
+    OCI_MANIFEST_SCHEMA,
+    DOCKER_MANIFEST_LIST_V2_SCHEMA,
+    DOCKER_MANIFEST_V2_SCHEMA,
+    DOCKER_MANIFEST_V1_SCHEMA,
+    SIGNATURE_SCHEMA,
+)
 
 KEY_ID_REGEX_COMPILED = re.compile(r"keyid ([0-9A-F]+)")
 TIMESTAMP_REGEX_COMPILED = re.compile(r"created ([0-9]+)")
 
-validator = Draft7Validator(json.loads(SIGNATURE_SCHEMA))
+signature_validator = Draft7Validator(SIGNATURE_SCHEMA)
 
 log = logging.getLogger(__name__)
 
@@ -90,8 +98,8 @@ def extract_data_from_signature(signature_raw, man_digest):
         return
 
     errors = []
-    for error in validator.iter_errors(sig_json):
-        errors.append(error.message)
+    for error in signature_validator.iter_errors(sig_json):
+        errors.append(f'{".".join(error.path)}: {error.message}')
 
     if errors:
         log.info("The signature for {} is not synced due to: {}".format(man_digest, errors))
@@ -156,3 +164,36 @@ def determine_media_type(content_data, response):
                 return MEDIA_TYPE.MANIFEST_V2
         else:
             return MEDIA_TYPE.MANIFEST_V1
+
+
+def determine_schema(media_type):
+    """Return a JSON schema based on the specified content type."""
+    if media_type == MEDIA_TYPE.MANIFEST_V2:
+        return DOCKER_MANIFEST_V2_SCHEMA
+    elif media_type == MEDIA_TYPE.MANIFEST_OCI:
+        return OCI_MANIFEST_SCHEMA
+    elif media_type == MEDIA_TYPE.MANIFEST_LIST:
+        return DOCKER_MANIFEST_LIST_V2_SCHEMA
+    elif media_type == MEDIA_TYPE.INDEX_OCI:
+        return OCI_INDEX_SCHEMA
+    elif media_type in (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1_SIGNED):
+        return DOCKER_MANIFEST_V1_SCHEMA
+    else:
+        raise ValueError()
+
+
+def validate_manifest(content_data, media_type, digest):
+    """Validate JSON data (manifest) according to its declared content type (e.g., list)."""
+    try:
+        schema_validator = determine_schema(media_type)
+    except ValueError:
+        raise ManifestInvalid(
+            reason=f"A manifest of an unknown media type was provided: {media_type}",
+            digest=digest,
+        )
+
+    try:
+        validate(content_data, schema_validator)
+    except ValidationError as error:
+        # fail on the first encountered error
+        raise ManifestInvalid(reason=f'{".".join(error.path)}: {error.message}', digest=digest)

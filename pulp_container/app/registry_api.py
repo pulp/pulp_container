@@ -71,7 +71,12 @@ from pulp_container.app.token_verification import (
     RegistryPermission,
     TokenPermission,
 )
-from pulp_container.app.utils import extract_data_from_signature, has_task_completed
+from pulp_container.app.utils import (
+    determine_media_type,
+    extract_data_from_signature,
+    has_task_completed,
+    validate_manifest,
+)
 from pulp_container.constants import (
     EMPTY_BLOB,
     SIGNATURE_API_EXTENSION_VERSION,
@@ -869,35 +874,29 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds with the actual manifest
         """
-        # when a user uploads a manifest list with zero listed manifests (no blobs were uploaded
-        # before) and the specified repository has not been created yet, create the repository
-        # without raising an error
-        create_new_repo = request.content_type in (
-            models.MEDIA_TYPE.MANIFEST_LIST,
-            models.MEDIA_TYPE.INDEX_OCI,
-        )
-        _, repository = self.get_dr_push(request, path, create=create_new_repo)
         # iterate over all the layers and create
         chunk = request.META["wsgi.input"]
         artifact = self.receive_artifact(chunk)
         manifest_digest = "sha256:{id}".format(id=artifact.sha256)
-
-        # oci format might not contain mediaType in the manifest.json, docker should
-        # hence need to check request content type
-        if request.content_type not in (
-            models.MEDIA_TYPE.MANIFEST_V2,
-            models.MEDIA_TYPE.MANIFEST_OCI,
-            models.MEDIA_TYPE.MANIFEST_LIST,
-            models.MEDIA_TYPE.INDEX_OCI,
-        ):
-            raise ManifestInvalid(digest=manifest_digest)
 
         with storage.open(artifact.file.name) as artifact_file:
             raw_data = artifact_file.read()
 
         content_data = json.loads(raw_data)
 
-        if request.content_type in (
+        media_type = determine_media_type(content_data, request)
+        validate_manifest(content_data, media_type, manifest_digest)
+
+        # when a user uploads a manifest list with zero listed manifests (no blobs were uploaded
+        # before) and the specified repository has not been created yet, create the repository
+        # without raising an error
+        create_new_repo = media_type in (
+            models.MEDIA_TYPE.MANIFEST_LIST,
+            models.MEDIA_TYPE.INDEX_OCI,
+        )
+        _, repository = self.get_dr_push(request, path, create=create_new_repo)
+
+        if media_type in (
             models.MEDIA_TYPE.MANIFEST_LIST,
             models.MEDIA_TYPE.INDEX_OCI,
         ):
@@ -911,7 +910,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             if (len(manifests) - found_manifests.count()) != 0:
                 ManifestInvalid(digest=manifest_digest)
 
-            manifest_list = self._save_manifest(artifact, manifest_digest, request.content_type)
+            manifest_list = self._save_manifest(artifact, manifest_digest, media_type)
 
             manifests_to_list = []
             for manifest in found_manifests:
@@ -935,14 +934,13 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         else:
             # both docker/oci format should contain config, digest, mediaType, size
             config_layer = content_data.get("config")
-            config_media_type = config_layer.get("mediaType")
-            config_digest = config_layer.get("digest")
-            if config_media_type not in (
-                models.MEDIA_TYPE.CONFIG_BLOB,
-                models.MEDIA_TYPE.CONFIG_BLOB_OCI,
-            ):
-                raise BlobInvalid(digest=config_digest)
+            if not config_layer:
+                raise ManifestInvalid(
+                    digest=manifest_digest,
+                    reason="Pushing manifests of the version V1 is not supported",
+                )
 
+            config_digest = config_layer.get("digest")
             try:
                 config_blob = models.Blob.objects.get(
                     digest=config_digest, pk__in=repository.latest_version().content
@@ -954,23 +952,24 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             layers = content_data.get("layers")
             blobs = set()
             for layer in layers:
-                media_type = layer.get("mediaType")
+                layer_media_type = layer.get("mediaType")
                 urls = layer.get("urls")
-                digest = layer.get("digest")
                 if (
-                    media_type
+                    layer_media_type
                     in (
                         models.MEDIA_TYPE.FOREIGN_BLOB,
-                        models.MEDIA_TYPE.FOREIGN_BLOB_OCI,
+                        models.MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR,
+                        models.MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_GZIP,
+                        models.MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_ZSTD,
                     )
                     and not urls
                 ):
-                    raise ManifestInvalid(digest=manifest_digest)
-                if media_type not in (
-                    models.MEDIA_TYPE.REGULAR_BLOB,
-                    models.MEDIA_TYPE.REGULAR_BLOB_OCI,
-                ):
-                    raise BlobInvalid(digest=digest)
+                    raise ManifestInvalid(
+                        digest=manifest_digest,
+                        reason="The URL of a foreign layer must be specified",
+                    )
+
+                digest = layer.get("digest")
                 blobs.add(digest)
 
             blobs_qs = models.Blob.objects.filter(
@@ -979,9 +978,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             if (len(blobs) - blobs_qs.count()) != 0:
                 raise ManifestInvalid(digest=manifest_digest)
 
-            manifest = self._save_manifest(
-                artifact, manifest_digest, request.content_type, config_blob
-            )
+            manifest = self._save_manifest(artifact, manifest_digest, media_type, config_blob)
 
             thru = []
             for blob in blobs_qs:

@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from pulp_container.app.json_schemas import SIGNATURE_SCHEMA
 
-validator = Draft7Validator(json.loads(SIGNATURE_SCHEMA))
+validator = Draft7Validator(SIGNATURE_SCHEMA)
 
 
 class TestSignatureJsonSchema(TestCase):

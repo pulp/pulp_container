@@ -1,0 +1,2 @@
+Fixed internal server errors raised when a podman client (<4.0) used invalid content types for
+manifest lists.

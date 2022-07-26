@@ -89,14 +89,14 @@ class ManifestNotFound(NotFound):
 class ManifestInvalid(ParseError):
     """Exception to render a 400 with the code 'MANIFEST_INVALID'"""
 
-    def __init__(self, digest):
+    def __init__(self, digest, reason=None):
         """Initialize the exception with the manifest digest."""
         super().__init__(
             detail={
                 "errors": [
                     {
                         "code": "MANIFEST_INVALID",
-                        "message": "manifest invalid",
+                        "message": reason or "manifest invalid",
                         "detail": {"digest": digest},
                     }
                 ]
