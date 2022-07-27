@@ -634,7 +634,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             length = end - start + 1
 
         else:
-            length = int(request.headers["Content-Length"])
+            length = int(request.headers.get("Content-Length", 0))
             start = 0
 
         with transaction.atomic():
@@ -662,6 +662,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                     artifact = Artifact.objects.get(sha256=artifact.sha256)
                     artifact.touch()
                 upload.artifact = artifact
+                if not length:
+                    length = artifact.size
 
             upload.size += length
             upload.save()
