@@ -23,5 +23,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(remove_tag_artifacts_up, remove_tag_artifacts_down)
+        migrations.RunPython(
+            code=remove_tag_artifacts_up,
+            reverse_code=remove_tag_artifacts_down,
+            elidable=True,
+        )
     ]

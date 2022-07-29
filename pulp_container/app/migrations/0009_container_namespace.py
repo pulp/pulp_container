@@ -44,5 +44,9 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, related_name='container_distributions', to='container.ContainerNamespace'),
         ),
         # Reverting that step is simply removing the new relation and table.
-        migrations.RunPython(initialize_namespaces, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(
+            code=initialize_namespaces,
+            reverse_code=migrations.RunPython.noop,
+            elidable=True,
+            ),
     ]
