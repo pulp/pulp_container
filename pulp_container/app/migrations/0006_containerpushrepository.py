@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0033_increase_remote_artifact_size_field'),
+        ('core', '0091_systemid'),
         ('container', '0005_contentredirectcontentguard'),
     ]
 

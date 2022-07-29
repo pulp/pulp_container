@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('container', '0020_update_push_repo_perms'),
-        ('core', '0085_contentredirectcontentguard'),
+        ('core', '0091_systemid'),
     ]
 
     operations = [

@@ -14,14 +14,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('core', '0062_add_new_distribution_mastermodel'),
-        ('core', '0011_relative_path'),
-        ('core', '0032_export_to_chunks'),
         ('core', '0091_systemid'),
-        ('core', '0033_increase_remote_artifact_size_field'),
-        ('core', '0049_add_file_field_to_uploadchunk'),
-        ('core', '0085_contentredirectcontentguard'),
-        ('core', '0012_auto_20191104_2000'),
     ]
 
     operations = [
@@ -38,25 +31,35 @@ class Migration(migrations.Migration):
             bases=('core.content',),
         ),
         migrations.CreateModel(
-            name='BlobManifest',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-            ],
-        ),
-        migrations.CreateModel(
             name='Manifest',
             fields=[
                 ('content_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, related_name='container_manifest', serialize=False, to='core.content')),
-                ('digest', models.CharField(db_index=True, max_length=255)),
+                ('digest', models.TextField(db_index=True)),
                 ('schema_version', models.IntegerField()),
-                ('media_type', models.CharField(choices=[('application/vnd.docker.distribution.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v1+json'), ('application/vnd.docker.distribution.manifest.v2+json', 'application/vnd.docker.distribution.manifest.v2+json'), ('application/vnd.docker.distribution.manifest.list.v2+json', 'application/vnd.docker.distribution.manifest.list.v2+json')], max_length=60)),
-                ('blobs', models.ManyToManyField(related_name='container_manifest', through='container.BlobManifest', to='container.Blob')),
+                ('media_type', models.TextField(choices=[('application/vnd.docker.distribution.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v1+json'), ('application/vnd.docker.distribution.manifest.v2+json', 'application/vnd.docker.distribution.manifest.v2+json'), ('application/vnd.docker.distribution.manifest.list.v2+json', 'application/vnd.docker.distribution.manifest.list.v2+json'), ('application/vnd.oci.image.manifest.v1+json', 'application/vnd.oci.image.manifest.v1+json'), ('application/vnd.oci.image.index.v1+json', 'application/vnd.oci.image.index.v1+json')])),
                 ('config_blob', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, related_name='config_blob', to='container.blob')),
             ],
             options={
                 'default_related_name': '%(app_label)s_%(model_name)s',
+                'unique_together': {('digest',)},
             },
             bases=('core.content',),
+        ),
+        migrations.CreateModel(
+            name='BlobManifest',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('manifest', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='blob_manifests', to='container.manifest')),
+                ('manifest_blob', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='manifest_blobs', to='container.blob')),
+            ],
+            options={
+                'unique_together': {('manifest', 'manifest_blob')},
+            },
+        ),
+        migrations.AddField(
+            model_name='manifest',
+            name='blobs',
+            field=models.ManyToManyField(related_name='container_manifest', through='container.BlobManifest', to='container.Blob'),
         ),
         migrations.CreateModel(
             name='ManifestListManifest',
@@ -80,25 +83,6 @@ class Migration(migrations.Migration):
             name='listed_manifests',
             field=models.ManyToManyField(related_name='container_manifest', through='container.ManifestListManifest', to='container.Manifest'),
         ),
-        migrations.AddField(
-            model_name='blobmanifest',
-            name='manifest',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='blob_manifests', to='container.manifest'),
-        ),
-        migrations.AddField(
-            model_name='blobmanifest',
-            name='manifest_blob',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='manifest_blobs', to='container.blob'),
-        ),
-        migrations.AlterUniqueTogether(
-            name='manifest',
-            unique_together={('digest',)},
-        ),
-        migrations.AlterField(
-            model_name='manifest',
-            name='media_type',
-            field=models.CharField(choices=[('application/vnd.docker.distribution.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v1+json'), ('application/vnd.docker.distribution.manifest.v2+json', 'application/vnd.docker.distribution.manifest.v2+json'), ('application/vnd.docker.distribution.manifest.list.v2+json', 'application/vnd.docker.distribution.manifest.list.v2+json'), ('application/vnd.oci.image.manifest.v1+json', 'application/vnd.oci.image.manifest.v1+json'), ('application/vnd.oci.image.index.v1+json', 'application/vnd.oci.image.index.v1+json')], max_length=60),
-        ),
         migrations.CreateModel(
             name='ContainerNamespace',
             fields=[
@@ -112,10 +96,6 @@ class Migration(migrations.Migration):
                 'permissions': [('namespace_add_containerdistribution', 'Add any distribution to a namespace'), ('namespace_delete_containerdistribution', 'Delete any distribution from a namespace'), ('namespace_view_containerdistribution', 'View any distribution in a namespace'), ('namespace_pull_containerdistribution', 'Pull from any distribution in a namespace'), ('namespace_push_containerdistribution', 'Push to any distribution in a namespace'), ('namespace_change_containerdistribution', 'Change any distribution in a namespace'), ('namespace_view_containerpushrepository', 'View any push repository in a namespace'), ('namespace_modify_content_containerpushrepository', 'Modify content in any push repository in a namespace'), ('namespace_change_containerpushrepository', 'Update any existing push repository in a namespace'), ('manage_roles_containernamespace', 'Can manage role assignments on container namespace')],
             },
             bases=(django_lifecycle.mixins.LifecycleModelMixin, models.Model),
-        ),
-        migrations.AlterUniqueTogether(
-            name='blobmanifest',
-            unique_together={('manifest', 'manifest_blob')},
         ),
         migrations.CreateModel(
             name='ContainerDistribution',
@@ -181,16 +161,6 @@ class Migration(migrations.Migration):
             },
             bases=('core.remote',),
         ),
-        migrations.AlterField(
-            model_name='manifest',
-            name='digest',
-            field=models.TextField(db_index=True),
-        ),
-        migrations.AlterField(
-            model_name='manifest',
-            name='media_type',
-            field=models.TextField(choices=[('application/vnd.docker.distribution.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v1+json'), ('application/vnd.docker.distribution.manifest.v2+json', 'application/vnd.docker.distribution.manifest.v2+json'), ('application/vnd.docker.distribution.manifest.list.v2+json', 'application/vnd.docker.distribution.manifest.list.v2+json'), ('application/vnd.oci.image.manifest.v1+json', 'application/vnd.oci.image.manifest.v1+json'), ('application/vnd.oci.image.index.v1+json', 'application/vnd.oci.image.index.v1+json')]),
-        ),
         migrations.CreateModel(
             name='ManifestSignature',
             fields=[
@@ -227,7 +197,7 @@ class Migration(migrations.Migration):
             name='Upload',
             fields=[
                 ('repository', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='uploads', to='core.repository')),
-                ('upload_ptr', models.OneToOneField(auto_created=True, default=None, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='core.upload')),
+                ('upload_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='core.upload')),
                 ('artifact', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='uploads', to='core.artifact')),
             ],
             options={

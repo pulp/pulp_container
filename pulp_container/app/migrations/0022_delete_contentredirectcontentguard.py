@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0085_contentredirectcontentguard'),
+        ('core', '0091_systemid'),
         ('container', '0021_data_move_redirect_content_guard_to_core'),
     ]
 

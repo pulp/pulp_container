@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ('core', '0062_add_new_distribution_mastermodel'),
+        ('core', '0091_systemid'),
         ('container', '0018_containerdistribution_description'),
     ]
 

@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0049_add_file_field_to_uploadchunk'),
+        ('core', '0091_systemid'),
         ('container', '0009_container_namespace'),
     ]
 

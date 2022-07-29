@@ -10,7 +10,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0032_export_to_chunks'),
+        ('core', '0091_systemid'),
         ('container', '0003_oci_mediatype'),
     ]
 

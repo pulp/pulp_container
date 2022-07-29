@@ -14,7 +14,7 @@ def _gen_secret():
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0033_increase_remote_artifact_size_field'),
+        ('core', '0091_systemid'),
         ('container', '0004_upload'),
     ]
 
