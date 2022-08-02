@@ -1,1 +1,0 @@
-Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.

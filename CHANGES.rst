@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.10.5 (2022-08-02)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+
+
+----
+
+
 2.10.4 (2022-07-11)
 ===================
 
