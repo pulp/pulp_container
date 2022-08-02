@@ -30,7 +30,11 @@ from pulp_container.app.models import (
     ManifestSignature,
     Tag,
 )
-from pulp_container.app.utils import extract_data_from_signature, urlpath_sanitize
+from pulp_container.app.utils import (
+    determine_media_type,
+    extract_data_from_signature,
+    urlpath_sanitize,
+)
 
 log = logging.getLogger(__name__)
 
@@ -160,10 +164,10 @@ class ContainerFirstStage(Stage):
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
 
                 content_data = json.loads(raw_data)
-                media_type = content_data.get("mediaType")
+                media_type = determine_media_type(content_data, tag)
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
                     list_dc = self.create_tagged_manifest_list(
-                        tag_name, saved_artifact, content_data
+                        tag_name, saved_artifact, content_data, media_type
                     )
                     for manifest_data in content_data.get("manifests"):
                         man_dc = self.create_manifest(list_dc, manifest_data)
@@ -199,7 +203,7 @@ class ContainerFirstStage(Stage):
 
                 else:
                     man_dc = self.create_tagged_manifest(
-                        tag_name, saved_artifact, content_data, raw_data
+                        tag_name, saved_artifact, content_data, raw_data, media_type
                     )
                     if signature_source is not None:
                         man_sig_dcs = await self.create_signatures(man_dc, signature_source)
@@ -286,7 +290,7 @@ class ContainerFirstStage(Stage):
             blob_dc.extra_data["config_relation"] = manifest_dc
             await self.put(blob_dc)
 
-    def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data):
+    def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data, media_type):
         """
         Create a ManifestList.
 
@@ -294,20 +298,21 @@ class ContainerFirstStage(Stage):
             tag_name (str): A name of a tag
             saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_list_data (dict): Data about a ManifestList
+            media_type (str): The type of a manifest
 
         """
         digest = f"sha256:{saved_artifact.sha256}"
         manifest_list = Manifest(
             digest=digest,
             schema_version=manifest_list_data["schemaVersion"],
-            media_type=manifest_list_data["mediaType"],
+            media_type=media_type,
         )
 
         return self._create_manifest_declarative_content(
             manifest_list, saved_artifact, tag_name, digest
         )
 
-    def create_tagged_manifest(self, tag_name, saved_artifact, manifest_data, raw_data):
+    def create_tagged_manifest(self, tag_name, saved_artifact, manifest_data, raw_data, media_type):
         """
         Create an Image Manifest.
 
@@ -316,9 +321,9 @@ class ContainerFirstStage(Stage):
             saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_data (dict): Data about a single new ImageManifest.
             raw_data: (str): The raw JSON representation of the ImageManifest.
+            media_type (str): The type of a manifest
 
         """
-        media_type = manifest_data.get("mediaType", MEDIA_TYPE.MANIFEST_V1)
         if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
             digest = f"sha256:{saved_artifact.sha256}"
         else:
