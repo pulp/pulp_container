@@ -13,6 +13,22 @@ Changelog
 
 .. towncrier release notes start
 
+2.13.1 (2022-08-02)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+- Fixed the Content-Length key error raised when uploading images.
+  `#921 <https://github.com/pulp/pulp_container/issues/921>`__
+
+
+----
+
+
 2.13.0 (2022-06-24)
 ===================
 
