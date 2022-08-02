@@ -1,3 +1,6 @@
+from pulp_container.constants import MEDIA_TYPE
+
+
 def get_accepted_media_types(headers):
     """
     Returns a list of media types from the Accept headers.
@@ -16,3 +19,27 @@ def get_accepted_media_types(headers):
             values = [v.strip() for v in values.split(",")]
             accepted_media_types.extend(values)
     return accepted_media_types
+
+
+def determine_media_type(content_data, response):
+    """Determine the media type of a manifest either from the JSON data or the response object."""
+    if media_type := content_data.get("mediaType"):
+        return media_type
+    elif media_type := response.headers.get("content-type"):
+        return media_type
+    elif manifests := content_data.get("manifests"):
+        if len(manifests):
+            if manifests[0].get("mediaType") in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V1):
+                return MEDIA_TYPE.MANIFEST_LIST
+            elif manifests[0].get("mediaType") in (MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI):
+                return MEDIA_TYPE.INDEX_OCI
+        return MEDIA_TYPE.MANIFEST_LIST
+    else:
+        if config := content_data.get("config"):
+            config_media_type = config.get("mediaType")
+            if config_media_type == MEDIA_TYPE.CONFIG_BLOB_OCI:
+                return MEDIA_TYPE.MANIFEST_OCI
+            else:
+                return MEDIA_TYPE.MANIFEST_V2
+        else:
+            return MEDIA_TYPE.MANIFEST_V1
