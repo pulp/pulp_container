@@ -13,6 +13,22 @@ Changelog
 
 .. towncrier release notes start
 
+2.13.1 (2022-08-02)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+- Fixed the Content-Length key error raised when uploading images.
+  `#921 <https://github.com/pulp/pulp_container/issues/921>`__
+
+
+----
+
+
 2.13.0 (2022-06-24)
 ===================
 
@@ -241,6 +257,20 @@ Misc
 ----
 
 
+2.10.5 (2022-08-02)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+
+
+----
+
+
 2.10.4 (2022-07-11)
 ===================
 
@@ -316,6 +346,20 @@ Features
   `#9488 <https://pulp.plan.io/issues/9488>`_
 - Enabled rate_limit option on the remote. Rate limit defines N req/sec per connection.
   `#9607 <https://pulp.plan.io/issues/9607>`_
+
+
+----
+
+
+2.9.6 (2022-08-02)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
 
 
 ----
