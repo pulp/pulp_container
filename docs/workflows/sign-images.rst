@@ -25,7 +25,7 @@ The example below demonstrates how a manifest signing service can be created usi
 
        #!/usr/bin/env bash
 
-        MANIFEST_PATH1=$1
+        MANIFEST_PATH=$1
         FINGEPRINT="$PULP_SIGNING_KEY_FINGERPRINT"
         IMAGE_REFERENCE="$REFERENCE"
         SIGNATURE_PATH="$SIG_PATH"
@@ -47,6 +47,11 @@ The example below demonstrates how a manifest signing service can be created usi
        Since the script invokes a ``skopeo`` command, it should be installed as well.
        Environment variables passed to the script cannot be changed since these are the
        variables expected by the signing facility.
+
+   .. note:: 
+   
+      If the GPG key is password protected the password must be stored in a text file and
+      the path passed to skopeo `--passphrase-file` argument.
 
 3. Create a signing service consisting of an absolute path to the script and a meaningful
    name describing the script's purpose. It is possible to create a signing service by using the
