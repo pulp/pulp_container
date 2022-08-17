@@ -1,0 +1,1 @@
+Fixed an HTTP 404 response during sync from registry.redhat.io.
