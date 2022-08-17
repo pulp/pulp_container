@@ -80,12 +80,12 @@ class RegistryAuthHttpDownloader(HttpDownloader):
 
                             self.registry_auth["bearer"] = None
                             await self.update_token(response_auth_header, this_token, repo_name)
-                        return await self._run(handle_401=False)
+                        return await self._run(handle_401=False, extra_data=extra_data)
                     elif "Basic" in response_auth_header:
                         if self.remote.username:
                             basic = aiohttp.BasicAuth(self.remote.username, self.remote.password)
                             self.registry_auth["basic"] = basic.encode()
-                        return await self._run(handle_401=False)
+                        return await self._run(handle_401=False, extra_data=extra_data)
                 else:
                     raise
             to_return = await self._handle_response(response)
