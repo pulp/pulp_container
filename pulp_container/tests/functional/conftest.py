@@ -5,7 +5,7 @@ import requests
 
 from urllib.parse import urljoin, urlparse
 
-from pulp_smash.utils import execute_pulpcore_python, uuid4
+from pulp_smash.utils import execute_pulpcore_python, uuid4, get_pulp_setting
 from pulp_smash.cli import RegistryClient
 
 from pulpcore.client.pulp_container import (
@@ -291,3 +291,9 @@ def container_blob_api(container_client):
 def container_signature_api(container_client):
     """Container image signature API fixture."""
     return ContentSignaturesApi(container_client)
+
+
+@pytest.fixture(scope="session")
+def token_server_url(cli_client):
+    """The URL of the token server."""
+    return get_pulp_setting(cli_client, "TOKEN_SERVER")
