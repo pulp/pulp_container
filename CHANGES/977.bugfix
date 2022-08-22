@@ -1,0 +1,2 @@
+Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+types of manifests that could have been stored in the database as a result of a sync task.
