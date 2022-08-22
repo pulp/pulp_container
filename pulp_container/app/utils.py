@@ -131,6 +131,13 @@ def determine_media_type(content_data, response):
         return media_type
     elif media_type := response.headers.get("content-type"):
         return media_type
+    return determine_media_type_from_json(content_data)
+
+
+def determine_media_type_from_json(content_data):
+    """Determine the media tpye of a manifest from the provided JSON data."""
+    if media_type := content_data.get("mediaType"):
+        return media_type
     elif manifests := content_data.get("manifests"):
         if len(manifests):
             if manifests[0].get("mediaType") in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V1):
