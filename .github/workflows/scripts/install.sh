@@ -17,6 +17,11 @@ source .github/workflows/scripts/utils.sh
 
 export PULP_API_ROOT="/pulp/"
 
+if [[ "$TEST" = "docs" || "$TEST" = "publish" ]]; then
+  pip install -r ../pulpcore/doc_requirements.txt
+  pip install -r doc_requirements.txt
+fi
+
 cd .ci/ansible/
 
 TAG=ci_build
@@ -37,7 +42,7 @@ image:
   tag: "${TAG}"
 plugins:
   - name: pulpcore
-    source: pulpcore
+    source: pulpcore>=3.20,<3.25
   - name: pulp_container
     source:  "${PLUGIN_NAME}"
   - name: pulp-smash
@@ -126,11 +131,6 @@ fi
 
 ansible-playbook build_container.yaml
 ansible-playbook start_container.yaml
-
-if [[ "$TEST" = "docs" || "$TEST" = "publish" ]]; then
-  cmd_prefix bash -c "cd pulpcore; pip install -r doc_requirements.txt"
-  cmd_prefix bash -c "cd pulp_container; pip install -r doc_requirements.txt"
-fi
 echo ::group::SSL
 # Copy pulp CA
 sudo docker cp pulp:/etc/pulp/certs/pulp_webserver.crt /usr/local/share/ca-certificates/pulp_webserver.crt
