@@ -13,6 +13,25 @@ Changelog
 
 .. towncrier release notes start
 
+2.12.3 (2022-08-24)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+- Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+  types of manifests that could have been stored in the database as a result of a sync task.
+  `#977 <https://github.com/pulp/pulp_container/issues/977>`__
+
+
+----
+
+
 2.12.2 (2022-07-11)
 ===================
 
