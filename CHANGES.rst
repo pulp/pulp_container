@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.8.8 (2022-08-24)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+
+
+----
+
+
 2.8.7 (2022-04-05)
 ==================
 
