@@ -1,2 +1,0 @@
-Started returning an HTTP 401 response in case of invalid credentials provided by a container
-client (e.g., ``podman``).
