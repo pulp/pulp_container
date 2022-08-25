@@ -64,6 +64,23 @@ Misc
 ----
 
 
+2.13.2 (2022-08-24)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+- Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+  types of manifests that could have been stored in the database as a result of a sync task.
+  `#977 <https://github.com/pulp/pulp_container/issues/977>`__
+
+
+----
+
+
 2.13.1 (2022-08-02)
 ===================
 
@@ -123,6 +140,25 @@ Misc
 ----
 
 - `#678 <https://github.com/pulp/pulp_container/issues/678>`__, `#772 <https://github.com/pulp/pulp_container/issues/772>`__, `#791 <https://github.com/pulp/pulp_container/issues/791>`__, `#809 <https://github.com/pulp/pulp_container/issues/809>`__
+
+
+----
+
+
+2.12.3 (2022-08-24)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+- Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+  types of manifests that could have been stored in the database as a result of a sync task.
+  `#977 <https://github.com/pulp/pulp_container/issues/977>`__
 
 
 ----
@@ -203,6 +239,25 @@ Misc
 ----
 
 - `#486 <https://github.com/pulp/pulp_container/issues/486>`__, `#495 <https://github.com/pulp/pulp_container/issues/495>`__, `#606 <https://github.com/pulp/pulp_container/issues/606>`__, `#640 <https://github.com/pulp/pulp_container/issues/640>`__, `#665 <https://github.com/pulp/pulp_container/issues/665>`__
+
+
+----
+
+
+2.11.2 (2022-08-24)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+- Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+  types of manifests that could have been stored in the database as a result of a sync task.
+  `#977 <https://github.com/pulp/pulp_container/issues/977>`__
 
 
 ----
@@ -303,6 +358,23 @@ Misc
 ----
 
 - `#561 <https://github.com/pulp/pulp_container/issues/561>`__
+
+
+----
+
+
+2.10.8 (2022-08-24)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+- Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+  types of manifests that could have been stored in the database as a result of a sync task.
+  `#977 <https://github.com/pulp/pulp_container/issues/977>`__
 
 
 ----
@@ -417,6 +489,23 @@ Features
   `#9488 <https://pulp.plan.io/issues/9488>`_
 - Enabled rate_limit option on the remote. Rate limit defines N req/sec per connection.
   `#9607 <https://pulp.plan.io/issues/9607>`_
+
+
+----
+
+
+2.9.7 (2022-08-24)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+- Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+  types of manifests that could have been stored in the database as a result of a sync task.
+  `#977 <https://github.com/pulp/pulp_container/issues/977>`__
 
 
 ----
@@ -567,6 +656,20 @@ Misc
 ----
 
 - `#9187 <https://pulp.plan.io/issues/9187>`_, `#9203 <https://pulp.plan.io/issues/9203>`_, `#9310 <https://pulp.plan.io/issues/9310>`_, `#9385 <https://pulp.plan.io/issues/9385>`_, `#9466 <https://pulp.plan.io/issues/9466>`_
+
+
+----
+
+
+2.8.8 (2022-08-24)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
 
 
 ----
