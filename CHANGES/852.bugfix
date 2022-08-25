@@ -1,1 +1,0 @@
-Fixed a bug that caused untagged manifests to be tagged by their digest during the push operation.

@@ -1,1 +1,0 @@
-Fixed the Content-Length key error raised when uploading images.

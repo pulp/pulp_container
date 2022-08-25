@@ -13,6 +13,57 @@ Changelog
 
 .. towncrier release notes start
 
+2.14.0 (2022-08-25)
+===================
+
+
+Features
+--------
+
+- Added validation for uploaded and synced manifest JSON content.
+  `#672 <https://github.com/pulp/pulp_container/issues/672>`__
+
+
+Bugfixes
+--------
+
+- Silenced redundant logs when downloading signatures.
+  `#518 <https://github.com/pulp/pulp_container/issues/518>`__
+- Silenced redundant GnuPG errors logged while decrypting manifest signatures.
+  `#519 <https://github.com/pulp/pulp_container/issues/519>`__
+- Fixed a bug that caused untagged manifests to be tagged by their digest during the push operation.
+  `#852 <https://github.com/pulp/pulp_container/issues/852>`__
+- Fixed internal server errors raised when a podman client (<4.0) used invalid content types for
+  manifest lists.
+  `#853 <https://github.com/pulp/pulp_container/issues/853>`__
+- Fixed a misleading error message raised when a user provided an invalid manifest list.
+  `#854 <https://github.com/pulp/pulp_container/issues/854>`__
+- Fixed an error that was raised when an OCI manifest did not contain ``mediaType``.
+  `#883 <https://github.com/pulp/pulp_container/issues/883>`__
+- Started returning an HTTP 401 response in case of invalid credentials provided by a container
+  client (e.g., ``podman``).
+  `#918 <https://github.com/pulp/pulp_container/issues/918>`__
+- Configured aiohttp to avoid rewriting redirect URLs, as some web servers
+  (e.g. Amazon CloudFront) can be tempermental about the encoding of the URL.
+  `#919 <https://github.com/pulp/pulp_container/issues/919>`__
+- Fixed the Content-Length key error raised when uploading images.
+  `#921 <https://github.com/pulp/pulp_container/issues/921>`__
+- Fixed an HTTP 404 response during sync from registry.redhat.io.
+  `#974 <https://github.com/pulp/pulp_container/issues/974>`__
+- Introduced the ``pulpcore-manager container-repair-media-type`` command to fix incorrect media
+  types of manifests that could have been stored in the database as a result of a sync task.
+  `#977 <https://github.com/pulp/pulp_container/issues/977>`__
+
+
+Misc
+----
+
+- `#687 <https://github.com/pulp/pulp_container/issues/687>`__
+
+
+----
+
+
 2.13.1 (2022-08-02)
 ===================
 
