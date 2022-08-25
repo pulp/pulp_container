@@ -1,7 +1,11 @@
+import aiohttp
+import asyncio
 import os
 import stat
+import uuid
 import pytest
 import requests
+import gnupg
 
 from urllib.parse import urljoin, urlparse
 
@@ -147,6 +151,37 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
             return registry_client.inspect(local_image_path)
 
     return _LocalRegistry()
+
+
+@pytest.fixture(scope="session")
+def signing_gpg_homedir_path(tmpdir_factory):
+    return tmpdir_factory.mktemp(str(uuid.uuid4()))
+
+
+@pytest.fixture(scope="session")
+def signing_gpg_metadata(signing_gpg_homedir_path):
+    """A fixture that returns a GPG instance and related metadata (i.e., fingerprint, keyid)."""
+    private_key_url = (
+        "https://raw.githubusercontent.com/pulp/pulp-fixtures/master/common/GPG-PRIVATE-KEY-pulp-qe"
+    )
+
+    async def download_key():
+        async with aiohttp.ClientSession() as session:
+            async with session.get(private_key_url) as response:
+                return await response.text()
+
+    private_key_data = asyncio.run(download_key())
+
+    gpg = gnupg.GPG(gnupghome=signing_gpg_homedir_path)
+
+    gpg.import_keys(private_key_data)
+
+    fingerprint = gpg.list_keys()[0]["fingerprint"]
+    keyid = gpg.list_keys()[0]["keyid"]
+
+    gpg.trust_keys(fingerprint, "TRUST_ULTIMATE")
+
+    return gpg, fingerprint, keyid
 
 
 @pytest.fixture(scope="session")
