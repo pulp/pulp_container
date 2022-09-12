@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DIST_NAME='testing-hello'
+DIST_NAME=$(head /dev/urandom | tr -dc a-z | head -c5)
 DIST_BASE_PATH='test'
 
 # Distributions are created asynchronously.

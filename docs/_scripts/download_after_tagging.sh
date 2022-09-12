@@ -2,7 +2,7 @@
 
 TAG_NAME='custom_tag'
 
-DIST_NAME='testing-tagging'
+DIST_NAME=$(head /dev/urandom | tr -dc a-z | head -c5)
 DIST_BASE_PATH='tag'
 
 echo "Publishing the latest repository."
