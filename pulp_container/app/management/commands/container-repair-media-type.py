@@ -45,6 +45,13 @@ class Command(BaseCommand):
         if manifests_to_update:
             Manifest.objects.bulk_update(manifests_to_update, ["media_type"], batch_size=100)
 
+        manifests_schema_v1_signed = Manifest.objects.filter(
+            media_type=MEDIA_TYPE.MANIFEST_V1_SIGNED
+        )
+        manifests_schema_v1_signed.update(media_type=MEDIA_TYPE.MANIFEST_V1)
         self.stdout.write(
-            self.style.SUCCESS("Successfully repaired %d manifests." % len(manifests_to_update))
+            self.style.SUCCESS(
+                "Successfully repaired %d manifests."
+                % (len(manifests_to_update) + len(manifests_schema_v1_signed))
+            )
         )

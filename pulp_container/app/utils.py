@@ -1,4 +1,4 @@
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import MANIFEST_MEDIA_TYPES, MEDIA_TYPE
 
 
 def get_accepted_media_types(headers):
@@ -26,7 +26,13 @@ def determine_media_type(content_data, response):
     if media_type := content_data.get("mediaType"):
         return media_type
     elif media_type := response.headers.get("content-type"):
-        return media_type
+        # translate v1 signed media_type
+        if media_type == MEDIA_TYPE.MANIFEST_V1_SIGNED:
+            return MEDIA_TYPE.MANIFEST_V1
+        elif media_type in (MANIFEST_MEDIA_TYPES.IMAGE or MANIFEST_MEDIA_TYPES.LIST):
+            return media_type
+        else:
+            pass
     return determine_media_type_from_json(content_data)
 
 
