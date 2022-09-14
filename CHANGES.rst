@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.9.8 (2022-09-14)
+==================
+
+
+Bugfixes
+--------
+
+- Translated v1 signed schema media_type into v1 schema instead.
+  `#1045 <https://github.com/pulp/pulp_container/issues/1045>`__
+
+
+----
+
+
 2.9.7 (2022-08-24)
 ==================
 
