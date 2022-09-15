@@ -64,6 +64,20 @@ Misc
 ----
 
 
+2.13.3 (2022-09-14)
+===================
+
+
+Bugfixes
+--------
+
+- Translated v1 signed schema media_type into v1 schema instead.
+  `#1045 <https://github.com/pulp/pulp_container/issues/1045>`__
+
+
+----
+
+
 2.13.2 (2022-08-24)
 ===================
 
@@ -363,6 +377,20 @@ Misc
 ----
 
 
+2.10.9 (2022-09-14)
+===================
+
+
+Bugfixes
+--------
+
+- Translated v1 signed schema media_type into v1 schema instead.
+  `#1045 <https://github.com/pulp/pulp_container/issues/1045>`__
+
+
+----
+
+
 2.10.8 (2022-08-24)
 ===================
 
@@ -489,6 +517,20 @@ Features
   `#9488 <https://pulp.plan.io/issues/9488>`_
 - Enabled rate_limit option on the remote. Rate limit defines N req/sec per connection.
   `#9607 <https://pulp.plan.io/issues/9607>`_
+
+
+----
+
+
+2.9.8 (2022-09-14)
+==================
+
+
+Bugfixes
+--------
+
+- Translated v1 signed schema media_type into v1 schema instead.
+  `#1045 <https://github.com/pulp/pulp_container/issues/1045>`__
 
 
 ----
