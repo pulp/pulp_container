@@ -72,6 +72,8 @@ services:
       - ./ssh:/keys/
       - ~/.config:/root/.config
       - ../../../pulp-openapi-generator:/root/pulp-openapi-generator
+    env:
+      PULP_WORKERS: "4"
 VARSYAML
 
 cat >> vars/main.yaml << VARSYAML
@@ -94,7 +96,9 @@ if [ "$TEST" = "s3" ]; then
     command: "server /data"' vars/main.yaml
   sed -i -e '$a s3_test: true\
 minio_access_key: "'$MINIO_ACCESS_KEY'"\
-minio_secret_key: "'$MINIO_SECRET_KEY'"' vars/main.yaml
+minio_secret_key: "'$MINIO_SECRET_KEY'"\
+pulp_scenario_settings: null\
+' vars/main.yaml
 fi
 
 echo "PULP_API_ROOT=${PULP_API_ROOT}" >> "$GITHUB_ENV"
