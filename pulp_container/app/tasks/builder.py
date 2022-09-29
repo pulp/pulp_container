@@ -144,7 +144,7 @@ def build_image_from_containerfile(
                 name,
                 context_path,
                 "--isolation",
-                "rootless",
+                "oci",
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
