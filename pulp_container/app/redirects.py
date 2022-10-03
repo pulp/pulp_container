@@ -1,5 +1,3 @@
-import os
-
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404
@@ -107,10 +105,10 @@ class S3StorageRedirects(CommonRedirects):
         """
         Redirect to the passed artifact's file stored in the S3 storage.
         """
-        filename = os.path.basename(artifact.file.name)
+        filename = f"sha256:{artifact.sha256}"
         parameters = {
             "ResponseContentType": return_media_type,
-            "ResponseContentDisposition": f"attachment%3Bfilename={filename}",
+            "ResponseContentDisposition": f"attachment;filename={filename}",
         }
         content_url = artifact.file.storage.url(
             artifact.file.name, parameters=parameters, http_method=self.request.method
@@ -127,10 +125,10 @@ class AzureStorageRedirects(S3StorageRedirects):
         """
         Redirect to the passed artifact's file stored in the Azure storage.
         """
-        filename = os.path.basename(artifact.file.name)
+        filename = f"sha256:{artifact.sha256}"
         parameters = {
             "content_type": return_media_type,
-            "content_disposition": f"attachment%3Bfilename={filename}",
+            "content_disposition": f"attachment;filename={filename}",
         }
         content_url = artifact.file.storage.url(artifact.file.name, parameters=parameters)
         return redirect(content_url)
