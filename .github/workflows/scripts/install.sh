@@ -70,7 +70,7 @@ services:
     volumes:
       - ./settings:/etc/pulp
       - ./ssh:/keys/
-      - ~/.config:/root/.config
+      - ~/.config:/var/lib/pulp/.config
       - ../../../pulp-openapi-generator:/root/pulp-openapi-generator
     env:
       PULP_WORKERS: "4"
@@ -139,6 +139,8 @@ fi
 
 ansible-playbook build_container.yaml
 ansible-playbook start_container.yaml
+
+sudo chown -R 700:700 ~runner/.config
 echo ::group::SSL
 # Copy pulp CA
 sudo docker cp pulp:/etc/pulp/certs/pulp_webserver.crt /usr/local/share/ca-certificates/pulp_webserver.crt
