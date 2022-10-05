@@ -131,11 +131,12 @@ def add_user_to_distribution_group(user, distribution, group_type, as_user):
     as_user["group_users_api"].create(collaborator_group.pulp_href, {"username": user["username"]})
 
 
-def add_user_to_namespace_group(user, namespace_name, group_type, as_user):
+def add_user_to_namespace_group(user, namespace_href, group_type, as_user):
     """Add the user to either owner, collaborator, or consumer group of a namespace."""
+    namespace_pk = namespace_href.split("/")[-2]
     namespace_collaborator_group = (
         as_user["groups_api"]
-        .list(name="container.namespace.{}.{}".format(group_type, namespace_name))
+        .list(name="container.namespace.{}.{}".format(group_type, namespace_pk))
         .results[0]
     )
     as_user["group_users_api"].create(

@@ -42,7 +42,7 @@ the Owners group.
 Namespace Owners
 ~~~~~~~~~~~~~~~~
 
-The group name is ``container.namespace.owners.<namespace name>``. This group has the following
+The group name is ``container.namespace.owners.<namespace uuid>``. This group has the following
 object permissions for the namespace::
 
      "container.view_containernamespace"
@@ -66,7 +66,7 @@ can use Pulp's API to add and remove tags in the repositories for the namespace.
 Namespace Collaborators
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The group name is ``container.namespace.collaborators.<namespace name>``. This group has the
+The group name is ``container.namespace.collaborators.<namespace uuid>``. This group has the
 following object permissions for the namespace::
 
     "container.view_containernamespace"
@@ -85,7 +85,7 @@ deleting the namespace.
 Namespace Consumers
 ~~~~~~~~~~~~~~~~~~~
 
-The group name is ``container.namespace.consumers.<namespace name>``. This group has the following
+The group name is ``container.namespace.consumers.<namespace uuid>``. This group has the following
 object permissions for the namespace::
 
     "container.view_containernamespace"
