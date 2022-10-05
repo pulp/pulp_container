@@ -94,7 +94,6 @@ class ContainerFirstStage(Stage):
             state=TASK_STATES.RUNNING,
             total=len(tag_list),
         ) as pb_parsed_tags:
-
             for download_tag in asyncio.as_completed(to_download):
                 tag = await download_tag
                 with open(tag.path, "rb") as content_file:
