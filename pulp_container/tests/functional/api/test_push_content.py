@@ -124,7 +124,7 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         add_user_to_namespace_group(
             self.user_namespace_collaborator,
-            "test",
+            distributions.results[0].namespace,
             "collaborators",
             self.user_creator,
         )
@@ -212,7 +212,10 @@ class PushRepoTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
             self._push(image_path, local_url, self.user_dist_collaborator)
 
         add_user_to_namespace_group(
-            self.user_namespace_collaborator, "team", "collaborators", self.user_creator
+            self.user_namespace_collaborator,
+            distributions.results[0].namespace,
+            "collaborators",
+            self.user_creator,
         )
 
         collab_repo_name = "team/collab"

@@ -224,11 +224,9 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
         group_type = parameters["group_type"]
         add_user_to_group = parameters["add_user_to_group"]
         group = Group.objects.create(
-            name="{}.{}.{}".format("container.namespace", group_type, self.name)
+            name="{}.{}.{}".format("container.namespace", group_type, self.pk)
         )
-        owners_group = Group.objects.get(
-            name="{}.{}".format("container.namespace.owners", self.name)
-        )
+        owners_group = Group.objects.get(name="{}.{}".format("container.namespace.owners", self.pk))
         assign_perm("core.change_group", owners_group, group)
         assign_perm("core.view_group", owners_group, group)
         current_user = get_current_authenticated_user()
@@ -242,7 +240,7 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
         Delete all auto created groups associated with this Namespace and user object
         permissions.
         """
-        group_name_regex = r"container.namespace.(.*).{}".format(self.name)
+        group_name_regex = r"container.namespace.(.*).{}".format(self.pk)
         Group.objects.filter(name__regex=group_name_regex).delete()
         UserObjectPermission.objects.filter(object_pk=self.pk).delete()
         GroupObjectPermission.objects.filter(object_pk=self.pk).delete()
