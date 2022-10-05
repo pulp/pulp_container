@@ -209,6 +209,10 @@ jobs:
           docker exec pulp ls -latr /etc/yum.repos.d/ || true
           docker exec pulp cat /etc/yum.repos.d/* || true
           docker exec pulp bash -c "pip3 list && pip3 install pipdeptree && pipdeptree"
+
+      - name: tmate
+        if: failure()
+        uses: mxschmitt/action-tmate@v3
   deprecations:
     runs-on: ubuntu-latest
     if: always()
