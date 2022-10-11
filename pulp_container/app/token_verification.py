@@ -173,7 +173,7 @@ class RegistryPermission(BasePermission):
         """
         Decide upon permission based on user.
         """
-        if request.user.is_staff:
+        if request.user.is_superuser:
             return True
         if request.method in SAFE_METHODS:
             return True
