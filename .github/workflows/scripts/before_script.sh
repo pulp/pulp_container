@@ -47,3 +47,7 @@ fi
 if [[ -f $POST_BEFORE_SCRIPT ]]; then
   source $POST_BEFORE_SCRIPT
 fi
+
+# Lots of plugins try to use this path, and throw warnings if they cannot access it.
+cmd_prefix mkdir /.pytest_cache
+cmd_prefix chown pulp:pulp /.pytest_cache
