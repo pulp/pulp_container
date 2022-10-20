@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.9.9 (2022-10-20)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed a database error raised when creating a distribution with a long base_path.
+  `#1103 <https://github.com/pulp/pulp_container/issues/1103>`__
+
+
+----
+
+
 2.9.8 (2022-09-14)
 ==================
 

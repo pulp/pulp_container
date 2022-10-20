@@ -1,1 +1,0 @@
-Fixed a database error raised when creating a distribution with a long base_path.
