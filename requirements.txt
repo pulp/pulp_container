@@ -1,6 +1,6 @@
 # remember to also update unittest_requirements.txt when updating this file
-pulpcore>=3.20.0.dev,<3.25
-ecdsa~=0.14
-pyjwkest~=1.4
-pyjwt[crypto]~=2.4
-jsonschema~=4.4
+pulpcore>=3.20.0,<3.25
+ecdsa>=0.14,<=0.18.0
+pyjwkest>=1.4,<=1.4.2
+pyjwt[crypto]>=2.4,<=2.5
+jsonschema>=4.4,<4.17
