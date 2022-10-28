@@ -65,6 +65,7 @@ from pulp_container.app.redirects import (
     FileStorageRedirects,
     S3StorageRedirects,
     AzureStorageRedirects,
+    GCloudStorageRedirects,
 )
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
@@ -794,6 +795,8 @@ class RedirectsMixin:
             self.redirects_class = S3StorageRedirects
         elif settings.DEFAULT_FILE_STORAGE == "storages.backends.azure_storage.AzureStorage":
             self.redirects_class = AzureStorageRedirects
+        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.gcloud.GoogleCloudStorage":
+            self.redirects_class = GCloudStorageRedirects
         else:
             raise NotImplementedError()
 

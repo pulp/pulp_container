@@ -132,3 +132,21 @@ class AzureStorageRedirects(S3StorageRedirects):
         }
         content_url = artifact.file.storage.url(artifact.file.name, parameters=parameters)
         return redirect(content_url)
+
+
+class GCloudStorageRedirects(S3StorageRedirects):
+    """
+    A class that implements methods for the direct retrieval of manifest objects.
+    """
+
+    def redirect_to_object_storage(self, artifact, return_media_type):
+        """
+        Redirect to the passed artifact's file stored in the Azure storage.
+        """
+        filename = f"sha256:{artifact.sha256}"
+        parameters = {
+            "content_type": return_media_type,
+            "response_disposition": f"attachment;filename={filename}",
+        }
+        content_url = artifact.file.storage.url(artifact.file.name, parameters=parameters)
+        return redirect(content_url)
