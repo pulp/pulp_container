@@ -262,7 +262,8 @@ class ContainerRegistryApiMixin:
         error_code = getattr(detail, "code", "")
         if error_code in self.TOKEN_ERROR_CODES:
             response["Www-Authenticate"] += f',error="{error_code}"'
-
+        if response.status_code == 500:
+            log.error(detail)
         return response
 
     def get_drv_pull(self, path):
