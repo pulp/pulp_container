@@ -82,6 +82,49 @@ class ContainerFirstStage(Stage):
         self.manifest_dcs = []
         self.signature_dcs = []
 
+    def _get_content_data_blocking(self, manifest):
+        saved_artifact = manifest.contentartifact_set.first().artifact
+        raw_data = saved_artifact.file.read()
+        content_data = json.loads(raw_data)
+        saved_artifact.file.close()
+        return saved_artifact, content_data, raw_data
+
+    async def _download_and_save_artifact_data(self, manifest_url):
+        downloader = self.remote.get_downloader(url=manifest_url)
+        response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+        with open(response.path, "rb") as content_file:
+            raw_data = content_file.read()
+        response.artifact_attributes["file"] = response.path
+
+        saved_artifact = await sync_to_async(_save_artifact_blocking)(response.artifact_attributes)
+        content_data = json.loads(raw_data)
+
+        return saved_artifact, content_data, raw_data, response
+
+    async def _check_for_existing_manifest(self, download_tag):
+        response = await download_tag
+
+        digest = response.headers.get("docker-content-digest")
+
+        if digest and (
+            manifest := await sync_to_async(
+                Manifest.objects.prefetch_related("contentartifact_set").filter(digest=digest).first
+            )()
+        ):
+            saved_artifact, content_data, raw_data = await sync_to_async(
+                self._get_content_data_blocking
+            )(manifest)
+
+        else:
+            (
+                saved_artifact,
+                content_data,
+                raw_data,
+                response,
+            ) = await self._download_and_save_artifact_data(response.url)
+
+        return saved_artifact, content_data, raw_data, response
+
     async def run(self):
         """
         ContainerFirstStage.
@@ -112,9 +155,11 @@ class ContainerFirstStage(Stage):
             relative_url = "/v2/{name}/manifests/{tag}".format(
                 name=self.remote.namespaced_upstream_name, tag=tag_name
             )
-            url = urljoin(self.remote.url, relative_url)
-            downloader = self.remote.get_downloader(url=url)
-            to_download.append(downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS}))
+            tag_url = urljoin(self.remote.url, relative_url)
+            downloader = self.remote.get_downloader(url=tag_url)
+            to_download.append(
+                downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"})
+            )
 
         async with ProgressReport(
             message="Processing Tags",
@@ -122,22 +167,21 @@ class ContainerFirstStage(Stage):
             total=len(tag_list),
         ) as pb_parsed_tags:
 
-            for download_tag in asyncio.as_completed(to_download):
-                dl_res = await download_tag
-                with open(dl_res.path, "rb") as content_file:
-                    raw_data = content_file.read()
-                dl_res.artifact_attributes["file"] = dl_res.path
-                saved_artifact = await sync_to_async(_save_artifact_blocking)(
-                    dl_res.artifact_attributes
-                )
+            to_download_artifact = [
+                self._check_for_existing_manifest(download_tag)
+                for download_tag in asyncio.as_completed(to_download)
+            ]
 
-                tag_name = dl_res.url.split("/")[-1]
-                tag_dc = DeclarativeContent(Tag(name=tag_name))
+            for artifact in asyncio.as_completed(to_download_artifact):
+                saved_artifact, content_data, raw_data, response = await artifact
 
-                content_data = json.loads(raw_data)
-                media_type = determine_media_type(content_data, dl_res)
-                digest = dl_res.artifact_attributes["sha256"]
+                digest = response.artifact_attributes["sha256"]
+
+                media_type = determine_media_type(content_data, response)
                 validate_manifest(content_data, media_type, digest)
+
+                tag_name = response.url.split("/")[-1]
+                tag_dc = DeclarativeContent(Tag(name=tag_name))
 
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
                     list_dc = self.create_tagged_manifest_list(
@@ -434,29 +478,19 @@ class ContainerFirstStage(Stage):
             name=self.remote.namespaced_upstream_name, digest=digest
         )
         manifest_url = urljoin(self.remote.url, relative_url)
-        manifest = await sync_to_async(
+
+        if manifest := await sync_to_async(
             Manifest.objects.prefetch_related("contentartifact_set").filter(digest=digest).first
-        )()
-        if manifest:
-
-            def _get_content_data_blocking():
-                saved_artifact = manifest.contentartifact_set.first().artifact
-                content_data = json.load(saved_artifact.file)
-                saved_artifact.file.close()
-                return saved_artifact, content_data
-
-            saved_artifact, content_data = await sync_to_async(_get_content_data_blocking)()
-        else:
-            downloader = self.remote.get_downloader(url=manifest_url)
-            dl_res = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
-            with open(dl_res.path, "rb") as content_file:
-                raw_data = content_file.read()
-            dl_res.artifact_attributes["file"] = dl_res.path
-            saved_artifact = await sync_to_async(_save_artifact_blocking)(
-                dl_res.artifact_attributes
+        )():
+            saved_artifact, content_data, _ = await sync_to_async(self._get_content_data_blocking)(
+                manifest
             )
-            content_data = json.loads(raw_data)
-            media_type = determine_media_type(content_data, dl_res)
+
+        else:
+            saved_artifact, content_data, _, response = await self._download_and_save_artifact_data(
+                manifest_url
+            )
+            media_type = determine_media_type(content_data, response)
             validate_manifest(content_data, media_type, digest)
 
             manifest = Manifest(
@@ -466,6 +500,7 @@ class ContainerFirstStage(Stage):
                 else 1,
                 media_type=manifest_data["mediaType"],
             )
+
         da = DeclarativeArtifact(
             artifact=saved_artifact,
             url=manifest_url,

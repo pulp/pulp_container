@@ -10,7 +10,6 @@ from urllib import parse
 
 from pulpcore.plugin.download import DownloaderFactory, HttpDownloader
 
-
 log = getLogger(__name__)
 
 
@@ -51,6 +50,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         if extra_data is not None:
             headers = extra_data.get("headers", headers)
             repo_name = extra_data.get("repo_name", None)
+        http_method = extra_data.get("http_method", "get") if extra_data is not None else "get"
         this_token = self.registry_auth["bearer"]
         basic_auth = self.registry_auth["basic"]
         auth_headers = self.auth_header(this_token, basic_auth)
@@ -59,7 +59,10 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         self.session._default_auth = None
         if self.download_throttler:
             await self.download_throttler.acquire()
-        async with self.session.get(
+
+        session_http_method = getattr(self.session, http_method)
+
+        async with session_http_method(
             self.url, headers=headers, proxy=self.proxy, proxy_auth=self.proxy_auth
         ) as response:
             try:
