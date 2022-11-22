@@ -171,6 +171,12 @@ class ContainerFirstStage(Stage):
                         list_dc.extra_data["listed_manifests"].append(listed_manifest)
 
                     else:
+                        # Manifest indices can be signed too. It is not mandatory.
+                        # If signature is available mirror it.
+                        if signature_source is not None:
+                            list_sig_dcs = await self.create_signatures(list_dc, signature_source)
+                            if list_sig_dcs:
+                                self.signature_dcs.extend(list_sig_dcs)
                         # only pass the manifest list and tag down the pipeline if there were no
                         # issues with signatures (no `break` in the `for` loop)
                         tag_dc.extra_data["tagged_manifest_dc"] = list_dc
