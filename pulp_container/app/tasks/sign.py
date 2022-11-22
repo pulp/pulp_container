@@ -53,19 +53,15 @@ def sign(repository_pk, signing_service_pk, reference, tags_list=None):
     already_signed = []
     for tag in latest_repo_tags:
         tagged_manifest = tag.tagged_manifest
-        if tagged_manifest.media_type in MANIFEST_MEDIA_TYPES.IMAGE:
-            signature_pk = create_signature(
-                tagged_manifest, ":".join((reference, tag.name)), signing_service
-            )
-            added_signatures.append(signature_pk)
-        elif tagged_manifest.media_type in MANIFEST_MEDIA_TYPES.LIST:
-            # parse ML and sign per-arches by digest
+        docker_reference = ":".join((reference, tag.name))
+        signature_pk = create_signature(tagged_manifest, docker_reference, signing_service)
+        added_signatures.append(signature_pk)
+        if tagged_manifest.media_type in MANIFEST_MEDIA_TYPES.LIST:
+            # parse ML and sign per-arches
             for manifest in tagged_manifest.listed_manifests.iterator():
                 # image manifests can be present in multiple ML within the repo
                 if manifest.digest not in already_signed:
-                    signature_pk = create_signature(
-                        manifest, ":".join((reference, manifest.digest)), signing_service
-                    )
+                    signature_pk = create_signature(manifest, docker_reference, signing_service)
                     already_signed.append(manifest.digest)
                     added_signatures.append(signature_pk)
 
