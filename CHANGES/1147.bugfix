@@ -1,0 +1,1 @@
+Fixed a validation error caused by missing ``mediaType`` fields in manifest list payloads.

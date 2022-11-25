@@ -131,7 +131,7 @@ DOCKER_MANIFEST_LIST_V2_SCHEMA = {
             },
         },
     },
-    "required": ["schemaVersion", "mediaType", "manifests"],
+    "required": ["schemaVersion", "manifests"],
 }
 
 DOCKER_MANIFEST_V2_SCHEMA = {
