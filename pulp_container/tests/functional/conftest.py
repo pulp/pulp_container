@@ -4,8 +4,9 @@ import pytest
 import requests
 
 from urllib.parse import urljoin, urlparse
+from uuid import uuid4
 
-from pulp_smash.utils import execute_pulpcore_python, uuid4, get_pulp_setting
+from pulp_smash.utils import execute_pulpcore_python, get_pulp_setting
 from pulp_smash.cli import RegistryClient
 
 from pulpcore.client.pulp_container import (
@@ -21,6 +22,8 @@ from pulpcore.client.pulp_container import (
     ContentManifestsApi,
     ContentBlobsApi,
     ContentSignaturesApi,
+    ContainerContainerRepository,
+    ContainerRepositorySyncURL,
 )
 
 from pulp_container.tests.functional.utils import (
@@ -28,6 +31,20 @@ from pulp_container.tests.functional.utils import (
     AuthenticationHeaderQueries,
     BearerTokenAuth,
 )
+
+from pulp_container.tests.functional.constants import REGISTRY_V2_FEED_URL, PULP_HELLO_WORLD_REPO
+
+
+def gen_container_remote(url=REGISTRY_V2_FEED_URL, **kwargs):
+    """Return a semi-random dict for use in creating a container Remote.
+
+    :param url: The URL of an external content source.
+    """
+
+    data = {"name": str(uuid4()), "url": url}
+    data["upstream_name"] = kwargs.pop("upstream_name", PULP_HELLO_WORLD_REPO)
+    data.update(kwargs)
+    return data
 
 
 @pytest.fixture(scope="session")
@@ -191,7 +208,7 @@ def container_signing_service(
 
     gpg, fingerprint, keyid = signing_gpg_metadata
 
-    service_name = uuid4()
+    service_name = str(uuid4())
     cmd = (
         "pulpcore-manager",
         "add-signing-service",
@@ -297,3 +314,48 @@ def container_signature_api(container_client):
 def token_server_url(cli_client):
     """The URL of the token server."""
     return get_pulp_setting(cli_client, "TOKEN_SERVER")
+
+
+@pytest.fixture
+def container_repository_factory(container_repository_api, gen_object_with_cleanup):
+    def _container_repository_factory(**kwargs):
+        repository = {"name": str(uuid4())}
+        if kwargs:
+            repository.update(kwargs)
+        return gen_object_with_cleanup(
+            container_repository_api, ContainerContainerRepository(**repository)
+        )
+
+    return _container_repository_factory
+
+
+@pytest.fixture
+def container_repo(container_repository_factory):
+    return container_repository_factory()
+
+
+@pytest.fixture
+def container_remote_factory(container_remote_api, gen_object_with_cleanup):
+    def _container_remote_factory(url=REGISTRY_V2_FEED_URL, **kwargs):
+        remote = gen_container_remote(url, **kwargs)
+        return gen_object_with_cleanup(container_remote_api, remote)
+
+    return _container_remote_factory
+
+
+@pytest.fixture
+def container_remote(container_remote_factory):
+    return container_remote_factory()
+
+
+@pytest.fixture
+def container_sync(container_repository_api, monitor_task):
+    def _sync(repo, remote=None):
+        remote_href = remote.pulp_href if remote else repo.remote
+
+        sync_data = ContainerRepositorySyncURL(remote=remote_href)
+
+        sync_response = container_repository_api.sync(repo.pulp_href, sync_data)
+        return monitor_task(sync_response.task)
+
+    return _sync

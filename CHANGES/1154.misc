@@ -1,0 +1,1 @@
+Refactored the test_sync.py module to follow the pytest test style.
