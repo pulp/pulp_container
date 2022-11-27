@@ -67,6 +67,8 @@ class ContentCacheTestCache(unittest.TestCase):
         relative_path = os.path.join("v2/", f"{cls.distro.base_path}/")
         cls.dist_url = urljoin(PULP_CONTENT_HOST_BASE_URL, relative_path)
 
+        delete_orphans()
+
     @classmethod
     def tearDownClass(cls):
         """Remove the created distribution, remote, and repository."""

@@ -6,12 +6,11 @@ from requests.auth import AuthBase
 from functools import partial
 from unittest import SkipTest
 from tempfile import NamedTemporaryFile
+from uuid import uuid4
 
 from pulp_smash import cli, config, selectors, utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import (
-    gen_remote,
-    gen_repo,
     get_content,
 )
 
@@ -110,6 +109,22 @@ def assign_role_to_user(user, role, content_object=None):
 def gen_container_client():
     """Return an OBJECT for container client."""
     return ContainerApiClient(configuration)
+
+
+def gen_repo(**kwargs):
+    """Return a semi-random dict for use in creating a Repository."""
+    data = {"name": str(uuid4())}
+    data.update(kwargs)
+    return data
+
+
+def gen_remote(url, **kwargs):
+    """Return a semi-random dict for use in creating a Remote.
+    :param url: The URL of an external content source.
+    """
+    data = {"name": str(uuid4()), "url": url}
+    data.update(kwargs)
+    return data
 
 
 def gen_container_remote(url=REGISTRY_V2_FEED_URL, **kwargs):
