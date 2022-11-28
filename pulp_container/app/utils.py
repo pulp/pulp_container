@@ -150,7 +150,7 @@ def determine_media_type(content_data, response):
         # translate v1 signed media_type
         if media_type == MEDIA_TYPE.MANIFEST_V1_SIGNED:
             return MEDIA_TYPE.MANIFEST_V1
-        elif media_type in (MANIFEST_MEDIA_TYPES.IMAGE or MANIFEST_MEDIA_TYPES.LIST):
+        elif media_type in MANIFEST_MEDIA_TYPES.IMAGE or media_type in MANIFEST_MEDIA_TYPES.LIST:
             return media_type
         else:
             pass
@@ -209,4 +209,6 @@ def validate_manifest(content_data, media_type, digest):
         validate(content_data, schema_validator)
     except ValidationError as error:
         # fail on the first encountered error
-        raise ManifestInvalid(reason=f'{".".join(error.path)}: {error.message}', digest=digest)
+        raise ManifestInvalid(
+            reason=f'{".".join(map(str, error.path))}: {error.message}', digest=digest
+        )
