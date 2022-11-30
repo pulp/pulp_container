@@ -1,4 +1,4 @@
-from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
+from pulp_container.constants import BLOB_CONTENT_TYPE, MEDIA_TYPE, SIGNATURE_TYPE
 
 
 def get_descriptor_schema(
@@ -147,7 +147,7 @@ DOCKER_MANIFEST_V2_SCHEMA = {
             "properties": {
                 "mediaType": {
                     "type": "string",
-                    "enum": [MEDIA_TYPE.CONFIG_BLOB],
+                    "enum": [MEDIA_TYPE.CONFIG_BLOB, BLOB_CONTENT_TYPE],
                 },
                 "size": {"type": "number"},
                 "digest": {"type": "string"},
