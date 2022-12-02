@@ -13,6 +13,24 @@ Changelog
 
 .. towncrier release notes start
 
+2.14.3 (2022-12-02)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed a bug where the Podman client could not verify manifest indices signed with a Pulp signing service.
+  `#1135 <https://github.com/pulp/pulp_container/issues/1135>`__
+- Fixed a method for determining the media type of manifests when syncing content.
+  `#1147 <https://github.com/pulp/pulp_container/issues/1147>`__
+- Added application/octet-stream as an accepted media_type for docker config objects.
+  `#1156 <https://github.com/pulp/pulp_container/issues/1156>`__
+
+
+----
+
+
 2.14.2 (2022-10-22)
 ===================
 
