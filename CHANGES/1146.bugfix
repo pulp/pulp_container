@@ -1,0 +1,2 @@
+Fixed a bug that caused the plugin to flood the database by idle connections when users were
+pulling content multiple times in a row.
