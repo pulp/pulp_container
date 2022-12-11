@@ -119,7 +119,9 @@ class Registry(Handler):
         try:
 
             def get_tag_blocking():
-                return Tag.objects.get(pk__in=repository_version.content, name=tag_name)
+                return Tag.objects.select_related("tagged_manifest").get(
+                    pk__in=repository_version.content, name=tag_name
+                )
 
             tag = await loop.run_in_executor(None, get_tag_blocking)
         except ObjectDoesNotExist:
@@ -245,7 +247,7 @@ class Registry(Handler):
         try:
 
             def get_ca_blocking():
-                ca = ContentArtifact.objects.get(
+                ca = ContentArtifact.objects.select_related("artifact", "content").get(
                     content__in=repository_version.content, relative_path=digest
                 )
                 return ca
