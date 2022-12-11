@@ -28,6 +28,7 @@ jobs:
           - TEST: s3
           - TEST: generate-bindings
           - TEST: plugin-from-pypi
+          - TEST: lowerbounds
 
     steps:
       - uses: actions/checkout@v3
