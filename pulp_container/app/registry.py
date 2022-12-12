@@ -44,7 +44,7 @@ class Registry(Handler):
             list: Of base paths.
 
         """
-        return [path]
+        return [path.rstrip("/")]
 
     @staticmethod
     async def _dispatch(artifact, headers):
