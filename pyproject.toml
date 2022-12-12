@@ -32,6 +32,7 @@ exclude = '''
 [tool.check-manifest]
 ignore = [
     ".bumpversion.cfg",
+    ".gitleaks.toml",
     "CHANGES/**",
     "CONTRIBUTING.rst",
     "HISTORY.rst",
