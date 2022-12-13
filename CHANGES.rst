@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.8.9 (2022-12-13)
+==================
+
+
+Bugfixes
+--------
+
+- Fixed a bug that led Pulp to run out of DB connections during podman pull operations.
+  `#1146 <https://github.com/pulp/pulp_container/issues/1146>`__
+
+
+----
+
+
 2.8.8 (2022-08-24)
 ==================
 

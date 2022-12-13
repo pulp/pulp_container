@@ -1,1 +1,0 @@
-Fixed a bug that led Pulp to run out of DB connections during podman pull operations.
