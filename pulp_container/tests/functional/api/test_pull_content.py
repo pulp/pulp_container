@@ -4,6 +4,7 @@ import hashlib
 import json
 import requests
 import unittest
+import uuid
 
 from urllib.parse import urljoin, urlparse
 
@@ -70,9 +71,22 @@ class PullContentTestCase(unittest.TestCase):
 
         delete_orphans()
 
+        # defining a shared path will help us to identify whether namespaces and
+        # matching distributions are correctly determined from within the plugin
+        random_dist_path = str(uuid.uuid4())
+        repo_dist_path = f"{random_dist_path}/{str(uuid.uuid4())}"
+        repo_ver_dist_path = f"{random_dist_path}/{str(uuid.uuid4())}"
+
         with contextlib.ExitStack() as stack:
             # ensure tearDownClass runs if an error occurs here
             stack.callback(cls.tearDownClass)
+
+            # Step 0 - create an empty distribution sharing the same path as real distributions
+            distribution_response = cls.distributions_api.create(
+                ContainerContainerDistribution(**gen_distribution(base_path=random_dist_path))
+            )
+            created_resources = monitor_task(distribution_response.task).created_resources
+            cls.teardown_cleanups.append((cls.distributions_api.delete, created_resources[0]))
 
             # Step 1
             _repo = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
@@ -90,7 +104,9 @@ class PullContentTestCase(unittest.TestCase):
 
             # Step 4.
             distribution_response = cls.distributions_api.create(
-                ContainerContainerDistribution(**gen_distribution(repository=cls.repo.pulp_href))
+                ContainerContainerDistribution(
+                    **gen_distribution(repository=cls.repo.pulp_href, base_path=repo_dist_path)
+                )
             )
             created_resources = monitor_task(distribution_response.task).created_resources
             distribution = cls.distributions_api.read(created_resources[0])
@@ -102,7 +118,10 @@ class PullContentTestCase(unittest.TestCase):
             # Step 5.
             distribution_response = cls.distributions_api.create(
                 ContainerContainerDistribution(
-                    **gen_distribution(repository_version=cls.repo.latest_version_href)
+                    **gen_distribution(
+                        repository_version=cls.repo.latest_version_href,
+                        base_path=repo_ver_dist_path,
+                    )
                 )
             )
             created_resources = monitor_task(distribution_response.task).created_resources
