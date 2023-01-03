@@ -127,6 +127,7 @@ class ContainerFirstStage(Stage):
                     )
                     await self.put(list_dc)
                     tag_dc.extra_data["tagged_manifest_dc"] = list_dc
+                    await list_dc.resolution()
                     for manifest_data in content_data.get("manifests"):
                         man_dc = self.create_manifest(list_dc, manifest_data)
                         man_dcs[man_dc.content.digest] = man_dc
