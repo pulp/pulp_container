@@ -89,8 +89,8 @@ test_azure: true
 test_bindings: false
 test_cli: true
 test_deprecations: true
-test_gcp: false
 test_lowerbounds: true
+test_gcp: true
 test_performance: false
 test_released_plugin_with_next_pulpcore_release: false
 test_reroute: true

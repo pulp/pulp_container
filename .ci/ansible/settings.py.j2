@@ -68,5 +68,6 @@ AZURE_CONNECTION_STRING = 'DefaultEndpointsProtocol={{ pulp_scheme }};AccountNam
 DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 MEDIA_ROOT = ""
 GS_BUCKET_NAME = "gcppulp"
-GS_CUSTOM_ENDPOINT = "http://ci-gcp:4443"
+GS_CUSTOM_ENDPOINT = "https://ci-gcp:4443"
+GOOGLE_APPLICATION_CREDENTIALS = "/etc/pulp/credentials.json"
 {% endif %}

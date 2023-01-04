@@ -74,6 +74,7 @@ services:
       - ../../../pulp-openapi-generator:/root/pulp-openapi-generator
     env:
       PULP_WORKERS: "4"
+      GOOGLE_APPLICATION_CREDENTIALS: "/etc/pulp/credentials.json"
 VARSYAML
 
 cat >> vars/main.yaml << VARSYAML
@@ -130,6 +131,35 @@ if [ "$TEST" = "azure" ]; then
 pulp_scenario_settings: null\
 ' vars/main.yaml
 fi
+cat >> credentials.json << GCP_JSON
+{
+  "client_id": "pulp-ci-test.apps.googleusercontent.com",
+  "client_secret": "pulp-Secret",
+  "refresh_token": "Pulp-CI-Refresh-Token",
+  "type": "authorized_user"
+}
+GCP_JSON
+if [ "$TEST" = "gcp" ]; then
+  mkdir -p cigcp gcpdata/gcppulp
+  mv credentials.json cigcp/credentials.json
+  cd cigcp
+  openssl req -newkey rsa:2048 -x509 -nodes -keyout gcpkey.pem -new -out gcpcert.pem -sha256 -days 365 -addext "subjectAltName=DNS:ci-gcp" -subj "/C=CO/ST=ST/L=LO/O=OR/OU=OU/CN=CN"
+  sudo cp gcpcert.pem /usr/local/share/ca-certificates/gcpcert.crt
+  sudo dpkg-reconfigure ca-certificates
+  cd ..
+  sed -i -e '/^services:/a \
+  - name: ci-gcp\
+    image: fsouza/fake-gcs-server\
+    volumes:\
+      - ./cigcp:/etc/pulp\
+      - ./gcpdata:/data\
+    env:\
+      GOOGLE_APPLICATION_CREDENTIALS: "/etc/pulp/credentials.json"\
+    command: "-public-host https://ci-gcp:4443  -cert-location /etc/pulp/gcpcert.pem "' vars/main.yaml
+  sed -i -e '$a gcp_test: true\
+pulp_scenario_settings: null\
+' vars/main.yaml
+fi
 
 echo "PULP_API_ROOT=${PULP_API_ROOT}" >> "$GITHUB_ENV"
 
@@ -166,6 +196,10 @@ cat "$CERTIFI" | sudo tee -a "$CERT" > /dev/null
 # Updating certs
 sudo update-ca-certificates
 echo ::endgroup::
+
+if [[ "$TEST" = "gcp" ]]; then
+  cp cigcp/credentials.json settings/credentials.json
+fi
 
 if [[ "$TEST" = "azure" ]]; then
   AZCERTIFI=$(/opt/az/bin/python3 -c 'import certifi; print(certifi.where())')
