@@ -133,14 +133,8 @@ class ContainerFirstStage(Stage):
         to_download = []
         BATCH_SIZE = 500
 
+        # it can be whether a separate sigstore location or registry with extended signatures API
         signature_source = await self.get_signature_source()
-
-        if signature_source is None and self.signed_only:
-            raise ValueError(
-                "It is requested to sync only signed content but no sigstore URL is "
-                "provided. Please configure a `sigstore` on your Remote or set "
-                "`signed_only` to `False` for your sync request."
-            )
 
         async with ProgressReport(
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
@@ -175,6 +169,23 @@ class ContainerFirstStage(Stage):
                 saved_artifact, content_data, raw_data, response = await artifact
 
                 digest = response.artifact_attributes["sha256"]
+
+                # Look for cosign signatures
+                # cosign signature has a tag convention 'sha256-1234.sig'
+                if self.signed_only and not signature_source:
+                    if (
+                        not (tag_name.endswith(".sig") and tag_name.startswith("sha256-"))
+                        and f"sha256-{digest}.sig" not in tag_list
+                    ):
+                        # skip this tag, there is no corresponding signature
+                        log.info(
+                            "The unsigned image {digest} can't be synced "
+                            "due to a requirement to sync signed content "
+                            "only.".format(digest=digest)
+                        )
+                        # Count the skipped tagks as parsed too.
+                        await pb_parsed_tags.aincrement()
+                        continue
 
                 media_type = determine_media_type(content_data, response)
                 validate_manifest(content_data, media_type, digest)

@@ -12,10 +12,10 @@ The example below demonstrates how a manifest signing service can be created usi
    hardware cryptographic device.
 
 2. Create a signing script that accepts a manifest path as the only argument. The script invokes
-   ``skopeo standalone-sign`` command that generates a container signature for the image manifest,
-   using the key specified via the ``PULP_SIGNING_KEY_FINGERPRINT`` environment variable. The script
-   should then print out a JSON structure with the following format. The path of the created
-   signature is a relative path inside the current working directory::
+   ``skopeo standalone-sign`` command that generates an atomic container signature for the image
+   manifest, using the key specified via the ``PULP_SIGNING_KEY_FINGERPRINT`` environment variable.
+   The script should then print out a JSON structure with the following format. The path of the
+   created signature is a relative path inside the current working directory::
 
        {"signature_path": "signature"}
 
@@ -30,7 +30,7 @@ The example below demonstrates how a manifest signing service can be created usi
         IMAGE_REFERENCE="$REFERENCE"
         SIGNATURE_PATH="$SIG_PATH"
 
-        # Create container signature
+        # Create atomic container signature
         skopeo standalone-sign $MANIFEST_PATH $IMAGE_REFERENCE $FINGEPRINT --output $SIGNATURE_PATH
         # Check the exit status
         STATUS=$?
@@ -80,9 +80,12 @@ The example below demonstrates how a manifest signing service can be created usi
 
 Afterwards, users are able to sign selected content by the provided script.
 
+   .. warning::
+       The underlying singing facility will sign anything that represents an OCI container image.
+
 
 Sign Images Pushed to the Registry
-==================================
+----------------------------------
 
 Given that an image is pushed to the Pulp Registry via ``podman/docker push`` or via the standard
 DockerRegistry v2 push API, a repository is created containing it::
@@ -140,7 +143,7 @@ operation or it can be explictly specified in the following manner::
              "worker": "/pulp/api/v3/workers/eb65c2d9-31b2-47dc-847e-dad0e744c539/"
          }
 
-Upon task complection, a signature is created and added to the repository::
+Upon task completion, an atomic container signature is created and added to the repository::
 
       $ http GET https://pulp.example.com/pulp/api/v3/repositories/container/container-push/3b279a32-b313-44bf-ad41-4359a92cae24/versions/10/
         {
@@ -202,7 +205,7 @@ Upon task complection, a signature is created and added to the repository::
 
 
 Sign Images Mirrored into the Registry
-======================================
+--------------------------------------
 
 It is possible to sign content that was synchronized from remote registries.
 If the content was synced together with signatures, upon signing task completion new signatures will be
@@ -313,8 +316,8 @@ This API exposes an endpoint for reading and writing image signatures. Users sho
 sigstore section in the `registries.d file <https://github.com/containers/image/blob/main/docs/containers-registries.d.5.md>`_
 accordingly to benefit from the API.
 
-Reading Image Signatures
-------------------------
+Reading Signatures
+------------------
 
 To read existing signatures, issue the following GET request::
 
@@ -323,8 +326,8 @@ To read existing signatures, issue the following GET request::
 Signatures are retrieved by container clients automatically if the policy requires so. The policy is
 defined in the file ``/etc/containers/policy.json``.
 
-Writing Image Signatures
-------------------------
+Writing Signatures
+------------------
 
 To add a new signature to an image, execute the following PUT request::
 

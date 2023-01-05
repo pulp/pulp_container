@@ -1,6 +1,6 @@
 import pytest
 
-from pulp_smash.pulp3.bindings import monitor_task, PulpTaskError
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo
 
 from pulpcore.client.pulp_container import (
@@ -113,23 +113,17 @@ def test_sync_signed_images_from_sigstore(
         assert len(manifest_signatures) == 6
 
 
+@pytest.mark.parametrize(
+    "synced_repository", [{"sigstore": None, "signed_only": True}], indirect=True
+)
 def test_sync_images_without_sigstore_requiring_signatures(
-    container_remote_api, container_repository_api, gen_object_with_cleanup
+    container_signature_api, container_tag_api, synced_repository
 ):
     """Sync a repository with no sigstore but with the signed_only option enabled."""
-    data = gen_container_remote(
-        url=REDHAT_REGISTRY_V2,
-        upstream_name=DEPRECATED_REPOSITORY_NAME,
-        policy="on_demand",
-        include_tags=[MANIFEST_LIST_TAG, IMAGE_MANIFEST_TAG],
-    )
-    remote = gen_object_with_cleanup(container_remote_api, data)
+    signatures = container_signature_api.list(
+        repository_version=synced_repository.latest_version_href
+    ).results
+    assert len(signatures) == 0
 
-    data = ContainerContainerRepository(**gen_repo())
-    repository = gen_object_with_cleanup(container_repository_api, data)
-
-    data = ContainerRepositorySyncURL(remote=remote.pulp_href, signed_only=True)
-    response = container_repository_api.sync(repository.pulp_href, data)
-
-    with pytest.raises(PulpTaskError):
-        monitor_task(response.task)
+    tags = container_tag_api.list(repository_version=synced_repository.latest_version_href).results
+    assert len(tags) == 0
