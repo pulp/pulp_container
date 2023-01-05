@@ -14,13 +14,13 @@ class Test(TestCase):
     def test_convert(self):
         """Test schema converter on a known manifest"""
         cnv = schema_convert.Schema2toSchema1Converter(
-            MANIFEST, CONFIG_LAYER, "test-repo", "tes-tag"
+            MANIFEST, CONFIG_BLOB, "test-repo", "tes-tag"
         )
         converted_mf, signed_mf = cnv.convert()
         compare_manifests(converted_mf, signed_mf)
         validate_signature(signed_mf)
 
-        empty = dict(blobSum=cnv.EMPTY_LAYER)
+        empty = dict(blobSum=cnv.EMPTY_BLOB)
         assert [
             dict(blobSum="sha256:layer1"),
             empty,
@@ -34,7 +34,7 @@ class Test(TestCase):
         """Test if the conversion of a manifest with foreign layers fails gracefully"""
         try:
             schema_convert.Schema2toSchema1Converter(
-                MANIFEST_WITH_FOREIGN_LAYERS, CONFIG_LAYER, "test-repo", "tes-tag"
+                MANIFEST_WITH_FOREIGN_BLOBS, CONFIG_BLOB, "test-repo", "tes-tag"
             )
         except ValueError:
             pass
@@ -44,10 +44,10 @@ class Test(TestCase):
     def test_compute_layers(self):
         """Test that computing the layers produces the expected data"""
         cnv = schema_convert.Schema2toSchema1Converter(
-            MANIFEST, CONFIG_LAYER, "test-repo", "tes-tag"
+            MANIFEST, CONFIG_BLOB, "test-repo", "tes-tag"
         )
         cnv.compute_layers()
-        empty = dict(blobSum=cnv.EMPTY_LAYER)
+        empty = dict(blobSum=cnv.EMPTY_BLOB)
         assert [
             dict(blobSum="sha256:layer1"),
             empty,
@@ -118,7 +118,7 @@ def validate_signature(signed_mf):
 
 MANIFEST = dict(schemaVersion=2, layers=[dict(digest="sha256:base"), dict(digest="sha256:layer1")])
 
-MANIFEST_WITH_FOREIGN_LAYERS = dict(
+MANIFEST_WITH_FOREIGN_BLOBS = dict(
     schemaVersion=2,
     layers=[
         dict(
@@ -129,7 +129,7 @@ MANIFEST_WITH_FOREIGN_LAYERS = dict(
     ],
 )
 
-CONFIG_LAYER = dict(
+CONFIG_BLOB = dict(
     architecture="amd64",
     author="Mihai Ibanescu <mihai.ibanescu@gmail.com>",
     config=dict(Hostname="decafbad", Cmd=["/bin/bash"]),

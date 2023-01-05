@@ -10,7 +10,7 @@ from rest_framework.exceptions import Throttled
 
 from pulpcore.plugin.models import Task
 
-from pulp_container.constants import MANIFEST_MEDIA_TYPES, MEDIA_TYPE
+from pulp_container.constants import ALLOWED_ARTIFACT_TYPES, MANIFEST_MEDIA_TYPES, MEDIA_TYPE
 from pulp_container.app.exceptions import ManifestInvalid
 from pulp_container.app.json_schemas import (
     OCI_INDEX_SCHEMA,
@@ -172,7 +172,7 @@ def determine_media_type_from_json(content_data):
     else:
         if config := content_data.get("config"):
             config_media_type = config.get("mediaType")
-            if config_media_type == MEDIA_TYPE.CONFIG_BLOB_OCI:
+            if config_media_type in ALLOWED_ARTIFACT_TYPES:
                 return MEDIA_TYPE.MANIFEST_OCI
             else:
                 return MEDIA_TYPE.MANIFEST_V2

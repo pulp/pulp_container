@@ -72,9 +72,9 @@ the ``sigstore`` field when creating a Remote.
 
 .. note::
     Some registries provide docker API extensions for ``atomic container signature`` type only, or
-    have ``cosign`` type signatures that are stored as a separate OCI artifact in a registry.
-    Pulp will automatically sync signatures provided via the docker API extension. At the moment,
-    `cosign` signatures are not supported.
+    have ``cosign`` type signatures that are stored as a separate OCI image in a registry.
+    Pulp will automatically sync signatures provided via the docker API extension or cosign
+    signatures stored as an OCI image.
 
 
 Reference: `Container Remote Usage <../restapi.html#tag/Remotes:-Container>`_

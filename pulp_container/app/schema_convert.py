@@ -94,7 +94,7 @@ class Schema2toSchema1Converter:
     and call convert() to obtain the signed manifest, as a JSON-encoded string.
     """
 
-    EMPTY_LAYER = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
+    EMPTY_BLOB = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
 
     def __init__(self, manifest, config_layer, name, tag):
         """
@@ -171,7 +171,7 @@ class Schema2toSchema1Converter:
         curr_uncompressed_dig = next(diff_ids)
         for curr_hist in config_layer_history:
             if curr_hist.get("empty_layer"):
-                layer_id = self.EMPTY_LAYER
+                layer_id = self.EMPTY_BLOB
                 uncompressed_dig = None
             else:
                 layer_id = curr_compressed_dig
@@ -180,7 +180,7 @@ class Schema2toSchema1Converter:
                     curr_compressed_dig = next(layers)["digest"]
                     curr_uncompressed_dig = next(diff_ids)
                 except StopIteration:
-                    curr_compressed_dig = self.EMPTY_LAYER
+                    curr_compressed_dig = self.EMPTY_BLOB
                     curr_uncompressed_dig = None
             fs_layers.append(FS_Layer(layer_id, uncompressed_dig, curr_hist))
         return fs_layers

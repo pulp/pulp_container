@@ -60,11 +60,21 @@ Basic Workflows
    push
    import-export
 
-Managing Signatures
--------------------
+Managing Atomic Signatures
+--------------------------
 
 .. toctree::
    :maxdepth: 2
 
    sign-images
    verify-images
+
+OCI artifact support
+--------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   cosign-support
+   helm-support
+   oci-artifacts
