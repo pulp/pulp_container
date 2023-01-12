@@ -419,6 +419,20 @@ Misc
 ----
 
 
+2.10.11 (2023-01-11)
+====================
+
+
+Bugfixes
+--------
+
+- Fixed container repo sync failure 'null value in column \"image_manifest_id\" violates not-null constraint'.
+  `#1190 <https://github.com/pulp/pulp_container/issues/1190>`__
+
+
+----
+
+
 2.10.10 (2022-10-20)
 ====================
 
