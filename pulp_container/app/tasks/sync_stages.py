@@ -166,7 +166,6 @@ class ContainerFirstStage(Stage):
             code="sync.processing.tag",
             total=len(tag_list),
         ) as pb_parsed_tags:
-
             to_download_artifact = [
                 self._check_for_existing_manifest(download_tag)
                 for download_tag in asyncio.as_completed(to_download)

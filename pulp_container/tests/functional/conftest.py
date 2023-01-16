@@ -1,13 +1,14 @@
+import json
 import os
 import stat
 import pytest
 import requests
+import subprocess
 
+from contextlib import contextmanager
+from functools import partialmethod
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
-
-from pulp_smash.utils import execute_pulpcore_python, get_pulp_setting
-from pulp_smash.cli import RegistryClient
 
 from pulpcore.client.pulp_container import (
     ApiClient,
@@ -47,10 +48,75 @@ def gen_container_remote(url=REGISTRY_V2_FEED_URL, **kwargs):
     return data
 
 
+class RegistryClient:
+    """A container registry client on a test runner machine."""
+
+    NAME = "podman"
+
+    def __init__(self):
+        self._name = None
+
+    @property
+    def name(self):
+        if not self._name:
+            self._name = self._get_registry_client()
+        return self._name
+
+    def raise_if_unsupported(self, exc, message="Unsupported registry client"):
+        try:
+            self.name
+        except RuntimeError:
+            raise exc(message)
+
+    @contextmanager
+    def set_env(self, **environ):
+        old_environ = os.environ.copy()
+        os.environ.update(environ)
+        try:
+            yield
+        finally:
+            os.environ.clear()
+            os.environ.update(old_environ)
+
+    def _get_registry_client(self):
+        if subprocess.run(("which", self.NAME)).returncode == 0:
+            return self.NAME
+
+        raise RuntimeError("The client '{}' does not appear to be installed.".format(self.NAME))
+
+    def _dispatch_command(self, command, *args):
+        cmd = (self.name, command) + tuple(args)
+        result = subprocess.check_output(cmd).decode()
+        try:
+            # most client responses are JSONable
+            return json.loads(result)
+        except json.JSONDecodeError:
+            return result
+
+    pull = partialmethod(_dispatch_command, "pull")
+    """Pulls image from registry."""
+    push = partialmethod(_dispatch_command, "push")
+    """Pushes image to registry."""
+    login = partialmethod(_dispatch_command, "login")
+    """Authenticate to a registry."""
+    logout = partialmethod(_dispatch_command, "logout")
+    """Logs out of a registry."""
+    inspect = partialmethod(_dispatch_command, "inspect")
+    """Inspect metadata for pulled image."""
+    import_ = partialmethod(_dispatch_command, "import")
+    """Import a container as a file in to the registry."""
+    images = partialmethod(_dispatch_command, "images", "--format", "json")
+    """List all pulled images."""
+    rmi = partialmethod(_dispatch_command, "rmi")
+    """removes pulled image."""
+    tag = partialmethod(_dispatch_command, "tag")
+    """tags image."""
+
+
 @pytest.fixture(scope="session")
-def registry_client(pulp_cfg):
+def registry_client():
     """Fixture for a container registry client."""
-    registry = RegistryClient(pulp_cfg)
+    registry = RegistryClient()
     try:
         registry.raise_if_unsupported(ValueError, "Tests require podman/docker")
     except ValueError:
@@ -197,7 +263,6 @@ def signing_script_filename(signing_gpg_homedir_path):
 
 @pytest.fixture
 def container_signing_service(
-    cli_client,
     signing_gpg_metadata,
     signing_script_filename,
     signing_service_api_client,
@@ -221,9 +286,7 @@ def container_signing_service(
         gpg.gnupghome,
     )
 
-    response = cli_client.run(cmd)
-
-    assert response.returncode == 0
+    subprocess.check_output(cmd)
 
     signing_service = signing_service_api_client.list(name=service_name).results[0]
     assert signing_service.pubkey_fingerprint == fingerprint
@@ -232,10 +295,14 @@ def container_signing_service(
     yield signing_service
 
     cmd = (
+        "pulpcore-manager",
+        "shell",
+        "-c",
         "from pulpcore.app.models import SigningService;"
-        f"SigningService.objects.filter(name='{service_name}').delete()"
+        f"SigningService.objects.filter(name='{service_name}').delete()",
     )
-    execute_pulpcore_python(cli_client, cmd)
+
+    subprocess.check_output(cmd)
 
 
 @pytest.fixture(scope="session")
@@ -308,12 +375,6 @@ def container_blob_api(container_client):
 def container_signature_api(container_client):
     """Container image signature API fixture."""
     return ContentSignaturesApi(container_client)
-
-
-@pytest.fixture(scope="session")
-def token_server_url(cli_client):
-    """The URL of the token server."""
-    return get_pulp_setting(cli_client, "TOKEN_SERVER")
 
 
 @pytest.fixture
