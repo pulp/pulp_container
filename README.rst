@@ -4,7 +4,7 @@
 .. figure:: https://github.com/pulp/pulp_container/actions/workflows/nightly.yml/badge.svg?branch=main
  :alt: Container Nightly CI/CD
 
-This is the ``pulp_container`` Plugin for `Pulp Project
+This is the ``pulp_container`` plugin for `Pulp Project
 3.0+ <https://pypi.python.org/pypi/pulpcore/>`__. This plugin provides Pulp with support for container
 images, similar to the pulp_docker plugin for Pulp 2.
 
