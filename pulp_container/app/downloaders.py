@@ -78,7 +78,6 @@ class RegistryAuthHttpDownloader(HttpDownloader):
                             self.registry_auth["bearer"] is None
                             or self.registry_auth["bearer"] == this_token
                         ):
-
                             self.registry_auth["bearer"] = None
                             await self.update_token(response_auth_header, this_token, repo_name)
                         return await self._run(handle_401=False, extra_data=extra_data)

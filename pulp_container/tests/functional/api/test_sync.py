@@ -36,7 +36,6 @@ def synced_container_repository_factory(
 
 @pytest.mark.parallel
 def test_basic_sync(container_repo, container_remote, container_repository_api, container_sync):
-
     container_sync(container_repo, container_remote)
     repository = container_repository_api.read(container_repo.pulp_href)
 
@@ -53,7 +52,6 @@ def test_basic_sync(container_repo, container_remote, container_repository_api, 
 
 @pytest.mark.parallel
 def test_sync_invalid_url(synced_container_repository_factory):
-
     with pytest.raises(PulpTaskError) as ctx:
         synced_container_repository_factory(url="http://i-am-an-invalid-url.com/invalid/")
 

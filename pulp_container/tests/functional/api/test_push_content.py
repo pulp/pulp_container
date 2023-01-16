@@ -4,9 +4,10 @@ import pytest
 import requests
 import unittest
 
+from subprocess import CalledProcessError
 from urllib.parse import urlparse, urljoin
 
-from pulp_smash import cli, config, exceptions
+from pulp_smash import cli, config
 from pulp_smash.pulp3.bindings import (
     delete_orphans,
     monitor_task,
@@ -62,7 +63,7 @@ def test_push_without_login(
     registry_client.pull(image_path)
 
     # Try to push without permission
-    with anonymous_user, pytest.raises(exceptions.CalledProcessError):
+    with anonymous_user, pytest.raises(CalledProcessError):
         local_registry.tag_and_push(image_path, local_url)
 
 
@@ -153,7 +154,7 @@ def test_push_with_view_perms(
     local_url = f"{repo_name}:2.0"
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
-    with user_reader, pytest.raises(exceptions.CalledProcessError):
+    with user_reader, pytest.raises(CalledProcessError):
         local_registry.tag_and_push(image_path, local_url)
 
 
@@ -173,7 +174,7 @@ def test_push_with_no_perms(
     local_url = f"{repo_name}:2.0"
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
-    with user_helpless, pytest.raises(exceptions.CalledProcessError):
+    with user_helpless, pytest.raises(CalledProcessError):
         local_registry.tag_and_push(image_path, local_url)
 
     # test a user can still pull
@@ -183,7 +184,7 @@ def test_push_with_no_perms(
         add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
     with user_helpless:
-        with pytest.raises(exceptions.CalledProcessError):
+        with pytest.raises(CalledProcessError):
             local_registry.tag_and_push(image_path, local_url)
         local_registry.pull(local_url)
 
@@ -238,7 +239,7 @@ def test_push_to_existing_namespace(
     local_url = f"{collab_repo_name}:2.0"
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
     registry_client.pull(image_path)
-    with user_dist_collaborator, pytest.raises(exceptions.CalledProcessError):
+    with user_dist_collaborator, pytest.raises(CalledProcessError):
         local_registry.tag_and_push(image_path, local_url)
 
     with user_creator:
@@ -299,7 +300,7 @@ def test_push_private_repository(
 
     with user_dist_consumer:
         local_registry.pull(local_url)
-    with user_helpless, pytest.raises(exceptions.CalledProcessError):
+    with user_helpless, pytest.raises(CalledProcessError):
         local_registry.pull(local_url)
 
     with user_creator:
@@ -337,7 +338,7 @@ def test_push_matching_username(
         namespace = container_namespace_api.list(name=namespace_name).results[0]
         add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-        with pytest.raises(exceptions.CalledProcessError):
+        with pytest.raises(CalledProcessError):
             local_registry.tag_and_push(image_path, invalid_local_url)
 
         # test you can create distribution under the namespace that matches login

@@ -24,7 +24,7 @@ def distribution(
 
     gpg, fingerprint, keyid = signing_gpg_metadata
 
-    with registry_client._client.machine.env(GNUPGHOME=gpg.gnupghome):
+    with registry_client.set_env(GNUPGHOME=str(gpg.gnupghome)):
         local_registry.tag_and_push(image_path, "test-1:manifest_a", "--sign-by", keyid)
 
         # push the same image for the second time with a different signature (timestamp)

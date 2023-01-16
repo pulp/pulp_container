@@ -139,11 +139,11 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         self.assertEqual(pulled_manifest_digest, config_blob_response["digest"])
 
 
-def test_invalid_user(token_server_url, local_registry):
+def test_invalid_user(pulp_settings, local_registry):
     """Test if the token server correctly returns a 401 error in case of invalid credentials."""
 
     async def get_token():
-        url = f"{token_server_url}?service={local_registry.name}"
+        url = f"{pulp_settings.TOKEN_SERVER}?service={local_registry.name}"
         async with aiohttp.ClientSession() as session:
             async with session.get(url, auth=aiohttp.BasicAuth("test", "invalid")) as response:
                 return response.status
