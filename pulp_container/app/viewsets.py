@@ -1433,7 +1433,6 @@ class ContainerNamespaceViewSet(
         instance_ids = []
 
         for distribution in namespace.container_distributions.all():
-
             reservations.append(distribution)
             instance_ids.append(
                 (str(distribution.pk), "container", "ContainerDistributionSerializer"),
