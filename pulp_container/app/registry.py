@@ -155,8 +155,7 @@ class Registry(Handler):
 
     async def dispatch_tag(self, request, tag, response_headers):
         """
-        Finds an artifact associated with a Tag and sends it to the client, otherwise tries
-        to stream it.
+        Finds an artifact associated with a Tag and sends it to the client
 
         Args:
             request(:class:`~aiohttp.web.Request`): The request to prepare a response for.
@@ -165,17 +164,11 @@ class Registry(Handler):
                 with the response
 
         Returns:
-            :class:`aiohttp.web.StreamResponse` or :class:`aiohttp.web.FileResponse`: The response
-                streamed back to the client.
+            :class:`aiohttp.web.FileResponse`: The response sent back to the client.
 
         """
-        try:
-            artifact = await sync_to_async(tag.tagged_manifest._artifacts.get)()
-        except ObjectDoesNotExist:
-            ca = await sync_to_async(lambda x: x[0])(tag.tagged_manifest.contentartifact_set.all())
-            return await self._stream_content_artifact(request, web.StreamResponse(), ca)
-        else:
-            return await Registry._dispatch(artifact, response_headers)
+        artifact = await sync_to_async(tag.tagged_manifest._artifacts.get)()
+        return await Registry._dispatch(artifact, response_headers)
 
     @staticmethod
     async def dispatch_converted_schema(tag, accepted_media_types, path):
@@ -249,10 +242,9 @@ class Registry(Handler):
             raise PathNotResolved(path)
         else:
             artifact = ca.artifact
-            if artifact:
-                return await Registry._dispatch(artifact, headers)
-            else:
+            if not artifact and isinstance(ca_content, Blob):
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
+            return await Registry._dispatch(artifact, headers)
 
     @staticmethod
     async def _empty_blob():
