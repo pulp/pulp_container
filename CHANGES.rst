@@ -13,6 +13,22 @@ Changelog
 
 .. towncrier release notes start
 
+2.9.10 (2023-02-28)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed a method for determining the media type of manifests when syncing content.
+  `#1147 <https://github.com/pulp/pulp_container/issues/1147>`__
+- Fixed container repo sync failure 'null value in column \"image_manifest_id\" violates not-null constraint'.
+  `#1190 <https://github.com/pulp/pulp_container/issues/1190>`__
+
+
+----
+
+
 2.9.9 (2022-10-20)
 ==================
 
