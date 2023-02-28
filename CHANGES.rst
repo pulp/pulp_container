@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.10.12 (2023-02-28)
+====================
+
+
+Bugfixes
+--------
+
+- Fixed a method for determining the media type of manifests when syncing content.
+  `#1147 <https://github.com/pulp/pulp_container/issues/1147>`__
+
+
+----
+
+
 2.10.11 (2023-01-11)
 ====================
 
