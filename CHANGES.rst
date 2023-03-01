@@ -419,6 +419,20 @@ Misc
 ----
 
 
+2.10.12 (2023-02-28)
+====================
+
+
+Bugfixes
+--------
+
+- Fixed a method for determining the media type of manifests when syncing content.
+  `#1147 <https://github.com/pulp/pulp_container/issues/1147>`__
+
+
+----
+
+
 2.10.11 (2023-01-11)
 ====================
 
@@ -587,6 +601,22 @@ Features
   `#9488 <https://pulp.plan.io/issues/9488>`_
 - Enabled rate_limit option on the remote. Rate limit defines N req/sec per connection.
   `#9607 <https://pulp.plan.io/issues/9607>`_
+
+
+----
+
+
+2.9.10 (2023-02-28)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed a method for determining the media type of manifests when syncing content.
+  `#1147 <https://github.com/pulp/pulp_container/issues/1147>`__
+- Fixed container repo sync failure 'null value in column \"image_manifest_id\" violates not-null constraint'.
+  `#1190 <https://github.com/pulp/pulp_container/issues/1190>`__
 
 
 ----
