@@ -15,12 +15,15 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 from rest_framework.decorators import action
 
-from pulpcore.plugin.actions import raise_for_unknown_content_units
 from pulpcore.plugin.models import RepositoryVersion
 from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
 from pulpcore.plugin.models import Artifact, Content
 from pulpcore.plugin.tasking import dispatch, general_multi_delete
-from pulpcore.plugin.util import get_objects_for_user
+from pulpcore.plugin.util import (
+    extract_pk,
+    get_objects_for_user,
+    raise_for_unknown_content_units,
+)
 from pulpcore.plugin.viewsets import (
     AsyncUpdateMixin,
     DistributionViewSet,
@@ -708,7 +711,7 @@ class ContainerRepositoryViewSet(
 
         if "content_units" in request.data:
             for url in request.data["content_units"]:
-                add_content_units[NamedModelViewSet.extract_pk(url)] = url
+                add_content_units[extract_pk(url)] = url
 
             self.touch_content_units(add_content_units)
 
