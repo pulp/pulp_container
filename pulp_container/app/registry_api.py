@@ -12,8 +12,6 @@ import hashlib
 import re
 import time
 
-from collections import namedtuple
-
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
@@ -85,8 +83,6 @@ from pulp_container.constants import (
     SIGNATURE_PAYLOAD_MAX_SIZE,
     SIGNATURE_TYPE,
 )
-
-FakeView = namedtuple("FakeView", ["action", "get_object"])
 
 log = logging.getLogger(__name__)
 

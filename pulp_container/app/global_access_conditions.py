@@ -38,6 +38,7 @@ def has_namespace_perms(request, view, action, permission):
     """
     Check if a user has a namespace-level permission
     """
+    view.get_serializer(data=request.data).is_valid(raise_exception=True)
     ns_perm = "container.namespace_{}".format(permission.split(".", 1)[1])
     base_path = request.data.get("base_path")
     if not base_path:
@@ -82,6 +83,7 @@ def namespace_is_username(request, view, action):
     """
     Check if the namespace in the request matches the username.
     """
+    view.get_serializer(data=request.data).is_valid(raise_exception=True)
     if isinstance(view, ContainerDistributionViewSet):
         base_path = request.data.get("base_path")
         if not base_path:

@@ -7,6 +7,7 @@ import jwt
 
 from collections import defaultdict, namedtuple
 from datetime import datetime
+from functools import partial
 
 from django.conf import settings
 from django.http import HttpRequest
@@ -20,7 +21,24 @@ from pulp_container.app.access_policy import RegistryAccessPolicy
 
 TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
 
-FakeView = namedtuple("FakeView", ["action", "get_object"])
+FakeView = namedtuple("FakeView", "action, get_object, get_serializer")
+
+
+def get_serializer(*args, **kwargs):
+    class FakeSerializer:
+        def __init__(*args, **kwargs):
+            pass
+
+        def __call__(self, *args, **kwargs):
+            return self
+
+        def __getattr__(self, *args, **kwargs):
+            return self
+
+    return FakeSerializer(*args, **kwargs)
+
+
+FakeViewWithSerializer = partial(FakeView, get_serializer=get_serializer)
 
 
 class AuthorizationService:
@@ -175,7 +193,7 @@ class AuthorizationService:
         request.user = self.user
         request._full_data = data
         # Fake the corresponding view
-        view = FakeView(action, lambda: obj)
+        view = FakeViewWithSerializer(action, lambda: obj)
         return self.access_policy.has_permission(request, view)
 
     def has_pull_permissions(self, path):
@@ -228,7 +246,7 @@ class AuthorizationService:
         request.method = "GET"
         request.user = self.user
         # Fake the view
-        view = FakeView("catalog", lambda: ContainerDistribution())
+        view = FakeViewWithSerializer("catalog", lambda: ContainerDistribution())
         return self.access_policy.has_permission(request, view)
 
     @staticmethod
