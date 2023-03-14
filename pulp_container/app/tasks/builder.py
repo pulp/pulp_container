@@ -120,13 +120,13 @@ def build_image_from_containerfile(
     with tempfile.TemporaryDirectory(dir=".") as working_directory:
         working_directory = os.path.abspath(working_directory)
         context_path = os.path.join(working_directory, "context")
-        os.makedirs(context_path)
+        os.makedirs(context_path, exist_ok=True)
         for key, val in artifacts.items():
             artifact = Artifact.objects.get(pk=key)
             dest_path = os.path.join(context_path, val)
             dirs = os.path.split(dest_path)[0]
             if dirs:
-                os.makedirs(dirs)
+                os.makedirs(dirs, exist_ok=True)
             with open(dest_path, "wb") as dest:
                 shutil.copyfileobj(artifact.file, dest)
 
@@ -152,7 +152,7 @@ def build_image_from_containerfile(
         if bud_cp.returncode != 0:
             raise Exception(bud_cp.stderr)
         image_dir = os.path.join(working_directory, "image")
-        os.makedirs(image_dir)
+        os.makedirs(image_dir, exist_ok=True)
         push_cp = subprocess.run(
             ["podman", "push", "-f", "oci", name, "dir:{}".format(image_dir)],
             stdout=subprocess.PIPE,
