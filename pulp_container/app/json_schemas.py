@@ -2,11 +2,15 @@ from pulp_container.constants import BLOB_CONTENT_TYPE, MEDIA_TYPE, SIGNATURE_TY
 
 
 def get_descriptor_schema(
-    allowed_media_types, additional_properties=None, additional_required=None
+    allowed_media_types=None, additional_properties=None, additional_required=None
 ):
     """Return a concrete descriptor schema for manifests."""
+
+    media_type = {"type": "string"}
+    if allowed_media_types:
+        media_type["enum"] = allowed_media_types
     properties = {
-        "mediaType": {"type": "string", "enum": allowed_media_types},
+        "mediaType": media_type,
         "size": {"type": "number"},
         "digest": {"type": "string"},
         "annotations": {"type": "object", "additionalProperties": True},
@@ -71,16 +75,7 @@ OCI_MANIFEST_SCHEMA = {
         "config": get_descriptor_schema([MEDIA_TYPE.CONFIG_BLOB_OCI]),
         "layers": {
             "type": "array",
-            "items": get_descriptor_schema(
-                [
-                    MEDIA_TYPE.REGULAR_BLOB_OCI_TAR,
-                    MEDIA_TYPE.REGULAR_BLOB_OCI_TAR_GZIP,
-                    MEDIA_TYPE.REGULAR_BLOB_OCI_TAR_ZSTD,
-                    MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR,
-                    MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_GZIP,
-                    MEDIA_TYPE.FOREIGN_BLOB_OCI_TAR_ZSTD,
-                ]
-            ),
+            "items": get_descriptor_schema(),
         },
     },
     "required": ["schemaVersion", "config", "layers"],
