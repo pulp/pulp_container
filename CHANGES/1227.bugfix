@@ -1,0 +1,1 @@
+Relaxed oci manifest json validation to allow other layer mediaTypes than oci layer type.
