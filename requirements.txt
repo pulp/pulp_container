@@ -1,4 +1,3 @@
-# remember to also update unittest_requirements.txt when updating this file
 ecdsa>=0.14,<=0.18.0
 jsonschema>=4.4,<4.18
 pulpcore>=3.23.0,<3.25
