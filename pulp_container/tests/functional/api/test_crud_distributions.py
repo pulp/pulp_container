@@ -90,7 +90,7 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
         for field_pair in permutations(("base_path", "name")):
             with self.subTest(field_pair=field_pair):
                 distribution = self.distribution_api.read(
-                    self.distribution.pulp_href, fields=",".join(field_pair)
+                    self.distribution.pulp_href, fields=field_pair
                 ).to_dict()
                 # a distribution object contains always all fields; due to that, it is
                 # necessary to filter out only the keys which do not have the None value
@@ -107,7 +107,7 @@ class CRUDContainerDistributionsTestCase(unittest.TestCase):
                 #  fields 'base_path' and 'name'; these two fields have to be present at the time
                 #  of the instantiation
                 distribution = self.distribution_api.read(
-                    self.distribution.pulp_href, exclude_fields=",".join(field_pair)
+                    self.distribution.pulp_href, exclude_fields=field_pair
                 ).to_dict()
                 filtered_keys = list(filter(lambda x: bool(distribution[x]), distribution))
                 self.assertNotIn("pulp_href", filtered_keys)
