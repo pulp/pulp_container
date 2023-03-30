@@ -13,6 +13,22 @@ Changelog
 
 .. towncrier release notes start
 
+2.14.4 (2023-03-30)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed signing task that could skip some image signing.
+  `#1209 <https://github.com/pulp/pulp_container/issues/1209>`__
+- Relaxed oci manifest json validation to allow other layer mediaTypes than oci layer type.
+  `#1227 <https://github.com/pulp/pulp_container/issues/1227>`__
+
+
+----
+
+
 2.14.3 (2022-12-02)
 ===================
 
