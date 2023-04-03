@@ -996,7 +996,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         if not pk.startswith("sha256:"):
             tag = models.Tag(name=pk, tagged_manifest=manifest)
             try:
-                tag.save()
+                tag.touch()
             except IntegrityError:
                 tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
                 tag.touch()
@@ -1010,7 +1010,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             add_content_units = [str(manifest.pk)]
             remove_content_units = []
 
-        dispatched_task = dispatch(
+        immediate_task = dispatch(
             add_and_remove,
             exclusive_resources=[repository],
             kwargs={
@@ -1018,10 +1018,16 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 "add_content_units": add_content_units,
                 "remove_content_units": remove_content_units,
             },
+            immediate=True,
+            deferred=False,
         )
 
-        if has_task_completed(dispatched_task):
+        if immediate_task.state == "completed":
             return ManifestResponse(manifest, path, request, status=201)
+        elif immediate_task.state == "canceled":
+            raise Throttled()
+        else:
+            raise Exception(str(immediate_task.error))
 
     def _save_manifest(self, artifact, manifest_digest, content_type, config_blob=None):
         manifest = models.Manifest(
@@ -1157,7 +1163,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
             signature = models.ManifestSignature.objects.get(digest=signature.digest)
             signature.touch()
 
-        dispatched_task = dispatch(
+        immediate_task = dispatch(
             add_and_remove,
             exclusive_resources=[repository],
             kwargs={
@@ -1165,7 +1171,13 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
                 "add_content_units": [str(signature.pk)],
                 "remove_content_units": [],
             },
+            immediate=True,
+            deferred=False,
         )
 
-        if has_task_completed(dispatched_task):
+        if immediate_task.state == "completed":
             return ManifestSignatureResponse(signature, path)
+        elif immediate_task.state == "canceled":
+            raise Throttled()
+        else:
+            raise Exception(str(immediate_task.error))
