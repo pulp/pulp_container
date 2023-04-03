@@ -530,6 +530,8 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin):
     manifest_signing_service = models.ForeignKey(
         ManifestSigningService, on_delete=models.SET_NULL, null=True
     )
+    pending_blobs = models.ManyToManyField(Blob)
+    pending_manifests = models.ManyToManyField(Manifest)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
@@ -550,6 +552,15 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin):
         """
         remove_duplicates(new_version)
         validate_repo_version(new_version)
+        self.remove_pending_content(new_version)
+
+    def remove_pending_content(self, repository_version):
+        """Remove pending blobs and manifests when committing the content to the repository."""
+        added_content = repository_version.added(
+            base_version=repository_version.base_version
+        ).values_list("pk")
+        self.pending_blobs.remove(*Blob.objects.filter(pk__in=added_content))
+        self.pending_manifests.remove(*Manifest.objects.filter(pk__in=added_content))
 
 
 class ContainerDistribution(Distribution, AutoAddObjPermsMixin):

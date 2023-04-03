@@ -1,8 +1,5 @@
 """Tests that verify that RBAC for repository versions work properly."""
 import pytest
-import requests
-
-from urllib.parse import urljoin
 
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
@@ -170,11 +167,11 @@ def test_rbac_push_repository_version(
     """
     Test that users can list repository versions if they have enough permissions
     """
-    assert container_push_repository_version_api.list(repository.pulp_href).count == 5
+    assert container_push_repository_version_api.list(repository.pulp_href).count == 2
     with user_creator:
-        assert container_push_repository_version_api.list(repository.pulp_href).count == 5
+        assert container_push_repository_version_api.list(repository.pulp_href).count == 2
     with user_reader:
-        assert container_push_repository_version_api.list(repository.pulp_href).count == 5
+        assert container_push_repository_version_api.list(repository.pulp_href).count == 2
     with user_helpless, pytest.raises(ApiException):
         container_push_repository_version_api.list(repository.pulp_href)
 
@@ -217,24 +214,16 @@ def test_cross_repository_blob_mount(
     # Cleanup
     add_to_cleanup(container_namespace_api, distribution.namespace)
 
-    # Test that admin can cross mount
-    for i, blob in enumerate(blobs, start=1):
+    # Test that an admin can cross mount but do not perform any further assertions because
+    # the blobs are committed only after uploading the final tagged manifest
+    for blob in blobs:
         content_response, auth_token = mount_blob(blob, source_repo, dest_repo)
         assert content_response.status_code == 201
         assert content_response.text == ""
 
         blob_url = f"/v2/{dest_repo}/blobs/{blob.digest}"
-        url = urljoin(pulp_cfg.get_base_url(), blob_url)
-        content_response = requests.head(url, auth=auth_token, allow_redirects=True)
-        assert content_response.status_code == 200
-
-        repo_href = container_distribution_api.list(name=dest_repo).results[0].repository
-        version_href = container_push_repository_api.read(repo_href).latest_version_href
-        assert f"{repo_href}versions/{i}/" == version_href
-
-        added_blobs = container_blob_api.list(repository_version_added=version_href).results
-        assert len(added_blobs) == 1
-        assert added_blobs[0].digest == blob.digest
+        response, _ = local_registry.get_response("GET", blob_url)
+        assert response.status_code == 200
 
     try:
         distribution2 = container_distribution_api.list(name=dest_repo).results[0]
@@ -256,7 +245,7 @@ def test_cross_repository_blob_mount(
             content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
             assert content_response.status_code == 401
 
-        # Test if a collaborator cannot mount content outside of his scope.
+        # Test if a collaborator cannot mount content outside his scope.
         with user_collaborator:
             content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
             assert content_response.status_code == 401
