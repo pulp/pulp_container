@@ -9,7 +9,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from multidict import MultiDict
 
 from pulpcore.plugin.content import Handler, PathNotResolved
-from pulpcore.plugin.models import ContentArtifact
+from pulpcore.plugin.models import Content, ContentArtifact
 from pulpcore.plugin.content import ArtifactResponse
 
 from pulp_container.app.cache import RegistryContentCache
@@ -230,9 +230,17 @@ class Registry(Handler):
         if digest == EMPTY_BLOB:
             return await Registry._empty_blob()
         try:
+            content = await sync_to_async(repository_version.get_content)()
+
+            repository = await sync_to_async(repository_version.repository.cast)()
+            if repository.PUSH_ENABLED:
+                pending_blobs = repository.pending_blobs.values_list("pk")
+                pending_manifests = repository.pending_manifests.values_list("pk")
+                pending_content = pending_blobs.union(pending_manifests)
+                content |= Content.objects.filter(pk__in=pending_content)
+
             ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
-                content__in=await sync_to_async(repository_version.get_content)(),
-                relative_path=digest,
+                content__in=content, relative_path=digest
             )
             ca_content = await sync_to_async(ca.content.cast)()
             if isinstance(ca_content, Blob):

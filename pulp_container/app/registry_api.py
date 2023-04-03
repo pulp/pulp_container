@@ -11,6 +11,7 @@ import logging
 import hashlib
 import re
 
+from itertools import chain
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
@@ -21,7 +22,7 @@ from django.shortcuts import get_object_or_404
 
 from django.conf import settings
 
-from pulpcore.plugin.models import Artifact, ContentArtifact, Task, UploadChunk
+from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
 from pulpcore.plugin.util import get_objects_for_user
@@ -575,7 +576,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
     @staticmethod
     def tries_to_mount_blob(request):
         """Check if a client is trying to perform cross repository blob mounting."""
-        return (request.query_params.keys()) == {"from", "mount"}
+        return request.query_params.keys() == {"from", "mount"}
 
     def mount_blob(self, request, path, repository):
         """Mount a blob that is already present in another repository."""
@@ -597,36 +598,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         except models.Blob.DoesNotExist:
             raise BlobNotFound(digest=digest)
 
-        mount_task = (
-            f"from_repo:{version.repository.pk}:to_repo:{repository.pk}:mount:{blob.digest}"
-        )
-        task = Task.objects.filter(
-            reserved_resources_record__contains=[f"shared:{mount_task}"]
-        ).last()
-        if task:
-            if task.state == "completed":
-                task.delete()
-                return BlobResponse(blob, path, 201, request)
-            elif task.state in ["waiting", "running"]:
-                if has_task_completed(task, wait_in_seconds=2):
-                    return BlobResponse(blob, path, 201, request)
-            else:
-                error = task.error
-                task.delete()
-                raise Exception(str(error))
-        else:
-            dispatched_task = dispatch(
-                add_and_remove,
-                shared_resources=[version.repository, mount_task],
-                exclusive_resources=[repository],
-                kwargs={
-                    "repository_pk": str(repository.pk),
-                    "add_content_units": [str(blob.pk)],
-                    "remove_content_units": [],
-                },
-            )
-            if has_task_completed(dispatched_task):
-                return BlobResponse(blob, path, 201, request)
+        repository.pending_blobs.add(blob)
+        return BlobResponse(blob, path, 201, request)
 
     def partial_update(self, request, path, pk=None):
         """
@@ -689,34 +662,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         _, repository = self.get_dr_push(request, path)
 
         digest = request.query_params["digest"]
-        # Try to see if the client came back after we told it to backoff with the ``Throttled``
-        # exception. In that case we answer based on the task state, or make it backoff again.
-        # This mechanism seems to work with podman but not with docker. However we let the task run
-        # anyway, since all clients will look with a HEAD request before attemting to upload a blob
-        # again.
-        try:
-            upload = models.Upload.objects.get(pk=pk, repository=repository)
-        except models.Upload.DoesNotExist as e_upload:
-            # Upload has been deleted => task has started or even finished
-            task = Task.objects.filter(
-                name__endswith="add_and_remove",
-                reserved_resources_record__contains=[f"shared:upload:{pk}"],
-            ).last()
-            if not task:
-                # No upload and no task for it => the upload probably never existed
-                # return 404
-                raise e_upload
-
-            if task.state == "completed":
-                task.delete()
-                blob = models.Blob.objects.get(digest=digest)
-                return BlobResponse(blob, path, 201, request)
-            elif task.state in ["waiting", "running"]:
-                raise Throttled()
-            else:
-                error = task.error
-                task.delete()
-                raise Exception(str(error))
+        upload = get_object_or_404(models.Upload, pk=pk, repository=repository)
 
         if artifact := upload.artifact:
             if artifact.sha256 != digest[len("sha256:") :]:
@@ -762,19 +708,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                     ca.save(update_fields=["artifact"])
         upload.delete()
 
-        dispatched_task = dispatch(
-            add_and_remove,
-            shared_resources=[f"upload:{pk}"],
-            exclusive_resources=[repository],
-            kwargs={
-                "repository_pk": str(repository.pk),
-                "add_content_units": [str(blob.pk)],
-                "remove_content_units": [],
-            },
-        )
-
-        if has_task_completed(dispatched_task):
-            return BlobResponse(blob, path, 201, request)
+        repository.pending_blobs.add(blob)
+        return BlobResponse(blob, path, 201, request)
 
 
 class RedirectsMixin:
@@ -823,7 +758,7 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
     @RegistryApiCache(base_key=lambda req, cac: find_base_path_cached(req, cac))
     def handle_safe_method(self, request, path, pk):
         """Handles safe requests for Blobs."""
-        distribution, _, repository_version = self.get_drv_pull(path)
+        distribution, repository, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)
 
         try:
@@ -831,7 +766,16 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         except models.Blob.DoesNotExist:
             if pk == EMPTY_BLOB:
                 return redirects.redirect_to_content_app("blobs", pk)
-            raise BlobNotFound(digest=pk)
+            repository = repository.cast()
+            if repository.PUSH_ENABLED:
+                try:
+                    blob = repository.pending_blobs.get(digest=pk)
+                    blob.touch()
+                except models.Blob.DoesNotExist:
+                    raise BlobNotFound(digest=pk)
+            else:
+                raise BlobNotFound(digest=pk)
+
         return redirects.issue_blob_redirect(blob)
 
 
@@ -861,19 +805,31 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds to safe requests about manifests by reference
         """
-        distribution, _, repository_version = self.get_drv_pull(path)
+        distribution, repository, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)
 
-        try:
-            if pk[:7] != "sha256:":
+        if pk[:7] != "sha256:":
+            try:
                 tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
-                return redirects.issue_tag_redirect(tag)
-            else:
-                manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
-        except (models.Tag.DoesNotExist, models.Manifest.DoesNotExist):
-            raise ManifestNotFound(reference=pk)
+            except models.Tag.DoesNotExist:
+                raise ManifestNotFound(reference=pk)
 
-        return redirects.issue_manifest_redirect(manifest)
+            return redirects.issue_tag_redirect(tag)
+        else:
+            try:
+                manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
+            except models.Manifest.DoesNotExit:
+                if repository.PUSH_ENABLED:
+                    # the manifest might be a part of listed manifests currently being uploaded
+                    try:
+                        manifest = repository.pending_manifests.get(digest=pk)
+                        manifest.touch()
+                    except models.Manifest.DoesNotExist:
+                        raise ManifestNotFound(reference=pk)
+                else:
+                    ManifestNotFound(reference=pk)
+
+            return redirects.issue_manifest_redirect(manifest)
 
     def put(self, request, path, pk=None):
         """
@@ -895,22 +851,27 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         # when a user uploads a manifest list with zero listed manifests (no blobs were uploaded
         # before) and the specified repository has not been created yet, create the repository
         # without raising an error
-        create_new_repo = media_type in (
+        is_manifest_list = media_type in (
             models.MEDIA_TYPE.MANIFEST_LIST,
             models.MEDIA_TYPE.INDEX_OCI,
         )
-        _, repository = self.get_dr_push(request, path, create=create_new_repo)
+        _, repository = self.get_dr_push(request, path, create=is_manifest_list)
 
-        if media_type in (
-            models.MEDIA_TYPE.MANIFEST_LIST,
-            models.MEDIA_TYPE.INDEX_OCI,
-        ):
+        latest_version_content_pks = repository.latest_version().content.values_list("pk")
+        manifests_pks = repository.pending_manifests.values_list("pk")
+        blobs_pks = repository.pending_blobs.values_list("pk")
+        content_pks = latest_version_content_pks.union(manifests_pks).union(blobs_pks)
+
+        found_manifests = models.Manifest.objects.none()
+
+        if is_manifest_list:
             manifests = {}
             for manifest in content_data.get("manifests"):
                 manifests[manifest["digest"]] = manifest["platform"]
 
             digests = set(manifests.keys())
-            found_manifests = models.Manifest.objects.filter(digest__in=digests)
+
+            found_manifests = models.Manifest.objects.filter(digest__in=digests, pk__in=content_pks)
 
             if (len(manifests) - found_manifests.count()) != 0:
                 ManifestInvalid(digest=manifest_digest)
@@ -936,6 +897,15 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 manifests_to_list, ignore_conflicts=True, batch_size=1000
             )
             manifest = manifest_list
+
+            found_blobs = models.Blob.objects.filter(
+                digest__in=found_manifests.values_list("blobs__digest"),
+                pk__in=content_pks,
+            )
+            found_config_blobs = models.Blob.objects.filter(
+                digest__in=found_manifests.values_list("config_blob__digest"),
+                pk__in=content_pks,
+            )
         else:
             # both docker/oci format should contain config, digest, mediaType, size
             config_layer = content_data.get("config")
@@ -946,11 +916,10 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 )
 
             config_digest = config_layer.get("digest")
-            try:
-                config_blob = models.Blob.objects.get(
-                    digest=config_digest, pk__in=repository.latest_version().content
-                )
-            except models.Blob.DoesNotExist:
+            found_config_blobs = models.Blob.objects.filter(
+                digest=config_digest, pk__in=content_pks
+            )
+            if not found_config_blobs.exists():
                 raise BlobInvalid(digest=config_digest)
 
             # both docker/oci format should contain layers, digest, media_type, size
@@ -977,22 +946,22 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 digest = layer.get("digest")
                 blobs.add(digest)
 
-            blobs_qs = models.Blob.objects.filter(
-                digest__in=blobs, pk__in=repository.latest_version().content
-            )
-            if (len(blobs) - blobs_qs.count()) != 0:
+            found_blobs = models.Blob.objects.filter(digest__in=blobs, pk__in=content_pks)
+            if (len(blobs) - found_blobs.count()) != 0:
                 raise ManifestInvalid(digest=manifest_digest)
 
-            manifest = self._save_manifest(artifact, manifest_digest, media_type, config_blob)
+            manifest = self._save_manifest(
+                artifact, manifest_digest, media_type, found_config_blobs.first()
+            )
 
             thru = []
-            for blob in blobs_qs:
+            for blob in found_blobs:
                 thru.append(models.BlobManifest(manifest=manifest, manifest_blob=blob))
             models.BlobManifest.objects.bulk_create(
                 objs=thru, ignore_conflicts=True, batch_size=1000
             )
 
-        # a manifest cannot tagged by its digest - an identifier specified in the 'pk' parameter
+        # a manifest cannot be tagged by its digest - an identifier specified in the 'pk' parameter
         if not pk.startswith("sha256:"):
             tag = models.Tag(name=pk, tagged_manifest=manifest)
             try:
@@ -1001,26 +970,40 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
                 tag.touch()
 
+            add_content_units = [str(tag.pk), str(manifest.pk)] + [
+                str(content.pk)
+                for content in chain(found_blobs, found_config_blobs, found_manifests)
+            ]
+
             tags_to_remove = models.Tag.objects.filter(
                 pk__in=repository.latest_version().content.all(), name=tag
             ).exclude(tagged_manifest=manifest)
-            add_content_units = [str(tag.pk), str(manifest.pk)]
             remove_content_units = [str(pk) for pk in tags_to_remove.values_list("pk")]
+
+            immediate_task = dispatch(
+                add_and_remove,
+                exclusive_resources=[repository],
+                kwargs={
+                    "repository_pk": str(repository.pk),
+                    "add_content_units": add_content_units,
+                    "remove_content_units": remove_content_units,
+                },
+                immediate=True,
+                deferred=True,
+            )
+
+            if immediate_task.state == "completed":
+                return ManifestResponse(manifest, path, request, status=201)
+            elif immediate_task.state == "canceled":
+                raise Throttled()
+            elif immediate_task.state in ["waiting", "running"]:
+                if has_task_completed(immediate_task, wait_in_seconds=2):
+                    return ManifestResponse(manifest, path, request, status=201)
+            else:
+                raise Exception(str(immediate_task.error))
         else:
-            add_content_units = [str(manifest.pk)]
-            remove_content_units = []
-
-        dispatched_task = dispatch(
-            add_and_remove,
-            exclusive_resources=[repository],
-            kwargs={
-                "repository_pk": str(repository.pk),
-                "add_content_units": add_content_units,
-                "remove_content_units": remove_content_units,
-            },
-        )
-
-        if has_task_completed(dispatched_task):
+            # the client pushed a listed manifest
+            repository.pending_manifests.add(manifest)
             return ManifestResponse(manifest, path, request, status=201)
 
     def _save_manifest(self, artifact, manifest_digest, content_type, config_blob=None):
@@ -1157,7 +1140,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
             signature = models.ManifestSignature.objects.get(digest=signature.digest)
             signature.touch()
 
-        dispatched_task = dispatch(
+        immediate_task = dispatch(
             add_and_remove,
             exclusive_resources=[repository],
             kwargs={
@@ -1165,7 +1148,16 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
                 "add_content_units": [str(signature.pk)],
                 "remove_content_units": [],
             },
+            immediate=True,
+            deferred=True,
         )
 
-        if has_task_completed(dispatched_task):
+        if immediate_task.state == "completed":
             return ManifestSignatureResponse(signature, path)
+        elif immediate_task.state == "canceled":
+            raise Throttled()
+        elif immediate_task.state in ["waiting", "running"]:
+            if has_task_completed(immediate_task, wait_in_seconds=2):
+                return ManifestSignatureResponse(signature, path)
+        else:
+            raise Exception(str(immediate_task.error))

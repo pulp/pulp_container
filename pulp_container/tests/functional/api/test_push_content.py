@@ -373,6 +373,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         cls.registry_name = urlparse(cls.cfg.get_base_url()).netloc
 
         admin_user, admin_password = cls.cfg.pulp_auth
+        cls.registry.login("-u", admin_user, "-p", admin_password, cls.registry_name)
         cls.user_admin = {"username": admin_user, "password": admin_password}
 
         api_client = gen_container_client()
@@ -392,7 +393,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         # create a new manifest list composed of the pulled manifest images
         cls.v2s2_tag = "manifest_list"
-        cls.v2s2_image_path = f"{cls.registry_name}/foo:{cls.v2s2_tag}"
+        cls.v2s2_image_path = f"{cls.registry_name}/foo_v2s2:{cls.v2s2_tag}"
         cls.registry._dispatch_command("manifest", "create", cls.v2s2_tag)
         cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_a)
         cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_b)
@@ -400,7 +401,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         # create a new manifest list composed of the pulled manifest images
         cls.oci_tag = "manifest_list_oci"
-        cls.oci_image_path = f"{cls.registry_name}/foo:{cls.oci_tag}"
+        cls.oci_image_path = f"{cls.registry_name}/foo_oci:{cls.oci_tag}"
         cls.registry._dispatch_command("manifest", "create", cls.oci_tag)
         cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_a)
         cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_b)
@@ -408,7 +409,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         # create an empty manifest list
         cls.empty_image_tag = "empty_manifest_list"
-        cls.empty_image_path = f"{cls.registry_name}/foo:{cls.empty_image_tag}"
+        cls.empty_image_path = f"{cls.registry_name}/foo_empty:{cls.empty_image_tag}"
         cls.registry._dispatch_command("manifest", "create", cls.empty_image_tag)
 
     @classmethod
@@ -446,7 +447,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
             "v2s2",
         )
 
-        distribution = self.distributions_api.list(name="foo").results[0]
+        distribution = self.distributions_api.list(name="foo_v2s2").results[0]
         self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
 
         repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
@@ -482,6 +483,8 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         )
         assert referenced_manifests_digests == manifests_v2s2_digests
 
+        self.registry.pull(self.v2s2_image_path)
+
     def test_push_manifest_list_oci(self):
         """Push the created manifest list in the OCI format."""
         self.registry.login(
@@ -495,7 +498,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
             "oci",
         )
 
-        distribution = self.distributions_api.list(name="foo").results[0]
+        distribution = self.distributions_api.list(name="foo_oci").results[0]
         self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
 
         repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
@@ -531,6 +534,8 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         )
         assert referenced_manifests_digests == manifests_oci_digests
 
+        self.registry.pull(self.oci_image_path)
+
     def test_push_empty_manifest_list(self):
         """Push an empty manifest list to the registry."""
         self.registry.login(
@@ -538,7 +543,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         )
         self.registry.manifest_push(self.empty_image_tag, self.empty_image_path)
 
-        distribution = self.distributions_api.list(name="foo").results[0]
+        distribution = self.distributions_api.list(name="foo_empty").results[0]
         self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
 
         repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
