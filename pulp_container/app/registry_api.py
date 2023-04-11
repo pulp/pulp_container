@@ -28,7 +28,6 @@ from pulpcore.plugin.models import Artifact, ContentArtifact, Task, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
 from pulpcore.plugin.util import get_objects_for_user
-from rest_framework.authentication import BasicAuthentication
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
@@ -357,7 +356,6 @@ class BearerTokenView(APIView):
     """
 
     # Allow everyone to access but still value authenticated users.
-    authentication_classes = [BasicAuthentication]
     permission_classes = []
 
     def get(self, request):
