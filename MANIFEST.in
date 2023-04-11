@@ -1,6 +1,7 @@
 include LICENSE
 include pulp_container/app/webserver_snippets/*
 include requirements.txt
+include ci_requirements.txt
 include pyproject.toml
 include CHANGES.rst
 include COMMITMENT
