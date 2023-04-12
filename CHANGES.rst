@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.14.5 (2023-04-11)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed a bug that disallowed users to configure custom authentication classes for the token server.
+  `#1254 <https://github.com/pulp/pulp_container/issues/1254>`__
+
+
+----
+
+
 2.14.4 (2023-03-30)
 ===================
 
