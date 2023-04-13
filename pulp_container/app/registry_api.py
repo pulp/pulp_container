@@ -51,6 +51,7 @@ from pulp_container.app.access_policy import RegistryAccessPolicy
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.cache import find_base_path_cached, RegistryApiCache
 from pulp_container.app.exceptions import (
+    unauthorized_exception_handler,
     InvalidRequest,
     RepositoryNotFound,
     RepositoryInvalid,
@@ -369,6 +370,9 @@ class BearerTokenView(APIView):
         authorization_service = AuthorizationService(self.request.user, service, scope)
         data = authorization_service.generate_token()
         return Response(data=data)
+
+    def get_exception_handler(self):
+        return unauthorized_exception_handler
 
 
 class VersionView(ContainerRegistryApiMixin, APIView):

@@ -1,0 +1,2 @@
+Ensured an HTTP 401 response in case a user provides invalid credentials during the login
+(e.g., via ``podman login``).
