@@ -5,7 +5,6 @@ import unittest
 
 from urllib.parse import urljoin, urlparse
 import requests
-import pytest
 
 from pulp_smash import api, config, cli
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
@@ -140,9 +139,6 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         self.assertEqual(pulled_manifest_digest, config_blob_response["digest"])
 
 
-@pytest.mark.skip(
-    reason="Skipping until the issue https://github.com/pulp/pulp_container/issues/918 is addressed"
-)
 def test_invalid_user(pulp_settings, local_registry):
     """Test if the token server correctly returns a 401 error in case of invalid credentials."""
 
