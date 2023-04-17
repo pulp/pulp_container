@@ -48,3 +48,6 @@ ADDITIONAL_OCI_ARTIFACT_TYPES = {
 }
 
 FLATPAK_INDEX = False
+
+# The number of allowed threads to sign manifests in parallel
+MAX_PARALLEL_SIGNING_TASKS = 10
