@@ -6,7 +6,6 @@ import requests
 import subprocess
 
 from contextlib import contextmanager
-from functools import partialmethod
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
@@ -53,8 +52,22 @@ class RegistryClient:
 
     NAME = "podman"
 
-    def __init__(self):
+    def __init__(self, tls_verify):
         self._name = None
+
+        self.pull = lambda *args: self._dispatch_command("pull", *args, tls_verify)
+        self.push = lambda *args: self._dispatch_command("push", *args, tls_verify)
+        self.manifest_push = lambda *args: self._dispatch_command(
+            "manifest", "push", "*args, tls_verify"
+        )
+        self.login = lambda *args: self._dispatch_command("login", *args, tls_verify)
+
+        self.logout = lambda *args: self._dispatch_command("logout", *args)
+        self.inspect = lambda *args: self._dispatch_command("inspect", *args)
+        self.import_ = lambda *args: self._dispatch_command("import", *args)
+        self.images = lambda *args: self._dispatch_command("images", "--format", "json", *args)
+        self.rmi = lambda *args: self._dispatch_command("rmi", *args)
+        self.tag = lambda *args: self._dispatch_command("tag", *args)
 
     @property
     def name(self):
@@ -93,30 +106,17 @@ class RegistryClient:
         except json.JSONDecodeError:
             return result
 
-    pull = partialmethod(_dispatch_command, "pull")
-    """Pulls image from registry."""
-    push = partialmethod(_dispatch_command, "push")
-    """Pushes image to registry."""
-    login = partialmethod(_dispatch_command, "login")
-    """Authenticate to a registry."""
-    logout = partialmethod(_dispatch_command, "logout")
-    """Logs out of a registry."""
-    inspect = partialmethod(_dispatch_command, "inspect")
-    """Inspect metadata for pulled image."""
-    import_ = partialmethod(_dispatch_command, "import")
-    """Import a container as a file in to the registry."""
-    images = partialmethod(_dispatch_command, "images", "--format", "json")
-    """List all pulled images."""
-    rmi = partialmethod(_dispatch_command, "rmi")
-    """removes pulled image."""
-    tag = partialmethod(_dispatch_command, "tag")
-    """tags image."""
+
+@pytest.fixture(scope="session")
+def tls_verify(bindings_cfg):
+    scheme = urlparse(bindings_cfg.host).scheme
+    return "--tls-verify=false" if scheme == "http" else "--tls-verify=true"
 
 
 @pytest.fixture(scope="session")
-def registry_client():
+def registry_client(tls_verify):
     """Fixture for a container registry client."""
-    registry = RegistryClient()
+    registry = RegistryClient(tls_verify)
     try:
         registry.raise_if_unsupported(ValueError, "Tests require podman/docker")
     except ValueError:

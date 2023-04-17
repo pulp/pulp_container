@@ -429,9 +429,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.registry.login(
             "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
         )
-        self.registry._dispatch_command(
-            "manifest",
-            "push",
+        self.registry.manifest_push(
             self.v2s2_tag,
             self.v2s2_image_path,
             "--all",
@@ -440,9 +438,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         )
 
         # pushing the same manifest list two times should not fail
-        self.registry._dispatch_command(
-            "manifest",
-            "push",
+        self.registry.manifest_push(
             self.v2s2_tag,
             self.v2s2_image_path,
             "--all",
@@ -491,9 +487,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.registry.login(
             "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
         )
-        self.registry._dispatch_command(
-            "manifest",
-            "push",
+        self.registry.manifest_push(
             self.oci_tag,
             self.oci_image_path,
             "--all",
@@ -542,9 +536,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         self.registry.login(
             "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
         )
-        self.registry._dispatch_command(
-            "manifest", "push", self.empty_image_tag, self.empty_image_path
-        )
+        self.registry.manifest_push(self.empty_image_tag, self.empty_image_path)
 
         distribution = self.distributions_api.list(name="foo").results[0]
         self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
