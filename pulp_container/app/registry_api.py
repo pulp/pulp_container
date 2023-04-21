@@ -10,7 +10,6 @@ import json
 import logging
 import hashlib
 import re
-import time
 
 from collections import namedtuple
 
@@ -75,7 +74,6 @@ from pulp_container.app.token_verification import (
 from pulp_container.app.utils import (
     determine_media_type,
     extract_data_from_signature,
-    has_task_completed,
     validate_manifest,
 )
 from pulp_container.constants import (
@@ -580,7 +578,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
     @staticmethod
     def tries_to_mount_blob(request):
         """Check if a client is trying to perform cross repository blob mounting."""
-        return (request.query_params.keys()) == {"from", "mount"}
+        return request.query_params.keys() == {"from", "mount"}
 
     def mount_blob(self, request, path, repository):
         """Mount a blob that is already present in another repository."""
@@ -599,34 +597,12 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         digest = request.query_params["mount"]
         try:
             blob = models.Blob.objects.get(digest=digest, pk__in=version.content)
+            blob.touch()
         except models.Blob.DoesNotExist:
             raise BlobNotFound(digest=digest)
 
-        dispatched_task = dispatch(
-            add_and_remove,
-            shared_resources=[version.repository],
-            exclusive_resources=[repository],
-            kwargs={
-                "repository_pk": str(repository.pk),
-                "add_content_units": [str(blob.pk)],
-                "remove_content_units": [],
-            },
-        )
-
-        # Wait a small amount of time
-        for dummy in range(3):
-            time.sleep(1)
-            task = Task.objects.get(pk=dispatched_task.pk)
-            if task.state == "completed":
-                task.delete()
-                return BlobResponse(blob, path, 201, request)
-            elif task.state in ["waiting", "running"]:
-                continue
-            else:
-                error = task.error
-                task.delete()
-                raise Exception(str(error))
-        raise Throttled()
+        repository.pending_blobs.add(blob)
+        return BlobResponse(blob, path, 201, request)
 
     def partial_update(self, request, path, pk=None):
         """
@@ -761,20 +737,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                     ca.artifact = artifact
                     ca.save(update_fields=["artifact"])
         upload.delete()
-
-        dispatched_task = dispatch(
-            add_and_remove,
-            shared_resources=[f"upload:{pk}"],
-            exclusive_resources=[repository],
-            kwargs={
-                "repository_pk": str(repository.pk),
-                "add_content_units": [str(blob.pk)],
-                "remove_content_units": [],
-            },
-        )
-
-        if has_task_completed(dispatched_task):
-            return BlobResponse(blob, path, 201, request)
+        repository.pending_blobs.add(blob)
+        return BlobResponse(blob, path, 201, request)
 
 
 class RedirectsMixin:
@@ -823,7 +787,7 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
     @RegistryApiCache(base_key=lambda req, cac: find_base_path_cached(req, cac))
     def handle_safe_method(self, request, path, pk):
         """Handles safe requests for Blobs."""
-        distribution, _, repository_version = self.get_drv_pull(path)
+        distribution, repository, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)
 
         try:
@@ -831,6 +795,12 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         except models.Blob.DoesNotExist:
             if pk == EMPTY_BLOB:
                 return redirects.redirect_to_content_app("blobs", pk)
+            repository = repository.cast()
+            if repository.PUSH_ENABLED:
+                try:
+                    blob = repository.pending_blobs.get(digest=pk)
+                except models.Blob.DoesNotExist:
+                    raise BlobNotFound(digest=pk)
             raise BlobNotFound(digest=pk)
         return redirects.issue_blob_redirect(blob)
 
@@ -978,7 +948,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 blobs.add(digest)
 
             blobs_qs = models.Blob.objects.filter(
-                digest__in=blobs, pk__in=repository.latest_version().content
+                digest__in=blobs,
+                pk__in=repository.latest_version().content | repository.pending_blobs.all(),
             )
             if (len(blobs) - blobs_qs.count()) != 0:
                 raise ManifestInvalid(digest=manifest_digest)
@@ -1009,6 +980,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         else:
             add_content_units = [str(manifest.pk)]
             remove_content_units = []
+        # TODO: Is this necessary, or does the the manifest pull it's blobs automatically?
+        add_content_units += [str(pk) for pk in blobs_qs.values_list("pk")]
 
         immediate_task = dispatch(
             add_and_remove,
@@ -1023,6 +996,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         )
 
         if immediate_task.state == "completed":
+            repository.pending_blobs.remove(blobs_qs)
             return ManifestResponse(manifest, path, request, status=201)
         elif immediate_task.state == "canceled":
             raise Throttled()

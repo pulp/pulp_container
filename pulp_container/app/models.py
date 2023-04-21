@@ -530,6 +530,7 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin):
     manifest_signing_service = models.ForeignKey(
         ManifestSigningService, on_delete=models.SET_NULL, null=True
     )
+    pending_blobs = models.ManyToManyField(Blob)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
