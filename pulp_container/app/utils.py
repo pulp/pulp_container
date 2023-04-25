@@ -115,7 +115,7 @@ def extract_data_from_signature(signature_raw, man_digest):
     return sig_json
 
 
-def has_task_completed(dispatched_task):
+def has_task_completed(dispatched_task, wait_in_seconds=3):
     """
     Wait a couple of seconds until the task finishes its run.
 
@@ -127,7 +127,7 @@ def has_task_completed(dispatched_task):
         Throttled: If the task did not finish within a predefined timespan.
 
     """
-    for dummy in range(3):
+    for dummy in range(wait_in_seconds):
         time.sleep(1)
         task = Task.objects.get(pk=dispatched_task.pk)
         if task.state == "completed":
