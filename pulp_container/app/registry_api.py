@@ -10,7 +10,6 @@ import json
 import logging
 import hashlib
 import re
-import time
 
 from collections import namedtuple
 
@@ -602,31 +601,36 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         except models.Blob.DoesNotExist:
             raise BlobNotFound(digest=digest)
 
-        dispatched_task = dispatch(
-            add_and_remove,
-            shared_resources=[version.repository],
-            exclusive_resources=[repository],
-            kwargs={
-                "repository_pk": str(repository.pk),
-                "add_content_units": [str(blob.pk)],
-                "remove_content_units": [],
-            },
+        mount_task = (
+            f"from_repo:{version.repository.pk}:to_repo:{repository.pk}:mount:{blob.digest}"
         )
-
-        # Wait a small amount of time
-        for dummy in range(3):
-            time.sleep(1)
-            task = Task.objects.get(pk=dispatched_task.pk)
+        task = Task.objects.filter(
+            reserved_resources_record__contains=[f"shared:{mount_task}"]
+        ).last()
+        if task:
             if task.state == "completed":
                 task.delete()
                 return BlobResponse(blob, path, 201, request)
             elif task.state in ["waiting", "running"]:
-                continue
+                if has_task_completed(task, wait_in_seconds=2):
+                    return BlobResponse(blob, path, 201, request)
             else:
                 error = task.error
                 task.delete()
                 raise Exception(str(error))
-        raise Throttled()
+        else:
+            dispatched_task = dispatch(
+                add_and_remove,
+                shared_resources=[version.repository, mount_task],
+                exclusive_resources=[repository],
+                kwargs={
+                    "repository_pk": str(repository.pk),
+                    "add_content_units": [str(blob.pk)],
+                    "remove_content_units": [],
+                },
+            )
+            if has_task_completed(dispatched_task):
+                return BlobResponse(blob, path, 201, request)
 
     def partial_update(self, request, path, pk=None):
         """
