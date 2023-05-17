@@ -113,7 +113,7 @@ class Registry(Handler):
         accepted_media_types = get_accepted_media_types(request.headers)
 
         try:
-            tag = await sync_to_async(Tag.objects.select_related("tagged_manifest").get)(
+            tag = await Tag.objects.select_related("tagged_manifest").aget(
                 pk__in=await sync_to_async(repository_version.get_content)(), name=tag_name
             )
         except ObjectDoesNotExist:
@@ -170,7 +170,7 @@ class Registry(Handler):
 
         """
         try:
-            artifact = await sync_to_async(tag.tagged_manifest._artifacts.get)()
+            artifact = await tag.tagged_manifest._artifacts.aget()
         except ObjectDoesNotExist:
             ca = await sync_to_async(lambda x: x[0])(tag.tagged_manifest.contentartifact_set.all())
             return await self._stream_content_artifact(request, web.StreamResponse(), ca)
@@ -230,9 +230,7 @@ class Registry(Handler):
         if digest == EMPTY_BLOB:
             return await Registry._empty_blob()
         try:
-            ca = await sync_to_async(
-                ContentArtifact.objects.select_related("artifact", "content").get
-            )(
+            ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
                 content__in=await sync_to_async(repository_version.get_content)(),
                 relative_path=digest,
             )
