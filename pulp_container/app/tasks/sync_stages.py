@@ -51,14 +51,14 @@ V2_ACCEPT_HEADERS = {
 }
 
 
-def _save_artifact_blocking(artifact_attributes):
+async def _save_artifact(artifact_attributes):
     saved_artifact = Artifact(**artifact_attributes)
     try:
-        saved_artifact.save()
+        await saved_artifact.asave()
     except IntegrityError:
         del artifact_attributes["file"]
-        saved_artifact = Artifact.objects.get(**artifact_attributes)
-        saved_artifact.touch()
+        saved_artifact = await Artifact.objects.aget(**artifact_attributes)
+        await sync_to_async(saved_artifact.touch)()
     return saved_artifact
 
 
@@ -82,12 +82,11 @@ class ContainerFirstStage(Stage):
         self.manifest_dcs = []
         self.signature_dcs = []
 
-    def _get_content_data_blocking(self, manifest):
-        saved_artifact = manifest.contentartifact_set.first().artifact
+    def _get_content_data_blocking(self, saved_artifact):
         raw_data = saved_artifact.file.read()
         content_data = json.loads(raw_data)
         saved_artifact.file.close()
-        return saved_artifact, content_data, raw_data
+        return content_data, raw_data
 
     async def _download_and_save_artifact_data(self, manifest_url):
         downloader = self.remote.get_downloader(url=manifest_url)
@@ -96,7 +95,7 @@ class ContainerFirstStage(Stage):
             raw_data = content_file.read()
         response.artifact_attributes["file"] = response.path
 
-        saved_artifact = await sync_to_async(_save_artifact_blocking)(response.artifact_attributes)
+        saved_artifact = await _save_artifact(response.artifact_attributes)
         content_data = json.loads(raw_data)
 
         return saved_artifact, content_data, raw_data, response
@@ -107,13 +106,14 @@ class ContainerFirstStage(Stage):
         digest = response.headers.get("docker-content-digest")
 
         if digest and (
-            manifest := await sync_to_async(
-                Manifest.objects.prefetch_related("contentartifact_set").filter(digest=digest).first
-            )()
+            manifest := await Manifest.objects.prefetch_related("contentartifact_set")
+            .filter(digest=digest)
+            .afirst()
         ):
-            saved_artifact, content_data, raw_data = await sync_to_async(
-                self._get_content_data_blocking
-            )(manifest)
+            saved_artifact = await manifest._artifacts.aget()
+            content_data, raw_data = await sync_to_async(self._get_content_data_blocking)(
+                saved_artifact
+            )
 
         else:
             (
@@ -478,12 +478,13 @@ class ContainerFirstStage(Stage):
         )
         manifest_url = urljoin(self.remote.url, relative_url)
 
-        if manifest := await sync_to_async(
-            Manifest.objects.prefetch_related("contentartifact_set").filter(digest=digest).first
-        )():
-            saved_artifact, content_data, _ = await sync_to_async(self._get_content_data_blocking)(
-                manifest
-            )
+        if (
+            manifest := await Manifest.objects.prefetch_related("contentartifact_set")
+            .filter(digest=digest)
+            .afirst()
+        ):
+            saved_artifact = await manifest._artifacts.aget()
+            content_data, _ = await sync_to_async(self._get_content_data_blocking)(saved_artifact)
 
         else:
             saved_artifact, content_data, _, response = await self._download_and_save_artifact_data(
