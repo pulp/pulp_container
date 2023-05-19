@@ -13,11 +13,13 @@ from pulpcore.client.pulp_container import (
     ApiClient,
     PulpContainerNamespacesApi,
     RemotesContainerApi,
+    RemotesPullThroughApi,
     RepositoriesContainerApi,
     RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
     RepositoriesContainerPushVersionsApi,
     DistributionsContainerApi,
+    DistributionsPullThroughApi,
     ContentTagsApi,
     ContentManifestsApi,
     ContentBlobsApi,
@@ -318,6 +320,12 @@ def container_remote_api(container_client):
 
 
 @pytest.fixture(scope="session")
+def container_pull_through_remote_api(container_client):
+    """Pull through cache container remote API fixture."""
+    return RemotesPullThroughApi(container_client)
+
+
+@pytest.fixture(scope="session")
 def container_repository_api(container_client):
     """Container repository API fixture."""
     return RepositoriesContainerApi(container_client)
@@ -345,6 +353,12 @@ def container_push_repository_version_api(container_client):
 def container_distribution_api(container_client):
     """Container distribution API fixture."""
     return DistributionsContainerApi(container_client)
+
+
+@pytest.fixture(scope="session")
+def container_pull_through_distribution_api(container_client):
+    """Pull through cache distribution API Fixture."""
+    return DistributionsPullThroughApi(container_client)
 
 
 @pytest.fixture(scope="session")

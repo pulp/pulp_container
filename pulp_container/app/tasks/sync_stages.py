@@ -9,17 +9,16 @@ import logging
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from asgiref.sync import sync_to_async
-from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage, ContentSaver
 
 from pulp_container.constants import (
-    V2_ACCEPT_HEADERS,
     MEDIA_TYPE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
     SIGNATURE_SOURCE,
     SIGNATURE_TYPE,
+    V2_ACCEPT_HEADERS,
 )
 from pulp_container.app.models import (
     Blob,
@@ -30,24 +29,15 @@ from pulp_container.app.models import (
     Tag,
 )
 from pulp_container.app.utils import (
+    save_artifact,
     extract_data_from_signature,
     urlpath_sanitize,
     determine_media_type,
     validate_manifest,
+    calculate_digest,
 )
 
 log = logging.getLogger(__name__)
-
-
-async def _save_artifact(artifact_attributes):
-    saved_artifact = Artifact(**artifact_attributes)
-    try:
-        await saved_artifact.asave()
-    except IntegrityError:
-        del artifact_attributes["file"]
-        saved_artifact = await Artifact.objects.aget(**artifact_attributes)
-        await sync_to_async(saved_artifact.touch)()
-    return saved_artifact
 
 
 class ContainerFirstStage(Stage):
@@ -83,7 +73,7 @@ class ContainerFirstStage(Stage):
             raw_data = content_file.read()
         response.artifact_attributes["file"] = response.path
 
-        saved_artifact = await _save_artifact(response.artifact_attributes)
+        saved_artifact = await save_artifact(response.artifact_attributes)
         content_data = json.loads(raw_data)
 
         return saved_artifact, content_data, raw_data, response
@@ -156,7 +146,7 @@ class ContainerFirstStage(Stage):
             for artifact in asyncio.as_completed(to_download_artifact):
                 saved_artifact, content_data, raw_data, response = await artifact
 
-                digest = response.artifact_attributes["sha256"]
+                digest = saved_artifact.sha256
 
                 # Look for cosign signatures
                 # cosign signature has a tag convention 'sha256-1234.sig'
@@ -382,7 +372,7 @@ class ContainerFirstStage(Stage):
             tag_name (str): A name of a tag
             saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_list_data (dict): Data about a ManifestList
-            media_type (str): The type of a manifest
+            media_type (str): The type of manifest
 
         """
         digest = f"sha256:{saved_artifact.sha256}"
@@ -411,7 +401,7 @@ class ContainerFirstStage(Stage):
         if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
             digest = f"sha256:{saved_artifact.sha256}"
         else:
-            digest = self._calculate_digest(raw_data)
+            digest = calculate_digest(raw_data)
 
         manifest = Manifest(
             digest=digest, schema_version=manifest_data["schemaVersion"], media_type=media_type
@@ -648,77 +638,6 @@ class ContainerFirstStage(Stage):
             log.debug("Foreign Layer: %(d)s EXCLUDED", dict(d=layer))
             return False
         return True
-
-    def _calculate_digest(self, manifest):
-        """
-        Calculate the requested digest of the ImageManifest, given in JSON.
-
-        Args:
-            manifest (str):  The raw JSON representation of the Manifest.
-
-        Returns:
-            str: The digest of the given ImageManifest
-
-        """
-        decoded_manifest = json.loads(manifest)
-        if "signatures" in decoded_manifest:
-            # This manifest contains signatures. Unfortunately, the Docker manifest digest
-            # is calculated on the unsigned version of the Manifest so we need to remove the
-            # signatures. To do this, we will look at the 'protected' key within the first
-            # signature. This key indexes a (malformed) base64 encoded JSON dictionary that
-            # tells us how many bytes of the manifest we need to keep before the signature
-            # appears in the original JSON and what the original ending to the manifest was after
-            # the signature block. We will strip out the bytes after this cutoff point, add back the
-            # original ending, and then calculate the sha256 sum of the transformed JSON to get the
-            # digest.
-            protected = decoded_manifest["signatures"][0]["protected"]
-            # Add back the missing padding to the protected block so that it is valid base64.
-            protected = self._pad_unpadded_b64(protected)
-            # Now let's decode the base64 and load it as a dictionary so we can get the length
-            protected = base64.b64decode(protected)
-            protected = json.loads(protected)
-            # This is the length of the signed portion of the Manifest, except for a trailing
-            # newline and closing curly brace.
-            signed_length = protected["formatLength"]
-            # The formatTail key indexes a base64 encoded string that represents the end of the
-            # original Manifest before signatures. We will need to add this string back to the
-            # trimmed Manifest to get the correct digest. We'll do this as a one liner since it is
-            # a very similar process to what we've just done above to get the protected block
-            # decoded.
-            signed_tail = base64.b64decode(self._pad_unpadded_b64(protected["formatTail"]))
-            # Now we can reconstruct the original Manifest that the digest should be based on.
-            manifest = manifest[:signed_length] + signed_tail
-
-        return "sha256:{digest}".format(digest=hashlib.sha256(manifest).hexdigest())
-
-    def _pad_unpadded_b64(self, unpadded_b64):
-        """
-        Fix bad padding.
-
-        Docker has not included the required padding at the end of the base64 encoded
-        'protected' block, or in some encased base64 within it. This function adds the correct
-        number of ='s signs to the unpadded base64 text so that it can be decoded with Python's
-        base64 library.
-
-        Args:
-            unpadded_b64 (str): The unpadded base64 text.
-
-        Returns:
-            str: The same base64 text with the appropriate number of ='s symbols.
-
-        """
-        # The Pulp team has not observed any newlines or spaces within the base64 from Docker, but
-        # Docker's own code does this same operation so it seemed prudent to include it here.
-        # See lines 167 to 168 here:
-        # https://github.com/docker/libtrust/blob/9cbd2a1374f46905c68a4eb3694a130610adc62a/util.go
-        unpadded_b64 = unpadded_b64.replace("\n", "").replace(" ", "")
-        # It is illegal base64 for the remainder to be 1 when the length of the block is
-        # divided by 4.
-        if len(unpadded_b64) % 4 == 1:
-            raise ValueError("Invalid base64: {t}".format(t=unpadded_b64))
-        # Add back the missing padding characters, based on the length of the encoded string
-        paddings = {0: "", 2: "==", 3: "="}
-        return unpadded_b64 + paddings[len(unpadded_b64) % 4]
 
 
 class ContainerContentSaver(ContentSaver):
