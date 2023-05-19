@@ -5,6 +5,7 @@ import ssl
 import re
 
 from aiohttp.client_exceptions import ClientResponseError
+from collections import namedtuple
 from logging import getLogger
 from multidict import MultiDict
 from urllib import parse
@@ -14,6 +15,11 @@ from pulpcore.plugin.download import DownloaderFactory, HttpDownloader
 from pulp_container.constants import V2_ACCEPT_HEADERS
 
 log = getLogger(__name__)
+
+HeadResult = namedtuple(
+    "HeadResult",
+    ["status_code", "path", "artifact_attributes", "url", "headers"],
+)
 
 
 class RegistryAuthHttpDownloader(HttpDownloader):
@@ -31,6 +37,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         Initialize the downloader.
         """
         self.remote = kwargs.pop("remote")
+
         super().__init__(*args, **kwargs)
 
     async def _run(self, handle_401=True, extra_data=None):
@@ -95,7 +102,12 @@ class RegistryAuthHttpDownloader(HttpDownloader):
                         return await self._run(handle_401=False, extra_data=extra_data)
                 else:
                     raise
-            to_return = await self._handle_response(response)
+
+            if http_method == "head":
+                to_return = await self._handle_head_response(response)
+            else:
+                to_return = await self._handle_response(response)
+
             await response.release()
             self.response_headers = response.headers
 
@@ -172,6 +184,15 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         elif basic_auth is not None:
             return {"Authorization": basic_auth}
         return {}
+
+    async def _handle_head_response(self, response):
+        return HeadResult(
+            status_code=response.status,
+            path=None,
+            artifact_attributes=None,
+            url=self.url,
+            headers=response.headers,
+        )
 
 
 class NoAuthSignatureDownloader(HttpDownloader):

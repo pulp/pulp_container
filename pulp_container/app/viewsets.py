@@ -429,6 +429,86 @@ class ContainerRemoteViewSet(RemoteViewSet, RolesMixin):
     }
 
 
+class ContainerPullThroughRemoteViewSet(RemoteViewSet, RolesMixin):
+    """
+    A Container Remote referencing a remote registry used as a source for the pull-through caching.
+    """
+
+    endpoint_name = "pull-through"
+    queryset = models.ContainerPullThroughRemote.objects.all()
+    serializer_class = serializers.ContainerPullThroughRemoteSerializer
+    queryset_filtering_required_permission = "container.view_containerpullthroughremote"
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list", "my_permissions"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_perms:container.add_containerpullthroughremote",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_model_or_obj_perms:container.view_containerpullthroughremote",
+            },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.change_containerpullthroughremote",
+                    "has_model_or_obj_perms:container.view_containerpullthroughremote",
+                ],
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.delete_containerpullthroughremote",
+                    "has_model_or_obj_perms:container.view_containerpullthroughremote",
+                ],
+            },
+            {
+                "action": ["list_roles", "add_role", "remove_role"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.manage_roles_containerpullthroughremote"
+                ],
+            },
+        ],
+        "creation_hooks": [
+            {
+                "function": "add_roles_for_object_creator",
+                "parameters": {"roles": "container.containerpullthroughremote_owner"},
+            },
+        ],
+        "queryset_scoping": {"function": "scope_queryset"},
+    }
+    LOCKED_ROLES = {
+        "container.containerpullthroughremote_creator": [
+            "container.add_containerpullthroughremote",
+        ],
+        "container.containerpullthroughremote_owner": [
+            "container.view_containerpullthroughremote",
+            "container.change_containerpullthroughremote",
+            "container.delete_containerpullthroughremote",
+            "container.manage_roles_containerpullthroughremote",
+        ],
+        "container.containerpullthroughremote_viewer": [
+            "container.view_containerpullthroughremote",
+        ],
+    }
+
+
 class TagOperationsMixin:
     """
     A mixin that adds functionality for creating and deleting tags.
@@ -1300,6 +1380,103 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
             general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
         )
         return OperationPostponedResponse(async_result, request)
+
+
+class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
+    """
+    A special pull-through Container Distribution that will reference distributions serving content.
+    """
+
+    endpoint_name = "pull-through"
+    queryset = models.ContainerPullThroughDistribution.objects.all()
+    serializer_class = serializers.ContainerPullThroughDistributionSerializer
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list", "my_permissions"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_namespace_model_perms",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "has_namespace_perms:container.add_containerpullthroughdistribution",
+            },
+            {
+                "action": ["create"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": "namespace_is_username",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition_expression": [
+                    "has_namespace_or_obj_perms:container.view_containerpullthroughdistribution",
+                ],
+            },
+            {
+                "action": ["update", "partial_update"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.change_containerpullthroughdistribution",
+                    "has_namespace_or_obj_perms:container.view_containerpullthroughdistribution",
+                ],
+            },
+            {
+                "action": ["destroy"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_or_obj_perms:container.delete_containerpullthroughdistribution",
+                    "has_namespace_or_obj_perms:container.view_containerpullthroughdistribution",
+                ],
+            },
+            {
+                "action": ["list_roles", "add_role", "remove_role"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_obj_perms:container.manage_roles_containerpullthroughdistribution"
+                ],
+            },
+        ],
+        "creation_hooks": [
+            {
+                "function": "add_roles_for_object_creator",
+                "parameters": {
+                    "roles": "container.containerpullthroughdistribution_owner",
+                },
+            },
+        ],
+    }
+    LOCKED_ROLES = {
+        "container.containerpullthroughdistribution_creator": [
+            "container.add_containerpullthroughdistribution"
+        ],
+        "container.containerpullthroughdistribution_owner": [
+            "container.view_containerpullthroughdistribution",
+            "container.delete_containerpullthroughdistribution",
+            "container.change_containerpullthroughdistribution",
+            "container.manage_roles_containerpullthroughdistribution",
+        ],
+        "container.containerpullthroughdistribution_collaborator": [
+            "container.view_containerpullthroughdistribution",
+        ],
+        "container.containerpullthroughdistribution_consumer": [
+            "container.view_containerpullthroughdistribution",
+        ],
+    }
 
 
 class ContainerNamespaceViewSet(

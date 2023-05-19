@@ -277,6 +277,18 @@ class ContainerRemoteSerializer(RemoteSerializer):
         model = models.ContainerRemote
 
 
+class ContainerPullThroughRemoteSerializer(RemoteSerializer):
+    """
+    A serializer for a remote used in the pull-through distribution.
+    """
+
+    policy = serializers.ChoiceField(choices=[Remote.ON_DEMAND], default=Remote.ON_DEMAND)
+
+    class Meta:
+        fields = RemoteSerializer.Meta.fields
+        model = models.ContainerPullThroughRemote
+
+
 class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSerializerMixin):
     """
     A serializer for ContainerDistribution.
@@ -309,10 +321,16 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
     repository_version = RepositoryVersionRelatedField(
         required=False, help_text=_("RepositoryVersion to be served"), allow_null=True
     )
+    remote = DetailRelatedField(
+        required=False,
+        help_text=_("Remote that can be used to fetch content when using pull-through caching."),
+        view_name_pattern=r"remotes(-.*/.*)?-detail",
+        read_only=True,
+    )
 
     def validate(self, data):
         """
-        Validate the ContainterDistribution.
+        Validate the ContainerDistribution.
 
         Make sure there is an instance of ContentRedirectContentGuard always present in validated
         data.
@@ -360,6 +378,69 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
         fields = tuple(set(DistributionSerializer.Meta.fields) - {"base_url"}) + (
             "repository_version",
             "registry_path",
+            "remote",
+            "namespace",
+            "private",
+            "description",
+        )
+
+
+class ContainerPullThroughDistributionSerializer(DistributionSerializer):
+    """
+    A serializer for a specialized pull-through distribution referencing sub-distributions.
+    """
+
+    remote = DetailRelatedField(
+        help_text=_("Remote that can be used to fetch content when using pull-through caching."),
+        view_name_pattern=r"remotes(-.*/.*)-detail",
+        queryset=models.ContainerPullThroughRemote.objects.all(),
+    )
+    namespace = RelatedField(
+        required=False,
+        read_only=True,
+        view_name="pulp_container/namespaces-detail",
+        help_text=_("Namespace this distribution belongs to."),
+    )
+    content_guard = DetailRelatedField(
+        required=False,
+        help_text=_("An optional content-guard. If none is specified, a default one will be used."),
+        view_name=r"contentguards-container/content-redirect-detail",
+        queryset=ContentRedirectContentGuard.objects.all(),
+        allow_null=False,
+    )
+    distributions = DetailRelatedField(
+        many=True,
+        help_text="Distributions created after pulling content through cache",
+        view_name="distributions-detail",
+        queryset=models.ContainerDistribution.objects.all(),
+        required=False,
+    )
+    description = serializers.CharField(
+        help_text=_("An optional description."), required=False, allow_null=True
+    )
+
+    def validate(self, data):
+        validated_data = super().validate(data)
+
+        if "content_guard" not in validated_data:
+            validated_data["content_guard"] = ContentRedirectContentGuardSerializer.get_or_create(
+                {"name": "content redirect"}
+            )
+
+        base_path = validated_data.get("base_path")
+        if base_path:
+            namespace_name = base_path.split("/")[0]
+            validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
+                {"name": namespace_name}
+            )
+
+        return validated_data
+
+    class Meta:
+        model = models.ContainerPullThroughDistribution
+        fields = tuple(set(DistributionSerializer.Meta.fields) - {"base_url"}) + (
+            "remote",
+            "distributions",
             "namespace",
             "private",
             "description",
@@ -712,6 +793,12 @@ class ContainerRepositorySyncURLSerializer(RepositorySyncURLSerializer):
     Serializer for Container Sync.
     """
 
+    remote = DetailRelatedField(
+        required=False,
+        view_name_pattern=r"remotes(-.*/.*)-detail",
+        queryset=models.ContainerRemote.objects.all(),
+        help_text=_("A remote to sync from. This will override a remote set on repository."),
+    )
     signed_only = serializers.BooleanField(
         required=False,
         default=False,
