@@ -2,28 +2,11 @@
 User Setup
 ==========
 
-Ansible Installer (Recommended)
--------------------------------
+Containerized Installation
+**************************
 
-We recommend that you install `pulpcore` and `pulp-container` together using the `Ansible installer
-<https://github.com/pulp/pulp_installer/blob/master/README.md>`_. If you install this way, pulpcore
-installation and all the following steps will be done for you.
-
-Install ``pulpcore``
---------------------
-
-Follow the `installation
-instructions <docs.pulpproject.org/installation/instructions.html>`__
-provided with pulpcore.
-
-Install plugin
---------------
-
-This document assumes that you have
-`installed pulpcore <https://docs.pulpproject.org/installation/instructions.html>`_
-into a the virtual environment ``pulpvenv``.
-
-Users should install from **either** PyPI or source.
+Follow the `Pulp in One Container <https://pulpproject.org/pulp-in-one-container/>`_ instructions to get started with Pulp by
+leveraging OCI images. Further details are discussed in the `pulpcore documentation <https://docs.pulpproject.org/pulpcore/installation/instructions.html>`_.
 
 From PyPI
 *********
@@ -68,10 +51,3 @@ Run Services
    sudo systemctl restart pulpcore-resource-manager
    sudo systemctl restart pulpcore-worker@1
    sudo systemctl restart pulpcore-worker@2
-
-OCI Container Image building
-----------------------------
-
-The plugin can be used to build an OCI format image from a Containerfile. The plugin uses podman
-to build containers. Refer to `podman-build documentation <https://docs.podman.io/en/latest/markdown/podman-build.1.html>`_
-for more details.
