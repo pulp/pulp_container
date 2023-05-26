@@ -1,2 +1,0 @@
-Fixed an issue that caused all staff users to have superuser permissions when accessing the
-registry without token authentication enabled.
