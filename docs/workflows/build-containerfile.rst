@@ -5,8 +5,8 @@ Build an OCI image from a Containerfile
 
 
 .. warning::
-    All container build APIs are tech preview in Pulp Container 2.1. Backwards compatibility when
-    upgrading is not guaranteed.
+    All container build APIs are in tech preview. Backwards compatibility when upgrading is not
+    guaranteed.
 
 Users can add new images to a container repository by uploading a Containerfile. The syntax for
 Containerfile is the same as for a Dockerfile. The same REST API endpoint also accepts a JSON
@@ -65,3 +65,9 @@ Build an OCI image
 
 .. literalinclude:: ../_scripts/build_containerfile.sh
    :language: bash
+
+
+.. warning::
+    Non-staff users, lacking read access to the ``artifacts`` endpoint, may encounter restricted
+    functionality as they are prohibited from listing artifacts uploaded to Pulp and utilizing
+    them within the build process.
