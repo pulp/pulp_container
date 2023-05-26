@@ -1,1 +1,0 @@
-Fixed a bug where the Podman client could not verify manifest indices signed with a Pulp signing service.
