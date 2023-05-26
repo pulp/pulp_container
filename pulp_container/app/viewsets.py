@@ -837,8 +837,8 @@ class ContainerRepositoryViewSet(
     @extend_schema(
         description="Trigger an asynchronous task to build an OCI image from a "
         "Containerfile. A new repository version is created with the new "
-        "image and tag. This API is tech preview in Pulp Container 1.1. "
-        "Backwards compatibility when upgrading is not guaranteed.",
+        "image and tag. This API is in tech preview. Backwards compatibility "
+        "when upgrading is not guaranteed.",
         summary="Build an Image",
         responses={202: AsyncOperationResponseSerializer},
     )
