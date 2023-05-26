@@ -13,6 +13,66 @@ Changelog
 
 .. towncrier release notes start
 
+2.15.0 (2023-05-26)
+===================
+
+
+Features
+--------
+
+- Added support for automatically creating missing repositories during the import procedure. The
+  creation is disabled by default. Use ``create_repositories=True`` to tell Pulp to create missing
+  repositories when executing the import procedure.
+  `#825 <https://github.com/pulp/pulp_container/issues/825>`__
+- Added a check if a manifest already exists locally to decrease the number of downloads from a remote registry when syncing content.
+  `#1047 <https://github.com/pulp/pulp_container/issues/1047>`__
+- Enhanced push operation efficiency by implementing the utilization of ephemeral blobs and
+  manifests, eliminating the need for generating unnecessary repository versions.
+  `#1212 <https://github.com/pulp/pulp_container/issues/1212>`__
+- Updated compatibility for pulpcore 3.25 and Django 4.2.
+  `#1277 <https://github.com/pulp/pulp_container/issues/1277>`__
+
+
+Bugfixes
+--------
+
+- Ensured an HTTP 401 response in case a user provides invalid credentials during the login
+  (e.g., via ``podman login``).
+  `#918 <https://github.com/pulp/pulp_container/issues/918>`__
+- Translated v1 signed schema media_type into v1 schema instead.
+  `#1045 <https://github.com/pulp/pulp_container/issues/1045>`__
+- Fixed content-disposition header which is used in the object storage backends.
+  `#1096 <https://github.com/pulp/pulp_container/issues/1096>`__
+- Fixed an issue that caused all staff users to have superuser permissions when accessing the
+  registry without token authentication enabled.
+  `#1109 <https://github.com/pulp/pulp_container/issues/1109>`__
+- Fixed a bug where the Podman client could not verify manifest indices signed with a Pulp signing service.
+  `#1135 <https://github.com/pulp/pulp_container/issues/1135>`__
+- Fixed a method for determining the media type of manifests when syncing content.
+  `#1147 <https://github.com/pulp/pulp_container/issues/1147>`__
+- Added application/octet-stream as an accepted media_type for docker config objects.
+  `#1156 <https://github.com/pulp/pulp_container/issues/1156>`__
+- Fixed signing task that could skip some image signing.
+  `#1209 <https://github.com/pulp/pulp_container/issues/1209>`__
+- Started triggering only one mount-blob task per upload after back-off.
+  `#1211 <https://github.com/pulp/pulp_container/issues/1211>`__
+- Started sanitizing input data when creating namespaces or distributions.
+  `#1229 <https://github.com/pulp/pulp_container/issues/1229>`__
+- Fixed a bug that disallowed users to build images that have artifacts within the same directory.
+  `#1234 <https://github.com/pulp/pulp_container/issues/1234>`__
+- Fixed a bug that disallowed users to configure custom authentication classes for the token server.
+  `#1254 <https://github.com/pulp/pulp_container/issues/1254>`__
+
+
+Misc
+----
+
+- `#1093 <https://github.com/pulp/pulp_container/issues/1093>`__, `#1154 <https://github.com/pulp/pulp_container/issues/1154>`__
+
+
+----
+
+
 2.14.5 (2023-04-11)
 ===================
 
