@@ -41,6 +41,8 @@ OCI_INDEX_SCHEMA = {
                 allowed_media_types=[
                     MEDIA_TYPE.MANIFEST_OCI,
                     MEDIA_TYPE.INDEX_OCI,
+                    MEDIA_TYPE.MANIFEST_V2,
+                    MEDIA_TYPE.MANIFEST_LIST,
                 ],
                 additional_properties={
                     "platform": {
