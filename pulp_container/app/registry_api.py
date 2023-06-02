@@ -45,7 +45,6 @@ from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView
 
 from pulp_container.app import models, serializers
-from pulp_container.app.access_policy import RegistryAccessPolicy
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.cache import find_base_path_cached, RegistryApiCache
 from pulp_container.app.exceptions import (
@@ -451,7 +450,6 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
     queryset = models.ContainerDistribution.objects.all().only("base_path")
     serializer_class = ContainerCatalogSerializer
     pagination_class = ContainerCatalogPagination
-    access_policy_class = RegistryAccessPolicy()
 
     def get_queryset(self, *args, **kwargs):
         """Filter the queryset based on public repositories and assigned permissions."""
