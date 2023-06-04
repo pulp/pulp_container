@@ -21,6 +21,8 @@ from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
 
 def test_import_export_standard(
+    local_registry,
+    container_distribution_api,
     container_remote_api,
     container_repository_api,
     container_repository_version_api,
@@ -85,6 +87,15 @@ def test_import_export_standard(
         else:
             assert manifest.blobs != []
             assert manifest.config_blob is not None
+
+    distribution_path = str(uuid.uuid4())
+    distribution = {
+        "name": distribution_path,
+        "base_path": distribution_path,
+        "repository": import_repository.pulp_href,
+    }
+    gen_object_with_cleanup(container_distribution_api, distribution)
+    local_registry.pull(f"{distribution_path}@{manifest.digest}")
 
 
 def test_import_export_create_repositories(
@@ -157,6 +168,14 @@ def test_import_export_create_repositories(
         else:
             assert manifest.blobs != []
             assert manifest.config_blob is not None
+
+    distribution = {
+        "name": distribution_path,
+        "base_path": distribution_path,
+        "repository": repositories[0].pulp_href,
+    }
+    gen_object_with_cleanup(container_distribution_api, distribution)
+    local_registry.pull(f"{distribution_path}:manifest_a")
 
     monitor_task(container_repository_api.delete(repositories[0].pulp_href).task)
     delete_orphans()
