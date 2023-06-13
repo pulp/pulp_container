@@ -25,7 +25,8 @@ from pulpcore.plugin.models import (
     Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
-from pulpcore.plugin.util import gpg_verify
+
+# from pulpcore.plugin.util import gpg_verify
 
 
 from . import downloaders
@@ -431,6 +432,9 @@ class ManifestSigningService(SigningService):
             RuntimeError: If the validation has failed.
 
         """
+
+        from pulpcore.plugin.util import gpg_verify
+
         test_manifest = {
             "schemaVersion": 2,
             "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
