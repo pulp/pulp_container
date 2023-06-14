@@ -20,6 +20,18 @@ MEDIA_TYPE = SimpleNamespace(
     FOREIGN_BLOB_OCI_TAR_ZSTD="application/vnd.oci.image.layer.nondistributable.v1.tar+zstd",
 )
 
+V2_ACCEPT_HEADERS = {
+    "Accept": ",".join(
+        [
+            MEDIA_TYPE.MANIFEST_V2,
+            MEDIA_TYPE.MANIFEST_V1,
+            MEDIA_TYPE.MANIFEST_LIST,
+            MEDIA_TYPE.INDEX_OCI,
+            MEDIA_TYPE.MANIFEST_OCI,
+        ]
+    )
+}
+
 MANIFEST_MEDIA_TYPES = SimpleNamespace(
     IMAGE=[
         MEDIA_TYPE.MANIFEST_V1,
