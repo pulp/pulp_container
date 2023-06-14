@@ -14,6 +14,7 @@ from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage, ContentSaver
 
 from pulp_container.constants import (
+    V2_ACCEPT_HEADERS,
     MEDIA_TYPE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
@@ -36,19 +37,6 @@ from pulp_container.app.utils import (
 )
 
 log = logging.getLogger(__name__)
-
-
-V2_ACCEPT_HEADERS = {
-    "Accept": ",".join(
-        [
-            MEDIA_TYPE.MANIFEST_V2,
-            MEDIA_TYPE.MANIFEST_V1,
-            MEDIA_TYPE.MANIFEST_LIST,
-            MEDIA_TYPE.INDEX_OCI,
-            MEDIA_TYPE.MANIFEST_OCI,
-        ]
-    )
-}
 
 
 def _save_artifact_blocking(artifact_attributes):
