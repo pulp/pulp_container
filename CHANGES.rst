@@ -13,6 +13,26 @@ Changelog
 
 .. towncrier release notes start
 
+2.14.6 (2023-06-15)
+===================
+
+
+Bugfixes
+--------
+
+- Ensured an HTTP 401 response in case a user provides invalid credentials during the login
+  (e.g., via ``podman login``).
+  `#918 <https://github.com/pulp/pulp_container/issues/918>`__
+- Started triggering only one mount-blob task per upload after back-off.
+  `#1211 <https://github.com/pulp/pulp_container/issues/1211>`__
+- Ensured downloader during the repair task contains accept headers for the
+  manifests to download.
+  `#1303 <https://github.com/pulp/pulp_container/issues/1303>`__
+
+
+----
+
+
 2.14.5 (2023-04-11)
 ===================
 
