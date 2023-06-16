@@ -13,6 +13,23 @@ Changelog
 
 .. towncrier release notes start
 
+2.15.1 (2023-06-15)
+===================
+
+
+Bugfixes
+--------
+
+- Relaxed oci manifest json validation to allow other layer mediaTypes than oci layer type.
+  `#1227 <https://github.com/pulp/pulp_container/issues/1227>`__
+- Ensured downloader during the repair task contains accept headers for the
+  manifests to download.
+  `#1303 <https://github.com/pulp/pulp_container/issues/1303>`__
+
+
+----
+
+
 2.15.0 (2023-05-26)
 ===================
 
@@ -68,6 +85,26 @@ Misc
 ----
 
 - `#1093 <https://github.com/pulp/pulp_container/issues/1093>`__, `#1154 <https://github.com/pulp/pulp_container/issues/1154>`__
+
+
+----
+
+
+2.14.6 (2023-06-15)
+===================
+
+
+Bugfixes
+--------
+
+- Ensured an HTTP 401 response in case a user provides invalid credentials during the login
+  (e.g., via ``podman login``).
+  `#918 <https://github.com/pulp/pulp_container/issues/918>`__
+- Started triggering only one mount-blob task per upload after back-off.
+  `#1211 <https://github.com/pulp/pulp_container/issues/1211>`__
+- Ensured downloader during the repair task contains accept headers for the
+  manifests to download.
+  `#1303 <https://github.com/pulp/pulp_container/issues/1303>`__
 
 
 ----
