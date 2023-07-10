@@ -46,7 +46,11 @@ from rest_framework.views import APIView
 
 from pulp_container.app import models, serializers
 from pulp_container.app.authorization import AuthorizationService
-from pulp_container.app.cache import find_base_path_cached, RegistryApiCache
+from pulp_container.app.cache import (
+    find_base_path_cached,
+    FlatpakIndexStaticCache,
+    RegistryApiCache,
+)
 from pulp_container.app.exceptions import (
     unauthorized_exception_handler,
     InvalidRequest,
@@ -471,6 +475,134 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
 
         accessible_repositories = repositories_by_distribution & repositories_by_namespace
         return (public_repositories | accessible_repositories).distinct()
+
+
+class FlatpakIndexDynamicView(APIView):
+    """
+    Handles requests to the /index/dynamic endpoint
+    """
+
+    authentication_classes = []
+    permission_classes = []
+
+    def recurse_through_manifest_lists(self, tag, manifest, oss, architectures, manifests):
+        if manifest.media_type in (models.MEDIA_TYPE.MANIFEST_V2, models.MEDIA_TYPE.MANIFEST_OCI):
+            manifests.setdefault(manifest, set()).add(tag)
+        elif manifest.media_type in (models.MEDIA_TYPE.MANIFEST_LIST, models.MEDIA_TYPE.INDEX_OCI):
+            mlms = manifest.listed_manifests.through.objects.filter(image_manifest__pk=manifest.pk)
+            if oss:
+                mlms.filter(os__in=oss)
+            if architectures:
+                mlms.filter(architecture__in=architectures)
+            for mlm in mlms:
+                self.recurse_through_manifest_lists(
+                    tag, mlm.manifest_list, oss, architectures, manifests
+                )
+
+    def get(self, request):
+        req_repositories = None
+        req_tags = None
+        req_oss = None
+        req_architectures = None
+        req_label_exists = set()
+        req_label_values = {}
+        for key, values in request.query_params.lists():
+            if key == "repository":
+                req_repositories = values
+            elif key == "tag":
+                req_tags = values
+            elif key == "os":
+                req_oss = values
+            elif key == "architecture":
+                req_architectures = values
+            elif key.startswith("label:"):
+                if key.endswith(":exists"):
+                    if any(v != "1" for v in values):
+                        raise ParseError(detail=f"{key} must have value 1.")
+                    label = key[len("label:") : len(key) - len(":exists")]
+                    req_label_exists.add(label)
+                else:
+                    label = key[len("label:") :]
+                    req_label_values[label] = values
+            else:
+                # In particularly, this covers any annotation:... parameters, which this
+                # implementation does not support:
+                raise ParseError(detail=f"Unsupported {key}.")
+
+        if "org.flatpak.ref" not in req_label_exists:
+            raise ParseError(detail="Missing label:org.flatpak.ref:exists=1.")
+
+        distributions = models.ContainerDistribution.objects.filter(private=False).only("base_path")
+
+        if req_repositories:
+            distributions = distributions.filter(base_path__in=req_repositories)
+
+        results = []
+        for distribution in distributions:
+            images = []
+            if distribution.repository:
+                repository_version = distribution.repository.latest_version()
+            else:
+                repository_version = distribution.repository_version
+            tags = models.Tag.objects.select_related("tagged_manifest").filter(
+                pk__in=repository_version.content
+            )
+            if req_tags:
+                tags = tags.filter(name__in=req_tags)
+            manifests = {}  # mapping manifests to sets of encountered tag names
+            for tag in tags:
+                self.recurse_through_manifest_lists(
+                    tag.name, tag.tagged_manifest, req_oss, req_architectures, manifests
+                )
+            for manifest, tagged in manifests.items():
+                with storage.open(manifest.config_blob._artifacts.get().file.name) as file:
+                    raw_data = file.read()
+                config_data = json.loads(raw_data)
+                labels = config_data.get("config", {}).get("Labels")
+                if not labels:
+                    continue
+                if any(label not in labels.keys() for label in req_label_exists):
+                    continue
+                os = config_data["os"]
+                if req_oss and os not in req_oss:
+                    continue
+                architecture = config_data["architecture"]
+                if req_architectures and architecture not in req_architectures:
+                    continue
+                if any(
+                    labels.get(label) not in values for label, values in req_label_values.items()
+                ):
+                    continue
+                images.append(
+                    {
+                        "Tags": tagged,
+                        "Digest": manifest.digest,
+                        "MediaType": manifest.media_type,
+                        "OS": os,
+                        "Architecture": architecture,
+                        "Labels": labels,
+                    }
+                )
+            if images:
+                results.append({"Name": distribution.base_path, "Images": images})
+
+        return Response(data={"Registry": settings.CONTENT_ORIGIN, "Results": results})
+
+
+class FlatpakIndexStaticView(FlatpakIndexDynamicView):
+    """
+    Handles requests to the /index/static endpoint
+    """
+
+    @FlatpakIndexStaticCache()
+    def get(self, request):
+        response = super().get(request)
+        # Avoid django.template.response.ContentNotRenderedError:
+        response.accepted_renderer = JSONRenderer()
+        response.accepted_media_type = JSONRenderer.media_type
+        response.renderer_context = {}
+        response.render()
+        return response
 
 
 class ContainerTagListSerializer(ModelSerializer):

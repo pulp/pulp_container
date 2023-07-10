@@ -62,8 +62,14 @@ pulp_settings:
   - /tmp
   allowed_import_paths:
   - /tmp
-pulp_settings_azure: null
+  flatpak_index: true
+pulp_settings_azure:
+  flatpak_index: true
 pulp_settings_gcp: null
+# Do not enable flatpak_index for s3 for now, as it would cause
+# pulp_container/tests/functional/api/test_flatpak.py to fail due to
+# <https://gitlab.gnome.org/GNOME/libsoup/-/issues/357> "Odd 400 response with https GET 302
+# redirecting to http":
 pulp_settings_s3: null
 pulp_settings_stream: null
 pulpprojectdotorg_key_id: aa499d7938ed

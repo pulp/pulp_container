@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.urls import include, path
 from rest_framework.routers import Route, SimpleRouter
 from pulp_container.app.registry_api import (
@@ -5,6 +6,8 @@ from pulp_container.app.registry_api import (
     Blobs,
     BlobUploads,
     CatalogView,
+    FlatpakIndexDynamicView,
+    FlatpakIndexStaticView,
     Manifests,
     Signatures,
     TagsListView,
@@ -35,3 +38,10 @@ urlpatterns = [
     path("v2/<path:path>/tags/list", TagsListView.as_view()),
     path("", include(router.urls)),
 ]
+if settings.FLATPAK_INDEX:
+    urlpatterns.extend(
+        [
+            path("index/dynamic", FlatpakIndexDynamicView.as_view()),
+            path("index/static", FlatpakIndexStaticView.as_view()),
+        ]
+    )

@@ -11,7 +11,9 @@ from django.db import models
 from django.conf import settings
 from django.contrib.postgres import fields
 from django.shortcuts import redirect
+from django_lifecycle import hook, AFTER_CREATE, AFTER_DELETE, AFTER_UPDATE
 
+from pulpcore.plugin.cache import SyncContentCache
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
     Artifact,
@@ -611,6 +613,23 @@ class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
         if self.content_guard:
             url = self.content_guard.cast().preauthenticate_url(url)
         return redirect(url)
+
+    @hook(AFTER_CREATE)
+    @hook(AFTER_DELETE)
+    @hook(
+        AFTER_UPDATE,
+        when_any=[
+            "base_path",
+            "private",
+            "repository",
+            "repository_version",
+        ],
+        has_changed=True,
+    )
+    def invalidate_flatpak_index_cache(self):
+        """Invalidates the cache for /index/static."""
+        if settings.CACHE_ENABLED:
+            SyncContentCache().delete(base_key="/index/static")
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
