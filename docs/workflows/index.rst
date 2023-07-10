@@ -78,3 +78,4 @@ OCI artifact support
    cosign-support
    helm-support
    oci-artifacts
+   flatpak-support

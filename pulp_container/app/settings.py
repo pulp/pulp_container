@@ -46,3 +46,5 @@ ADDITIONAL_OCI_ARTIFACT_TYPES = {
         "application/vnd.wasm.content.layer.v1+wasm",
     ],
 }
+
+FLATPAK_INDEX = False

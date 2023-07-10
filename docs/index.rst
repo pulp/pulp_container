@@ -28,6 +28,7 @@ Features
 * Host content either `locally or on S3 <https://docs.pulpproject.org/installation/storage.html>`_
 * De-duplication of all saved content
 * Support disconnected and air-gapped environments with the Pulp Import/Export facility for container repositories
+* Support for :ref:`hosting Flatpak content in OCI format <flatpak-workflow>`
 
 Tech Preview
 ------------
