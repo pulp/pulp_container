@@ -39,7 +39,7 @@ cmd_prefix bash -c "usermod -a -G wheel pulp"
 SCENARIOS=("pulp" "performance" "azure" "gcp" "s3" "stream" "generate-bindings" "lowerbounds")
 if [[ " ${SCENARIOS[*]} " =~ " ${TEST} " ]]; then
   # Many functional tests require these
-  cmd_prefix dnf install -yq lsof which
+  cmd_prefix dnf install -yq dbus-daemon flatpak lsof which
 fi
 
 if [[ "${REDIS_DISABLED:-false}" == true ]]; then
