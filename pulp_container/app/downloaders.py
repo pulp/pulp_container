@@ -50,7 +50,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         # manifests are header sensitive, blobs do not care
         # these accept headers are going to be sent with every request to ensure downloader
         # can download manifests, namely in the repair core task
-        # this can be rolledback once iscomplete https://github.com/pulp/pulp_container/issues/1288
+        # FIXME this can be rolledback after https://github.com/pulp/pulp_container/issues/1288
         headers = V2_ACCEPT_HEADERS
         repo_name = None
         if extra_data is not None:
