@@ -343,7 +343,9 @@ class ContainerFirstStage(Stage):
         while True:
             link = urljoin(self.remote.url, rel_link)
             list_downloader = self.remote.get_downloader(url=link)
-            await list_downloader.run(extra_data={"repo_name": repo_name})
+            # FIXME this can be rolledback after https://github.com/pulp/pulp_container/issues/1288
+            # tags/list endpoint does not like any unnecessary headers to be sent
+            await list_downloader.run(extra_data={"repo_name": repo_name, "headers": {}})
             with open(list_downloader.path) as tags_raw:
                 tags_dict = json.loads(tags_raw.read())
                 tag_list.extend(tags_dict["tags"])
@@ -601,7 +603,9 @@ class ContainerFirstStage(Stage):
                 man_dc.content.digest,
             )
             signatures_downloader = self.remote.get_downloader(url=signatures_url)
-            await signatures_downloader.run()
+            # FIXME this can be rolledback after https://github.com/pulp/pulp_container/issues/1288
+            # signature extensions endpoint does not like any unnecessary headers to be sent
+            await signatures_downloader.run(extra_data={"headers": {}})
             with open(signatures_downloader.path) as signatures_fd:
                 api_extension_signatures = json.loads(signatures_fd.read())
             for signature in api_extension_signatures.get("signatures", []):
