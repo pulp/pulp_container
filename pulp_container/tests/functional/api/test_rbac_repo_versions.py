@@ -198,8 +198,11 @@ def test_cross_repository_blob_mount(
     container_distribution_api,
     container_namespace_api,
     container_blob_api,
+    gen_object_with_cleanup,
 ):
     """Test that users can cross mount blobs from different repositories."""
+    if TOKEN_AUTH_DISABLED:
+        pytest.skip("Cannot test blob mounting without token authentication.")
 
     source_repo = utils.uuid4()
     dest_repo = utils.uuid4()
@@ -210,6 +213,9 @@ def test_cross_repository_blob_mount(
     repository = container_push_repository_api.list(name=source_repo).results[0]
     blobs = container_blob_api.list(repository_version=repository.latest_version_href).results
     distribution = container_distribution_api.list(name=source_repo).results[0]
+    monitor_task(
+        container_distribution_api.partial_update(distribution.pulp_href, {"private": True}).task
+    )
 
     # Cleanup
     add_to_cleanup(container_namespace_api, distribution.namespace)
@@ -231,29 +237,42 @@ def test_cross_repository_blob_mount(
     except ValueError:
         pass
 
-    if not TOKEN_AUTH_DISABLED:
-        user_consumer = gen_user(
-            object_roles=[("container.containernamespace_consumer", distribution.namespace)]
-        )
-        user_collaborator = gen_user(
-            object_roles=[("container.containernamespace_collaborator", distribution.namespace)]
-        )
-        user_helpless = gen_user()
+    user_consumer = gen_user(
+        object_roles=[("container.containernamespace_consumer", distribution.namespace)]
+    )
+    user_collaborator = gen_user(
+        object_roles=[("container.containernamespace_collaborator", distribution.namespace)]
+    )
+    user_helpless = gen_user()
 
-        # Test if a user with pull permission, but not push permission, is not able to mount.
-        with user_consumer:
-            content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
-            assert content_response.status_code == 401
+    # Test if a user with pull permission, but not push permission, is not able to mount.
+    with user_consumer:
+        content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
+        assert content_response.status_code == 401
 
-        # Test if a collaborator cannot mount content outside his scope.
-        with user_collaborator:
-            content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
-            assert content_response.status_code == 401
+    # Test if a collaborator cannot mount content outside his scope.
+    with user_collaborator:
+        content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
+        assert content_response.status_code == 401
 
-        # Test if an anonymous user with no permissions is not able to mount.
-        with user_helpless:
-            content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
-            assert content_response.status_code == 401
+    # Test if an anonymous user with no permissions is not able to mount.
+    with user_helpless:
+        content_response, _ = mount_blob(blobs[0], source_repo, dest_repo)
+        assert content_response.status_code == 401
+
+    # Test if an owner of another namespace cannot utilize the blob mounting because of
+    # insufficient permissions
+    dest_tester_namespace = utils.uuid4()
+    tester_namespace = gen_object_with_cleanup(
+        container_namespace_api, {"name": dest_tester_namespace}
+    )
+    tester_owner = gen_user(
+        object_roles=[("container.containernamespace_owner", tester_namespace.pulp_href)]
+    )
+    with tester_owner:
+        local_registry.tag_and_push(image_path, f"{tester_namespace.name}/test:manifest_a")
+        content_response, auth = mount_blob(blobs[0], source_repo, f"{dest_tester_namespace}/test")
+        assert content_response.status_code == 401
 
 
 @pytest.fixture
@@ -262,9 +281,7 @@ def mount_blob(local_registry, container_distribution_api, container_namespace_a
 
     def _mount_blob(blob, source, dest):
         mount_path = f"/v2/{dest}/blobs/uploads/?from={source}&mount={blob.digest}"
-        response, auth = local_registry.get_response(
-            "POST", mount_path, scope=f"repository:{source}:pull"
-        )
+        response, auth = local_registry.get_response("POST", mount_path)
 
         if response.status_code == 201:
             distribution = container_distribution_api.list(name=dest).results[0]
