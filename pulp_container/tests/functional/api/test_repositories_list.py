@@ -65,10 +65,10 @@ class RepositoriesList:
         authenticate_header = content_response.headers["Www-Authenticate"]
 
         queries = AuthenticationHeaderQueries(authenticate_header)
-        self.assertEqual(queries.scope, "registry:catalog:*")
+        self.assertEqual(queries.scopes, ["registry:catalog:*"])
 
         content_response = requests.get(
-            queries.realm, params={"service": queries.service, "scope": queries.scope}, auth=auth
+            queries.realm, params={"service": queries.service, "scope": queries.scopes}, auth=auth
         )
         content_response.raise_for_status()
 

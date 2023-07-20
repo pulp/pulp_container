@@ -1,0 +1,1 @@
+Fixed a security issue that allowed users without sufficient permissions to mount blobs.
