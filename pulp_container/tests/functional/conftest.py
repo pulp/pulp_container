@@ -156,8 +156,6 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
             if TOKEN_AUTH_DISABLED:
                 auth = basic_auth
             else:
-                extended_scope = kwargs.pop("scope", None)
-
                 with pytest.raises(requests.HTTPError):
                     response = requests.request(method, url, auth=basic_auth, **kwargs)
                     response.raise_for_status()
@@ -166,13 +164,9 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
                 authenticate_header = response.headers["WWW-Authenticate"]
                 queries = AuthenticationHeaderQueries(authenticate_header)
 
-                scopes = [queries.scope]
-                if extended_scope:
-                    scopes.append(extended_scope)
-
                 content_response = requests.get(
                     queries.realm,
-                    params={"service": queries.service, "scope": scopes},
+                    params={"service": queries.service, "scope": queries.scopes},
                     auth=basic_auth,
                 )
                 content_response.raise_for_status()
