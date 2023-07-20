@@ -205,11 +205,16 @@ class AuthenticationHeaderQueries:
         The scope is not provided by the token server because we are accessing the endpoint from
         the root.
         """
+        self.scopes = []
+
         if not authenticate_header.lower().startswith("bearer "):
             raise Exception(f"Authentication header has wrong format.\n{authenticate_header}")
         for item in authenticate_header[7:].split(","):
             key, value = item.split("=")
-            setattr(self, key, value.strip('"'))
+            if key == "scope":
+                self.scopes.append(value.strip('"'))
+            else:
+                setattr(self, key, value.strip('"'))
 
 
 skip_if = partial(selectors.skip_if, exc=SkipTest)
@@ -242,7 +247,7 @@ def get_auth_for_url(registry_endpoint_url, auth=None):
         authenticate_header = response.headers["WWW-Authenticate"]
         queries = AuthenticationHeaderQueries(authenticate_header)
         content_response = requests.get(
-            queries.realm, params={"service": queries.service, "scope": queries.scope}, auth=auth
+            queries.realm, params={"service": queries.service, "scope": queries.scopes}, auth=auth
         )
         content_response.raise_for_status()
         token = content_response.json()["token"]

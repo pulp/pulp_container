@@ -39,16 +39,24 @@ def _decode_token(encoded_token, request):
     return decoded_token
 
 
-def _contains_accessible_actions(decoded_token, scope):
+def _contains_accessible_actions(decoded_token, scopes):
     """
-    Check if a client has permission to perform operations within the current scope
-    """
-    for access in decoded_token["access"]:
-        if scope.resource_type == access["type"] and scope.name == access["name"]:
-            if scope.action in access["actions"]:
-                return True
+    Check if a client has permission to perform operations within the current scope.
 
-    return False
+    Furthermore, it is necessary to check a compounded scope; for instance, when
+    performing blob mounting, there are two access scopes considered.
+    """
+    accessible_actions = []
+    for scope in scopes:
+        for access in decoded_token["access"]:
+            if scope.resource_type == access["type"] and scope.name == access["name"]:
+                if scope.action in access["actions"]:
+                    accessible_actions.append(True)
+                    break
+        else:
+            accessible_actions.append(False)
+
+    return all(accessible_actions)
 
 
 class RegistryAuthentication(BasicAuthentication):
@@ -141,25 +149,29 @@ class TokenAuthentication(BaseAuthentication):
         realm = settings.TOKEN_SERVER
         authenticate_string = f'{self.keyword} realm="{realm}",service="{request.get_host()}"'
 
-        scope = get_scope(request)
-        if scope is not None:
+        scopes = get_scopes(request)
+        for scope in scopes:
             authenticate_string += f',scope="{scope.resource_type}:{scope.name}:{scope.action}"'
 
         return authenticate_string
 
 
-def get_scope(request):
+def get_scopes(request):
     """
-    Return an initialized scope object based on the passed request's data.
+    Return a list of scope objects based on the passed request's data.
     """
+    scopes = []
+
     path = request.resolver_match.kwargs.get("path", "")
     if path:
         action = "pull" if request.method in SAFE_METHODS else "push"
-        return Scope("repository", path, action)
+        scopes.append(Scope("repository", path, action))
+        if request.query_params.keys() == {"from", "mount"}:
+            scopes.append(Scope("repository", request.query_params["from"], "pull"))
     elif request.path == "/v2/_catalog":
-        return Scope("registry", "catalog", "*")
-    elif request.path == "/v2/":
-        return None
+        scopes.append(Scope("registry", "catalog", "*"))
+
+    return scopes
 
 
 class RegistryPermission(BasePermission):
@@ -196,13 +208,13 @@ class TokenPermission(BasePermission):
         if decoded_token is None:
             raise NotAuthenticated()
 
-        scope = get_scope(request)
-        if scope is None:
+        scopes = get_scopes(request)
+        if not scopes:
             is_requesting_root_endpoint = len(decoded_token["access"]) == 0
             if is_requesting_root_endpoint:
                 return True
         else:
-            if _contains_accessible_actions(decoded_token, scope):
+            if _contains_accessible_actions(decoded_token, scopes):
                 return True
 
         raise AuthenticationFailed(detail="Insufficient permissions", code="insufficient_scope")
