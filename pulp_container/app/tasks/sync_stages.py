@@ -221,8 +221,8 @@ class ContainerFirstStage(Stage):
             result = await extension_check_downloader.run()
             response_headers = result.headers
         except aiohttp.client_exceptions.ClientResponseError as exc:
-            if exc.status == 401:
-                response_headers = dict(exc.headers)
+            # ignore all HTTP errors, focus on the headers
+            response_headers = dict(exc.headers)
         if response_headers.get(SIGNATURE_HEADER) == "1":
             return SIGNATURE_SOURCE.API_EXTENSION
 
