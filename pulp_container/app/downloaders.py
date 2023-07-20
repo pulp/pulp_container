@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import json
+import ssl
 import re
 
 from aiohttp.client_exceptions import ClientResponseError
@@ -199,6 +200,12 @@ class NoAuthDownloaderFactory(DownloaderFactory):
 
         """
         tcp_conn_opts = {"force_close": True}
+
+        if not self._remote.tls_validation:
+            sslcontext = ssl.create_default_context()
+            sslcontext.check_hostname = False
+            sslcontext.verify_mode = ssl.CERT_NONE
+            tcp_conn_opts["ssl_context"] = sslcontext
 
         headers = MultiDict({"User-Agent": NoAuthDownloaderFactory.user_agent()})
         if self._remote.headers is not None:
