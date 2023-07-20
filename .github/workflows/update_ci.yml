@@ -7,7 +7,7 @@
 
 
 ---
-name: CI Update
+name: Container CI Update
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
@@ -53,7 +53,7 @@ jobs:
       - name: Run update
         working-directory: pulp_container
         run: |
-          .github/workflows/scripts/update_ci.sh
+          ../plugin_template/scripts/update_ci.sh
 
       - name: Create Pull Request for CI files
         uses: peter-evans/create-pull-request@v4
