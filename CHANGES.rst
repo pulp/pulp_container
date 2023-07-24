@@ -13,6 +13,22 @@ Changelog
 
 .. towncrier release notes start
 
+2.15.2 (2023-07-24)
+===================
+
+
+Bugfixes
+--------
+
+- Fixed a security issue that allowed users without sufficient permissions to mount blobs.
+  `#1286 <https://github.com/pulp/pulp_container/issues/1286>`__
+- Fixed pulp-to-pulp failing sync with ``406 Not Acceptable``.
+  `#1329 <https://github.com/pulp/pulp_container/issues/1329>`__
+
+
+----
+
+
 2.15.1 (2023-06-15)
 ===================
 
