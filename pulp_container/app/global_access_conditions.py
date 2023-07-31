@@ -20,14 +20,14 @@ def has_namespace_obj_perms(request, view, action, permission):
         obj = Repository.objects.get(pk=view.kwargs["repository_pk"]).cast()
     else:
         obj = view.get_object()
-    if type(obj) == models.ContainerDistribution:
+    if type(obj) is models.ContainerDistribution:
         namespace = obj.namespace
         return request.user.has_perm(permission, namespace)
-    elif type(obj) == models.ContainerPushRepository:
+    elif type(obj) is models.ContainerPushRepository:
         for dist in obj.distributions.all():
             if request.user.has_perm(permission, dist.cast().namespace):
                 return True
-    elif type(obj) == models.ContainerPushRepositoryVersion:
+    elif type(obj) is models.ContainerPushRepositoryVersion:
         for dist in obj.repository.distributions.all():
             if request.user.has_perm(permission, dist.cast().namespace):
                 return True
