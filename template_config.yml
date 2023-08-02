@@ -1,7 +1,7 @@
 # This config represents the latest values used when running the plugin-template. Any settings that
 # were not present before running plugin-template have been added with their default values.
 
-# generated with plugin_template@2021.08.26-238-gb4b66d6
+# generated with plugin_template@2021.08.26-240-gd3a60ef
 
 additional_repos: []
 api_root: /pulp/
@@ -66,11 +66,8 @@ pulp_settings:
 pulp_settings_azure:
   flatpak_index: true
 pulp_settings_gcp: null
-# Do not enable flatpak_index for s3 for now, as it would cause
-# pulp_container/tests/functional/api/test_flatpak.py to fail due to
-# <https://gitlab.gnome.org/GNOME/libsoup/-/issues/357> "Odd 400 response with https GET 302
-# redirecting to http":
-pulp_settings_s3: null
+pulp_settings_s3:
+  flatpak_index: false
 pulp_settings_stream: null
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
