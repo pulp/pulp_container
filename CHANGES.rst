@@ -14,6 +14,58 @@ Changelog
 .. towncrier release notes start
 
 
+2.16.0 (2023-08-02)
+===================
+
+
+Features
+--------
+
+- Added OCI artifact support for Helm charts.
+  `#464 <https://github.com/pulp/pulp_container/issues/464>`__
+- Added support to serve cosign signatures, SBOMs, and attestations.
+  `#1165 <https://github.com/pulp/pulp_container/issues/1165>`__
+- Added support to mirror cosign signatures, SBOMs and attestations.
+  `#1166 <https://github.com/pulp/pulp_container/issues/1166>`__
+- Added suport to push cosign signatures, attestations or SBOMs to Pulp Registry.
+  `#1167 <https://github.com/pulp/pulp_container/issues/1167>`__
+- Added support for monolithic upload.
+  `#1219 <https://github.com/pulp/pulp_container/issues/1219>`__
+- Enabled Pulp registry to support by default some well-known OCI types.
+  `#1232 <https://github.com/pulp/pulp_container/issues/1232>`__
+- Added ``ADDITIONAL_OCI_ARTIFACT_TYPES`` setting to make the list of supported OCI artifact types
+  configurable.
+  `#1233 <https://github.com/pulp/pulp_container/issues/1233>`__
+- Added support for Flatpak index endpoints.
+  `#1315 <https://github.com/pulp/pulp_container/issues/1315>`__
+
+
+Bugfixes
+--------
+
+- Taught the Container Registry to accept docker schema2 sub-manifest types in OCI index.
+  `#1231 <https://github.com/pulp/pulp_container/issues/1231>`__
+- Fixed a security issue that allowed users without sufficient permissions to mount blobs.
+  `#1286 <https://github.com/pulp/pulp_container/issues/1286>`__
+- Ensured downloader during the repair task contains accept headers for the
+  manifests to download.
+  `#1303 <https://github.com/pulp/pulp_container/issues/1303>`__
+- Disabled TLS validation, if opted out in a remote, when syncing signatures.
+  `#1305 <https://github.com/pulp/pulp_container/issues/1305>`__
+- Fixed pulp-to-pulp failing sync with ``406 Not Acceptable``.
+  `#1329 <https://github.com/pulp/pulp_container/issues/1329>`__
+
+
+Improved Documentation
+----------------------
+
+- Took the import/export feature out of tech preview.
+  `#1236 <https://github.com/pulp/pulp_container/issues/1236>`__
+
+
+----
+
+
 2.15.2 (2023-07-24)
 ===================
 
