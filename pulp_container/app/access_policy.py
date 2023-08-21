@@ -20,10 +20,10 @@ class NamespacedAccessPolicyMixin:
         if request.user.has_perm(permission):
             return True
         obj = view.get_object()
-        if type(obj) == models.ContainerDistribution:
+        if type(obj) is models.ContainerDistribution:
             namespace = obj.namespace
             return request.user.has_perm(permission, namespace)
-        elif type(obj) == models.ContainerPushRepository:
+        elif type(obj) is models.ContainerPushRepository:
             dists_qs = models.ContainerDistribution.objects.filter(repository=obj)
             for dist in dists_qs:
                 if request.user.has_perm(permission, dist.namespace):
