@@ -196,7 +196,7 @@ class ContainerRepositorySerializer(RepositorySerializer):
         model = models.ContainerRepository
 
 
-class ContainerPushRepositorySerializer(RepositorySerializer):
+class ContainerPushRepositorySerializer(RepositorySerializer, GetOrCreateSerializerMixin):
     """
     Serializer for Container Push Repositories.
     """
@@ -277,7 +277,7 @@ class ContainerRemoteSerializer(RemoteSerializer):
         model = models.ContainerRemote
 
 
-class ContainerDistributionSerializer(DistributionSerializer):
+class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSerializerMixin):
     """
     A serializer for ContainerDistribution.
     """
