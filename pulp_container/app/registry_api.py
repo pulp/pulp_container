@@ -25,14 +25,13 @@ from django.conf import settings
 from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
-from pulpcore.plugin.util import get_objects_for_user
+from pulpcore.plugin.util import get_objects_for_user, get_url
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
     PermissionDenied,
     ParseError,
     Throttled,
-    ValidationError,
 )
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import BasePagination
@@ -291,32 +290,7 @@ class ContainerRegistryApiMixin:
             distribution = models.ContainerDistribution.objects.get(base_path=path)
         except models.ContainerDistribution.DoesNotExist:
             if create:
-                try:
-                    with transaction.atomic():
-                        repo_serializer = serializers.ContainerPushRepositorySerializer(
-                            data={"name": path}, context={"request": request}
-                        )
-                        repo_serializer.is_valid(raise_exception=True)
-                        repository = repo_serializer.create(repo_serializer.validated_data)
-                        repo_href = serializers.ContainerPushRepositorySerializer(
-                            repository, context={"request": request}
-                        ).data["pulp_href"]
-
-                        dist_serializer = serializers.ContainerDistributionSerializer(
-                            data={"base_path": path, "name": path, "repository": repo_href}
-                        )
-                        dist_serializer.is_valid(raise_exception=True)
-                        distribution = dist_serializer.create(dist_serializer.validated_data)
-                except ValidationError:
-                    raise RepositoryInvalid(name=path)
-                except IntegrityError:
-                    # Seems like another process created our stuff already. Retry fetching it.
-                    distribution = models.ContainerDistribution.objects.get(base_path=path)
-                    repository = distribution.repository
-                    if repository:
-                        repository = repository.cast()
-                        if not repository.PUSH_ENABLED:
-                            raise RepositoryInvalid(name=path, message="Repository is read-only.")
+                distribution, repository = self.create_dr(path, request)
             else:
                 raise RepositoryNotFound(name=path)
         else:
@@ -326,27 +300,31 @@ class ContainerRegistryApiMixin:
                 if not repository.PUSH_ENABLED:
                     raise RepositoryInvalid(name=path, message="Repository is read-only.")
             elif create:
-                try:
-                    with transaction.atomic():
-                        repo_serializer = serializers.ContainerPushRepositorySerializer(
-                            data={"name": path}, context={"request": request}
-                        )
-                        repo_serializer.is_valid(raise_exception=True)
-                        repository = repo_serializer.create(repo_serializer.validated_data)
-                        distribution.repository = repository
-                        distribution.save()
-                except IntegrityError:
-                    # Seems like another process created our stuff already. Retry fetching it.
-                    distribution = models.ContainerDistribution.objects.get(pk=distribution.pk)
-                    repository = distribution.repository
-                    if repository:
-                        repository = repository.cast()
-                        if not repository.PUSH_ENABLED:
-                            raise RepositoryInvalid(name=path, message="Repository is read-only.")
-                    else:
-                        raise RepositoryNotFound(name=path)
+                with transaction.atomic():
+                    repository = serializers.ContainerPushRepositorySerializer.get_or_create(
+                        {"name": path}
+                    )
+                    distribution.repository = repository
+                    distribution.save()
             else:
                 raise RepositoryNotFound(name=path)
+        return distribution, repository
+
+    def create_dr(self, path, request):
+        with transaction.atomic():
+            repository = serializers.ContainerPushRepositorySerializer.get_or_create({"name": path})
+            distribution = serializers.ContainerDistributionSerializer.get_or_create(
+                {"base_path": path, "name": path}, {"repository": get_url(repository)}
+            )
+
+            if distribution.repository:
+                dist_repository = distribution.repository.cast()
+                if not dist_repository.PUSH_ENABLED or repository != dist_repository:
+                    raise RepositoryInvalid(name=path, message="Repository is read-only.")
+            else:
+                distribution.repository = repository
+                distribution.save()
+
         return distribution, repository
 
 
