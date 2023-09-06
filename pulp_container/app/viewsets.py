@@ -381,7 +381,7 @@ class ContainerRemoteViewSet(RemoteViewSet, RolesMixin):
                 "condition": "has_model_or_obj_perms:container.view_containerremote",
             },
             {
-                "action": ["update", "partial_update"],
+                "action": ["update", "partial_update", "set_label", "unset_label"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -579,7 +579,7 @@ class ContainerRepositoryViewSet(
                 ],
             },
             {
-                "action": ["update", "partial_update"],
+                "action": ["update", "partial_update", "set_label", "unset_label"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -968,7 +968,7 @@ class ContainerPushRepositoryViewSet(
                 ],
             },
             {
-                "action": ["update", "partial_update"],
+                "action": ["update", "partial_update", "set_label", "unset_label"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition_expression": [
@@ -1172,7 +1172,7 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
                 ],
             },
             {
-                "action": ["update", "partial_update"],
+                "action": ["update", "partial_update", "set_label", "unset_label"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
