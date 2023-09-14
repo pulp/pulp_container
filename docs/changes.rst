@@ -1,4 +1,4 @@
-.. _pulp-container-changes:
+.. _pulp_container-changes:
 
 .. include:: ../CHANGES.rst
 
