@@ -32,6 +32,7 @@ def test_import_export_standard(
     importers_pulp_api_client,
     importers_pulp_imports_api_client,
     gen_object_with_cleanup,
+    has_pulp_plugin,
 ):
     """Test exporting and importing of a container repository."""
     remote = container_remote_api.create(gen_container_remote())
@@ -65,7 +66,11 @@ def test_import_export_standard(
     }
     importer = gen_object_with_cleanup(importers_pulp_api_client, body)
 
-    filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
+    if has_pulp_plugin("core", min="3.36.0"):
+        filenames = [f for f in list(export.output_file_info.keys()) if f.endswith(".tar")]
+    else:
+        filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
+
     import_response = importers_pulp_imports_api_client.create(
         importer.pulp_href, {"path": filenames[0]}
     )
@@ -110,6 +115,7 @@ def test_import_export_create_repositories(
     importers_pulp_api_client,
     importers_pulp_imports_api_client,
     gen_object_with_cleanup,
+    has_pulp_plugin,
 ):
     """Test importing of a push repository without creating an initial repository manually."""
     if registry_client.name != "podman":
@@ -139,7 +145,11 @@ def test_import_export_create_repositories(
 
     body = {"name": str(uuid.uuid4())}
     importer = gen_object_with_cleanup(importers_pulp_api_client, body)
-    filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
+
+    if has_pulp_plugin("core", min="3.36.0"):
+        filenames = [f for f in list(export.output_file_info.keys()) if f.endswith(".tar")]
+    else:
+        filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
 
     import_response = importers_pulp_imports_api_client.create(
         importer.pulp_href, {"path": filenames[0], "create_repositories": True}
