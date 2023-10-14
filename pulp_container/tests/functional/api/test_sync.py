@@ -50,6 +50,19 @@ def test_basic_sync(container_repo, container_remote, container_repository_api, 
     assert repository.latest_version_href == latest_version_href
 
 
+def test_sync_reclaim_resync(
+    container_repo,
+    container_remote,
+    container_sync,
+    monitor_task,
+    repositories_reclaim_space_api_client,
+):
+    """Check if re-syncing the content after the reclamation ends with no error."""
+    container_sync(container_repo, container_remote)
+    monitor_task(repositories_reclaim_space_api_client.reclaim({"repo_hrefs": ["*"]}).task)
+    container_sync(container_repo, container_remote)
+
+
 @pytest.mark.parallel
 def test_sync_invalid_url(synced_container_repository_factory):
     with pytest.raises(PulpTaskError) as ctx:

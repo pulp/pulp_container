@@ -95,7 +95,7 @@ class ContainerFirstStage(Stage):
 
         if digest and (
             manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest)
+            .filter(digest=digest, _artifacts__isnull=False)
             .afirst()
         ):
             saved_artifact = await manifest._artifacts.aget()
@@ -470,7 +470,7 @@ class ContainerFirstStage(Stage):
 
         if (
             manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest)
+            .filter(digest=digest, _artifacts__isnull=False)
             .afirst()
         ):
             saved_artifact = await manifest._artifacts.aget()
