@@ -21,8 +21,6 @@ PIP_REQUIREMENTS=("pulp-cli")
 if [[ "$TEST" = "docs" || "$TEST" = "publish" ]]
 then
   PIP_REQUIREMENTS+=("-r" "doc_requirements.txt")
-  git clone https://github.com/pulp/pulpcore.git ../pulpcore
-  PIP_REQUIREMENTS+=("psycopg2-binary" "-r" "../pulpcore/doc_requirements.txt")
 fi
 
 pip install ${PIP_REQUIREMENTS[*]}
@@ -65,13 +63,15 @@ services:
       - ../../../pulp-openapi-generator:/root/pulp-openapi-generator
     env:
       PULP_WORKERS: "4"
+      PULP_HTTPS: "true"
 VARSYAML
 
 cat >> vars/main.yaml << VARSYAML
+pulp_env: {}
 pulp_settings: {"allowed_content_checksums": ["sha1", "sha224", "sha256", "sha384", "sha512"], "allowed_export_paths": ["/tmp"], "allowed_import_paths": ["/tmp"], "flatpak_index": true}
 pulp_scheme: https
 
-pulp_container_tag: https-pulp_container-ci
+pulp_container_tag: "latest"
 
 VARSYAML
 
@@ -89,6 +89,7 @@ if [ "$TEST" = "s3" ]; then
 minio_access_key: "'$MINIO_ACCESS_KEY'"\
 minio_secret_key: "'$MINIO_SECRET_KEY'"\
 pulp_scenario_settings: {"flatpak_index": false}\
+pulp_scenario_env: {}\
 ' vars/main.yaml
   export PULP_API_ROOT="/rerouted/djnd/"
 fi
@@ -108,6 +109,7 @@ if [ "$TEST" = "azure" ]; then
     command: "azurite-blob --blobHost 0.0.0.0 --cert /etc/pulp/azcert.pem --key /etc/pulp/azkey.pem"' vars/main.yaml
   sed -i -e '$a azure_test: true\
 pulp_scenario_settings: {"flatpak_index": true}\
+pulp_scenario_env: {}\
 ' vars/main.yaml
 fi
 
