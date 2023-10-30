@@ -424,7 +424,9 @@ class ContainerFirstStage(Stage):
         )
         manifest_url = urljoin(self.remote.url, relative_url)
         manifest = await sync_to_async(
-            Manifest.objects.prefetch_related("contentartifact_set").filter(digest=digest).first
+            Manifest.objects.prefetch_related("contentartifact_set")
+            .filter(digest=digest, _artifacts__isnull=False)
+            .first
         )()
         if manifest:
 
