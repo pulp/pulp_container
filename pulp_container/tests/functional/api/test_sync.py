@@ -13,6 +13,8 @@ from pulp_container.tests.functional.utils import (
 )
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 
+from pulpcore.client.pulpcore import RepositoriesReclaimSpaceApi
+
 from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
     ContainerContainerRemote,
@@ -35,6 +37,10 @@ class BasicSyncTestCase(PulpTestCase):
         cls.cfg = config.get_config()
         cls.client_api = gen_container_client()
 
+        cls.repository_api = RepositoriesContainerApi(cls.client_api)
+        cls.remote_api = RemotesContainerApi(cls.client_api)
+        cls.reclaim_api = RepositoriesReclaimSpaceApi(cls.client_api)
+
     def test_sync(self):
         """Sync repositories with the container plugin.
 
@@ -51,29 +57,48 @@ class BasicSyncTestCase(PulpTestCase):
         5. Sync the remote one more time.
         6. Assert that repository version is the same from the previous one.
         """
-        repository_api = RepositoriesContainerApi(self.client_api)
-        repository = repository_api.create(ContainerContainerRepository(**gen_repo()))
-        self.addCleanup(repository_api.delete, repository.pulp_href)
+        repository = self.repository_api.create(ContainerContainerRepository(**gen_repo()))
+        self.addCleanup(self.repository_api.delete, repository.pulp_href)
 
-        remote_api = RemotesContainerApi(self.client_api)
-        remote = remote_api.create(gen_container_remote())
-        self.addCleanup(remote_api.delete, remote.pulp_href)
+        remote = self.remote_api.create(gen_container_remote())
+        self.addCleanup(self.remote_api.delete, remote.pulp_href)
 
         self.assertEqual(repository.latest_version_href, f"{repository.pulp_href}versions/0/")
         repository_sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
 
         # Sync the repository.
-        sync_response = repository_api.sync(repository.pulp_href, repository_sync_data)
+        sync_response = self.repository_api.sync(repository.pulp_href, repository_sync_data)
         monitor_task(sync_response.task)
-        repository = repository_api.read(repository.pulp_href)
+        repository = self.repository_api.read(repository.pulp_href)
         self.assertIsNotNone(repository.latest_version_href)
 
         # Sync the repository again.
         latest_version_href = repository.latest_version_href
-        sync_response = repository_api.sync(repository.pulp_href, repository_sync_data)
+        sync_response = self.repository_api.sync(repository.pulp_href, repository_sync_data)
         monitor_task(sync_response.task)
-        repository = repository_api.read(repository.pulp_href)
+        repository = self.repository_api.read(repository.pulp_href)
         self.assertEqual(latest_version_href, repository.latest_version_href)
+
+    def test_sync_reclaim(self):
+        """Check if re-syncing the content after the reclamation ends with no error."""
+        repository = self.repository_api.create(ContainerContainerRepository(**gen_repo()))
+        self.addCleanup(self.repository_api.delete, repository.pulp_href)
+
+        remote = self.remote_api.create(gen_container_remote())
+        self.addCleanup(self.remote_api.delete, remote.pulp_href)
+
+        repository_sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
+
+        # Sync the repository.
+        sync_response = self.repository_api.sync(repository.pulp_href, repository_sync_data)
+        monitor_task(sync_response.task)
+
+        # Reclaim the space
+        monitor_task(self.reclaim_api.reclaim({"repo_hrefs": ["*"]}).task)
+
+        # Re-sync the reclaimed repository
+        sync_response = self.repository_api.sync(repository.pulp_href, repository_sync_data)
+        monitor_task(sync_response.task)
 
 
 class SyncInvalidURLTestCase(PulpTestCase):
