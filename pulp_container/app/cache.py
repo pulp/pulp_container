@@ -21,6 +21,8 @@ class RegistryCache:
 class RegistryContentCache(RegistryCache, AsyncContentCache):
     """A wrapper around the Redis content cache handler tailored for the content application."""
 
+    ADD_TRAILING_SLASH = False
+
     def make_key(self, request):
         """Make a key composed of the request's path, method, host, and accept header."""
         accept_header = ",".join(sorted(request.headers.getall("accept", [])))

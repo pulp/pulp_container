@@ -105,7 +105,7 @@ class Registry(Handler):
 
         path = request.match_info["path"]
         tag_name = request.match_info["tag_name"]
-        distribution = await sync_to_async(self._match_distribution)(path)
+        distribution = await sync_to_async(self._match_distribution)(path, add_trailing_slash=False)
         await sync_to_async(self._permit)(request, distribution)
         repository_version = await sync_to_async(distribution.get_repository_version)()
         if not repository_version:
@@ -222,7 +222,7 @@ class Registry(Handler):
 
         path = request.match_info["path"]
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
-        distribution = await sync_to_async(self._match_distribution)(path)
+        distribution = await sync_to_async(self._match_distribution)(path, add_trailing_slash=False)
         await sync_to_async(self._permit)(request, distribution)
         repository_version = await sync_to_async(distribution.get_repository_version)()
         if not repository_version:
