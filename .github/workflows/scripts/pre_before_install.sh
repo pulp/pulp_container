@@ -25,3 +25,10 @@ then
   " | sudo tee -a /etc/containers/registries.conf
 fi
 
+# Configure the GHA host for buildah/skopeo running within the pulp container.
+# Default UID & GID range is 165536-231071, which is 64K long.
+# But nested buildah/skopeo always needs more than needs 64K.
+# The Pulp image is configured for 64K + 10000 .
+sudo sed -i "s\runner:165536:65536\runner:165536:75536\g" /etc/subuid /etc/subgid
+podman system migrate
+
