@@ -13,6 +13,32 @@ Changelog
 
 .. towncrier release notes start
 
+2.17.0 (2023-11-03)
+===================
+
+
+Features
+--------
+
+- Started signing manifests asynchronously. This feature improves the performance of signing tasks.
+  Additionally, setting ``MAX_PARALLEL_SIGNING_TASKS`` was introduced to cap the number of threads
+  used for parallel signing (defaults to ``10``).
+  `#1208 <https://github.com/pulp/pulp_container/issues/1208>`__
+- Adjusted default access policies for new labels API.
+  `#1384 <https://github.com/pulp/pulp_container/issues/1384>`__
+- Made pulp_container compatible with pulpcore 3.40.
+  `#1399 <https://github.com/pulp/pulp_container/issues/1399>`__
+
+
+Bugfixes
+--------
+
+- Fixed re-sync failures after reclaiming disk space.
+  `#1400 <https://github.com/pulp/pulp_container/issues/1400>`__
+
+
+----
+
 
 2.16.2 (2023-09-09)
 ===================
