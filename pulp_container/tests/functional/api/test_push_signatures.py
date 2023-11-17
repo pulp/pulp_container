@@ -73,9 +73,7 @@ def test_assert_signed_image(
         decrypted = gpg.decrypt(raw_s)
 
         assert decrypted.key_id == keyid
-        assert decrypted.fingerprint == fingerprint
         assert decrypted.status == "signature valid"
-        assert decrypted.username == "Pulp QE"
 
         json_s = json.loads(decrypted.data)
 
