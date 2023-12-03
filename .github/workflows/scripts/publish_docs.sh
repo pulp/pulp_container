@@ -20,8 +20,6 @@ echo "$PULP_DOCS_KEY" > ~/.ssh/pulp-infra
 echo "docs.pulpproject.org,8.43.85.236 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGXG+8vjSQvnAkq33i0XWgpSrbco3rRqNZr0SfVeiqFI7RN/VznwXMioDDhc+hQtgVhd6TYBOrV07IMcKj+FAzg=" >> ~/.ssh/known_hosts
 chmod 644 ~/.ssh/known_hosts
 
-pip3 install packaging
-
 export PYTHONUNBUFFERED=1
 export DJANGO_SETTINGS_MODULE=pulpcore.app.settings
 export PULP_SETTINGS=$PWD/.ci/ansible/settings/settings.py
@@ -38,24 +36,9 @@ if [[ "$GITHUB_WORKFLOW" == "Container changelog update" ]]; then
   exit
 fi
 
-pip install mkdocs pymdown-extensions "Jinja2<3.1"
-
 mkdir -p ../container-bindings
 tar -xvf container-python-client-docs.tar --directory ../container-bindings
 pushd ../container-bindings
-cat >> mkdocs.yml << DOCSYAML
----
-site_name: PulpContainer Client
-site_description: Container bindings
-site_author: Pulp Team
-site_url: https://docs.pulpproject.org/pulp_container_client/
-repo_name: pulp/pulp_container
-repo_url: https://github.com/pulp/pulp_container
-theme: readthedocs
-DOCSYAML
-
-# Building the bindings docs
-mkdocs build
 
 # publish to docs.pulpproject.org/pulp_container_client
 rsync -avzh site/ doc_builder_pulp_container@docs.pulpproject.org:/var/www/docs.pulpproject.org/pulp_container_client/
