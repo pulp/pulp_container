@@ -7,173 +7,172 @@
 
 
 ---
-name: Container CI Update
+name: "Container CI Update"
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
     # runs at 2:30 UTC every Sunday
     - cron: '30 2 * * 0'
-  
   workflow_dispatch:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: "ubuntu-latest"
 
     strategy:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: "actions/checkout@v4"
         with:
-          repository: pulp/plugin_template
-          path: plugin_template
           fetch-depth: 0
+          repository: "pulp/plugin_template"
+          path: "plugin_template"
 
-      - uses: actions/setup-python@v4
+      - uses: "actions/setup-python@v4"
         with:
           python-version: "3.8"
 
-      - name: Install python dependencies
+      - name: "Install python dependencies"
         run: |
           echo ::group::PYDEPS
           pip install gitpython requests packaging jinja2 pyyaml
           echo ::endgroup::
 
-      - name: Configure Git with pulpbot name and email
+      - name: "Configure Git with pulpbot name and email"
         run: |
           git config --global user.name 'pulpbot'
           git config --global user.email 'pulp-infra@redhat.com'
-      - uses: actions/checkout@v3
+      - uses: "actions/checkout@v4"
         with:
-          path: pulp_container
-          ref: 'main'
           fetch-depth: 0
+          path: "pulp_container"
+          ref: "main"
 
-      - name: Run update
-        working-directory: pulp_container
+      - name: "Run update"
+        working-directory: "pulp_container"
         run: |
           ../plugin_template/scripts/update_ci.sh
 
-      - name: Create Pull Request for CI files
-        uses: peter-evans/create-pull-request@v4
+      - name: "Create Pull Request for CI files"
+        uses: "peter-evans/create-pull-request@v4"
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          path: pulp_container
-          committer: pulpbot <pulp-infra@redhat.com>
-          author: pulpbot <pulp-infra@redhat.com>
-          title: 'Update CI files for branch main'
-          body: '[noissue]'
-          branch: 'update-ci/main'
-          base: 'main'
+          token: "${{ secrets.RELEASE_TOKEN }}"
+          path: "pulp_container"
+          committer: "pulpbot <pulp-infra@redhat.com>"
+          author: "pulpbot <pulp-infra@redhat.com>"
+          title: "Update CI files for branch main"
+          body: ""
+          branch: "update-ci/main"
+          base: "main"
           commit-message: |
             Update CI files
 
             [noissue]
           delete-branch: true
-      - uses: actions/checkout@v3
+      - uses: "actions/checkout@v4"
         with:
-          path: pulp_container
-          ref: '2.9'
           fetch-depth: 0
+          path: "pulp_container"
+          ref: "2.9"
 
-      - name: Run update
-        working-directory: pulp_container
+      - name: "Run update"
+        working-directory: "pulp_container"
         run: |
           ../plugin_template/scripts/update_ci.sh
 
-      - name: Create Pull Request for CI files
-        uses: peter-evans/create-pull-request@v4
+      - name: "Create Pull Request for CI files"
+        uses: "peter-evans/create-pull-request@v4"
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          path: pulp_container
-          committer: pulpbot <pulp-infra@redhat.com>
-          author: pulpbot <pulp-infra@redhat.com>
-          title: 'Update CI files for branch 2.9'
-          body: '[noissue]'
-          branch: 'update-ci/2.9'
-          base: '2.9'
+          token: "${{ secrets.RELEASE_TOKEN }}"
+          path: "pulp_container"
+          committer: "pulpbot <pulp-infra@redhat.com>"
+          author: "pulpbot <pulp-infra@redhat.com>"
+          title: "Update CI files for branch 2.9"
+          body: ""
+          branch: "update-ci/2.9"
+          base: "2.9"
           commit-message: |
             Update CI files
 
             [noissue]
           delete-branch: true
-      - uses: actions/checkout@v3
+      - uses: "actions/checkout@v4"
         with:
-          path: pulp_container
-          ref: '2.10'
           fetch-depth: 0
+          path: "pulp_container"
+          ref: "2.10"
 
-      - name: Run update
-        working-directory: pulp_container
+      - name: "Run update"
+        working-directory: "pulp_container"
         run: |
           ../plugin_template/scripts/update_ci.sh
 
-      - name: Create Pull Request for CI files
-        uses: peter-evans/create-pull-request@v4
+      - name: "Create Pull Request for CI files"
+        uses: "peter-evans/create-pull-request@v4"
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          path: pulp_container
-          committer: pulpbot <pulp-infra@redhat.com>
-          author: pulpbot <pulp-infra@redhat.com>
-          title: 'Update CI files for branch 2.10'
-          body: '[noissue]'
-          branch: 'update-ci/2.10'
-          base: '2.10'
+          token: "${{ secrets.RELEASE_TOKEN }}"
+          path: "pulp_container"
+          committer: "pulpbot <pulp-infra@redhat.com>"
+          author: "pulpbot <pulp-infra@redhat.com>"
+          title: "Update CI files for branch 2.10"
+          body: ""
+          branch: "update-ci/2.10"
+          base: "2.10"
           commit-message: |
             Update CI files
 
             [noissue]
           delete-branch: true
-      - uses: actions/checkout@v3
+      - uses: "actions/checkout@v4"
         with:
-          path: pulp_container
-          ref: '2.14'
           fetch-depth: 0
+          path: "pulp_container"
+          ref: "2.14"
 
-      - name: Run update
-        working-directory: pulp_container
+      - name: "Run update"
+        working-directory: "pulp_container"
         run: |
           ../plugin_template/scripts/update_ci.sh
 
-      - name: Create Pull Request for CI files
-        uses: peter-evans/create-pull-request@v4
+      - name: "Create Pull Request for CI files"
+        uses: "peter-evans/create-pull-request@v4"
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          path: pulp_container
-          committer: pulpbot <pulp-infra@redhat.com>
-          author: pulpbot <pulp-infra@redhat.com>
-          title: 'Update CI files for branch 2.14'
-          body: '[noissue]'
-          branch: 'update-ci/2.14'
-          base: '2.14'
+          token: "${{ secrets.RELEASE_TOKEN }}"
+          path: "pulp_container"
+          committer: "pulpbot <pulp-infra@redhat.com>"
+          author: "pulpbot <pulp-infra@redhat.com>"
+          title: "Update CI files for branch 2.14"
+          body: ""
+          branch: "update-ci/2.14"
+          base: "2.14"
           commit-message: |
             Update CI files
 
             [noissue]
           delete-branch: true
-      - uses: actions/checkout@v3
+      - uses: "actions/checkout@v4"
         with:
-          path: pulp_container
-          ref: '2.15'
           fetch-depth: 0
+          path: "pulp_container"
+          ref: "2.15"
 
-      - name: Run update
-        working-directory: pulp_container
+      - name: "Run update"
+        working-directory: "pulp_container"
         run: |
           ../plugin_template/scripts/update_ci.sh
 
-      - name: Create Pull Request for CI files
-        uses: peter-evans/create-pull-request@v4
+      - name: "Create Pull Request for CI files"
+        uses: "peter-evans/create-pull-request@v4"
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          path: pulp_container
-          committer: pulpbot <pulp-infra@redhat.com>
-          author: pulpbot <pulp-infra@redhat.com>
-          title: 'Update CI files for branch 2.15'
-          body: '[noissue]'
-          branch: 'update-ci/2.15'
-          base: '2.15'
+          token: "${{ secrets.RELEASE_TOKEN }}"
+          path: "pulp_container"
+          committer: "pulpbot <pulp-infra@redhat.com>"
+          author: "pulpbot <pulp-infra@redhat.com>"
+          title: "Update CI files for branch 2.15"
+          body: ""
+          branch: "update-ci/2.15"
+          base: "2.15"
           commit-message: |
             Update CI files
 
