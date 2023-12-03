@@ -6,7 +6,7 @@
 # For more info visit https://github.com/pulp/plugin_template
 
 ---
-name: Container CI
+name: "Container CI"
 on: {pull_request: {branches: ['*']}}
 
 concurrency:
@@ -18,39 +18,41 @@ defaults:
     working-directory: "pulp_container"
 
 jobs:
-
   ready-to-ship:
-    runs-on: ubuntu-latest
+    runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v4
+      - uses: "actions/checkout@v4"
         with:
           fetch-depth: 0
           path: "pulp_container"
-      - uses: actions/setup-python@v4
+      - uses: "actions/setup-python@v4"
         with:
           python-version: "3.8"
-      - name: Install requirements
-        run: pip3 install github
-      - name: Check commit message
+      - name: "Install python dependencies"
+        run: |
+          echo ::group::PYDEPS
+          pip install requests pygithub
+          echo ::endgroup::
+      - name: "Check commit message"
         if: github.event_name == 'pull_request'
         env:
-          PY_COLORS: '1'
-          ANSIBLE_FORCE_COLOR: '1'
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_CONTEXT: ${{ github.event.pull_request.commits_url }}
-        run: sh .github/workflows/scripts/check_commit.sh
-      - name: Verify requirements files
-        run: python .ci/scripts/check_requirements.py
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GITHUB_CONTEXT: "${{ github.event.pull_request.commits_url }}"
+        run: |
+          .github/workflows/scripts/check_commit.sh
+      - name: "Verify requirements files"
+        run: |
+          python .ci/scripts/check_requirements.py
 
   lint:
     uses: "./.github/workflows/lint.yml"
 
   build:
-    needs: lint
+    needs: "lint"
     uses: "./.github/workflows/build.yml"
 
   test:
-    needs: build
+    needs: "build"
     uses: "./.github/workflows/test.yml"
-
-
