@@ -58,7 +58,7 @@ class RegistryClient:
         self.pull = lambda *args: self._dispatch_command("pull", *args, tls_verify)
         self.push = lambda *args: self._dispatch_command("push", *args, tls_verify)
         self.manifest_push = lambda *args: self._dispatch_command(
-            "manifest", "push", "*args, tls_verify"
+            "manifest", "push", *args, tls_verify
         )
         self.login = lambda *args: self._dispatch_command("login", *args, tls_verify)
 
