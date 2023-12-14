@@ -1,7 +1,7 @@
 # This config represents the latest values used when running the plugin-template. Any settings that
 # were not present before running plugin-template have been added with their default values.
 
-# generated with plugin_template@2021.08.26-240-gd3a60ef
+# generated with plugin_template@2021.08.26-296-g466c79b
 
 additional_repos: []
 api_root: /pulp/
@@ -17,7 +17,8 @@ ci_update_branches:
 - '2.10'
 - '2.14'
 - '2.15'
-ci_update_docs: false
+ci_update_docs: true
+ci_update_release_behavior: null
 cli_package: pulp-cli
 cli_repo: https://github.com/pulp/pulp-cli.git
 core_import_allowed: []
@@ -25,7 +26,7 @@ deploy_client_to_pypi: true
 deploy_client_to_rubygems: true
 deploy_to_pypi: true
 disabled_redis_runners: []
-doc_requirements_from_pulpcore: true
+doc_requirements_from_pulpcore: false
 docker_fixtures: false
 docs_test: true
 extra_docs_requirements: []
@@ -38,18 +39,18 @@ lint_requirements: true
 noissue_marker: '[noissue]'
 parallel_test_workers: 8
 plugin_app_label: container
-plugin_camel: PulpContainer
-plugin_camel_short: Container
-plugin_caps: PULP_CONTAINER
-plugin_caps_short: CONTAINER
-plugin_dash: pulp-container
-plugin_dash_short: container
 plugin_default_branch: main
 plugin_name: pulp_container
-plugin_snake: pulp_container
+plugins:
+- app_label: container
+  name: pulp_container
 post_job_template: null
 pre_job_template: null
 publish_docs_to_pulpprojectdotorg: true
+pulp_env: {}
+pulp_env_azure: {}
+pulp_env_gcp: {}
+pulp_env_s3: {}
 pulp_scheme: https
 pulp_settings:
   allowed_content_checksums:
@@ -68,15 +69,12 @@ pulp_settings_azure:
 pulp_settings_gcp: null
 pulp_settings_s3:
   flatpak_index: false
-pulp_settings_stream: null
 pulpprojectdotorg_key_id: aa499d7938ed
 pydocstyle: true
 pypi_username: pulp
 python_version: '3.8'
 release_email: pulp-infra@redhat.com
 release_user: pulpbot
-run_pulpcore_tests_for_plugins: false
-single_commit_check: true
 stalebot: true
 stalebot_days_until_close: 30
 stalebot_days_until_stale: 90
@@ -90,6 +88,5 @@ test_lowerbounds: true
 test_performance: false
 test_reroute: true
 test_s3: true
-update_github: true
 use_issue_template: true
 
