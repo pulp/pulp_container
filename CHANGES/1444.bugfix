@@ -1,2 +1,0 @@
-Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
-media types retrieved from a remote registry.
