@@ -13,6 +13,20 @@ Changelog
 
 .. towncrier release notes start
 
+2.16.3 (2023-12-15)
+===================
+
+Bugfixes
+--------
+
+- Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
+  media types retrieved from a remote registry.
+  `#1444 <https://github.com/pulp/pulp_container/issues/1444>`__
+
+
+----
+
+
 2.16.2 (2023-09-09)
 ===================
 
