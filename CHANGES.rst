@@ -41,6 +41,20 @@ Bugfixes
 ----
 
 
+2.16.3 (2023-12-15)
+===================
+
+Bugfixes
+--------
+
+- Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
+  media types retrieved from a remote registry.
+  `#1444 <https://github.com/pulp/pulp_container/issues/1444>`__
+
+
+----
+
+
 2.16.2 (2023-09-09)
 ===================
 
@@ -108,6 +122,22 @@ Improved Documentation
 
 - Took the import/export feature out of tech preview.
   `#1236 <https://github.com/pulp/pulp_container/issues/1236>`__
+
+
+----
+
+
+2.15.3 (2023-12-15)
+===================
+
+Bugfixes
+--------
+
+- Fixed re-sync failures after reclaiming disk space.
+  `#1400 <https://github.com/pulp/pulp_container/issues/1400>`__
+- Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
+  media types retrieved from a remote registry.
+  `#1444 <https://github.com/pulp/pulp_container/issues/1444>`__
 
 
 ----
@@ -204,6 +234,20 @@ Misc
 
 
 ----
+
+2.14.9 (2023-12-15)
+===================
+
+Bugfixes
+--------
+
+- Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
+  media types retrieved from a remote registry.
+  `#1444 <https://github.com/pulp/pulp_container/issues/1444>`__
+
+
+----
+
 
 2.14.8 (2023-10-31)
 ===================
