@@ -13,6 +13,19 @@ Changelog
 
 .. towncrier release notes start
 
+2.15.4 (2024-01-15)
+===================
+
+Bugfixes
+--------
+
+- Taught the Container Registry to accept docker schema2 sub-manifest types in OCI index.
+  `#1231 <https://github.com/pulp/pulp_container/issues/1231>`__
+
+
+----
+
+
 2.15.3 (2023-12-15)
 ===================
 
