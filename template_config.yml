@@ -13,10 +13,10 @@ check_stray_pulpcore_imports: true
 ci_env: {}
 ci_trigger: '{pull_request: {branches: [''*'']}}'
 ci_update_branches:
-- '2.9'
 - '2.10'
 - '2.14'
 - '2.15'
+- '2.16'
 ci_update_docs: true
 ci_update_release_behavior: null
 cli_package: pulp-cli
