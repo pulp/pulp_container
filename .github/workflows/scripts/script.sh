@@ -129,14 +129,14 @@ echo "Checking for uncommitted migrations..."
 cmd_user_prefix bash -c "django-admin makemigrations container --check --dry-run"
 
 # Run unit tests.
-cmd_user_prefix bash -c "PULP_DATABASES__default__USER=postgres pytest -v -r sx --color=yes -p no:pulpcore --pyargs pulp_container.tests.unit"
+cmd_user_prefix bash -c "PULP_DATABASES__default__USER=postgres pytest -v -r sx --color=yes --suppress-no-test-exit-code -p no:pulpcore --pyargs pulp_container.tests.unit"
 
 # Run functional tests
 if [[ "$TEST" == "performance" ]]; then
   if [[ -z ${PERFORMANCE_TEST+x} ]]; then
-    cmd_user_prefix bash -c "pytest -vv -r sx --color=yes --pyargs --capture=no --durations=0 pulp_container.tests.performance"
+    cmd_user_prefix bash -c "pytest -vv -r sx --color=yes --suppress-no-test-exit-code --capture=no --durations=0 --pyargs pulp_container.tests.performance"
   else
-    cmd_user_prefix bash -c "pytest -vv -r sx --color=yes --pyargs --capture=no --durations=0 pulp_container.tests.performance.test_${PERFORMANCE_TEST}"
+    cmd_user_prefix bash -c "pytest -vv -r sx --color=yes --suppress-no-test-exit-code --capture=no --durations=0 --pyargs pulp_container.tests.performance.test_${PERFORMANCE_TEST}"
   fi
   exit
 fi
@@ -144,15 +144,14 @@ fi
 if [ -f "$FUNC_TEST_SCRIPT" ]; then
   source "$FUNC_TEST_SCRIPT"
 else
-    if [[ "$GITHUB_WORKFLOW" == "Container Nightly CI/CD" ]]
-    then
-        cmd_user_prefix bash -c "pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m parallel -n 8 --nightly"
-        cmd_user_prefix bash -c "pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional -m 'not parallel' --nightly"
-
-    else
-        cmd_user_prefix bash -c "pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m parallel -n 8"
-        cmd_user_prefix bash -c "pytest -v -r sx --color=yes --pyargs pulp_container.tests.functional -m 'not parallel'"
-    fi
+  if [[ "$GITHUB_WORKFLOW" =~ "Nightly" ]]
+  then
+    cmd_user_prefix bash -c "pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m parallel -n 8 --nightly"
+    cmd_user_prefix bash -c "pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m 'not parallel' --nightly"
+  else
+    cmd_user_prefix bash -c "pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m parallel -n 8"
+    cmd_user_prefix bash -c "pytest -v -r sx --color=yes --suppress-no-test-exit-code --pyargs pulp_container.tests.functional -m 'not parallel'"
+  fi 
 fi
 pushd ../pulp-cli
 pip install -r test_requirements.txt
