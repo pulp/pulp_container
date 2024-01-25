@@ -41,6 +41,19 @@ Bugfixes
 ----
 
 
+2.16.4 (2024-01-24)
+===================
+
+Bugfixes
+--------
+
+- Fixed re-sync failures after reclaiming disk space.
+  `#1400 <https://github.com/pulp/pulp_container/issues/1400>`__
+
+
+----
+
+
 2.16.3 (2023-12-15)
 ===================
 
