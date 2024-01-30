@@ -13,6 +13,19 @@ Changelog
 
 .. towncrier release notes start
 
+2.14.11 (2024-01-30)
+====================
+
+Bugfixes
+--------
+
+- Disabled TLS validation, if opted out in a remote, when syncing signatures.
+  `#1305 <https://github.com/pulp/pulp_container/issues/1305>`__
+
+
+----
+
+
 2.14.10 (2024-01-15)
 ====================
 
