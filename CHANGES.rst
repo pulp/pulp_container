@@ -13,6 +13,34 @@ Changelog
 
 .. towncrier release notes start
 
+2.18.0 (2024-02-02)
+===================
+
+Features
+--------
+
+- Added support for pull-through caching. Users can now configure a dedicated distribution and remote
+  linked to an external registry without the need to create and mirror repositories in advance. Pulp
+  downloads missing content automatically if requested and acts as a caching proxy.
+  `#507 <https://github.com/pulp/pulp_container/issues/507>`__
+
+
+Bugfixes
+--------
+
+- Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
+  media types retrieved from a remote registry.
+  `#1444 <https://github.com/pulp/pulp_container/issues/1444>`__
+
+
+Misc
+----
+
+- `#489 <https://github.com/pulp/pulp_container/issues/489>`__, `#1275 <https://github.com/pulp/pulp_container/issues/1275>`__
+
+
+----
+
 
 2.17.0 (2023-11-03)
 ===================
