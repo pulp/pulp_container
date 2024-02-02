@@ -28,7 +28,7 @@ flake8_ignore: []
 github_org: pulp
 issue_tracker: github
 kanban: true
-latest_release_branch: null
+latest_release_branch: '2.18'
 lint_requirements: true
 noissue_marker: '[noissue]'
 parallel_test_workers: 8
