@@ -1,9 +1,5 @@
-import base64
-import binascii
 import datetime
-import ecdsa
 import hashlib
-import itertools
 import json
 import logging
 
@@ -129,7 +125,6 @@ class Schema2toSchema1Converter:
         )
 
         key = jwk.ECKey().load_key(ecc.P256)
-        key.kid = getKeyId(key)
         manifest_data = _jsonDumps(manifest)
         signed_manifest_data = sign(manifest_data, key)
         return manifest_data, signed_manifest_data
@@ -248,53 +243,6 @@ def sign(data, key):
     # Add the signature block at the end of the json string, keeping the formatting
     data_with_signature = "".join(arr)
     return data_with_signature
-
-
-def getKeyId(key):
-    """
-    DER-encode the key and represent it in the format XXXX:YYYY:...
-    """
-    derRepr = toDer(key)
-    shaRepr = hashlib.sha256(derRepr).digest()[:30]
-    b32Repr = base64.b32encode(shaRepr).decode()
-    return ":".join(byN(b32Repr, 4))
-
-
-def toDer(key):
-    """Return the DER-encoded representation of the key"""
-    point = (
-        b"\x00\x04" + number2string(key.x, key.curve.bytes) + number2string(key.y, key.curve.bytes)
-    )
-    der = ecdsa.der
-    curveEncodedOid = der.encode_oid(1, 2, 840, 10045, 3, 1, 7)
-    return der.encode_sequence(
-        der.encode_sequence(ecdsa.keys.encoded_oid_ecPublicKey, curveEncodedOid),
-        der.encode_bitstring(point),
-    )
-
-
-def byN(strobj, N):
-    """
-    Yield consecutive substrings of length N from string strobj
-    """
-    it = iter(strobj)
-    while True:
-        substr = "".join(itertools.islice(it, N))
-        if not substr:
-            return
-        yield substr
-
-
-def number2string(num, order):
-    """
-    Hex-encode the number and return a zero-padded (to the left) to a total
-    length of 2*order
-    """
-    # convert to hex
-    nhex = "%x" % num
-    # Zero-pad to the left so the length of the resulting unhexified string is order
-    nhex = nhex.rjust(2 * order, "0")
-    return binascii.unhexlify(nhex)
 
 
 def compute_digest(manifest_data):
