@@ -24,7 +24,6 @@ from pulpcore.plugin.tasking import dispatch
 
 from pulp_container.app.cache import RegistryContentCache
 from pulp_container.app.models import ContainerDistribution, Tag, Blob, Manifest, BlobManifest
-from pulp_container.app.schema_convert import Schema2toSchema1ConverterWrapper
 from pulp_container.app.tasks import download_image_data
 from pulp_container.app.utils import (
     calculate_digest,
@@ -212,8 +211,8 @@ class Registry(Handler):
             }
             return await self.dispatch_tag(request, tag, response_headers)
 
-        # convert if necessary
-        return await Registry.dispatch_converted_schema(tag, accepted_media_types, path)
+        # return 404 in case the client is requesting docker manifest v2 schema 1
+        raise PathNotResolved(tag_name)
 
     async def dispatch_tag(self, request, tag, response_headers):
         """
@@ -238,40 +237,6 @@ class Registry(Handler):
             return await self._stream_content_artifact(request, web.StreamResponse(), ca)
         else:
             return await Registry._dispatch(artifact, response_headers)
-
-    @staticmethod
-    async def dispatch_converted_schema(tag, accepted_media_types, path):
-        """
-        Convert a manifest from the format schema 2 to the format schema 1.
-
-        The format is converted on-the-go and created resources are not stored for further uses.
-        The conversion is made after each request which does not accept the format for schema 2.
-
-        Args:
-            tag: A tag object which contains reference to tagged manifests and config blobs.
-            accepted_media_types: Accepted media types declared in the accept header.
-            path: A path of a repository.
-
-        Raises:
-            PathNotResolved: There was not found a valid conversion for the specified tag.
-
-        Returns:
-            :class:`aiohttp.web.StreamResponse` or :class:`aiohttp.web.Response`: The response
-                streamed back to the client.
-
-        """
-        schema1_converter = Schema2toSchema1ConverterWrapper(tag, accepted_media_types, path)
-        try:
-            result = await sync_to_async(schema1_converter.convert)()
-        except RuntimeError:
-            raise PathNotResolved(tag.name)
-
-        response_headers = {
-            "Docker-Content-Digest": result.digest,
-            "Content-Type": result.content_type,
-            "Docker-Distribution-API-Version": "registry/2.0",
-        }
-        return web.Response(text=result.text, headers=response_headers)
 
     @RegistryContentCache(
         base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),

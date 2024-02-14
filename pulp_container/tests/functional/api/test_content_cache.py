@@ -26,6 +26,9 @@ from pulp_container.tests.functional.utils import (
     get_auth_for_url,
 )
 
+
+from pulp_container.constants import MEDIA_TYPE
+
 STANDARD_FILE_STORAGE_FRAMEWORKS = [
     "django.core.files.storage.FileSystemStorage",
     "pulpcore.app.models.storage.FileSystem",
@@ -112,7 +115,10 @@ class ContentCacheTestCache(unittest.TestCase):
     def test_05_different_headers(self):
         """Simulate a scenario where a user queries manifests with different Accept headers."""
         self.check_content(cache_status_found_func)
-        self.check_content(cache_status_first_func, headers={"Accept": "*/*"})
+        self.check_content(
+            cache_status_first_func,
+            headers={"Accept": f"{MEDIA_TYPE.INDEX_OCI},{MEDIA_TYPE.MANIFEST_LIST}"},
+        )
 
     def test_06_invalidate_multiple_distributions(self):
         """Test if updating the repository referenced by multiple distributions invalidates all."""
