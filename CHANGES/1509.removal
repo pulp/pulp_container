@@ -1,0 +1,4 @@
+Removed the manifest schema conversion machinery. If the manifest is stored locally in the newer
+format and old clients request v2 schema1 manifest they will receive 404. v2 schema1 manifest is
+still going to be mirrored from remote source during sync if available and passed to the old clients
+on the request.

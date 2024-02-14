@@ -113,10 +113,8 @@ Docker Output::
 
 .. note::
     When using a container client that cannot handle requested manifests in the new format
-    (schema 2), the manifests are rewritten into the old format (schema 1) on-the-fly by Pulp.
-    In general, the automatic conversion cannot be performed when the content is not available
-    in the storage. Therefore, it may be successful only if the content was previously synced
-    with the ``immediate`` policy.
+    (schema 2), the manifests will **not** be rewritten into the old format (schema 1) and Pulp will
+    raise a 404 (HTTPNOTFOUND) error.
 
 
 Pull-Through Caching

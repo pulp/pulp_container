@@ -1,7 +1,6 @@
 """Tests that verify that images served by Pulp can be pulled."""
 import contextlib
 import hashlib
-import json
 import requests
 import unittest
 import uuid
@@ -169,22 +168,8 @@ class PullContentTestCase(unittest.TestCase):
         content_response = requests.get(
             latest_image_url, auth=auth, headers={"Accept": MEDIA_TYPE.MANIFEST_V1}
         )
-        content_response.raise_for_status()
-        base_content_type = content_response.headers["Content-Type"].split(";")[0]
-        self.assertIn(base_content_type, {MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1_SIGNED})
-
-        header_digest = content_response.headers["Docker-Content-Digest"]
-        converted_manifest = json.loads(content_response.content)
-        converted_manifest.pop("signatures")
-        manifest_string = json.dumps(
-            converted_manifest, indent=3, sort_keys=True, separators=(",", ": ")
-        ).encode("utf-8")
-        # the header digest should be equal to the SHA256 hash computed from
-        # a manifest without signatures
-        computed_digest = hashlib.sha256(manifest_string).hexdigest()
-        self.assertEqual(
-            computed_digest, header_digest.split(":")[1], "The manifest digests are not equal"
-        )
+        with self.assertRaises(requests.exceptions.HTTPError):
+            content_response.raise_for_status()
 
     def test_create_empty_blob_on_the_fly(self):
         """
