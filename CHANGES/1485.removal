@@ -1,3 +1,0 @@
-Removed the optional "kid" parameter stored inside the signatures' payload generated during
-docker manifest v2 schema 1 conversion. This change also removes the ``ecdsa`` dependency,
-which is vulnerable to Minevra timing attacks.
