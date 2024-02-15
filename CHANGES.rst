@@ -70,6 +70,21 @@ Bugfixes
 ----
 
 
+2.16.5 (2024-02-14)
+===================
+
+Deprecations and Removals
+-------------------------
+
+- Removed the optional "kid" parameter stored inside the signatures' payload generated during
+  docker manifest v2 schema 1 conversion. This change also removes the ``ecdsa`` dependency,
+  which is vulnerable to Minevra timing attacks.
+  `#1485 <https://github.com/pulp/pulp_container/issues/1485>`__
+
+
+----
+
+
 2.16.4 (2024-01-24)
 ===================
 
