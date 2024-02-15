@@ -45,6 +45,10 @@ ADDITIONAL_OCI_ARTIFACT_TYPES = {
     "application/vnd.wasm.config.v1+json": [
         "application/vnd.wasm.content.layer.v1+wasm",
     ],
+    # delta manifest
+    "application/vnd.redhat.delta.config.v1+json": [
+        "application/vnd.tar-diff",
+    ],
 }
 
 FLATPAK_INDEX = False
