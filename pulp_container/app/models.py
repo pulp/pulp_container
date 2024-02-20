@@ -110,6 +110,12 @@ class Manifest(Content):
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
         unique_together = ("digest",)
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(media_type__in=[MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI]),
+                name="valid_media_type_choice",
+            )
+        ]
 
 
 class BlobManifest(models.Model):
@@ -225,6 +231,12 @@ class ManifestSignature(Content):
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
         unique_together = (("digest",),)
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(type__in=[SIGNATURE_TYPE.ATOMIC_SHORT]),
+                name="valid_type_choice",
+            )
+        ]
 
 
 class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
