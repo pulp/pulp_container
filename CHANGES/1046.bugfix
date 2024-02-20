@@ -1,0 +1,2 @@
+Added database-level validation for the 'media_type' field of Manifest and the 'type' field of 
+Manifest and the 'type' field of ManifestSignature.
