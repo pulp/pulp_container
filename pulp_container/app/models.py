@@ -72,6 +72,7 @@ class Manifest(Content):
         digest (models.TextField): The manifest digest.
         schema_version (models.IntegerField): The manifest schema version.
         media_type (models.TextField): The manifest media type.
+        data (models.TextField): The manifest's data in text format.
         annotations (models.JSONField): Metadata stored inside the image manifest.
         labels (models.JSONField): Metadata stored inside the image configuration.
         is_bootable (models.BooleanField): Indicates whether the image is bootable or not.
@@ -98,6 +99,7 @@ class Manifest(Content):
     digest = models.TextField(db_index=True)
     schema_version = models.IntegerField()
     media_type = models.TextField(choices=MANIFEST_CHOICES)
+    data = models.TextField(default="")
 
     annotations = models.JSONField(default=dict)
     labels = models.JSONField(default=dict)

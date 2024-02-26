@@ -56,7 +56,7 @@ class TagSerializer(NoArtifactContentSerializer):
         model = models.Tag
 
 
-class ManifestSerializer(SingleArtifactContentSerializer):
+class ManifestSerializer(NoArtifactContentSerializer):
     """
     Serializer for Manifests.
     """
@@ -105,7 +105,7 @@ class ManifestSerializer(SingleArtifactContentSerializer):
     )
 
     class Meta:
-        fields = SingleArtifactContentSerializer.Meta.fields + (
+        fields = NoArtifactContentSerializer.Meta.fields + (
             "digest",
             "schema_version",
             "media_type",

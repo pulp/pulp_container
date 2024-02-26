@@ -225,13 +225,16 @@ def calculate_digest(manifest):
     Calculate the requested digest of the ImageManifest, given in JSON.
 
     Args:
-        manifest (str):  The raw JSON representation of the Manifest.
+        manifest (str | bytes):  The raw JSON representation of the Manifest.
 
     Returns:
         str: The digest of the given ImageManifest
 
     """
     decoded_manifest = json.loads(manifest)
+    if isinstance(manifest, str):
+        manifest = manifest.encode("utf-8")
+
     if "signatures" in decoded_manifest:
         # This manifest contains signatures. Unfortunately, the Docker manifest digest
         # is calculated on the unsigned version of the Manifest so we need to remove the
