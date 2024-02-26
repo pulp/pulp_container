@@ -132,7 +132,7 @@ class Registry(Handler):
                 pull_downloader = await PullThroughDownloader.create(
                     distribution, repository_version, path, tag_name
                 )
-                raw_manifest, digest, media_type = await pull_downloader.download_manifest(
+                raw_text_manifest, digest, media_type = await pull_downloader.download_manifest(
                     run_pipeline=True
                 )
                 headers = {
@@ -140,7 +140,7 @@ class Registry(Handler):
                     "Docker-Content-Digest": digest,
                     "Docker-Distribution-API-Version": "registry/2.0",
                 }
-                return web.Response(text=raw_manifest, headers=headers)
+                return web.Response(text=raw_text_manifest, headers=headers)
             else:
                 raise PathNotResolved(tag_name)
 
@@ -168,7 +168,7 @@ class Registry(Handler):
                         distribution, repository_version, path, tag_name
                     )
                     pull_downloader.downloader = downloader
-                    raw_manifest, digest, media_type = await pull_downloader.download_manifest(
+                    raw_text_manifest, digest, media_type = await pull_downloader.download_manifest(
                         run_pipeline=True
                     )
                     headers = {
@@ -176,7 +176,7 @@ class Registry(Handler):
                         "Docker-Content-Digest": digest,
                         "Docker-Distribution-API-Version": "registry/2.0",
                     }
-                    return web.Response(text=raw_manifest, headers=headers)
+                    return web.Response(text=raw_text_manifest, headers=headers)
 
         accepted_media_types = get_accepted_media_types(request.headers)
 
@@ -200,7 +200,11 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            return await self.dispatch_tag(request, tag, response_headers)
+            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
+            if not tag.tagged_manifest.data:
+                return await self.dispatch_tag(request, tag, response_headers)
+            # END OF BACKWARD COMPATIBILITY
+            return web.Response(text=tag.tagged_manifest.data, headers=response_headers)
 
         # return what was found in case media_type is accepted header (docker, oci)
         if tag.tagged_manifest.media_type in accepted_media_types:
@@ -209,11 +213,16 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            return await self.dispatch_tag(request, tag, response_headers)
+            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
+            if not tag.tagged_manifest.data:
+                return await self.dispatch_tag(request, tag, response_headers)
+            # END OF BACKWARD COMPATIBILITY
+            return web.Response(text=tag.tagged_manifest.data, headers=response_headers)
 
         # return 404 in case the client is requesting docker manifest v2 schema 1
         raise PathNotResolved(tag_name)
 
+    # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
     async def dispatch_tag(self, request, tag, response_headers):
         """
         Finds an artifact associated with a Tag and sends it to the client, otherwise tries
@@ -237,6 +246,7 @@ class Registry(Handler):
             return await self._stream_content_artifact(request, web.StreamResponse(), ca)
         else:
             return await Registry._dispatch(artifact, response_headers)
+        # END OF BACKWARD COMPATIBILITY
 
     @RegistryContentCache(
         base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
@@ -261,20 +271,32 @@ class Registry(Handler):
         pending_manifests = repository.pending_manifests.values_list("pk")
         pending_content = pending_blobs.union(pending_manifests)
         content = repository_version.content | Content.objects.filter(pk__in=pending_content)
+        # "/pulp/container/{path:.+}/{content:(blobs|manifests)}/sha256:{digest:.+}"
+        content_type = request.match_info["content"]
 
         try:
-            ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
-                content__in=content, relative_path=digest
-            )
-            ca_content = await sync_to_async(ca.content.cast)()
-            if isinstance(ca_content, Blob):
+            if content_type == "manifests":
+                manifest = await Manifest.objects.aget(digest=digest)
+                headers = {
+                    "Content-Type": manifest.media_type,
+                    "Docker-Content-Digest": manifest.digest,
+                }
+                # TODO: BACKWARD COMPATIBILITY - remove after migrating to artifactless manifest
+                if not manifest.data:
+                    saved_artifact = await manifest._artifacts.aget()
+                    return await Registry._dispatch(saved_artifact, headers)
+                # END OF BACKWARD COMPATIBILITY
+                return web.Response(text=manifest.data, headers=headers)
+            elif content_type == "blobs":
+                ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
+                    content__in=content, relative_path=digest
+                )
+                ca_content = await sync_to_async(ca.content.cast)()
                 media_type = BLOB_CONTENT_TYPE
-            else:
-                media_type = ca_content.media_type
-            headers = {
-                "Content-Type": media_type,
-                "Docker-Content-Digest": ca_content.digest,
-            }
+                headers = {
+                    "Content-Type": media_type,
+                    "Docker-Content-Digest": ca_content.digest,
+                }
         except ObjectDoesNotExist:
             distribution = await distribution.acast()
             if distribution.remote_id and distribution.pull_through_distribution_id:
@@ -282,16 +304,18 @@ class Registry(Handler):
                     distribution, repository_version, path, digest
                 )
 
-                # "/pulp/container/{path:.+}/{content:(blobs|manifests)}/sha256:{digest:.+}"
-                content_type = request.match_info["content"]
                 if content_type == "manifests":
-                    raw_manifest, digest, media_type = await pull_downloader.download_manifest()
+                    (
+                        raw_text_manifest,
+                        digest,
+                        media_type,
+                    ) = await pull_downloader.download_manifest()
                     headers = {
                         "Content-Type": media_type,
                         "Docker-Content-Digest": digest,
                         "Docker-Distribution-API-Version": "registry/2.0",
                     }
-                    return web.Response(text=raw_manifest, headers=headers)
+                    return web.Response(text=raw_text_manifest, headers=headers)
                 elif content_type == "blobs":
                     # there might be a case where the client has all the manifest data in place
                     # and tries to download only missing blobs; because of that, only the reference
@@ -304,6 +328,7 @@ class Registry(Handler):
             else:
                 raise PathNotResolved(path)
         else:
+            # else branch can be reached only for blob
             artifact = ca.artifact
             if artifact:
                 return await Registry._dispatch(artifact, headers)
@@ -349,31 +374,28 @@ class PullThroughDownloader:
     async def download_manifest(self, run_pipeline=False):
         response = await self.run_manifest_downloader()
 
-        with open(response.path) as f:
-            raw_data = f.read()
-
-        response.artifact_attributes["file"] = response.path
-        saved_artifact = await save_artifact(response.artifact_attributes)
+        with open(response.path, mode="r") as f:
+            raw_text_data = f.read()
 
         if run_pipeline:
-            await self.run_pipeline(saved_artifact)
+            await self.run_pipeline(raw_text_data)
 
         try:
-            manifest_data = json.loads(raw_data)
+            manifest_data = json.loads(raw_text_data)
         except json.decoder.JSONDecodeError:
             raise PathNotResolved(self.identifier)
         media_type = determine_media_type(manifest_data, response)
         if media_type in (MEDIA_TYPE.MANIFEST_V1_SIGNED, MEDIA_TYPE.MANIFEST_V1):
-            digest = calculate_digest(raw_data)
+            digest = calculate_digest(raw_text_data)
         else:
             digest = f"sha256:{response.artifact_attributes['sha256']}"
 
         if media_type not in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
             # add the manifest and blobs to the repository to be able to stream it
             # in the next round when a client approaches the registry
-            await self.init_pending_content(digest, manifest_data, media_type, saved_artifact)
+            await self.init_pending_content(digest, manifest_data, raw_text_data, media_type)
 
-        return raw_data, digest, media_type
+        return raw_text_data, digest, media_type
 
     async def run_manifest_downloader(self):
         if self.downloader is None:
@@ -396,7 +418,7 @@ class PullThroughDownloader:
 
         return response
 
-    async def run_pipeline(self, saved_artifact):
+    async def run_pipeline(self, raw_text_manifest_data):
         set_guid(generate_guid())
         await sync_to_async(dispatch)(
             download_image_data,
@@ -404,12 +426,12 @@ class PullThroughDownloader:
             kwargs={
                 "repository_pk": self.repository_version.repository.pk,
                 "remote_pk": self.remote.pk,
-                "manifest_artifact_pk": saved_artifact.pk,
+                "raw_text_manifest_data": raw_text_manifest_data,
                 "tag_name": self.identifier,
             },
         )
 
-    async def init_pending_content(self, digest, manifest_data, media_type, artifact):
+    async def init_pending_content(self, digest, manifest_data, raw_text_data, media_type):
         if config := manifest_data.get("config", None):
             config_digest = config["digest"]
             config_blob = await self.save_config_blob(config_digest)
@@ -426,6 +448,7 @@ class PullThroughDownloader:
             ),
             media_type=media_type,
             config_blob=config_blob,
+            data=raw_text_data,
         )
 
         # skip if media_type of schema1
@@ -442,12 +465,6 @@ class PullThroughDownloader:
         for layer in manifest_data["layers"]:
             blob = await self.save_blob(layer["digest"], manifest)
             await sync_to_async(self.repository.pending_blobs.add)(blob)
-
-        content_artifact = ContentArtifact(
-            artifact=artifact, content=manifest, relative_path=manifest.digest
-        )
-        with suppress(IntegrityError):
-            await content_artifact.asave()
 
     async def save_blob(self, digest, manifest):
         blob = Blob(digest=digest)
