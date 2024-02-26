@@ -13,6 +13,7 @@ from pulp_container.app.models import (
     Tag,
 )
 from pulp_container.constants import MEDIA_TYPE
+from pulp_container.app.utils import calculate_digest
 from pulpcore.plugin.models import Artifact, ContentArtifact, Content
 
 
@@ -61,22 +62,24 @@ def add_image_from_directory_to_repository(path, repository, tag):
 
     """
     manifest_path = os.path.join(path, "manifest.json")
-    manifest_artifact = Artifact.init_and_validate(manifest_path)
-    manifest_artifact.save()
-    manifest_digest = "sha256:{}".format(manifest_artifact.sha256)
+
+    with open(manifest_path, "rb") as f:
+        bytes_data = f.read()
+    manifest_digest = calculate_digest(bytes_data)
+    manifest_text_data = bytes_data.decode("utf-8")
+
     manifest = Manifest(
-        digest=manifest_digest, schema_version=2, media_type=MEDIA_TYPE.MANIFEST_OCI
+        digest=manifest_digest,
+        schema_version=2,
+        media_type=MEDIA_TYPE.MANIFEST_OCI,
+        data=manifest_text_data,
     )
     manifest.save()
-    ContentArtifact(
-        artifact=manifest_artifact, content=manifest, relative_path=manifest_digest
-    ).save()
     tag = Tag(name=tag, tagged_manifest=manifest)
     tag.save()
 
     with repository.new_version() as new_repo_version:
-        manifest_json = json.load(manifest_artifact.file)
-        manifest_artifact.file.close()
+        manifest_json = json.loads(manifest_text_data)
 
         config_blob = get_or_create_blob(manifest_json["config"], manifest, path)
         manifest.config_blob = config_blob

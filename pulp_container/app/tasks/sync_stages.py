@@ -29,7 +29,6 @@ from pulp_container.app.models import (
     Tag,
 )
 from pulp_container.app.utils import (
-    save_artifact,
     extract_data_from_signature,
     urlpath_sanitize,
     determine_media_type,
@@ -61,40 +60,46 @@ class ContainerFirstStage(Stage):
         self.manifest_dcs = []
         self.signature_dcs = []
 
-    async def _download_and_save_artifact_data(self, manifest_url):
+    async def _download_manifest_data(self, manifest_url):
         downloader = self.remote.get_downloader(url=manifest_url)
         response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
         with open(response.path, "rb") as content_file:
-            raw_data = content_file.read()
+            raw_bytes_data = content_file.read()
         response.artifact_attributes["file"] = response.path
 
-        saved_artifact = await save_artifact(response.artifact_attributes)
-        content_data = json.loads(raw_data)
+        raw_text_data = raw_bytes_data.decode("utf-8")
+        content_data = json.loads(raw_bytes_data)
 
-        return saved_artifact, content_data, raw_data, response
+        return content_data, raw_text_data, response
 
     async def _check_for_existing_manifest(self, download_tag):
         response = await download_tag
 
         digest = response.headers.get("docker-content-digest")
 
-        if digest and (
+        if (
             manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest, _artifacts__isnull=False)
+            .filter(digest=digest)
             .afirst()
         ):
-            saved_artifact = await manifest._artifacts.aget()
-            content_data, raw_data = await sync_to_async(get_content_data)(saved_artifact)
+            if raw_text_data := manifest.data:
+                content_data = json.loads(raw_text_data)
+
+            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
+            elif saved_artifact := await manifest._artifacts.aget():
+                content_data, raw_bytes_data = await sync_to_async(get_content_data)(saved_artifact)
+                raw_text_data = raw_bytes_data.decode("utf-8")
+            # if artifact is not available (due to reclaim space) we will download it again
+            else:
+                content_data, raw_text_data, response = await self._download_manifest_data(
+                    response.url
+                )
+            # END OF BACKWARD COMPATIBILITY
 
         else:
-            (
-                saved_artifact,
-                content_data,
-                raw_data,
-                response,
-            ) = await self._download_and_save_artifact_data(response.url)
+            content_data, raw_text_data, response = await self._download_manifest_data(response.url)
 
-        return saved_artifact, content_data, raw_data, response
+        return content_data, raw_text_data, response
 
     async def run(self):
         """
@@ -137,9 +142,9 @@ class ContainerFirstStage(Stage):
             ]
 
             for artifact in asyncio.as_completed(to_download_artifact):
-                saved_artifact, content_data, raw_data, response = await artifact
+                content_data, raw_text_data, response = await artifact
 
-                digest = saved_artifact.sha256
+                digest = calculate_digest(raw_text_data)
 
                 # Look for cosign signatures
                 # cosign signature has a tag convention 'sha256-1234.sig'
@@ -165,8 +170,8 @@ class ContainerFirstStage(Stage):
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
 
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
-                    list_dc = self.create_tagged_manifest_list(
-                        tag_name, saved_artifact, content_data, media_type
+                    list_dc = self.create_manifest_list(
+                        content_data, raw_text_data, media_type, digest=digest
                     )
                     for listed_manifest_task in asyncio.as_completed(
                         [
@@ -215,8 +220,8 @@ class ContainerFirstStage(Stage):
 
                 else:
                     # Simple tagged manifest
-                    man_dc = self.create_tagged_manifest(
-                        tag_name, saved_artifact, content_data, raw_data, media_type
+                    man_dc = self.create_manifest(
+                        content_data, raw_text_data, media_type, digest=digest
                     )
                     if signature_source is not None:
                         man_sig_dcs = await self.create_signatures(man_dc, signature_source)
@@ -359,79 +364,56 @@ class ContainerFirstStage(Stage):
             manifest_dc.extra_data["config_blob_dc"] = blob_dc
             await self.put(blob_dc)
 
-    def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data, media_type):
+    def create_manifest_list(self, manifest_list_data, raw_text_data, media_type, digest=None):
         """
         Create a ManifestList.
 
         Args:
-            tag_name (str): A name of a tag
-            saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
             manifest_list_data (dict): Data about a ManifestList
-            media_type (str): The type of manifest
+            raw_text_data: (str): The raw JSON representation of the ManifestList
+            media_type (str): The type of the ManifestList
+            digest (str): The digest of the ManifestList
 
         """
-        digest = f"sha256:{saved_artifact.sha256}"
+        if digest is None:
+            digest = calculate_digest(raw_text_data)
+
         manifest_list = Manifest(
             digest=digest,
             schema_version=manifest_list_data["schemaVersion"],
             media_type=media_type,
             annotations=manifest_list_data.get("annotations", {}),
+            data=raw_text_data,
         )
 
-        manifest_list_dc = self._create_manifest_declarative_content(
-            manifest_list, saved_artifact, tag_name, digest
-        )
+        manifest_list_dc = DeclarativeContent(content=manifest_list)
         manifest_list_dc.extra_data["listed_manifests"] = []
         return manifest_list_dc
 
-    def create_tagged_manifest(self, tag_name, saved_artifact, manifest_data, raw_data, media_type):
+    def create_manifest(self, manifest_data, raw_text_data, media_type, digest=None):
         """
         Create an Image Manifest.
 
         Args:
-            tag_name (str): A name of a tag
-            saved_artifact (pulpcore.plugin.models.Artifact): A saved manifest's Artifact
-            manifest_data (dict): Data about a single new ImageManifest.
-            raw_data: (str): The raw JSON representation of the ImageManifest.
-            media_type (str): The type of a manifest
+            manifest_data (dict): Data about a single new ImageManifest
+            raw_text_data: (str): The raw JSON representation of the ImageManifest
+            media_type (str): The type of the ImageManifest
+            digest(str): THe digest of the ImageManifest
 
         """
-        if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
-            digest = f"sha256:{saved_artifact.sha256}"
-        else:
-            digest = calculate_digest(raw_data)
+        if digest is None:
+            digest = calculate_digest(raw_text_data)
 
         manifest = Manifest(
             digest=digest,
             schema_version=manifest_data["schemaVersion"],
             media_type=media_type,
+            data=raw_text_data,
             annotations=manifest_data.get("annotations", {}),
         )
 
-        return self._create_manifest_declarative_content(manifest, saved_artifact, tag_name, digest)
-
-    def _create_manifest_declarative_content(self, manifest, saved_artifact, tag_name, digest):
-        relative_url = f"/v2/{self.remote.namespaced_upstream_name}/manifests/"
-        da_digest = self._create_manifest_declarative_artifact(
-            relative_url + digest, saved_artifact, digest
-        )
-        da_tag = self._create_manifest_declarative_artifact(
-            relative_url + tag_name, saved_artifact, digest
-        )
-
-        man_dc = DeclarativeContent(content=manifest, d_artifacts=[da_digest, da_tag])
-        return man_dc
-
-    def _create_manifest_declarative_artifact(self, relative_url, saved_artifact, digest):
-        url = urljoin(self.remote.url, relative_url)
-        da = DeclarativeArtifact(
-            artifact=saved_artifact,
-            url=url,
-            relative_path=digest,
-            remote=self.remote,
-            extra_data={"headers": V2_ACCEPT_HEADERS},
-        )
-        return da
+        manifest_dc = DeclarativeContent(content=manifest)
+        return manifest_dc
 
     def _create_signature_declarative_content(
         self, signature_raw, man_dc, name=None, signature_b64=None
@@ -456,6 +438,24 @@ class ContainerFirstStage(Stage):
         )
         return sig_dc
 
+    async def _download_and_instantiate_manifest(self, manifest_url, digest):
+        content_data, raw_text_data, response = await self._download_manifest_data(manifest_url)
+        media_type = determine_media_type(content_data, response)
+        validate_manifest(content_data, media_type, digest)
+
+        manifest = Manifest(
+            digest=digest,
+            schema_version=(
+                2
+                if content_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
+                else 1
+            ),
+            media_type=content_data["mediaType"],
+            data=raw_text_data,
+            annotations=content_data.get("annotations", {}),
+        )
+        return content_data, manifest
+
     async def create_listed_manifest(self, manifest_data):
         """
         Create an Image Manifest from manifest data in a ManifestList.
@@ -472,38 +472,26 @@ class ContainerFirstStage(Stage):
 
         if (
             manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest, _artifacts__isnull=False)
+            .filter(digest=digest)
             .afirst()
         ):
-            saved_artifact = await manifest._artifacts.aget()
-            content_data, _ = await sync_to_async(get_content_data)(saved_artifact)
+            if manifest.data:
+                content_data = json.loads(manifest.data)
+            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
+            elif saved_artifact := await manifest._artifacts.aget():
+                content_data, _ = await sync_to_async(get_content_data)(saved_artifact)
+            # if artifact is not available (due to reclaim space) we will download it again
+            else:
+                content_data, manifest = await self._download_and_instantiate_manifest(
+                    manifest_url, digest
+                )
+            # END OF BACKWARD COMPATIBILITY
 
         else:
-            saved_artifact, content_data, _, response = await self._download_and_save_artifact_data(
-                manifest_url
-            )
-            media_type = determine_media_type(content_data, response)
-            validate_manifest(content_data, media_type, digest)
-
-            manifest = Manifest(
-                digest=digest,
-                schema_version=(
-                    2
-                    if content_data["mediaType"]
-                    in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
-                    else 1
-                ),
-                media_type=content_data["mediaType"],
-                annotations=content_data.get("annotations", {}),
+            content_data, manifest = await self._download_and_instantiate_manifest(
+                manifest_url, digest
             )
 
-        da = DeclarativeArtifact(
-            artifact=saved_artifact,
-            url=manifest_url,
-            relative_path=digest,
-            remote=self.remote,
-            extra_data={"headers": V2_ACCEPT_HEADERS},
-        )
         platform = {}
         p = manifest_data["platform"]
         platform["architecture"] = p["architecture"]
@@ -512,10 +500,7 @@ class ContainerFirstStage(Stage):
         platform["variant"] = p.get("variant", "")
         platform["os.version"] = p.get("os.version", "")
         platform["os.features"] = p.get("os.features", "")
-        man_dc = DeclarativeContent(
-            content=manifest,
-            d_artifacts=[da],
-        )
+        man_dc = DeclarativeContent(content=manifest)
         return {"manifest_dc": man_dc, "platform": platform, "content_data": content_data}
 
     def create_blob(self, blob_data, deferred_download=True):
