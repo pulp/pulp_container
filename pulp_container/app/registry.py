@@ -425,6 +425,9 @@ class PullThroughDownloader:
             media_type=media_type,
             config_blob=config_blob,
         )
+
+        await sync_to_async(manifest.init_metadata)(manifest_data=manifest_data)
+
         try:
             await manifest.asave()
         except IntegrityError:

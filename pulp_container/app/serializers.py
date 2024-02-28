@@ -84,6 +84,26 @@ class ManifestSerializer(SingleArtifactContentSerializer):
         queryset=models.Blob.objects.all(),
     )
 
+    annotations = serializers.JSONField(
+        read_only=True,
+        help_text=_("Property that contains arbitrary metadata stored inside the image manifest."),
+    )
+    labels = serializers.JSONField(
+        read_only=True,
+        help_text=_("Property describing metadata stored inside the image configuration"),
+    )
+
+    is_bootable = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=_("A boolean determining whether users can boot from an image or not."),
+    )
+    is_flatpak = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=_("A boolean determining whether the image bundles a Flatpak application"),
+    )
+
     class Meta:
         fields = SingleArtifactContentSerializer.Meta.fields + (
             "digest",
@@ -92,6 +112,10 @@ class ManifestSerializer(SingleArtifactContentSerializer):
             "listed_manifests",
             "config_blob",
             "blobs",
+            "annotations",
+            "labels",
+            "is_bootable",
+            "is_flatpak",
         )
         model = models.Manifest
 

@@ -2,11 +2,14 @@
 import pytest
 from pulpcore.tests.functional import PulpTaskError
 
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1, PULP_LABELED_FIXTURE
 
 from pulp_container.tests.functional.constants import (
     REGISTRY_V2_FEED_URL,
 )
+
+# there is a manifest list and a listed manifest
+BOOTABLE_MANIFESTS_COUNT = 2
 
 
 @pytest.fixture
@@ -48,6 +51,34 @@ def test_basic_sync(container_repo, container_remote, container_repository_api, 
     repository = container_repository_api.read(repository.pulp_href)
 
     assert repository.latest_version_href == latest_version_href
+
+
+@pytest.mark.parallel
+def test_sync_labelled_image(
+    container_remote_factory,
+    container_repo,
+    container_sync,
+    container_tag_api,
+    container_manifest_api,
+):
+    """Test syncing an image containing labels and assert on their availability in the ViewSet."""
+    remote = container_remote_factory(upstream_name=PULP_LABELED_FIXTURE)
+    repo_version = container_sync(container_repo, remote).created_resources[0]
+
+    tag = container_tag_api.list(repository_version=repo_version).results[0]
+    manifest_list = container_manifest_api.read(tag.tagged_manifest)
+    assert manifest_list.is_bootable
+    assert not manifest_list.is_flatpak
+
+    manifest = container_manifest_api.read(manifest_list.listed_manifests[0])
+    keys = sorted(["org.opencontainers.image.base.name", "org.opencontainers.image.base.digest"])
+    assert keys == sorted(manifest.annotations.keys())
+
+    count = container_manifest_api.list(repository_version=repo_version, is_bootable=True).count
+    assert count == BOOTABLE_MANIFESTS_COUNT
+
+    count = container_manifest_api.list(repository_version=repo_version, is_bootable=False).count
+    assert count == 0
 
 
 def test_sync_reclaim_resync(

@@ -35,6 +35,9 @@ PULP_HELLO_WORLD_REPO = "pulp/hello-world"
 # a repository containing 4 manifest lists and 5 manifests
 PULP_FIXTURE_1 = "pulp/test-fixture-1"
 
+# a dummy repository containing two manifests (index and image) with an arbitrary bootc label
+PULP_LABELED_FIXTURE = "pulp/bootc-labeled"
+
 # an alternative tag for the PULP_HELLO_WORLD image referencing a manifest list
 PULP_HELLO_WORLD_LINUX_TAG = ":linux"
 
