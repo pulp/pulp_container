@@ -1159,7 +1159,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             if (len(manifests) - found_manifests.count()) != 0:
                 ManifestInvalid(digest=manifest_digest)
 
-            manifest_list = self._save_manifest(artifact, manifest_digest, media_type)
+            manifest_list = self._init_manifest(manifest_digest, media_type)
+            manifest_list = self._save_manifest(manifest_list, artifact)
 
             manifests_to_list = []
             for manifest in found_manifests:
@@ -1180,6 +1181,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 manifests_to_list, ignore_conflicts=True, batch_size=1000
             )
             manifest = manifest_list
+
+            # once relations for listed manifests are established, it is
+            # possible to initialize the nature of the manifest list
+            if manifest.init_manifest_list_nature():
+                manifest.save(update_fields=["is_bootable", "is_flatpak"])
 
             found_blobs = models.Blob.objects.filter(
                 digest__in=found_manifests.values_list("blobs__digest"),
@@ -1233,9 +1239,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             if (len(blobs) - found_blobs.count()) != 0:
                 raise ManifestInvalid(digest=manifest_digest)
 
-            manifest = self._save_manifest(
-                artifact, manifest_digest, media_type, found_config_blobs.first()
-            )
+            config_blob = found_config_blobs.first()
+            manifest = self._init_manifest(manifest_digest, media_type, config_blob)
+            manifest.init_metadata(manifest_data=content_data)
+
+            manifest = self._save_manifest(manifest, artifact)
 
             thru = []
             for blob in found_blobs:
@@ -1289,13 +1297,15 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             repository.pending_manifests.add(manifest)
             return ManifestResponse(manifest, path, request, status=201)
 
-    def _save_manifest(self, artifact, manifest_digest, content_type, config_blob=None):
-        manifest = models.Manifest(
+    def _init_manifest(self, manifest_digest, media_type, config_blob=None):
+        return models.Manifest(
             digest=manifest_digest,
             schema_version=2,
-            media_type=content_type,
+            media_type=media_type,
             config_blob=config_blob,
         )
+
+    def _save_manifest(self, manifest, artifact):
         try:
             manifest.save()
         except IntegrityError:

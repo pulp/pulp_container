@@ -31,6 +31,7 @@ from pulpcore.plugin.util import gpg_verify
 
 
 from . import downloaders
+from pulp_container.app.utils import get_content_data
 from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
 
 
@@ -71,6 +72,10 @@ class Manifest(Content):
         digest (models.TextField): The manifest digest.
         schema_version (models.IntegerField): The manifest schema version.
         media_type (models.TextField): The manifest media type.
+        annotations (models.JSONField): Metadata stored inside the image manifest.
+        labels (models.JSONField): Metadata stored inside the image configuration.
+        is_bootable (models.BooleanField): Indicates whether the image is bootable or not.
+        is_flatpak (models.BooleanField): Indicates whether the image is a flatpak package or not.
 
     Relations:
         blobs (models.ManyToManyField): Many-to-many relationship with Blob.
@@ -94,6 +99,12 @@ class Manifest(Content):
     schema_version = models.IntegerField()
     media_type = models.TextField(choices=MANIFEST_CHOICES)
 
+    annotations = models.JSONField(default=dict)
+    labels = models.JSONField(default=dict)
+
+    is_bootable = models.BooleanField(default=False)
+    is_flatpak = models.BooleanField(default=False)
+
     blobs = models.ManyToManyField(Blob, through="BlobManifest")
     config_blob = models.ForeignKey(
         Blob, related_name="config_blob", null=True, on_delete=models.CASCADE
@@ -106,6 +117,71 @@ class Manifest(Content):
         symmetrical=False,
         through_fields=("image_manifest", "manifest_list"),
     )
+
+    def init_metadata(self, manifest_data=None):
+        has_annotations = self.init_annotations(manifest_data)
+        has_labels = self.init_labels()
+        has_image_nature = self.init_image_nature()
+        return has_annotations or has_labels or has_image_nature
+
+    def init_annotations(self, manifest_data=None):
+        if manifest_data is None:
+            manifest_artifact = self._artifacts.get()
+            manifest_data, _ = get_content_data(manifest_artifact)
+
+        self.annotations = manifest_data.get("annotations", {})
+
+        return bool(self.annotations)
+
+    def init_labels(self):
+        if self.config_blob:
+            config_artifact = self.config_blob._artifacts.get()
+
+            config_data, _ = get_content_data(config_artifact)
+            self.labels = config_data.get("config", {}).get("Labels") or {}
+
+        return bool(self.labels)
+
+    def init_image_nature(self):
+        if self.media_type in [MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.MANIFEST_LIST]:
+            return self.init_manifest_list_nature()
+        else:
+            return self.init_manifest_nature()
+
+    def init_manifest_list_nature(self):
+        for manifest in self.listed_manifests.all():
+            # it suffices just to have a single manifest of a specific nature;
+            # there is no case where the manifest is both bootable and flatpak-based
+            if manifest.is_bootable:
+                self.is_bootable = True
+                return True
+            elif manifest.is_flatpak:
+                self.is_flatpak = True
+                return True
+
+        return False
+
+    def init_manifest_nature(self):
+        if self.is_bootable_image():
+            self.is_bootable = True
+            return True
+        elif self.is_flatpak_image():
+            self.is_flatpak = True
+            return True
+        else:
+            return False
+
+    def is_bootable_image(self):
+        if (
+            self.annotations.get("containers.bootc") == "1"
+            or self.labels.get("containers.bootc") == "1"
+        ):
+            return True
+        else:
+            return False
+
+    def is_flatpak_image(self):
+        return True if self.labels.get("org.flatpak.ref") else False
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"

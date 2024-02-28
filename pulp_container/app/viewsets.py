@@ -78,6 +78,8 @@ class ManifestFilter(ContentFilter):
         model = models.Manifest
         fields = {
             "digest": ["exact", "in"],
+            "is_bootable": ["exact"],
+            "is_flatpak": ["exact"],
         }
 
 

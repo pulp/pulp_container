@@ -35,6 +35,7 @@ from pulp_container.app.utils import (
     determine_media_type,
     validate_manifest,
     calculate_digest,
+    get_content_data,
 )
 
 log = logging.getLogger(__name__)
@@ -60,12 +61,6 @@ class ContainerFirstStage(Stage):
         self.manifest_dcs = []
         self.signature_dcs = []
 
-    def _get_content_data_blocking(self, saved_artifact):
-        raw_data = saved_artifact.file.read()
-        content_data = json.loads(raw_data)
-        saved_artifact.file.close()
-        return content_data, raw_data
-
     async def _download_and_save_artifact_data(self, manifest_url):
         downloader = self.remote.get_downloader(url=manifest_url)
         response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
@@ -89,9 +84,7 @@ class ContainerFirstStage(Stage):
             .afirst()
         ):
             saved_artifact = await manifest._artifacts.aget()
-            content_data, raw_data = await sync_to_async(self._get_content_data_blocking)(
-                saved_artifact
-            )
+            content_data, raw_data = await sync_to_async(get_content_data)(saved_artifact)
 
         else:
             (
@@ -278,6 +271,8 @@ class ContainerFirstStage(Stage):
             config_blob_dc = manifest_dc.extra_data.get("config_blob_dc")
             if config_blob_dc:
                 manifest_dc.content.config_blob = await config_blob_dc.resolution()
+                await sync_to_async(manifest_dc.content.init_labels)()
+                manifest_dc.content.init_image_nature()
             for blob_dc in manifest_dc.extra_data["blob_dcs"]:
                 # Just await here. They will be associated in the post_save hook.
                 await blob_dc.resolution()
@@ -404,7 +399,10 @@ class ContainerFirstStage(Stage):
             digest = calculate_digest(raw_data)
 
         manifest = Manifest(
-            digest=digest, schema_version=manifest_data["schemaVersion"], media_type=media_type
+            digest=digest,
+            schema_version=manifest_data["schemaVersion"],
+            media_type=media_type,
+            annotations=manifest_data.get("annotations", {}),
         )
 
         return self._create_manifest_declarative_content(manifest, saved_artifact, tag_name, digest)
@@ -475,7 +473,7 @@ class ContainerFirstStage(Stage):
             .afirst()
         ):
             saved_artifact = await manifest._artifacts.aget()
-            content_data, _ = await sync_to_async(self._get_content_data_blocking)(saved_artifact)
+            content_data, _ = await sync_to_async(get_content_data)(saved_artifact)
 
         else:
             saved_artifact, content_data, _, response = await self._download_and_save_artifact_data(
@@ -487,9 +485,10 @@ class ContainerFirstStage(Stage):
             manifest = Manifest(
                 digest=digest,
                 schema_version=2
-                if manifest_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
+                if content_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
                 else 1,
-                media_type=manifest_data["mediaType"],
+                media_type=content_data["mediaType"],
+                annotations=content_data.get("annotations", {}),
             )
 
         da = DeclarativeArtifact(
@@ -646,6 +645,7 @@ class ContainerContentSaver(ContentSaver):
     def _post_save(self, batch):
         blob_manifests = []
         manifest_list_manifests = []
+        manifest_lists = []
         for dc in batch:
             if "blob_dcs" in dc.extra_data:
                 blob_manifests.extend(
@@ -655,6 +655,7 @@ class ContainerContentSaver(ContentSaver):
                     )
                 )
             if "listed_manifests" in dc.extra_data:
+                manifest_lists.append(dc.content)
                 for listed_manifest in dc.extra_data["listed_manifests"]:
                     manifest_dc = listed_manifest["manifest_dc"]
                     platform = listed_manifest["platform"]
@@ -674,3 +675,9 @@ class ContainerContentSaver(ContentSaver):
             BlobManifest.objects.bulk_create(blob_manifests, ignore_conflicts=True)
         if manifest_list_manifests:
             ManifestListManifest.objects.bulk_create(manifest_list_manifests, ignore_conflicts=True)
+
+        # after creating the relation between listed manifests and manifest lists,
+        # it is possible to initialize the nature of the corresponding manifest lists
+        for ml in manifest_lists:
+            if ml.init_manifest_list_nature():
+                ml.save(update_fields=["is_bootable", "is_flatpak"])
