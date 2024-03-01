@@ -18,6 +18,7 @@ MEDIA_TYPE = SimpleNamespace(
     FOREIGN_BLOB_OCI_TAR="application/vnd.oci.image.layer.nondistributable.v1.tar",
     FOREIGN_BLOB_OCI_TAR_GZIP="application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
     FOREIGN_BLOB_OCI_TAR_ZSTD="application/vnd.oci.image.layer.nondistributable.v1.tar+zstd",
+    OCI_EMPTY_JSON="application/vnd.oci.empty.v1+json",
 )
 
 V2_ACCEPT_HEADERS = {
@@ -29,6 +30,7 @@ V2_ACCEPT_HEADERS = {
             MEDIA_TYPE.MANIFEST_LIST,
             MEDIA_TYPE.INDEX_OCI,
             MEDIA_TYPE.MANIFEST_OCI,
+            MEDIA_TYPE.OCI_EMPTY_JSON,
         ]
     )
 }
@@ -39,6 +41,7 @@ MANIFEST_MEDIA_TYPES = SimpleNamespace(
         MEDIA_TYPE.MANIFEST_V1_SIGNED,
         MEDIA_TYPE.MANIFEST_V2,
         MEDIA_TYPE.MANIFEST_OCI,
+        MEDIA_TYPE.OCI_EMPTY_JSON,
     ],
     LIST=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI],
 )
@@ -56,6 +59,7 @@ OCI_BLOB_NON_DISTRIBUTABLE_MEDIA_TYPE = [
 OCI_BLOB_MEDIA_TYPE = OCI_BLOB_DISTRIBUTABLE_MEDIA_TYPE + OCI_BLOB_NON_DISTRIBUTABLE_MEDIA_TYPE
 
 EMPTY_BLOB = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
+EMPTY_JSON = "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
 BLOB_CONTENT_TYPE = "application/octet-stream"
 SIGNATURE_TYPE = SimpleNamespace(
     ATOMIC_FULL="atomic container signature",  # full version is present in the signed document
@@ -70,7 +74,7 @@ SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
 SIGNATURE_API_EXTENSION_VERSION = 2
 
 
-ALLOWED_ARTIFACT_TYPES = [MEDIA_TYPE.CONFIG_BLOB_OCI]
+ALLOWED_ARTIFACT_TYPES = [MEDIA_TYPE.CONFIG_BLOB_OCI, MEDIA_TYPE.OCI_EMPTY_JSON]
 ALLOWED_BLOB_CONTENT_TYPES = OCI_BLOB_MEDIA_TYPE
 
 

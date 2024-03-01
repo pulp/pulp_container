@@ -13,6 +13,12 @@ By default the following list of media types is enabled in the Container Registr
  * Conftest policies
  * WASM
 
+.. note::
+
+    The ``ADDITIONAL_OCI_ARTIFACT_TYPES`` is deprecated and will be removed in a future release.
+    Since the validation of media types is not part of the OCI standard and new types keep being
+    added we decided to deprecate this configuration.
+
 For any other OCI media type that is not supported by default, you can add them to the
 ``ADDITIONAL_OCI_ARTIFACT_TYPES`` setting using the following format::
 
