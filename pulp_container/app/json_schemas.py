@@ -1,6 +1,4 @@
 from pulp_container.constants import (
-    ALLOWED_ARTIFACT_TYPES,
-    ALLOWED_BLOB_CONTENT_TYPES,
     BLOB_CONTENT_TYPE,
     MEDIA_TYPE,
     SIGNATURE_TYPE,
@@ -8,16 +6,27 @@ from pulp_container.constants import (
 
 
 def get_descriptor_schema(
-    allowed_media_types, additional_properties=None, additional_required=None
+    allowed_media_types=None, additional_properties=None, additional_required=None
 ):
     """Return a concrete descriptor schema for manifests."""
 
+    media_type_config = {"type": "string"}
+    if allowed_media_types is not None:
+        media_type_config = {"type": "string", "enum": allowed_media_types}
+
     properties = {
-        "mediaType": {"type": "string", "enum": allowed_media_types},
+        "mediaType": media_type_config,
         "size": {"type": "number"},
         "digest": {"type": "string"},
         "annotations": {"type": "object", "additionalProperties": True},
-        "urls": {"type": "array", "items": {"type": "string"}},
+        "urls": {
+            "type": "array",
+            "items": {"type": "string"},
+            "format": "uri",
+            "pattern": "^https?://",
+        },
+        "data": {"type": "string", "contentEncoding": "base64"},
+        "artifactType": {"type": "string"},
     }
 
     if additional_properties:
@@ -78,13 +87,20 @@ OCI_MANIFEST_SCHEMA = {
             "type": "string",
             "enum": [MEDIA_TYPE.MANIFEST_OCI],
         },
-        "config": get_descriptor_schema(ALLOWED_ARTIFACT_TYPES),
+        "artifactType": {"type": "string"},
+        "config": get_descriptor_schema(),
         "layers": {
             "type": "array",
-            "items": get_descriptor_schema(ALLOWED_BLOB_CONTENT_TYPES),
+            "items": get_descriptor_schema(),
         },
     },
     "required": ["schemaVersion", "config", "layers"],
+    "if": {
+        "properties": {
+            "config": {"properties": {"mediaType": {"const": MEDIA_TYPE.OCI_EMPTY_JSON}}}
+        }
+    },
+    "then": {"dependentRequired": {"config.mediaType": ["artifactType"]}},
 }
 
 

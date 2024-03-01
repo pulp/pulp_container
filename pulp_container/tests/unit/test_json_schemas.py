@@ -4,7 +4,10 @@ from jsonschema import Draft7Validator
 
 from django.test import TestCase
 
+from pulp_container.constants import MEDIA_TYPE
+from pulp_container.app.exceptions import ManifestInvalid
 from pulp_container.app.json_schemas import SIGNATURE_SCHEMA
+from pulp_container.app.utils import validate_manifest
 
 validator = Draft7Validator(SIGNATURE_SCHEMA)
 
@@ -119,3 +122,79 @@ class TestSignatureJsonSchema(TestCase):
             self.fail("An invalid value for the field 'type' was not identified")
         if not any("-123123" in error for error in errors):
             self.fail("An invalid value for the field 'timestamp' was not identified")
+
+
+class TestOCISchema(TestCase):
+    """A test case for validating the OCI MANIFEST JSON schema."""
+
+    def test_valid_manifest(self):
+        """Check if a valid OCI manifest is successfully parsed."""
+        manifest = """{
+          "schemaVersion": 2,
+          "mediaType": "application/vnd.oci.image.manifest.v1+json",
+          "config": {
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "size": 6641,
+            "digest": "sha256:07652f42c464e19a7829b0495f4f1efc3eb41d8368da4ec9305cb59b3bd3e366"
+          },
+          "layers": [
+            {
+              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+              "size": 50215654,
+              "digest": "sha256:f7b061e2cdcce41364a408e8b449b7344e33b5bff9bbb935a97e1967db982c6d"
+            }
+          ]
+        }"""
+        manifest = json.loads(manifest)
+        try:
+            validate_manifest(manifest, MEDIA_TYPE.MANIFEST_OCI, "")
+        except ManifestInvalid:
+            self.fail()
+
+    def test_valid_manifest_with_invalid_config_media_type(self):
+        """Check if a manifest with an invalid config.mediaType is ignored instead of erroring."""
+        manifest = """{
+          "schemaVersion": 2,
+          "mediaType": "application/vnd.oci.image.manifest.v1+json",
+          "config": {
+            "mediaType": "application/INVALID",
+            "size": 6641,
+            "digest": "sha256:07652f42c464e19a7829b0495f4f1efc3eb41d8368da4ec9305cb59b3bd3e366"
+          },
+          "layers": [
+            {
+              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+              "size": 50215654,
+              "digest": "sha256:f7b061e2cdcce41364a408e8b449b7344e33b5bff9bbb935a97e1967db982c6d"
+            }
+          ]
+        }"""
+        manifest = json.loads(manifest)
+        try:
+            validate_manifest(manifest, MEDIA_TYPE.MANIFEST_OCI, "")
+        except ManifestInvalid:
+            self.fail()
+
+    def test_valid_manifest_with_invalid_layer_media_type(self):
+        """Check if a manifest with an invalid layers[].mediaType is ignored instead of erroring."""
+        manifest = """{
+          "schemaVersion": 2,
+          "mediaType": "application/vnd.oci.image.manifest.v1+json",
+          "config": {
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "size": 6641,
+            "digest": "sha256:07652f42c464e19a7829b0495f4f1efc3eb41d8368da4ec9305cb59b3bd3e366"
+          },
+          "layers": [
+            {
+              "mediaType": "application/INVALID",
+              "size": 50215654,
+              "digest": "sha256:f7b061e2cdcce41364a408e8b449b7344e33b5bff9bbb935a97e1967db982c6d"
+            }
+          ]
+        }"""
+        manifest = json.loads(manifest)
+        try:
+            validate_manifest(manifest, MEDIA_TYPE.MANIFEST_OCI, "")
+        except ManifestInvalid:
+            self.fail()
