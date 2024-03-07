@@ -73,6 +73,7 @@ OCI_INDEX_SCHEMA = {
                 additional_required=["platform"],
             ),
         },
+        "subject": get_descriptor_schema(),
         "annotations": {"type": "object", "additionalProperties": True},
     },
     "required": ["schemaVersion", "manifests"],
@@ -93,6 +94,8 @@ OCI_MANIFEST_SCHEMA = {
             "type": "array",
             "items": get_descriptor_schema(),
         },
+        "subject": get_descriptor_schema(),
+        "annotations": {"type": "object", "additionalProperties": True},
     },
     "required": ["schemaVersion", "config", "layers"],
     "if": {
