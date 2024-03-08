@@ -4,6 +4,7 @@ from pulpcore.plugin.modelresources import RepositoryResource
 
 from pulp_container.app.models import (
     Blob,
+    ConfigBlob,
     ContainerRepository,
     ContainerPushRepository,
     Manifest,
@@ -60,6 +61,24 @@ class ContainerPushRepositoryResource(RepositoryResource):
         exclude = RepositoryResource.Meta.exclude + ("manifest_signing_service",)
 
 
+class ConfigBlobResource(BaseContentResource):
+    """
+    Resource for import/export of configblob entities
+    """
+
+    def set_up_queryset(self):
+        """
+        :return: ConfigBlobs specific to a specified repo-version.
+        """
+        return ConfigBlob.objects.filter(pk__in=self.repo_version.content).order_by(
+            "content_ptr_id"
+        )
+
+    class Meta:
+        model = ConfigBlob
+        import_id_fields = model.natural_key_fields()
+
+
 class BlobResource(BaseContentResource):
     """
     Resource for import/export of blob entities
@@ -90,6 +109,11 @@ class ManifestResource(BaseContentResource):
         column_name="config_blob",
         attribute="config_blob",
         widget=widgets.ForeignKeyWidget(Blob, field="digest"),
+    )
+    config = fields.Field(
+        column_name="config",
+        attribute="config",
+        widget=widgets.ForeignKeyWidget(ConfigBlob, field="digest"),
     )
 
     def set_up_queryset(self):
@@ -179,6 +203,7 @@ class TagResource(BaseContentResource):
 
 
 IMPORT_ORDER = [
+    ConfigBlobResource,
     BlobResource,
     ManifestResource,
     ManifestListManifestResource,

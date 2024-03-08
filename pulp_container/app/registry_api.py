@@ -58,7 +58,6 @@ from pulp_container.app.exceptions import (
     RepositoryNotFound,
     RepositoryInvalid,
     BlobNotFound,
-    BlobInvalid,
     ManifestNotFound,
     ManifestInvalid,
     ManifestSignatureInvalid,
@@ -607,18 +606,16 @@ class FlatpakIndexDynamicView(APIView):
                     tag.name, tag.tagged_manifest, req_oss, req_architectures, manifests
                 )
             for manifest, tagged in manifests.items():
-                with storage.open(manifest.config_blob._artifacts.get().file.name) as file:
-                    raw_data = file.read()
-                config_data = json.loads(raw_data)
-                labels = config_data.get("config", {}).get("Labels")
+                config_data = manifest.config
+                labels = config_data.config["Labels"]
                 if not labels:
                     continue
                 if any(label not in labels.keys() for label in req_label_exists):
                     continue
-                os = config_data["os"]
+                os = config_data.os
                 if req_oss and os not in req_oss:
                     continue
-                architecture = config_data["architecture"]
+                architecture = config_data.architecture
                 if req_architectures and architecture not in req_architectures:
                     continue
                 if any(
@@ -919,9 +916,9 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 artifact.touch()
 
         blob = self.create_blob(artifact, digest)
+        repository.pending_blobs.add(blob)
         upload.delete()
 
-        repository.pending_blobs.add(blob)
         return BlobResponse(blob, path, 201, request)
 
 
@@ -979,12 +976,20 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         except models.Blob.DoesNotExist:
             if pk == EMPTY_BLOB:
                 return redirects.redirect_to_content_app("blobs", pk)
-            repository = repository.cast()
             try:
-                blob = repository.pending_blobs.get(digest=pk)
-                blob.touch()
-            except models.Blob.DoesNotExist:
-                raise BlobNotFound(digest=pk)
+                blob = models.ConfigBlob.objects.get(digest=pk)
+                return redirects.redirect_to_content_app("config-blobs", pk)
+            except models.ConfigBlob.DoesNotExist:
+                repository = repository.cast()
+                try:
+                    blob = repository.pending_blobs.get(digest=pk)
+                    blob.touch()
+                except models.Blob.DoesNotExist:
+                    try:
+                        blob = repository.pending_config_blobs.get(digest=pk)
+                        blob.touch()
+                    except models.ConfigBlob.DoesNotExist:
+                        raise BlobNotFound(digest=pk)
 
         return redirects.issue_blob_redirect(blob)
 
@@ -1087,14 +1092,16 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             models.MEDIA_TYPE.MANIFEST_LIST,
             models.MEDIA_TYPE.INDEX_OCI,
         ):
-            for listed_manifest in manifest.listed_manifests:
+            for listed_manifest in manifest.listed_manifests.all():
                 add_content_units.append(listed_manifest.pk)
+                add_content_units.append(listed_manifest.config_id)
                 add_content_units.append(listed_manifest.config_blob_id)
                 add_content_units.extend(listed_manifest.blobs.values_list("pk", flat=True))
         elif manifest.media_type in (
             models.MEDIA_TYPE.MANIFEST_V2,
             models.MEDIA_TYPE.MANIFEST_OCI,
         ):
+            add_content_units.append(manifest.config_id)
             add_content_units.append(manifest.config_blob_id)
             add_content_units.extend(manifest.blobs.values_list("pk", flat=True))
         else:
@@ -1152,7 +1159,10 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         latest_version_content_pks = repository.latest_version().content.values_list("pk")
         manifests_pks = repository.pending_manifests.values_list("pk")
         blobs_pks = repository.pending_blobs.values_list("pk")
-        content_pks = latest_version_content_pks.union(manifests_pks).union(blobs_pks)
+        config_blobs_pks = repository.pending_config_blobs.values_list("pk")
+        content_pks = (
+            latest_version_content_pks.union(manifests_pks).union(blobs_pks).union(config_blobs_pks)
+        )
 
         found_manifests = models.Manifest.objects.none()
 
@@ -1200,7 +1210,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 digest__in=found_manifests.values_list("blobs__digest"),
                 pk__in=content_pks,
             )
-            found_config_blobs = models.Blob.objects.filter(
+            found_config_blobs = models.ConfigBlob.objects.filter(
                 digest__in=found_manifests.values_list("config_blob__digest"),
                 pk__in=content_pks,
             )
@@ -1214,11 +1224,16 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 )
 
             config_digest = config_layer.get("digest")
-            found_config_blobs = models.Blob.objects.filter(
-                digest=config_digest, pk__in=content_pks
-            )
+            found_config_blobs = models.ConfigBlob.objects.filter(digest=config_digest)
+            # create the artifactless ConfigBlob from Blob if it is not stored yet
             if not found_config_blobs.exists():
-                raise BlobInvalid(digest=config_digest)
+                blob = models.Blob.objects.filter(digest=config_digest)
+                raw_manifest = blob.get()._artifacts.get().file.read().decode("utf-8")
+                manifest = json.loads(raw_manifest)
+                self.create_config_blob(manifest, raw_manifest, config_digest)
+                found_config_blobs = models.ConfigBlob.objects.filter(digest=config_digest)
+                # delete the Blob with the same digest to avoid conflict with ConfigBlob
+                blob.delete()
 
             # both docker/oci format should contain layers, digest, media_type, size
             layers = content_data.get("layers")
@@ -1311,7 +1326,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             digest=manifest_digest,
             schema_version=2,
             media_type=media_type,
-            config_blob=config_blob,
+            config=config_blob,
         )
 
     def _save_manifest(self, manifest, artifact):
@@ -1357,6 +1372,18 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 artifact = Artifact.objects.get(sha256=artifact.sha256)
                 artifact.touch()
             return artifact
+
+    def create_config_blob(self, manifest, raw_manifest, digest):
+        with transaction.atomic():
+            try:
+                blob = models.ConfigBlob.build(
+                    raw_data=raw_manifest, digest=digest, content_data=manifest
+                )
+                blob.save()
+            except IntegrityError:
+                blob = models.ConfigBlob.objects.get(digest=digest)
+                blob.touch()
+        return blob
 
 
 class Signatures(ContainerRegistryApiMixin, ViewSet):

@@ -83,6 +83,13 @@ class ManifestSerializer(SingleArtifactContentSerializer):
         view_name="container-blobs-detail",
         queryset=models.Blob.objects.all(),
     )
+    config = DetailRelatedField(
+        many=False,
+        required=False,
+        help_text="Blob that contains configuration for this Manifest",
+        view_name="container-config-blobs-detail",
+        queryset=models.ConfigBlob.objects.all(),
+    )
 
     annotations = serializers.JSONField(
         read_only=True,
@@ -111,6 +118,7 @@ class ManifestSerializer(SingleArtifactContentSerializer):
             "media_type",
             "listed_manifests",
             "config_blob",
+            "config",
             "blobs",
             "annotations",
             "labels",
@@ -130,6 +138,37 @@ class BlobSerializer(SingleArtifactContentSerializer):
     class Meta:
         fields = SingleArtifactContentSerializer.Meta.fields + ("digest",)
         model = models.Blob
+
+
+class ConfigBlobSerializer(NoArtifactContentSerializer):
+    """
+    Serializer for Blob Config Manifest
+    """
+
+    architecture = serializers.CharField(
+        help_text="The CPU architecture which the binaries in this image are built to run on"
+    )
+    os = serializers.CharField(
+        help_text="The name of the operating system which the image is built to run on"
+    )
+    created = serializers.DateTimeField(help_text="Date and time at which the image was created")
+    author = serializers.CharField(
+        help_text="""
+        The name and/or email address of the person or entity which created and is responsible for
+        maintaining the image
+        """
+    )
+    digest = serializers.CharField(help_text="sha256 digest of the signature blob")
+
+    class Meta:
+        fields = NoArtifactContentSerializer.Meta.fields + (
+            "architecture",
+            "os",
+            "digest",
+            "created",
+            "author",
+        )
+        model = models.ConfigBlob
 
 
 class ManifestSignatureSerializer(NoArtifactContentSerializer):

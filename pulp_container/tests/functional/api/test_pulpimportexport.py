@@ -91,7 +91,7 @@ def test_import_export_standard(
             assert manifest.listed_manifests != []
         else:
             assert manifest.blobs != []
-            assert manifest.config_blob is not None
+            assert manifest.config is not None
 
     distribution_path = str(uuid.uuid4())
     distribution = {
@@ -177,7 +177,7 @@ def test_import_export_create_repositories(
             assert manifest.listed_manifests != []
         else:
             assert manifest.blobs != []
-            assert manifest.config_blob is not None
+            assert manifest.config is not None
 
     distribution = {
         "name": distribution_path,

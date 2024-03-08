@@ -38,6 +38,54 @@ from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
 logger = getLogger(__name__)
 
 
+class ConfigBlob(Content):
+    """
+    The manifest for image configuration.
+
+    Fields:
+        created (models.DateTimeField): An combined date and time at which the image was created.
+        author (models.TextField): Name and/or email of the person or entity which created and is
+            responsible for maintaining the image.
+        architecture (models.TextField): The platform architecture.
+        os (models.TextField): The platform OS name.
+        os_version (models.TextField): The platform OS version.
+        os_features (models.TextField): The platform OS features.
+        variant (models.TextField): The platform variant.
+        config (models.ForeignKey):
+        rootfs (models.ForeignKey):
+        history (models.ForeignKey):
+    """
+
+    PROTECTED_FROM_RECLAIM = False
+
+    TYPE = "config-blob"
+
+    data = models.TextField()
+    created = models.DateTimeField()
+    author = models.TextField(default="", blank=True)
+    os = models.TextField()
+    architecture = models.TextField()
+    digest = models.TextField(db_index=True)
+    config = models.JSONField(default=dict)
+
+    @classmethod
+    def build(cls, raw_data, digest, content_data):
+        config_blob = cls(
+            data=raw_data,
+            digest=digest,
+            architecture=content_data.get("architecture"),
+            os=content_data.get("os"),
+            created=content_data.get("created"),
+            author=content_data.get("author", ""),
+            config=content_data.get("config", {}),
+        )
+        return config_blob
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+        unique_together = ("digest",)
+
+
 class Blob(Content):
     """
     A blob defined within a manifest.
@@ -109,6 +157,9 @@ class Manifest(Content):
     config_blob = models.ForeignKey(
         Blob, related_name="config_blob", null=True, on_delete=models.CASCADE
     )
+    config = models.ForeignKey(
+        ConfigBlob, related_name="manifest_config_blob", null=True, on_delete=models.CASCADE
+    )
 
     # Order matters for through fields, (source, target)
     listed_manifests = models.ManyToManyField(
@@ -137,11 +188,10 @@ class Manifest(Content):
         return bool(self.annotations)
 
     def init_labels(self):
-        if self.config_blob:
-            config_artifact = self.config_blob._artifacts.get()
-
-            config_data, _ = get_content_data(config_artifact)
-            self.labels = config_data.get("config", {}).get("Labels") or {}
+        if self.config and "Labels" in self.config.config.keys():
+            self.labels = self.config.config["Labels"] or {}
+        else:
+            self.labels = {}
 
         return bool(self.labels)
 
@@ -577,7 +627,7 @@ class ContainerRepository(
     """
 
     TYPE = "container"
-    CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
+    CONTENT_TYPES = [Blob, ConfigBlob, Manifest, Tag, ManifestSignature]
     REMOTE_TYPES = [ContainerRemote]
     PUSH_ENABLED = False
 
@@ -585,6 +635,7 @@ class ContainerRepository(
         ManifestSigningService, on_delete=models.SET_NULL, null=True
     )
     pending_blobs = models.ManyToManyField(Blob)
+    pending_config_blobs = models.ManyToManyField(ConfigBlob)
     pending_manifests = models.ManyToManyField(Manifest)
 
     class Meta:
@@ -617,6 +668,7 @@ class ContainerRepository(
             base_version=repository_version.base_version
         ).values_list("pk")
         self.pending_blobs.remove(*Blob.objects.filter(pk__in=added_content))
+        self.pending_config_blobs.remove(*ConfigBlob.objects.filter(pk__in=added_content))
         self.pending_manifests.remove(*Manifest.objects.filter(pk__in=added_content))
 
 
@@ -635,13 +687,14 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin):
     """
 
     TYPE = "container-push"
-    CONTENT_TYPES = [Blob, Manifest, Tag, ManifestSignature]
+    CONTENT_TYPES = [Blob, ConfigBlob, Manifest, Tag, ManifestSignature]
     PUSH_ENABLED = True
 
     manifest_signing_service = models.ForeignKey(
         ManifestSigningService, on_delete=models.SET_NULL, null=True
     )
     pending_blobs = models.ManyToManyField(Blob)
+    pending_config_blobs = models.ManyToManyField(ConfigBlob)
     pending_manifests = models.ManyToManyField(Manifest)
 
     class Meta:
@@ -671,6 +724,7 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin):
             base_version=repository_version.base_version
         ).values_list("pk")
         self.pending_blobs.remove(*Blob.objects.filter(pk__in=added_content))
+        self.pending_config_blobs.remove(*ConfigBlob.objects.filter(pk__in=added_content))
         self.pending_manifests.remove(*Manifest.objects.filter(pk__in=added_content))
 
 

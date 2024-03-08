@@ -4,6 +4,7 @@ from django.http import Http404
 from django.shortcuts import redirect
 
 from pulp_container.app.exceptions import ManifestNotFound
+from pulp_container.app.models import ConfigBlob
 from pulp_container.app.utils import get_accepted_media_types
 from pulp_container.constants import BLOB_CONTENT_TYPE, MEDIA_TYPE
 
@@ -58,6 +59,9 @@ class FileStorageRedirects(CommonRedirects):
         """
         Issue a redirect for the passed blob.
         """
+        if isinstance(blob, ConfigBlob):
+            return self.redirect_to_content_app("config-blobs", blob.digest)
+
         return self.redirect_to_content_app("blobs", blob.digest)
 
 

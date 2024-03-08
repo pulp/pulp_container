@@ -1,3 +1,4 @@
+import json
 from json.decoder import JSONDecodeError
 
 from gettext import gettext as _
@@ -6,8 +7,9 @@ from contextlib import suppress
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import BaseCommand
+from django.db import IntegrityError, transaction
 
-from pulp_container.app.models import Manifest
+from pulp_container.app.models import Manifest, ConfigBlob
 
 from pulp_container.constants import MEDIA_TYPE
 
@@ -64,6 +66,9 @@ class Command(BaseCommand):
                 )
                 manifests_updated_count += len(manifests_to_update)
                 manifests_to_update.clear()
+
+            self.update_config_blob(manifest)
+
         if manifests_to_update:
             fields_to_update = ["annotations", "labels", "is_bootable", "is_flatpak"]
             manifests_qs.model.objects.bulk_update(
@@ -73,3 +78,17 @@ class Command(BaseCommand):
             manifests_updated_count += len(manifests_to_update)
 
         return manifests_updated_count
+
+    def update_config_blob(self, manifest):
+        raw_manifest = manifest.config_blob._artifacts.get().file.read().decode("utf-8")
+        config_blob = json.loads(raw_manifest)
+        digest = manifest.config_blob.digest
+        with transaction.atomic():
+            try:
+                blob = ConfigBlob.build(
+                    raw_data=raw_manifest, digest=digest, content_data=config_blob
+                )
+                blob.save()
+            except IntegrityError:
+                blob = ConfigBlob.objects.get(digest=digest)
+                blob.touch()

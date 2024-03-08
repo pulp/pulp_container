@@ -153,7 +153,8 @@ class TestManifestCopy(PulpTestCase):
         self.assertFalse("container.tag" in to_repo_content)
         self.assertEqual(to_repo_content["container.manifest"]["count"], 1)
         # each manifest (non-list) has 3 blobs, 1 blob is shared
-        self.assertEqual(to_repo_content["container.blob"]["count"], 3)
+        self.assertEqual(to_repo_content["container.blob"]["count"], 2)
+        self.assertEqual(to_repo_content["container.config-blob"]["count"], 1)
 
     def test_copy_manifest_by_digest_and_media_type(self):
         """Specify a single manifest by digest to copy."""
@@ -181,7 +182,8 @@ class TestManifestCopy(PulpTestCase):
         self.assertEqual(to_repo_content["container.manifest"]["count"], 1)
         # manifest_a has 3 blobs
         # 3rd blob is the parent blob from apline repo
-        self.assertEqual(to_repo_content["container.blob"]["count"], 3)
+        self.assertEqual(to_repo_content["container.blob"]["count"], 2)
+        self.assertEqual(to_repo_content["container.config-blob"]["count"], 1)
 
     def test_copy_all_manifest_lists_by_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
@@ -203,7 +205,8 @@ class TestManifestCopy(PulpTestCase):
         self.assertEqual(to_repo_content["container.manifest"]["count"], 9)
         # each manifest (non-list) has 3 blobs, 1 blob is shared
         # 11th blob is the parent blob from apline repo, which is shared by all other manifests
-        self.assertEqual(to_repo_content["container.blob"]["count"], 11)
+        self.assertEqual(to_repo_content["container.blob"]["count"], 6)
+        self.assertEqual(to_repo_content["container.config-blob"]["count"], 5)
 
     def test_copy_all_manifests_by_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
@@ -225,7 +228,8 @@ class TestManifestCopy(PulpTestCase):
         self.assertEqual(to_repo_content["container.manifest"]["count"], 5)
         # each manifest (non-list) has 3 blobs, 1 blob is shared
         # 11th blob is the parent blob from apline repo, which is shared by all other manifests
-        self.assertEqual(to_repo_content["container.blob"]["count"], 11)
+        self.assertEqual(to_repo_content["container.blob"]["count"], 6)
+        self.assertEqual(to_repo_content["container.config-blob"]["count"], 5)
 
     def test_fail_to_copy_invalid_manifest_media_type(self):
         """Specify the media_type, to copy all manifest lists."""
@@ -296,7 +300,8 @@ class TestManifestCopy(PulpTestCase):
         self.assertEqual(to_repo_content["container.manifest"]["count"], 6)
         # each manifest (non-list) has 3 blobs, 1 blob is shared
         # 9th blob is the parent blob from apline repo, which is shared by all other manifests
-        self.assertEqual(to_repo_content["container.blob"]["count"], 9)
+        self.assertEqual(to_repo_content["container.blob"]["count"], 5)
+        self.assertEqual(to_repo_content["container.config-blob"]["count"], 4)
 
     def test_copy_manifests_by_digest_empty_list(self):
         """Passing an empty list copies no manifests."""
@@ -424,7 +429,8 @@ class TestTagCopy(PulpTestCase):
         self.assertEqual(to_repo_content["container.manifest"]["count"], 4)
         # each manifest (non-list) has 3 blobs, 1 blob is shared
         # 7th blob is the parent blob from apline repo, which is shared by all other manifests
-        self.assertEqual(to_repo_content["container.blob"]["count"], 7)
+        self.assertEqual(to_repo_content["container.blob"]["count"], 4)
+        self.assertEqual(to_repo_content["container.config-blob"]["count"], 3)
 
     def test_copy_tags_by_name_empty_list(self):
         """Passing an empty list of names copies nothing."""
@@ -539,7 +545,8 @@ class TestRecursiveAdd(PulpTestCase):
 
         # each manifest (non-list) has 3 blobs, 1 blob is shared
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 1)
 
     def test_manifest_list_recursion(self):
         """Add a Manifest List, related manifests, and related blobs."""
@@ -577,7 +584,8 @@ class TestRecursiveAdd(PulpTestCase):
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 3)
         # each manifest (non-list) has 3 blobs, 1 blob is shared
         # 5th blob is the parent blob from apline repo, which is shared by all other manifests
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 5)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 2)
 
     def test_tagged_manifest_recursion(self):
         """Add a tagged manifest and its related blobs."""
@@ -595,7 +603,8 @@ class TestRecursiveAdd(PulpTestCase):
 
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 1)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 1)
 
     def test_tag_replacement(self):
         """Add a tagged manifest to a repo with a tag of that name already in place."""
@@ -666,4 +675,5 @@ class TestRecursiveAdd(PulpTestCase):
 
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 4)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 9)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 11)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 6)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 5)

@@ -8,6 +8,7 @@ from uuid import uuid4
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
+    ConfigBlob,
     ContainerRepository,
     Manifest,
     Tag,
@@ -34,15 +35,25 @@ def get_or_create_blob(layer_json, manifest, path):
         blob.touch()
     except Blob.DoesNotExist:
         layer_file_name = os.path.join(path, layer_json["digest"][7:])
-        layer_artifact = Artifact.init_and_validate(layer_file_name)
-        layer_artifact.save()
         blob = Blob(digest=layer_json["digest"])
         blob.save()
-        ContentArtifact(
-            artifact=layer_artifact, content=blob, relative_path=layer_json["digest"]
-        ).save()
-    if layer_json["mediaType"] != MEDIA_TYPE.CONFIG_BLOB_OCI:
-        BlobManifest(manifest=manifest, manifest_blob=blob).save()
+        if layer_json["mediaType"] in [MEDIA_TYPE.CONFIG_BLOB_OCI, MEDIA_TYPE.CONFIG_BLOB]:
+            with open(layer_file_name, "r") as content_file:
+                raw_data = content_file.read()
+            content_data = json.loads(raw_data)
+            config_blob = ConfigBlob.build(
+                raw_data=raw_data, digest=layer_json["digest"], content_data=content_data
+            )
+            config_blob.save()
+            return config_blob
+        else:
+            layer_artifact = Artifact.init_and_validate(layer_file_name)
+            layer_artifact.save()
+            ContentArtifact(
+                artifact=layer_artifact, content=blob, relative_path=layer_json["digest"]
+            ).save()
+            BlobManifest(manifest=manifest, manifest_blob=blob).save()
+
     return blob
 
 
@@ -79,7 +90,7 @@ def add_image_from_directory_to_repository(path, repository, tag):
         manifest_artifact.file.close()
 
         config_blob = get_or_create_blob(manifest_json["config"], manifest, path)
-        manifest.config_blob = config_blob
+        manifest.config = config_blob
         manifest.save()
 
         pks_to_add = []

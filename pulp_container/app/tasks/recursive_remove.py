@@ -3,6 +3,7 @@ from pulpcore.plugin.models import Content, Repository
 
 from pulp_container.app.models import (
     Blob,
+    ConfigBlob,
     Manifest,
     ManifestSignature,
     MEDIA_TYPE,
@@ -54,6 +55,7 @@ def recursive_remove_content(repository_pk, content_units):
         ]
         type_manifest = Q(media_type__in=manifest_media_types)
         blobs_in_repo = Q(pk__in=latest_content.filter(pulp_type=Blob.get_pulp_type()))
+        config_blobs_in_repo = Q(pk__in=latest_content.filter(pulp_type=ConfigBlob.get_pulp_type()))
 
         # Tags do not have must_remain because they are the highest level content.
         tags_to_remove = Tag.objects.filter(user_provided_content & tags_in_repo)
@@ -100,17 +102,24 @@ def recursive_remove_content(repository_pk, content_units):
             pk__in=manifests_to_remove
         )
 
-        listed_blobs_must_remain = Q(
-            pk__in=manifests_to_remain.values_list("blobs", flat=True)
-        ) | Q(pk__in=manifests_to_remain.values_list("config_blob", flat=True))
-        listed_blobs_to_remove = Q(pk__in=manifests_to_remove.values_list("blobs", flat=True)) | Q(
-            pk__in=manifests_to_remove.values_list("config_blob", flat=True)
+        listed_blobs_must_remain = Q(pk__in=manifests_to_remain.values_list("blobs", flat=True))
+        listed_config_blobs_must_remain = Q(
+            pk__in=manifests_to_remain.values_list("config", flat=True)
+        )
+        listed_blobs_to_remove = Q(pk__in=manifests_to_remove.values_list("blobs", flat=True))
+        listed_config_blobs_to_remove = Q(
+            pk__in=manifests_to_remove.values_list("config", flat=True)
         )
 
         blobs_to_remove = (
             Blob.objects.filter(user_provided_content | listed_blobs_to_remove)
             .filter(blobs_in_repo)
             .exclude(listed_blobs_must_remain)
+        )
+        config_blobs_to_remove = (
+            ConfigBlob.objects.filter(user_provided_content | listed_config_blobs_to_remove)
+            .filter(config_blobs_in_repo)
+            .exclude(listed_config_blobs_must_remain)
         )
 
         # signatures can't be shared, so no need to calculate which ones to remain
@@ -124,4 +133,5 @@ def recursive_remove_content(repository_pk, content_units):
             new_version.remove_content(manifest_lists_to_remove)
             new_version.remove_content(manifests_to_remove)
             new_version.remove_content(blobs_to_remove)
+            new_version.remove_content(config_blobs_to_remove)
             new_version.remove_content(signatures_to_remove)

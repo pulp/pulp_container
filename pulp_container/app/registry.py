@@ -23,7 +23,14 @@ from pulpcore.plugin.content import ArtifactResponse
 from pulpcore.plugin.tasking import dispatch
 
 from pulp_container.app.cache import RegistryContentCache
-from pulp_container.app.models import ContainerDistribution, Tag, Blob, Manifest, BlobManifest
+from pulp_container.app.models import (
+    ContainerDistribution,
+    Tag,
+    Blob,
+    Manifest,
+    BlobManifest,
+    ConfigBlob,
+)
 from pulp_container.app.tasks import download_image_data
 from pulp_container.app.utils import (
     calculate_digest,
@@ -292,15 +299,19 @@ class Registry(Handler):
                         "Docker-Distribution-API-Version": "registry/2.0",
                     }
                     return web.Response(text=raw_manifest, headers=headers)
-                elif content_type == "blobs":
+                elif content_type == "blobs" or content_type == "config-blobs":
                     # there might be a case where the client has all the manifest data in place
                     # and tries to download only missing blobs; because of that, only the reference
                     # to a remote blob is returned (i.e., RemoteArtifact)
                     blob = await pull_downloader.init_remote_blob()
                     ca = await blob.contentartifact_set.afirst()
                     return await self._stream_content_artifact(request, web.StreamResponse(), ca)
+                # elif content_type=="config-blobs":
+                #    return await self._config_blob_response(digest)
                 else:
                     raise RuntimeError("Only blobs or manifests are supported by the parser.")
+            elif request.match_info["content"] == "config-blobs":
+                return await self._config_blob_response(digest)
             else:
                 raise PathNotResolved(path)
         else:
@@ -309,6 +320,16 @@ class Registry(Handler):
                 return await Registry._dispatch(artifact, headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
+
+    async def _config_blob_response(self, digest):
+        blob = await ConfigBlob.objects.aget(digest=digest)
+        media_type = MEDIA_TYPE.CONFIG_BLOB_OCI
+        headers = {
+            "Content-Type": media_type,
+            "Docker-Content-Digest": digest,
+            "Docker-Distribution-API-Version": "registry/2.0",
+        }
+        return web.Response(text=blob.data, headers=headers)
 
     @staticmethod
     async def _empty_blob():
@@ -413,7 +434,7 @@ class PullThroughDownloader:
         if config := manifest_data.get("config", None):
             config_digest = config["digest"]
             config_blob = await self.save_config_blob(config_digest)
-            await sync_to_async(self.repository.pending_blobs.add)(config_blob)
+            await sync_to_async(self.repository.pending_config_blobs.add)(config_blob)
         else:
             config_blob = None
 
@@ -423,7 +444,7 @@ class PullThroughDownloader:
             if manifest_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
             else 1,
             media_type=media_type,
-            config_blob=config_blob,
+            config=config_blob,
         )
 
         # skip if media_type of schema1
@@ -490,22 +511,16 @@ class PullThroughDownloader:
         downloader = self.remote.get_downloader(url=blob_url)
         response = await downloader.run()
 
-        response.artifact_attributes["file"] = response.path
-        saved_artifact = await save_artifact(response.artifact_attributes)
+        with open(response.path, "r") as content_file:
+            raw_data = content_file.read()
+        content_data = json.loads(raw_data)
+        config_blob = ConfigBlob.build(
+            raw_data=raw_data, digest=config_digest, content_data=content_data
+        )
 
-        config_blob = Blob(digest=config_digest)
         try:
             await config_blob.asave()
         except IntegrityError:
-            config_blob = await Blob.objects.aget(digest=config_digest)
+            config_blob = await ConfigBlob.objects.aget(digest=config_digest)
             await sync_to_async(config_blob.touch)()
-
-        content_artifact = ContentArtifact(
-            content=config_blob,
-            artifact=saved_artifact,
-            relative_path=config_digest,
-        )
-        with suppress(IntegrityError):
-            await content_artifact.asave()
-
         return config_blob

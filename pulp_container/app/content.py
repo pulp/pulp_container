@@ -8,7 +8,7 @@ registry = Registry()
 app.add_routes(
     [
         web.get(
-            r"/pulp/container/{path:.+}/{content:(blobs|manifests)}/sha256:{digest:.+}",
+            r"/pulp/container/{path:.+}/{content:(blobs|manifests|config-blobs)}/sha256:{digest:.+}",  # noqa: E501
             registry.get_by_digest,
         )
     ]

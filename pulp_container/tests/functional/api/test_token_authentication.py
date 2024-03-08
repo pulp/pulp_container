@@ -135,7 +135,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         tagged_manifest_href = tag_response[0]["tagged_manifest"]
         manifest_response = self.client.get(tagged_manifest_href)
 
-        config_blob_response = self.client.get(manifest_response["config_blob"])
+        config_blob_response = self.client.get(manifest_response["config"])
         self.assertEqual(pulled_manifest_digest, config_blob_response["digest"])
 
 

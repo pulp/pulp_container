@@ -1,5 +1,6 @@
 from pulp_container.app.models import (
     Blob,
+    ConfigBlob,
     ContainerRepository,
     Manifest,
     MEDIA_TYPE,
@@ -57,12 +58,13 @@ def recursive_add_content(repository_pk, content_units):
         )
     )
 
-    blobs_to_add = (
-        Blob.objects.filter(pk__in=content_units)
-        | Blob.objects.filter(pk__in=manifests_to_add.values_list("blobs", flat=True))
-        | Blob.objects.filter(pk__in=manifests_to_add.values_list("config_blob", flat=True))
+    blobs_to_add = Blob.objects.filter(pk__in=content_units) | Blob.objects.filter(
+        pk__in=manifests_to_add.values_list("blobs", flat=True)
     )
 
+    config_blobs_to_add = ConfigBlob.objects.filter(
+        pk__in=manifests_to_add.values_list("config", flat=True)
+    )
     latest_version = repository.latest_version()
     if latest_version:
         tags_in_repo = latest_version.content.filter(pulp_type=Tag.get_pulp_type())
@@ -78,3 +80,4 @@ def recursive_add_content(repository_pk, content_units):
         new_version.add_content(manifest_lists_to_add)
         new_version.add_content(manifests_to_add)
         new_version.add_content(blobs_to_add)
+        new_version.add_content(config_blobs_to_add)

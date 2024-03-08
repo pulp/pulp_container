@@ -1,0 +1,2 @@
+Created a new ConfigBlob model to no longer rely on artifacts, storing all image config related data
+internally within the database.

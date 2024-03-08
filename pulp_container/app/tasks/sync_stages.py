@@ -23,6 +23,7 @@ from pulp_container.constants import (
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
+    ConfigBlob,
     Manifest,
     ManifestListManifest,
     ManifestSignature,
@@ -270,7 +271,7 @@ class ContainerFirstStage(Stage):
         for manifest_dc in self.manifest_dcs:
             config_blob_dc = manifest_dc.extra_data.get("config_blob_dc")
             if config_blob_dc:
-                manifest_dc.content.config_blob = await config_blob_dc.resolution()
+                manifest_dc.content.config = await config_blob_dc.resolution()
                 await sync_to_async(manifest_dc.content.init_labels)()
                 manifest_dc.content.init_image_nature()
             for blob_dc in manifest_dc.extra_data["blob_dcs"]:
@@ -355,9 +356,9 @@ class ContainerFirstStage(Stage):
             await self.put(blob_dc)
         layer = content_data.get("config", None)
         if layer:
-            blob_dc = self.create_blob(layer, deferred_download=False)
-            manifest_dc.extra_data["config_blob_dc"] = blob_dc
-            await self.put(blob_dc)
+            config_blob_dc = await self.create_config_blob(layer)
+            manifest_dc.extra_data["config_blob_dc"] = config_blob_dc
+            await self.put(config_blob_dc)
 
     def create_tagged_manifest_list(self, tag_name, saved_artifact, manifest_list_data, media_type):
         """
@@ -514,6 +515,25 @@ class ContainerFirstStage(Stage):
             d_artifacts=[da],
         )
         return {"manifest_dc": man_dc, "platform": platform, "content_data": content_data}
+
+    async def create_config_blob(self, blob_data):
+        digest = blob_data.get("digest") or blob_data.get("blobSum")
+        relative_url = "/v2/{name}/blobs/{digest}".format(
+            name=self.remote.namespaced_upstream_name, digest=digest
+        )
+        blob_url = urljoin(self.remote.url, relative_url)
+
+        downloader = self.remote.get_downloader(url=blob_url)
+        response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+        with open(response.path, "rb") as content_file:
+            raw_data = content_file.read()
+        content_data = json.loads(raw_data)
+        config_blob = ConfigBlob.build(
+            raw_data=raw_data.decode("utf-8"), digest=digest, content_data=content_data
+        )
+        config_blob_dc = DeclarativeContent(content=config_blob)
+
+        return config_blob_dc
 
     def create_blob(self, blob_data, deferred_download=True):
         """

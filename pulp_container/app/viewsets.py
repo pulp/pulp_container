@@ -95,6 +95,18 @@ class BlobFilter(ContentFilter):
         }
 
 
+class ConfigBlobFilter(ContentFilter):
+    """
+    FilterSet for ConfigBlobs.
+    """
+
+    class Meta:
+        model = models.ConfigBlob
+        fields = {
+            "digest": ["exact", "in"],
+        }
+
+
 class ManifestSignatureFilter(ContentFilter):
     """
     FilterSet for image signatures.
@@ -293,6 +305,39 @@ class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
     queryset = models.Blob.objects.all()
     serializer_class = serializers.BlobSerializer
     filterset_class = BlobFilter
+
+    DEFAULT_ACCESS_POLICY = {
+        "statements": [
+            {
+                "action": ["list"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+            {
+                "action": ["retrieve"],
+                "principal": "authenticated",
+                "effect": "allow",
+            },
+        ],
+        "queryset_scoping": {
+            "function": "get_content_qs",
+            "parameters": {
+                "push_perm": "container.view_containerdistribution",
+                "mirror_perm": "container.view_containerrepository",
+            },
+        },
+    }
+
+
+class ConfigBlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
+    """
+    ViewSet for ConfigBlobs.
+    """
+
+    endpoint_name = "config-blobs"
+    queryset = models.ConfigBlob.objects.all()
+    serializer_class = serializers.ConfigBlobSerializer
+    filterset_class = ConfigBlobFilter
 
     DEFAULT_ACCESS_POLICY = {
         "statements": [

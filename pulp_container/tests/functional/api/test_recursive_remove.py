@@ -101,7 +101,8 @@ class TestRecursiveRemove(PulpTestCase):
         # Ensure test begins in the correct state
         self.assertFalse("container.tag" in latest.content_summary.added)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 1)
 
         # Actual test
         remove_response = self.repositories_api.remove(
@@ -111,7 +112,8 @@ class TestRecursiveRemove(PulpTestCase):
         latest_version_href = self.repositories_api.read(self.to_repo.pulp_href).latest_version_href
         latest = self.versions_api.read(latest_version_href)
         self.assertEqual(latest.content_summary.present, {})
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 1)
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 1)
 
     def test_remove_invalid_content_units(self):
@@ -139,7 +141,8 @@ class TestRecursiveRemove(PulpTestCase):
         # Ensure test begins in the correct state
         self.assertFalse("container.tag" in latest.content_summary.added)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 1)
 
         # Actual test
         remove_response = self.repositories_api.remove(
@@ -150,7 +153,8 @@ class TestRecursiveRemove(PulpTestCase):
         latest = self.versions_api.read(latest_version_href)
         self.assertFalse("container.tag" in latest.content_summary.removed)
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 1)
 
     def test_manifest_list_recursion(self):
         """Add a Manifest List, related manifests, and related blobs."""
@@ -167,7 +171,8 @@ class TestRecursiveRemove(PulpTestCase):
         # Ensure test begins in the correct state
         self.assertFalse("container.tag" in latest.content_summary.added)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 3)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 5)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 2)
 
         # Actual test
         remove_response = self.repositories_api.remove(
@@ -178,7 +183,8 @@ class TestRecursiveRemove(PulpTestCase):
         latest = self.versions_api.read(latest_version_href)
         self.assertFalse("container.tag" in latest.content_summary.removed)
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 3)
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 5)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 2)
 
     def test_tagged_manifest_list_recursion(self):
         """Add a tagged manifest list, and its related manifests and blobs."""
@@ -197,7 +203,8 @@ class TestRecursiveRemove(PulpTestCase):
         # Ensure test begins in the correct state
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 1)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 3)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 5)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 2)
 
         # Actual test
         remove_response = self.repositories_api.remove(
@@ -208,7 +215,8 @@ class TestRecursiveRemove(PulpTestCase):
         latest = self.versions_api.read(latest_version_href)
         self.assertEqual(latest.content_summary.removed["container.tag"]["count"], 1)
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 3)
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 5)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 2)
 
     def test_tagged_manifest_recursion(self):
         """Add a tagged manifest and its related blobs."""
@@ -227,7 +235,8 @@ class TestRecursiveRemove(PulpTestCase):
         # Ensure valid starting state
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 1)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 1)
 
         # Actual test
         remove_response = self.repositories_api.remove(
@@ -239,7 +248,8 @@ class TestRecursiveRemove(PulpTestCase):
 
         self.assertEqual(latest.content_summary.removed["container.tag"]["count"], 1)
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 1)
 
     def test_manifests_shared_blobs(self):
         """Starting with 2 manifests that share blobs, remove one of them."""
@@ -264,7 +274,8 @@ class TestRecursiveRemove(PulpTestCase):
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 2)
         # manifest_a has 2 blobs, 1 config blob, and manifest_e has 3 blobs 1 config blob
         # manifest_a blobs are shared with manifest_e
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 5)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 2)
 
         # Actual test
         remove_response = self.repositories_api.remove(
@@ -276,7 +287,8 @@ class TestRecursiveRemove(PulpTestCase):
         self.assertFalse("container.tag" in latest.content_summary.removed)
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 1)
         # Despite having 4 blobs, only 2 are removed, 2 is shared with manifest_a.
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 1)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 1)
 
     def test_manifest_lists_shared_manifests(self):
         """Starting with 2 manifest lists that share a manifest, remove one of them."""
@@ -301,7 +313,8 @@ class TestRecursiveRemove(PulpTestCase):
         self.assertFalse("container.tag" in latest.content_summary.added)
         # 2 manifest lists, each with 2 manifests, 1 manifest shared
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 5)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 7)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 4)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 3)
 
         # Actual test
         remove_response = self.repositories_api.remove(
@@ -313,7 +326,8 @@ class TestRecursiveRemove(PulpTestCase):
         self.assertFalse("container.tag" in latest.content_summary.removed)
         # 1 manifest list, 1 manifest
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 2)
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 1)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 1)
 
     def test_many_tagged_manifest_lists(self):
         """Add several Manifest List, related manifests, and related blobs."""
@@ -346,7 +360,8 @@ class TestRecursiveRemove(PulpTestCase):
 
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 4)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 9)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 11)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 6)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 5)
 
         remove_response = self.repositories_api.remove(
             self.to_repo.pulp_href, {"content_units": [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]}
@@ -357,7 +372,8 @@ class TestRecursiveRemove(PulpTestCase):
 
         self.assertEqual(latest.content_summary.removed["container.tag"]["count"], 4)
         self.assertEqual(latest.content_summary.removed["container.manifest"]["count"], 9)
-        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 11)
+        self.assertEqual(latest.content_summary.removed["container.blob"]["count"], 6)
+        self.assertEqual(latest.content_summary.removed["container.config-blob"]["count"], 5)
 
     def test_cannot_remove_tagged_manifest(self):
         """
@@ -374,7 +390,8 @@ class TestRecursiveRemove(PulpTestCase):
         latest = self.versions_api.read(latest_version_href)
         self.assertEqual(latest.content_summary.added["container.tag"]["count"], 1)
         self.assertEqual(latest.content_summary.added["container.manifest"]["count"], 1)
-        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 3)
+        self.assertEqual(latest.content_summary.added["container.blob"]["count"], 2)
+        self.assertEqual(latest.content_summary.added["container.config-blob"]["count"], 1)
 
         remove_respone = self.repositories_api.remove(
             self.to_repo.pulp_href, {"content_units": [manifest_a_tag.tagged_manifest]}
@@ -383,7 +400,12 @@ class TestRecursiveRemove(PulpTestCase):
 
         latest_version_href = self.repositories_api.read(self.to_repo.pulp_href).latest_version_href
         latest = self.versions_api.read(latest_version_href)
-        for content_type in ["container.tag", "container.manifest", "container.blob"]:
+        for content_type in [
+            "container.tag",
+            "container.manifest",
+            "container.blob",
+            "container.config-blob",
+        ]:
             self.assertFalse(content_type in latest.content_summary.removed, msg=content_type)
 
 
@@ -453,6 +475,10 @@ class TestRecursiveRemovePushRepo(PulpTestCase, rbac_base.BaseRegistryTest):
         self.assertEqual(
             content_summary.removed["container.blob"]["count"],
             self.content_to_remove["container.blob"]["count"],
+        )
+        self.assertEqual(
+            content_summary.removed["container.config-blob"]["count"],
+            self.content_to_remove["container.config-blob"]["count"],
         )
         self.assertEqual(
             content_summary.removed["container.manifest"]["count"],
