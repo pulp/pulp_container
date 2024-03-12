@@ -40,6 +40,8 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         api_client = gen_container_client()
         cfg = config.get_config()
 
+        delete_orphans()
+
         cls.repository_api = RepositoriesContainerApi(api_client)
         cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
         cls.tags_api = ContentTagsApi(api_client)
