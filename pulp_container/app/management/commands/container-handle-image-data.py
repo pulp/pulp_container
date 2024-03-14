@@ -17,7 +17,9 @@ PAGE_CHUNK_SIZE = 1000
 
 class Command(BaseCommand):
     """
-    A django management command to initialize flags describing the image nature.
+    A management command to handle the initialization of empty DB fields for container images.
+
+    This command now initializes flags describing the image nature.
 
     Manifests stored inside Pulp are of various natures. The nature of an image can be determined
     from JSON-formatted image manifest annotations or image configuration labels. These data are
@@ -30,17 +32,25 @@ class Command(BaseCommand):
     help = _(__doc__)
 
     def handle(self, *args, **options):
+        manifests_updated_count = 0
+
         manifests = Manifest.objects.exclude(
             media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.MANIFEST_V1]
         ).order_by("pulp_id")
-        self.update_manifests(manifests)
+        manifests_updated_count += self.update_manifests(manifests)
 
         manifest_lists = Manifest.objects.filter(
             media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI]
         ).order_by("pulp_id")
-        self.update_manifests(manifest_lists)
+        manifests_updated_count += self.update_manifests(manifest_lists)
+
+        self.stdout.write(
+            self.style.SUCCESS("Successfully handled %d manifests." % manifests_updated_count)
+        )
 
     def update_manifests(self, manifests_qs):
+        manifests_updated_count = 0
+
         paginator = Paginator(manifests_qs, PAGE_CHUNK_SIZE)
         for page_num in paginator.page_range:
             manifests_to_update = []
@@ -59,3 +69,7 @@ class Command(BaseCommand):
                     manifests_to_update,
                     fields_to_update,
                 )
+
+                manifests_updated_count += len(manifests_to_update)
+
+        return manifests_updated_count

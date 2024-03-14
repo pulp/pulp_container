@@ -6,8 +6,8 @@ from django.db import migrations, models
 
 def print_warning_for_initializing_image_nature(apps, schema_editor):
     warnings.warn(
-        "Run 'pulpcore-manager init-image-nature' to initialize and expose metadata (i.e., "
-        "annotations and labels) for all manifests."
+        "Run 'pulpcore-manager container-handle-image-data' to initialize and expose metadata "
+        "(i.e., annotations and labels) for all manifests."
     )
 
 
