@@ -1,0 +1,1 @@
+Fixed sync failure due to ignored certs during registry signature extentions API check.
