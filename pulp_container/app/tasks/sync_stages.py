@@ -372,7 +372,10 @@ class ContainerFirstStage(Stage):
         """
         digest = f"sha256:{saved_artifact.sha256}"
         manifest_list = Manifest(
-            digest=digest, schema_version=manifest_list_data["schemaVersion"], media_type=media_type
+            digest=digest,
+            schema_version=manifest_list_data["schemaVersion"],
+            media_type=media_type,
+            annotations=manifest_list_data.get("annotations", {}),
         )
 
         manifest_list_dc = self._create_manifest_declarative_content(

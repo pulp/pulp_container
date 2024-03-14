@@ -31,7 +31,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         manifests = Manifest.objects.exclude(
-            media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI]
+            media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.MANIFEST_V1]
         ).order_by("pulp_id")
         self.update_manifests(manifests)
 
