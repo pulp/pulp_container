@@ -125,6 +125,9 @@ class Manifest(Content):
         return has_annotations or has_labels or has_image_nature
 
     def init_annotations(self, manifest_data=None):
+        # annotations are part of OCI only
+        if self.media_type not in (MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI):
+            return False
         if manifest_data is None:
             manifest_artifact = self._artifacts.get()
             manifest_data, _ = get_content_data(manifest_artifact)
