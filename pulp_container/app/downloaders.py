@@ -5,7 +5,6 @@ import re
 
 from aiohttp.client_exceptions import ClientResponseError
 from logging import getLogger
-from multidict import MultiDict
 from urllib import parse
 
 from pulpcore.plugin.download import DownloaderFactory, HttpDownloader
@@ -193,37 +192,6 @@ class NoAuthDownloaderFactory(DownloaderFactory):
     """
     A downloader factory without any preset auth configuration, TLS or basic auth.
     """
-
-    def _make_aiohttp_session_from_remote(self):
-        """
-        Same as DownloaderFactory._make_aiohttp_session_from_remote, excluding TLS configuration.
-
-        Returns:
-            :class:`aiohttp.ClientSession`
-
-        """
-        tcp_conn_opts = {"force_close": True}
-
-        headers = MultiDict({"User-Agent": NoAuthDownloaderFactory.user_agent()})
-        if self._remote.headers is not None:
-            for header_dict in self._remote.headers:
-                user_agent_header = header_dict.pop("User-Agent", None)
-                if user_agent_header:
-                    headers["User-Agent"] = f"{headers['User-Agent']}, {user_agent_header}"
-                headers.extend(header_dict)
-
-        conn = aiohttp.TCPConnector(**tcp_conn_opts)
-        total = self._remote.total_timeout
-        sock_connect = self._remote.sock_connect_timeout
-        sock_read = self._remote.sock_read_timeout
-        connect = self._remote.connect_timeout
-
-        timeout = aiohttp.ClientTimeout(
-            total=total, sock_connect=sock_connect, sock_read=sock_read, connect=connect
-        )
-        return aiohttp.ClientSession(
-            connector=conn, timeout=timeout, headers=headers, requote_redirect_url=False
-        )
 
     def _http_or_https(self, download_class, url, **kwargs):
         """
