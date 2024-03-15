@@ -13,6 +13,19 @@ Changelog
 
 .. towncrier release notes start
 
+2.18.1 (2024-03-15)
+===================
+
+Bugfixes
+--------
+
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  `#1552 <https://github.com/pulp/pulp_container/issues/1552>`__
+
+
+----
+
+
 2.18.0 (2024-02-02)
 ===================
 
