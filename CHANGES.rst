@@ -14,6 +14,69 @@ Changelog
 .. towncrier release notes start
 
 
+2.19.0 (2024-03-15)
+===================
+
+Features
+--------
+
+- Incorporated a notion of container images' characteristics. Users can now filter manifests by their
+  nature using the ``is_flatpak`` or ``is_bootable`` field on the corresponding Manifest endpoint.
+  In addition to that, manifest's annotations and configuration labels were exposed on the same
+  endpoint too.
+  `#1437 <https://github.com/pulp/pulp_container/issues/1437>`__
+- Updated the OCI manifest schema validation to comply with the changes from the OCI Image Manifest
+  Specification.
+  `#1494 <https://github.com/pulp/pulp_container/issues/1494>`__
+
+
+Bugfixes
+--------
+
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  `#1552 <https://github.com/pulp/pulp_container/issues/1552>`__
+
+
+Improved Documentation
+----------------------
+
+- Migrated the whole documentation to staging. The documentation should be now consumed from the
+  unified docs site.
+  `#1517 <https://github.com/pulp/pulp_container/issues/1517>`__
+
+
+Deprecations and Removals
+-------------------------
+
+- Removed the optional "kid" parameter stored inside the signatures' payload generated during
+  docker manifest v2 schema 1 conversion. This change also removes the ``ecdsa`` dependency,
+  which is vulnerable to Minevra timing attacks.
+  `#1485 <https://github.com/pulp/pulp_container/issues/1485>`__
+- Removed the manifest schema conversion machinery. If the manifest is stored locally in the newer
+  format and old clients request v2 schema1 manifest they will receive 404. v2 schema1 manifest is
+  still going to be mirrored from remote source during sync if available and passed to the old clients
+  on the request.
+  `#1509 <https://github.com/pulp/pulp_container/issues/1509>`__
+- Deprecated ``ADDITIONAL_OCI_ARTIFACT_TYPES`` setting in favour of the relaxed validation.
+  `#1494 <https://github.com/pulp/pulp_container/issues/1494>`__
+
+
+----
+
+
+2.18.1 (2024-03-15)
+===================
+
+Bugfixes
+--------
+
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  `#1552 <https://github.com/pulp/pulp_container/issues/1552>`__
+
+
+----
+
+
 2.18.0 (2024-02-02)
 ===================
 
@@ -65,6 +128,19 @@ Bugfixes
 
 - Fixed re-sync failures after reclaiming disk space.
   `#1400 <https://github.com/pulp/pulp_container/issues/1400>`__
+
+
+----
+
+
+2.16.6 (2024-03-15)
+===================
+
+Bugfixes
+--------
+
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  `#1552 <https://github.com/pulp/pulp_container/issues/1552>`__
 
 
 ----
@@ -179,6 +255,19 @@ Improved Documentation
 
 - Took the import/export feature out of tech preview.
   `#1236 <https://github.com/pulp/pulp_container/issues/1236>`__
+
+
+----
+
+
+2.15.6 (2024-03-15)
+===================
+
+Bugfixes
+--------
+
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  `#1552 <https://github.com/pulp/pulp_container/issues/1552>`__
 
 
 ----
@@ -319,6 +408,19 @@ Misc
 
 
 ----
+
+2.14.13 (2024-03-15)
+====================
+
+Bugfixes
+--------
+
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  `#1552 <https://github.com/pulp/pulp_container/issues/1552>`__
+
+
+----
+
 
 2.14.12 (2024-02-15)
 ====================
