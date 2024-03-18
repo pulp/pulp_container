@@ -153,6 +153,25 @@ class ContainerContentTestCase(unittest.TestCase, rbac_base.BaseRegistryTest):
         )
 
         self.assertEqual(self.user_reader["tags_api"].list().count, 11)
+        exp = list(
+            sorted(
+                [
+                    "1.0",
+                    "1.0",
+                    "ml_i",
+                    "ml_ii",
+                    "ml_iii",
+                    "ml_iv",
+                    "manifest_a",
+                    "manifest_b",
+                    "manifest_c",
+                    "manifest_d",
+                    "manifest_e",
+                ]
+            )
+        )
+        act = list(sorted([t.name for t in self.user_reader["tags_api"].list().results]))
+        self.assertEqual(act, exp)
         self.assertEqual(
             self.user_reader["tags_api"].list(repository_version=push_repository2_rv).count, 1
         )
