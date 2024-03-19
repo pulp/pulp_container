@@ -1,19 +1,4 @@
-from rest_framework import status, views
-from rest_framework.exceptions import (
-    AuthenticationFailed,
-    NotAuthenticated,
-    NotFound,
-    ParseError,
-)
-
-
-def unauthorized_exception_handler(exc, context):
-    response = views.exception_handler(exc, context)
-
-    if isinstance(exc, (AuthenticationFailed, NotAuthenticated)):
-        response.status_code = status.HTTP_401_UNAUTHORIZED
-
-    return response
+from rest_framework.exceptions import NotFound, ParseError
 
 
 class RepositoryNotFound(NotFound):
