@@ -43,7 +43,8 @@ from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
 from rest_framework.settings import api_settings
 from rest_framework.viewsets import ViewSet
-from rest_framework.views import APIView
+from rest_framework.views import APIView, exception_handler
+from rest_framework.status import HTTP_401_UNAUTHORIZED
 
 from pulp_container.app import models, serializers
 from pulp_container.app.authorization import AuthorizationService
@@ -53,7 +54,6 @@ from pulp_container.app.cache import (
     RegistryApiCache,
 )
 from pulp_container.app.exceptions import (
-    unauthorized_exception_handler,
     InvalidRequest,
     RepositoryNotFound,
     RepositoryInvalid,
@@ -415,6 +415,15 @@ class BearerTokenView(APIView):
 
     def get_exception_handler(self):
         return unauthorized_exception_handler
+
+
+def unauthorized_exception_handler(exc, context):
+    response = exception_handler(exc, context)
+
+    if isinstance(exc, (AuthenticationFailed, NotAuthenticated)):
+        response.status_code = HTTP_401_UNAUTHORIZED
+
+    return response
 
 
 class VersionView(ContainerRegistryApiMixin, APIView):
