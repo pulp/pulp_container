@@ -14,6 +14,28 @@ Changelog
 .. towncrier release notes start
 
 
+2.19.2 (2024-03-20)
+===================
+
+No significant changes.
+
+
+----
+
+
+2.19.1 (2024-03-20)
+===================
+
+Bugfixes
+--------
+
+- Resolved circular import errors raised when using pulp-container as a library.
+  `#1561 <https://github.com/pulp/pulp_container/issues/1561>`__
+
+
+----
+
+
 2.19.0 (2024-03-15)
 ===================
 
