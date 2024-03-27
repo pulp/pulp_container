@@ -6,13 +6,10 @@ from contextlib import suppress
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import BaseCommand
-from django.core.paginator import Paginator
 
 from pulp_container.app.models import Manifest
 
 from pulp_container.constants import MEDIA_TYPE
-
-PAGE_CHUNK_SIZE = 1000
 
 
 class Command(BaseCommand):
@@ -34,42 +31,45 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         manifests_updated_count = 0
 
-        manifests = Manifest.objects.exclude(
+        manifests = Manifest.objects.filter(labels={}, annotations={})
+        manifests = manifests.exclude(
             media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.MANIFEST_V1]
-        ).order_by("pulp_id")
+        )
         manifests_updated_count += self.update_manifests(manifests)
 
         manifest_lists = Manifest.objects.filter(
-            media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI]
-        ).order_by("pulp_id")
+            media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI], annotations={}
+        )
         manifests_updated_count += self.update_manifests(manifest_lists)
 
         self.stdout.write(
-            self.style.SUCCESS("Successfully handled %d manifests." % manifests_updated_count)
+            self.style.SUCCESS("Successfully updated %d manifests." % manifests_updated_count)
         )
 
     def update_manifests(self, manifests_qs):
         manifests_updated_count = 0
+        manifests_to_update = []
+        for manifest in manifests_qs.iterator():
+            # suppress non-existing/already migrated artifacts and corrupted JSON files
+            with suppress(ObjectDoesNotExist, JSONDecodeError):
+                has_metadata = manifest.init_metadata()
+                if has_metadata:
+                    manifests_to_update.append(manifest)
 
-        paginator = Paginator(manifests_qs, PAGE_CHUNK_SIZE)
-        for page_num in paginator.page_range:
-            manifests_to_update = []
-
-            page = paginator.page(page_num)
-            for manifest in page.object_list:
-                # suppress non-existing/already migrated artifacts and corrupted JSON files
-                with suppress(ObjectDoesNotExist, JSONDecodeError):
-                    has_metadata = manifest.init_metadata()
-                    if has_metadata:
-                        manifests_to_update.append(manifest)
-
-            if manifests_to_update:
+            if len(manifests_to_update) > 1000:
                 fields_to_update = ["annotations", "labels", "is_bootable", "is_flatpak"]
                 manifests_qs.model.objects.bulk_update(
                     manifests_to_update,
                     fields_to_update,
                 )
-
                 manifests_updated_count += len(manifests_to_update)
+                manifests_to_update.clear()
+        if manifests_to_update:
+            fields_to_update = ["annotations", "labels", "is_bootable", "is_flatpak"]
+            manifests_qs.model.objects.bulk_update(
+                manifests_to_update,
+                fields_to_update,
+            )
+            manifests_updated_count += len(manifests_to_update)
 
         return manifests_updated_count
