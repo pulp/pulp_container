@@ -3,3 +3,4 @@ pulpcore>=3.17.0,<3.20
 pyjwkest~=1.4.0
 pyjwt[crypto]~=1.7.1
 url-normalize~=1.4.2
+tablib<3.6.0
