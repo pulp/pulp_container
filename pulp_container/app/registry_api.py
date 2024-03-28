@@ -4,6 +4,7 @@ Check `Plugin Writer's Guide`_ for more details.
 . _Plugin Writer's Guide:
     http://docs.pulpproject.org/plugins/plugin-writer/index.html
 """
+
 import base64
 import binascii
 import json
@@ -1168,8 +1169,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             if (len(manifests) - found_manifests.count()) != 0:
                 ManifestInvalid(digest=manifest_digest)
 
-            manifest_list = self._init_manifest(manifest_digest, media_type)
-            manifest_list = self._save_manifest(manifest_list, artifact)
+            manifest_list = self._init_manifest(manifest_digest, media_type, raw_data)
+            manifest_list = self._save_manifest(manifest_list)
 
             manifests_to_list = []
             for manifest in found_manifests:
@@ -1249,10 +1250,10 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 raise ManifestInvalid(digest=manifest_digest)
 
             config_blob = found_config_blobs.first()
-            manifest = self._init_manifest(manifest_digest, media_type, config_blob)
+            manifest = self._init_manifest(manifest_digest, media_type, raw_data, config_blob)
             manifest.init_metadata(manifest_data=content_data)
 
-            manifest = self._save_manifest(manifest, artifact)
+            manifest = self._save_manifest(manifest)
 
             thru = []
             for blob in found_blobs:
@@ -1306,29 +1307,30 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             repository.pending_manifests.add(manifest)
             return ManifestResponse(manifest, path, request, status=201)
 
-    def _init_manifest(self, manifest_digest, media_type, config_blob=None):
+    def _init_manifest(self, manifest_digest, media_type, raw_data, config_blob=None):
         return models.Manifest(
             digest=manifest_digest,
             schema_version=2,
             media_type=media_type,
             config_blob=config_blob,
+            data=raw_data.decode("utf-8"),
         )
 
-    def _save_manifest(self, manifest, artifact):
+    def _save_manifest(self, manifest):
         try:
             manifest.save()
         except IntegrityError:
             manifest = models.Manifest.objects.get(digest=manifest.digest)
             manifest.touch()
-        ca = ContentArtifact(artifact=artifact, content=manifest, relative_path=manifest.digest)
-        try:
-            ca.save()
-        except IntegrityError:
-            # re-upload artifact in case it was previously removed.
-            ca = ContentArtifact.objects.get(content=manifest, relative_path=manifest.digest)
-            if not ca.artifact:
-                ca.artifact = artifact
-                ca.save(update_fields=["artifact"])
+        # ca = ContentArtifact(artifact=artifact, content=manifest, relative_path=manifest.digest)
+        # try:
+        #    ca.save()
+        # except IntegrityError:
+        #    # re-upload artifact in case it was previously removed.
+        #    ca = ContentArtifact.objects.get(content=manifest, relative_path=manifest.digest)
+        #    if not ca.artifact:
+        #        ca.artifact = artifact
+        #        ca.save(update_fields=["artifact"])
         return manifest
 
     def receive_artifact(self, chunk):
