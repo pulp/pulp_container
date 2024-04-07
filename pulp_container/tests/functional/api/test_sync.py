@@ -1,4 +1,5 @@
 """Tests that sync container plugin repositories."""
+
 import pytest
 from pulpcore.tests.functional import PulpTaskError
 

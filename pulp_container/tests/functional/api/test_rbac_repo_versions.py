@@ -1,4 +1,5 @@
 """Tests that verify that RBAC for repository versions work properly."""
+
 import pytest
 
 from pulp_smash import utils
