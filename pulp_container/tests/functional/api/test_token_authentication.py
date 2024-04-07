@@ -1,4 +1,5 @@
 """Tests for token authentication."""
+
 import aiohttp
 import asyncio
 import unittest

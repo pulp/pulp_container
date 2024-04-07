@@ -452,9 +452,12 @@ class ContainerFirstStage(Stage):
 
             manifest = Manifest(
                 digest=digest,
-                schema_version=2
-                if manifest_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
-                else 1,
+                schema_version=(
+                    2
+                    if manifest_data["mediaType"]
+                    in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
+                    else 1
+                ),
                 media_type=manifest_data["mediaType"],
             )
         da = DeclarativeArtifact(
