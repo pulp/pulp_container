@@ -4,6 +4,7 @@ Check `Plugin Writer's Guide`_ for more details.
 . _Plugin Writer's Guide:
     http://docs.pulpproject.org/plugins/plugin-writer/index.html
 """
+
 import base64
 import binascii
 import json

@@ -1,4 +1,5 @@
 """Tests related to the Redis content caching."""
+
 import os
 import requests
 import unittest
