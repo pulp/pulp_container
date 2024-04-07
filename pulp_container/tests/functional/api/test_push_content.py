@@ -1,4 +1,5 @@
 """Tests that verify that images can be pushed to Pulp."""
+
 import json
 import pytest
 import requests
