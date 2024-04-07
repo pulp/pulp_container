@@ -1,4 +1,5 @@
 """Tests that sync container plugin repositories."""
+
 from pulp_smash import config
 from pulp_smash.pulp3.bindings import (
     delete_orphans,

@@ -1,4 +1,5 @@
 """Tests that recursively remove container content from repositories."""
+
 import unittest
 
 from urllib.parse import urlparse

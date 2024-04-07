@@ -1,4 +1,5 @@
 """Tests that verify that images served by Pulp can be pulled."""
+
 import contextlib
 import unittest
 from urllib.parse import urljoin, urlparse

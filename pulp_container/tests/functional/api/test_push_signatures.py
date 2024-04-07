@@ -1,4 +1,5 @@
 """Tests that verify that an image signature can be pushed to Pulp."""
+
 import base64
 import json
 import pytest

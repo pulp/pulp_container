@@ -4,6 +4,7 @@ Check `Plugin Writer's Guide`_ for more details.
 . _Plugin Writer's Guide:
     http://docs.pulpproject.org/plugins/plugin-writer/index.html
 """
+
 import logging
 
 from django.db import IntegrityError
