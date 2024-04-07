@@ -1,4 +1,5 @@
 """Tests that verify Flatpak support"""
+
 import pytest
 import subprocess
 
