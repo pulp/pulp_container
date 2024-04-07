@@ -1,4 +1,5 @@
 """Tests that container sync repositories have RBAC."""
+
 import pytest
 
 from pulp_smash import utils

@@ -1,4 +1,5 @@
 """Tests for fetching the list of all repositories."""
+
 import unittest
 
 from urllib.parse import urljoin
