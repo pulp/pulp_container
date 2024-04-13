@@ -64,28 +64,28 @@ class RegistryAuthentication(BasicAuthentication):
     A basic authentication class that accepts empty username and password as anonymous.
     """
 
-    PULP_AUTHENTICATION_CLASS = "pulpcore.app.authentication.PulpRemoteUserAuthentication"
+    PULP_REMOTE_AUTHENTICATION_CLASS = "pulpcore.app.authentication.PulpRemoteUserAuthentication"
     AUTH_CLASSES = settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
+    ALLOWS_REMOTE_AUTHENTICATION = PULP_REMOTE_AUTHENTICATION_CLASS in AUTH_CLASSES
 
     def authenticate(self, request):
         """
         Perform basic authentication with the exception to accept empty credentials.
 
-        For anonymous user, Podman sends 'Authorization': 'Basic Og=='.
-        This represents ":" in base64.
-
         If basic authentication could not success, remote webserver authentication is considered.
         """
-        if request.headers.get("Authorization") == "Basic Og==":
-            return (AnonymousUser, None)
-
         try:
-            return super().authenticate(request)
+            user = super().authenticate(request)
         except AuthenticationFailed:
-            if self.PULP_AUTHENTICATION_CLASS in self.AUTH_CLASSES:
+            if self.ALLOWS_REMOTE_AUTHENTICATION:
                 return RemoteUserRegistryAuthentication().authenticate(request)
             else:
                 raise
+
+        if user is None and self.ALLOWS_REMOTE_AUTHENTICATION:
+            return RemoteUserRegistryAuthentication().authenticate(request)
+        else:
+            return user
 
 
 class RemoteUserRegistryAuthentication(RemoteUserAuthentication):
