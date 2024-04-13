@@ -74,9 +74,6 @@ class RegistryAuthentication(BasicAuthentication):
 
         If basic authentication could not success, remote webserver authentication is considered.
         """
-        if request.headers.get("Authorization") == "Basic Og==":
-            return (AnonymousUser, None)
-
         try:
             user = super().authenticate(request)
         except AuthenticationFailed:
