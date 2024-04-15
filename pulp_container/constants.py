@@ -71,16 +71,3 @@ MEGABYTE = 1_000_000
 SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
 
 SIGNATURE_API_EXTENSION_VERSION = 2
-
-
-ALLOWED_ARTIFACT_TYPES = [MEDIA_TYPE.CONFIG_BLOB_OCI, MEDIA_TYPE.OCI_EMPTY_JSON]
-ALLOWED_BLOB_CONTENT_TYPES = OCI_BLOB_MEDIA_TYPE
-
-
-def register_well_known_types(artifact_config_type, artifact_layer_types):
-    if artifact_config_type not in ALLOWED_ARTIFACT_TYPES:
-        ALLOWED_ARTIFACT_TYPES.append(artifact_config_type)
-
-    for layer_type in artifact_layer_types:
-        if layer_type not in ALLOWED_BLOB_CONTENT_TYPES:
-            ALLOWED_BLOB_CONTENT_TYPES.append(layer_type)
