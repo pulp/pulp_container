@@ -1,61 +1,14 @@
-# Configure Supported OCI Types
+# Support To OCI Artifacts
 
-By default, the following list of media types is enabled in the Container Registry:
+Pulp is not only a container registry, it also supports OCI artifacts by leveraging the config
+property on the image manifest.
+Here are some examples of compliant OCI artifacts supported by `pulp_container` plugin:
 
-* OCI images
-* Helm
-* Cosign, SBOMs, attestations
-* Source containers
-* Singularity
-* Conftest policies
-* WASM
-
-!!! note
-
-    The `ADDITIONAL_OCI_ARTIFACT_TYPES` is deprecated and will be removed in a future release.
-    Since the validation of media types is not part of the OCI standard and new types keep being
-    added we decided to deprecate this configuration.
-
-For any other OCI media type that is not supported by default, you can add them to the
-`ADDITIONAL_OCI_ARTIFACT_TYPES` setting using the following format:
-
-```
-ADDITIONAL_OCI_ARTIFACT_TYPES = {
-   "<oci config type 1>": [
-       "<oci layer type A>",
-       "<oci layer type B>",
-   ],
-   "<oci config type 2>": [
-       "<oci layer type C>",
-       "<oci layer type D>",
-   ],
-}
-```
-
-For example, you can add support for custom defined mediatype by adding the following to your
-`ADDITIONAL_OCI_ARTIFACT_TYPES` setting:
-
-```
-ADDITIONAL_OCI_ARTIFACT_TYPES = {
-   "<oci config type 1>": [
-       "<oci layer type A>",
-       "<oci layer type B>",
-   ],
-   "<oci config type 2>": [
-       "<oci layer type C>",
-       "<oci layer type D>",
-   ],
-   "application/vnd.guardians.groot.config.v1+json": [
-       "text/plain",
-       "application/vnd.guardians.groot.docs.layer.v1+tar",
-   ],
-}
-
-```
-
-!!! note
-
-    When adding OCI media types that are not configured by default, it is necessary then to manually add
-    the `Default oci types<default-oci-types>` to the list.
-    The OCI image-spec types are supported by default, they are built-in and cannot be disabled, it is
-    not necessary to add them manually to the list.
+ * [OCI images](site:pulp_container/docs/user/guides/manage-image)
+ * [Helm](site:pulp_container/docs/user/guides/manage-helm-chart)
+ * [Flatpak images](site:pulp_container/docs/user/guides/manage-flatpak)
+ * [Cosign, SBOMs, attestations](site:pulp_container/docs/user/guides/manage-cosign-signature)
+ * Source containers
+ * Singularity
+ * Conftest policies
+ * WASM
