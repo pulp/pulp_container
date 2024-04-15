@@ -82,6 +82,8 @@ from pulp_container.app.utils import (
     validate_manifest,
 )
 from pulp_container.constants import (
+    BLOB_CONTENT_TYPE,
+    DB_BLOB_SIZE,
     EMPTY_BLOB,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
@@ -608,8 +610,11 @@ class FlatpakIndexDynamicView(APIView):
                     tag.name, tag.tagged_manifest, req_oss, req_architectures, manifests
                 )
             for manifest, tagged in manifests.items():
-                with storage.open(manifest.config_blob._artifacts.get().file.name) as file:
-                    raw_data = file.read()
+                if manifest.config_blob.data != "":
+                    raw_data = manifest.config_blob.data
+                else:
+                    with storage.open(manifest.config_blob._artifacts.get().file.name) as file:
+                        raw_data = file.read()
                 config_data = json.loads(raw_data)
                 labels = config_data.get("config", {}).get("Labels")
                 if not labels:
@@ -785,18 +790,33 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             except IntegrityError:
                 blob = models.Blob.objects.get(digest=digest)
                 blob.touch()
-            try:
-                blob_artifact = ContentArtifact(
-                    artifact=artifact, content=blob, relative_path=digest
-                )
-                blob_artifact.save()
-            except IntegrityError:
-                # re-upload artifact in case it was previously removed.
-                ca = ContentArtifact.objects.get(content=blob, relative_path=digest)
-                if not ca.artifact:
-                    ca.artifact = artifact
-                    ca.save(update_fields=["artifact"])
+
+            blob_size = artifact.file.size
+            if blob_size > DB_BLOB_SIZE:
+                self._create_blob_content_artifact(artifact, blob, digest)
+            else:
+                with storage.open(artifact.file.name) as artifact_file:
+                    raw_data = artifact_file.read()
+                blob.data = raw_data
+                blob.save()
+                storage.delete(artifact.file.name)
+
         return blob
+
+    def _create_blob_content_artifact(self, artifact, blob, digest):
+        """
+        Blobs with size > DB_BLOB_SIZE are often layer blobs and
+        will be stored as artifacts.
+        """
+        try:
+            blob_artifact = ContentArtifact(artifact=artifact, content=blob, relative_path=digest)
+            blob_artifact.save()
+        except IntegrityError:
+            # re-upload artifact in case it was previously removed.
+            ca = ContentArtifact.objects.get(content=blob, relative_path=digest)
+            if not ca.artifact:
+                ca.artifact = artifact
+                ca.save(update_fields=["artifact"])
 
     def single_request_upload(self, request, path, repository, digest):
         """Monolithic upload."""
@@ -986,6 +1006,14 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 blob.touch()
             except models.Blob.DoesNotExist:
                 raise BlobNotFound(digest=pk)
+
+        if blob.data:
+            headers = {
+                "Content-Type": BLOB_CONTENT_TYPE,
+                "Docker-Content-Digest": pk,
+                "Docker-Distribution-API-Version": "registry/2.0",
+            }
+            return Response(data=blob.data, headers=headers)
 
         return redirects.issue_blob_redirect(blob)
 

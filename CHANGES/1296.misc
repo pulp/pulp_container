@@ -1,0 +1,3 @@
+Added the new `data` field into the Blob model to store blobs smaller than 22Kb (an average size
+for container configs). Blobs stored in this field will not be kept as artifacts anymore, which
+will reduce the storage backend read requests.

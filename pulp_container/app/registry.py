@@ -31,7 +31,13 @@ from pulp_container.app.utils import (
     determine_media_type,
     save_artifact,
 )
-from pulp_container.constants import BLOB_CONTENT_TYPE, EMPTY_BLOB, MEDIA_TYPE, V2_ACCEPT_HEADERS
+from pulp_container.constants import (
+    BLOB_CONTENT_TYPE,
+    DB_BLOB_SIZE,
+    EMPTY_BLOB,
+    MEDIA_TYPE,
+    V2_ACCEPT_HEADERS,
+)
 
 log = logging.getLogger(__name__)
 
@@ -451,6 +457,17 @@ class PullThroughDownloader:
 
     async def save_blob(self, digest, manifest):
         blob = Blob(digest=digest)
+        relative_url = "/v2/{name}/blobs/{digest}".format(
+            name=self.remote.namespaced_upstream_name, digest=digest
+        )
+        blob_url = urljoin(self.remote.url, relative_url)
+        downloader = self.remote.get_downloader(url=blob_url)
+        response = await downloader.run()
+        blob_size = response.artifact_attributes.get("size")
+        if blob_size <= DB_BLOB_SIZE:
+            with open(response.path, "rb") as content_file:
+                blob.data = content_file.read()
+
         try:
             await blob.asave()
         except IntegrityError:
@@ -461,26 +478,23 @@ class PullThroughDownloader:
         with suppress(IntegrityError):
             await bm_rel.asave()
 
-        ca = ContentArtifact(
-            content=blob,
-            artifact=None,
-            relative_path=digest,
-        )
-        with suppress(IntegrityError):
-            await ca.asave()
+        if blob_size > DB_BLOB_SIZE:
+            ca = ContentArtifact(
+                content=blob,
+                artifact=None,
+                relative_path=digest,
+            )
+            with suppress(IntegrityError):
+                await ca.asave()
 
-        relative_url = "/v2/{name}/blobs/{digest}".format(
-            name=self.remote.namespaced_upstream_name, digest=digest
-        )
-        blob_url = urljoin(self.remote.url, relative_url)
-        ra = RemoteArtifact(
-            url=blob_url,
-            sha256=digest[len("sha256:") :],
-            content_artifact=ca,
-            remote=self.remote,
-        )
-        with suppress(IntegrityError):
-            await ra.asave()
+            ra = RemoteArtifact(
+                url=blob_url,
+                sha256=digest[len("sha256:") :],
+                content_artifact=ca,
+                remote=self.remote,
+            )
+            with suppress(IntegrityError):
+                await ra.asave()
 
         return blob
 
@@ -493,21 +507,27 @@ class PullThroughDownloader:
         response = await downloader.run()
 
         response.artifact_attributes["file"] = response.path
-        saved_artifact = await save_artifact(response.artifact_attributes)
 
-        config_blob = Blob(digest=config_digest)
+        blob_size = response.artifact_attributes.get("size")
+        blob = Blob(digest=config_digest)
+        if blob_size <= DB_BLOB_SIZE:
+            with open(response.path, "rb") as content_file:
+                blob.data = content_file.read()
+
         try:
-            await config_blob.asave()
+            await blob.asave()
         except IntegrityError:
-            config_blob = await Blob.objects.aget(digest=config_digest)
-            await sync_to_async(config_blob.touch)()
+            blob = await Blob.objects.aget(digest=config_digest)
+            await sync_to_async(blob.touch)()
 
-        content_artifact = ContentArtifact(
-            content=config_blob,
-            artifact=saved_artifact,
-            relative_path=config_digest,
-        )
-        with suppress(IntegrityError):
-            await content_artifact.asave()
+        if blob_size > DB_BLOB_SIZE:
+            saved_artifact = await save_artifact(response.artifact_attributes)
+            content_artifact = ContentArtifact(
+                content=blob,
+                artifact=saved_artifact,
+                relative_path=config_digest,
+            )
+            with suppress(IntegrityError):
+                await content_artifact.asave()
 
-        return config_blob
+        return blob

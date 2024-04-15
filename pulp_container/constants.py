@@ -70,6 +70,10 @@ SIGNATURE_HEADER = "X-Registry-Supports-Signatures"
 MEGABYTE = 1_000_000
 SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
 
+# we defined the following size based on the average container config size of some
+# ubi and bootable images
+DB_BLOB_SIZE = 22000
+
 SIGNATURE_API_EXTENSION_VERSION = 2
 
 

@@ -6,10 +6,11 @@ from contextlib import suppress
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import BaseCommand
+from django.core.files.storage import default_storage as storage
 
 from pulp_container.app.models import Manifest
 
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import DB_BLOB_SIZE, MEDIA_TYPE
 
 
 class Command(BaseCommand):
@@ -41,10 +42,29 @@ class Command(BaseCommand):
             media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI], annotations={}
         )
         manifests_updated_count += self.update_manifests(manifest_lists)
+        manifests_updated_count += self.update_config_blobs()
 
         self.stdout.write(
             self.style.SUCCESS("Successfully updated %d manifests." % manifests_updated_count)
         )
+
+    # TODO: check if it worth finding a better way to do it because here we are iterating over
+    # all of the available manifests again (we are also iterating over a list of manifests in
+    # the update_manifests method)
+    def update_config_blobs(self):
+        manifests_updated_count = 0
+        manifests = Manifest.objects.all()
+        for manifest in manifests.iterator():
+            artifact = manifest.config_blob._artifacts.get().file
+            blob_size = artifact.size
+            if blob_size <= DB_BLOB_SIZE:
+                with storage.open(artifact.name) as artifact_file:
+                    raw_data = artifact_file.read()
+                blob = manifest.config_blob
+                blob.data = raw_data
+                blob.save()
+                manifests_updated_count += 1
+        return manifests_updated_count
 
     def update_manifests(self, manifests_qs):
         manifests_updated_count = 0

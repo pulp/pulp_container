@@ -46,6 +46,7 @@ class Blob(Content):
 
     Fields:
         digest (models.TextField): The blob digest.
+        data (models.BinaryField): The container config content.
 
     Relations:
         manifest (models.ForeignKey): Many-to-one relationship with Manifest.
@@ -56,6 +57,7 @@ class Blob(Content):
     TYPE = "blob"
 
     digest = models.TextField(db_index=True)
+    data = models.BinaryField(blank=True, null=True)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
@@ -137,7 +139,17 @@ class Manifest(Content):
         return bool(self.annotations)
 
     def init_labels(self):
-        if self.config_blob:
+        if not self.config_blob:
+            return bool(self.labels)
+
+        if self.config_blob.data:
+            # if config-blob is stored in the database
+            blob_data = json.loads(self.config_blob.data)
+            config = blob_data.get("config", {})
+            if "Labels" in config.keys():
+                self.labels = config["Labels"] or {}
+        else:
+            # if not, we'll retrieve the config from file
             config_artifact = self.config_blob._artifacts.get()
 
             config_data, _ = get_content_data(config_artifact)

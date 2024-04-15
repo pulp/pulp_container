@@ -409,7 +409,8 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         self.assertEqual(local_image[0]["Id"], remote_image[0]["Id"])
 
         new_artifact_count = self.artifacts_api.list().count
-        self.assertGreater(new_artifact_count, self.artifact_count)
+        # with the artifactless blobs the number of artifacts will decrease
+        self.assertGreater(new_artifact_count, self.artifact_count - 1)
 
         registry.rmi(REGISTRY_V2_REPO_HELLO_WORLD)
 

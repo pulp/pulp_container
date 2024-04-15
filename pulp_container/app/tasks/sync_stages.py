@@ -13,6 +13,7 @@ from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage, ContentSaver
 
 from pulp_container.constants import (
+    DB_BLOB_SIZE,
     MEDIA_TYPE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
@@ -350,12 +351,12 @@ class ContainerFirstStage(Stage):
         for layer in content_data.get("layers") or content_data.get("fsLayers"):
             if not self._include_layer(layer):
                 continue
-            blob_dc = self.create_blob(layer)
+            blob_dc = await self.create_blob(layer)
             manifest_dc.extra_data["blob_dcs"].append(blob_dc)
             await self.put(blob_dc)
-        layer = content_data.get("config", None)
-        if layer:
-            blob_dc = self.create_blob(layer, deferred_download=False)
+        config = content_data.get("config", None)
+        if config:
+            blob_dc = await self.create_blob(config, False, False)
             manifest_dc.extra_data["config_blob_dc"] = blob_dc
             await self.put(blob_dc)
 
@@ -518,7 +519,7 @@ class ContainerFirstStage(Stage):
         )
         return {"manifest_dc": man_dc, "platform": platform, "content_data": content_data}
 
-    def create_blob(self, blob_data, deferred_download=True):
+    async def create_blob(self, blob_data, deferred_download=True, is_layer=True):
         """
         Create blob.
 
@@ -526,25 +527,62 @@ class ContainerFirstStage(Stage):
             blob_data (dict): Data about a blob
             deferred_download (bool): boolean that indicates whether not to download a blob
                 immediatly. Config blob is downloaded regardless of the remote's settings
+            is_layer (bool): Boolean to identify if this is a layer blob (the size should be
+                retrived from the manifest) or a config blob
 
         """
         digest = blob_data.get("digest") or blob_data.get("blobSum")
-        blob_artifact = Artifact(sha256=digest[len("sha256:") :])
-        blob = Blob(digest=digest)
         relative_url = "/v2/{name}/blobs/{digest}".format(
             name=self.remote.namespaced_upstream_name, digest=digest
         )
         blob_url = urljoin(self.remote.url, relative_url)
-        da = DeclarativeArtifact(
-            artifact=blob_artifact,
-            url=blob_url,
-            relative_path=digest,
-            remote=self.remote,
-            deferred_download=deferred_download and self.deferred_download,
-        )
-        blob_dc = DeclarativeContent(content=blob, d_artifacts=[da])
+        blob_size, raw_data = await self._get_blob_size_data(blob_data, blob_url, is_layer)
+
+        if blob_size > DB_BLOB_SIZE:
+            blob_artifact = Artifact(sha256=digest[len("sha256:") :])
+            blob = Blob(digest=digest)
+            da = DeclarativeArtifact(
+                artifact=blob_artifact,
+                url=blob_url,
+                relative_path=digest,
+                remote=self.remote,
+                deferred_download=deferred_download and self.deferred_download,
+            )
+            blob_dc = DeclarativeContent(content=blob, d_artifacts=[da])
+        else:
+            # if this is a layer with size <= DB_BLOB_SIZE, we will need to download it
+            if is_layer:
+                downloader = self.remote.get_downloader(url=blob_url)
+                response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+                with open(response.path, "rb") as content_file:
+                    raw_data = content_file.read()
+            artifactless_blob = Blob(digest=digest, data=raw_data)
+            blob_dc = DeclarativeContent(content=artifactless_blob)
 
         return blob_dc
+
+    async def _get_blob_size_data(self, blob_data, blob_url, is_layer):
+        """
+        Return the Blob Size and its content.
+
+        If this is a layer blob, the size is a mandatory field in the manifest.
+        If this is a config blob, we will need to first download it to discover its size and, since
+        the file content will now be stored in the database, it is returned to avoid a new download.
+
+        Args:
+            blob_data (dict): Data about a blob
+            blob_url (str): The remote url of blob
+            is_layer (bool): Boolean to identify if this is a layer blob (the size should be
+                retrived from manifest) or a config blob
+        """
+        if is_layer and "blobSum" not in blob_data:
+            return blob_data.get("size"), None
+        else:
+            downloader = self.remote.get_downloader(url=blob_url)
+            response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+            with open(response.path, "rb") as content_file:
+                raw_data = content_file.read()
+            return response.artifact_attributes.get("size"), raw_data
 
     async def create_signatures(self, man_dc, signature_source):
         """

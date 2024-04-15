@@ -3,6 +3,7 @@ import os
 import re
 
 from django.core.validators import URLValidator
+from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 from pulpcore.plugin.models import (
@@ -27,6 +28,7 @@ from pulpcore.plugin.serializers import (
     RepositorySyncURLSerializer,
     RepositoryVersionRelatedField,
     SingleArtifactContentSerializer,
+    SingleContentArtifactField,
     ValidateFieldsMixin,
 )
 
@@ -120,12 +122,16 @@ class ManifestSerializer(SingleArtifactContentSerializer):
         model = models.Manifest
 
 
+@extend_schema_serializer(exclude_fields=("artifact",))
 class BlobSerializer(SingleArtifactContentSerializer):
     """
     Serializer for Blobs.
     """
 
     digest = serializers.CharField(help_text="sha256 of the Blob file")
+    artifact = SingleContentArtifactField(
+        help_text=_("Artifact file representing the physical content"), required=False
+    )
 
     class Meta:
         fields = SingleArtifactContentSerializer.Meta.fields + ("digest",)

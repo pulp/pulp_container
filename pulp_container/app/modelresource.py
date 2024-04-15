@@ -13,6 +13,14 @@ from pulp_container.app.models import (
 )
 
 
+class BinaryWidget(widgets.Widget):
+    def clean(self, value, row=None, **kwargs):
+        return bytes.fromhex(value)
+
+    def render(self, value, obj=None):
+        return value.hex()
+
+
 class ContainerRepositoryResource(RepositoryResource):
     """
     A resource for importing/exporting repositories of the sync type
@@ -64,6 +72,8 @@ class BlobResource(BaseContentResource):
     """
     Resource for import/export of blob entities
     """
+
+    data = fields.Field(column_name="data", attribute="data", widget=BinaryWidget())
 
     def set_up_queryset(self):
         """

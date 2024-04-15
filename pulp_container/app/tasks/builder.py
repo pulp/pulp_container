@@ -12,7 +12,7 @@ from pulp_container.app.models import (
     Manifest,
     Tag,
 )
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import DB_BLOB_SIZE, MEDIA_TYPE
 from pulpcore.plugin.models import Artifact, ContentArtifact, Content
 
 
@@ -34,15 +34,21 @@ def get_or_create_blob(layer_json, manifest, path):
         blob.touch()
     except Blob.DoesNotExist:
         layer_file_name = os.path.join(path, layer_json["digest"][7:])
-        layer_artifact = Artifact.init_and_validate(layer_file_name)
-        layer_artifact.save()
         blob = Blob(digest=layer_json["digest"])
-        blob.save()
-        ContentArtifact(
-            artifact=layer_artifact, content=blob, relative_path=layer_json["digest"]
-        ).save()
-    if layer_json["mediaType"] != MEDIA_TYPE.CONFIG_BLOB_OCI:
-        BlobManifest(manifest=manifest, manifest_blob=blob).save()
+
+        if os.path.getsize(layer_file_name) > DB_BLOB_SIZE:
+            layer_artifact = Artifact.init_and_validate(layer_file_name)
+            layer_artifact.save()
+            blob.save()
+            ContentArtifact(
+                artifact=layer_artifact, content=blob, relative_path=layer_json["digest"]
+            ).save()
+            BlobManifest(manifest=manifest, manifest_blob=blob).save()
+        else:
+            with open(layer_file_name, "rb") as content_file:
+                blob.data = content_file.read()
+            blob.save()
+
     return blob
 
 
