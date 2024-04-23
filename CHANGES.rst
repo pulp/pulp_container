@@ -13,6 +13,23 @@ Changelog
 
 .. towncrier release notes start
 
+2.19.3 (2024-04-23)
+===================
+
+Bugfixes
+--------
+
+- Fixed hande-image-data command to skip content that has labels/annotations already populated.
+  `#1573 <https://github.com/pulp/pulp_container/issues/1573>`__
+- Fixed handle-image-data command to update all entries in one run.
+  `#1575 <https://github.com/pulp/pulp_container/issues/1575>`__
+- Fixed a bug that disallowed users from leveraging the remote authentication.
+  `#1577 <https://github.com/pulp/pulp_container/issues/1577>`__
+
+
+----
+
+
 2.19.2 (2024-03-20)
 ===================
 
