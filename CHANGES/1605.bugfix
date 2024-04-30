@@ -1,0 +1,2 @@
+Fixed a bug that caused the registry to not accept requests from anonymous users when token
+authentication was disabled.
