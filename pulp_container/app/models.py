@@ -99,7 +99,7 @@ class Manifest(Content):
     digest = models.TextField(db_index=True)
     schema_version = models.IntegerField()
     media_type = models.TextField(choices=MANIFEST_CHOICES)
-    data = models.TextField(default="")
+    data = models.TextField(null=True)
 
     annotations = models.JSONField(default=dict)
     labels = models.JSONField(default=dict)

@@ -308,7 +308,7 @@ async def save_artifact(artifact_attributes):
 
 
 def get_content_data(saved_artifact):
-    with storage.open(saved_artifact.file.name) as file:
+    with storage.open(saved_artifact.file.name, mode="rb") as file:
         raw_data = file.read()
     content_data = json.loads(raw_data)
     return content_data, raw_data

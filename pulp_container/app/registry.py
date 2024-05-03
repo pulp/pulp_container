@@ -276,15 +276,22 @@ class Registry(Handler):
 
         try:
             if content_type == "manifests":
-                manifest = await Manifest.objects.aget(digest=digest)
+                manifest = await Manifest.objects.prefetch_related("contentartifact_set").aget(
+                    digest=digest
+                )
                 headers = {
                     "Content-Type": manifest.media_type,
                     "Docker-Content-Digest": manifest.digest,
                 }
                 # TODO: BACKWARD COMPATIBILITY - remove after migrating to artifactless manifest
                 if not manifest.data:
-                    saved_artifact = await manifest._artifacts.aget()
-                    return await Registry._dispatch(saved_artifact, headers)
+                    if saved_artifact := await manifest._artifacts.afirst():
+                        return await Registry._dispatch(saved_artifact, headers)
+                    else:
+                        ca = await sync_to_async(lambda x: x[0])(manifest.contentartifact_set.all())
+                        return await self._stream_content_artifact(
+                            request, web.StreamResponse(), ca
+                        )
                 # END OF BACKWARD COMPATIBILITY
                 return web.Response(text=manifest.data, headers=headers)
             elif content_type == "blobs":
@@ -393,7 +400,7 @@ class PullThroughDownloader:
         if media_type not in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
             # add the manifest and blobs to the repository to be able to stream it
             # in the next round when a client approaches the registry
-            await self.init_pending_content(digest, manifest_data, raw_text_data, media_type)
+            await self.init_pending_content(digest, manifest_data, media_type, raw_text_data)
 
         return raw_text_data, digest, media_type
 
@@ -431,7 +438,7 @@ class PullThroughDownloader:
             },
         )
 
-    async def init_pending_content(self, digest, manifest_data, raw_text_data, media_type):
+    async def init_pending_content(self, digest, manifest_data, media_type, raw_text_data):
         if config := manifest_data.get("config", None):
             config_digest = config["digest"]
             config_blob = await self.save_config_blob(config_digest)
