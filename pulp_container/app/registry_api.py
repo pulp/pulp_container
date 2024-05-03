@@ -1133,7 +1133,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         artifact = self.receive_artifact(chunk)
         manifest_digest = "sha256:{id}".format(id=artifact.sha256)
 
-        with storage.open(artifact.file.name) as artifact_file:
+        with storage.open(artifact.file.name, mode="rb") as artifact_file:
             raw_bytes_data = artifact_file.read()
 
         raw_text_data = raw_bytes_data.decode("utf-8")

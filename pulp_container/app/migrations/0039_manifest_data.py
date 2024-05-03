@@ -6,7 +6,8 @@ from django.db import migrations, models
 
 def print_warning_for_initializing_manifest_data(apps, schema_editor):
     warnings.warn(
-        "Run 'pulpcore-manager container-handle-image-data' to move the manifests' data from artifacts to the new 'data' database field."
+        "Run 'pulpcore-manager container-handle-image-data' to move the manifests' "
+        "data from artifacts to the new 'data' database field."
     )
 
 
@@ -20,7 +21,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="manifest",
             name="data",
-            field=models.TextField(default=""),
+            field=models.TextField(null=True),
         ),
         migrations.RunPython(
             print_warning_for_initializing_manifest_data,

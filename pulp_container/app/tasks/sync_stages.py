@@ -86,7 +86,7 @@ class ContainerFirstStage(Stage):
                 content_data = json.loads(raw_text_data)
 
             # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-            elif saved_artifact := await manifest._artifacts.aget():
+            elif saved_artifact := await manifest._artifacts.afirst():
                 content_data, raw_bytes_data = await sync_to_async(get_content_data)(saved_artifact)
                 raw_text_data = raw_bytes_data.decode("utf-8")
             # if artifact is not available (due to reclaim space) we will download it again
@@ -478,7 +478,7 @@ class ContainerFirstStage(Stage):
             if manifest.data:
                 content_data = json.loads(manifest.data)
             # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-            elif saved_artifact := await manifest._artifacts.aget():
+            elif saved_artifact := await manifest._artifacts.afirst():
                 content_data, _ = await sync_to_async(get_content_data)(saved_artifact)
             # if artifact is not available (due to reclaim space) we will download it again
             else:
@@ -486,7 +486,6 @@ class ContainerFirstStage(Stage):
                     manifest_url, digest
                 )
             # END OF BACKWARD COMPATIBILITY
-
         else:
             content_data, manifest = await self._download_and_instantiate_manifest(
                 manifest_url, digest
