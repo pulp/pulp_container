@@ -1,1 +1,0 @@
-Fixed hande-image-data command to skip content that has labels/annotations already populated.

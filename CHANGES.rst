@@ -13,6 +13,49 @@ Changelog
 
 .. towncrier release notes start
 
+2.20.0 (2024-05-06)
+===================
+
+Features
+--------
+
+- Updated the Manifest model to no longer rely on artifacts, storing all manifest data internally
+  within the database. This change dissociates the  manifest from external files on the storage
+  backend.
+  `#1288 <https://github.com/pulp/pulp_container/issues/1288>`__
+
+
+Bugfixes
+--------
+
+- Resolved circular import errors raised when using pulp-container as a library.
+  `#1561 <https://github.com/pulp/pulp_container/issues/1561>`__
+- Fixed hande-image-data command to skip content that has labels/annotations already populated.
+  `#1573 <https://github.com/pulp/pulp_container/issues/1573>`__
+- Fixed handle-image-data command to update all entries in one run.
+  `#1575 <https://github.com/pulp/pulp_container/issues/1575>`__
+- Fixed a bug that disallowed users from leveraging the remote authentication.
+  `#1577 <https://github.com/pulp/pulp_container/issues/1577>`__
+- Fixed a bug that caused the registry to not accept requests from anonymous users when token
+  authentication was disabled.
+  `#1605 <https://github.com/pulp/pulp_container/issues/1605>`__
+
+
+Deprecations and Removals
+-------------------------
+
+- Removed the deprecated `ADDITIONAL_OCI_ARTIFACT_TYPES` setting.
+  `#1537 <https://github.com/pulp/pulp_container/issues/1537>`__
+
+
+Misc
+----
+
+- 
+
+
+----
+
 
 2.19.3 (2024-04-23)
 ===================
