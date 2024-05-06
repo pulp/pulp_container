@@ -74,7 +74,7 @@ jobs:
         with:
           fetch-depth: 0
           path: "pulp_container"
-          ref: "2.19"
+          ref: "2.20"
 
       - name: "Run update"
         working-directory: "pulp_container"
@@ -88,10 +88,10 @@ jobs:
           path: "pulp_container"
           committer: "pulpbot <pulp-infra@redhat.com>"
           author: "pulpbot <pulp-infra@redhat.com>"
-          title: "Update CI files for branch 2.19"
+          title: "Update CI files for branch 2.20"
           body: ""
-          branch: "update-ci/2.19"
-          base: "2.19"
+          branch: "update-ci/2.20"
+          base: "2.20"
           commit-message: |
             Update CI files
 
