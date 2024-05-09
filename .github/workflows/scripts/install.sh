@@ -79,7 +79,7 @@ cat >> vars/main.yaml << VARSYAML
 pulp_env: {}
 pulp_settings: {"allowed_content_checksums": ["sha1", "sha224", "sha256", "sha384", "sha512"], "allowed_export_paths": ["/tmp"], "allowed_import_paths": ["/tmp"], "flatpak_index": true}
 pulp_scheme: https
-pulp_default_container: ghcr.io/pulp/pulp-ci-centos:latest
+pulp_default_container: ghcr.io/pulp/pulp-ci-centos9:latest
 VARSYAML
 
 if [ "$TEST" = "s3" ]; then
