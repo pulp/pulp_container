@@ -1,0 +1,2 @@
+Fixed a bug that caused intermittent failures during the pull-through caching when using non-local
+filesystem storage.

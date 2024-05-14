@@ -88,10 +88,8 @@ class Registry(Handler):
             if not os.path.exists(path):
                 raise Exception("Expected path '{}' is not found".format(path))
             return web.FileResponse(path, headers=full_headers)
-        elif not settings.REDIRECT_TO_OBJECT_STORAGE:
-            return ArtifactResponse(artifact=artifact, headers=headers)
         else:
-            raise NotImplementedError("Redirecting to this storage is not implemented.")
+            return ArtifactResponse(artifact=artifact, headers=headers)
 
     @RegistryContentCache(
         base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
