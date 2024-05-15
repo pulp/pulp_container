@@ -53,6 +53,8 @@ def test_flatpak_install(
         [
             "dbus-run-session",
             "flatpak",
+            "-v",
+            "--ostree-verbose",
             "--user",
             "install",
             "--noninteractive",

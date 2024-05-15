@@ -25,6 +25,9 @@ export FUNC_TEST_SCRIPT=$PWD/.github/workflows/scripts/func_test_script.sh
 export DJANGO_SETTINGS_MODULE=pulpcore.app.settings
 export PULP_SETTINGS=$PWD/.ci/ansible/settings/settings.py
 
+export GIO_MODULE_DIR=$PWD/usr/lib/gio/modules/
+
+
 export PULP_URL="https://pulp"
 
 if [[ "$TEST" = "docs" ]]; then
@@ -130,6 +133,7 @@ cmd_prefix bash -c "cat /etc/pulp/certs/pulp_webserver.crt >> '$CERTIFI'"
 # check for any uncommitted migrations
 echo "Checking for uncommitted migrations..."
 cmd_user_prefix bash -c "django-admin makemigrations container --check --dry-run"
+
 
 # Run unit tests.
 cmd_user_prefix bash -c "PULP_DATABASES__default__USER=postgres pytest -v -r sx --color=yes --suppress-no-test-exit-code -p no:pulpcore --pyargs pulp_container.tests.unit"
