@@ -145,8 +145,14 @@ def test_invalid_user(pulp_settings, local_registry):
 
     async def get_token():
         url = f"{pulp_settings.TOKEN_SERVER}?service={local_registry.name}"
+        import ssl
+        import certifi
+
+        sslcontext = ssl.create_default_context(cafile=certifi.where())
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, auth=aiohttp.BasicAuth("test", "invalid")) as response:
+            async with session.get(
+                url, auth=aiohttp.BasicAuth("test", "invalid"), ssl=sslcontext
+            ) as response:
                 return response.status
 
     status = asyncio.run(get_token())
