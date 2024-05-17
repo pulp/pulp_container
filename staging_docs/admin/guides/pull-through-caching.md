@@ -43,7 +43,3 @@ ensures a more reliable container deployment system in production environments.
     generate a new repository version that incorporates both the "10" and "11" tags, automatically
     removing the previous version. Repositories and their content remain manageable through standard
     Pulp API endpoints. The repositories are read-only and public by default.
-
-A registry may contain several repositories which hold collections of multiple images. Each
-repository is identified by its unique name. The list of names of all distributed repositories
-is made available through the `_catalog` endpoint.

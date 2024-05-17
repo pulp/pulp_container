@@ -1,4 +1,4 @@
-# Support To OCI Artifacts
+# OCI Artifacts Support
 
 Pulp is not only a container registry, it also supports OCI artifacts by leveraging the config
 property on the image manifest.
