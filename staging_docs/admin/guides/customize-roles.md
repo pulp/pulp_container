@@ -11,7 +11,7 @@ pulp role create --name "container.containerrepository_syncer" \
     --permission "container.modify_content_containerrepository" \
     --permission "container.sync_containerrepository"
 
-pulp user role-assignment add --username "alice" --role "container.containerrepository_syncer" object ""
+pulp user role-assignment add --username "alice" --role "container.containerrepository_syncer" --object ""
 ```
 
 Visit [Role-based Access Control](site:pulp_container/docs/admin/learn/rbac) to learn more about roles.

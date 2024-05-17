@@ -263,7 +263,7 @@ required only for syncing content, one can do the following:
         --permission "container.modify_content_containerrepository" \
         --permission "container.sync_containerrepository"
 
-    pulp user role-assignment add --username "alice" --role "container.containerrepository_syncer" object ""
+    pulp user role-assignment add --username "alice" --role "container.containerrepository_syncer" --object ""
 
 Customizing Access Policies
 ---------------------------
