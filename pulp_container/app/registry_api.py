@@ -1084,7 +1084,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 else:
                     raise ManifestNotFound(reference=pk)
 
-            return redirects.issue_manifest_redirect(manifest)
+            return Response(manifest.data)
 
     def get_content_units_to_add(self, manifest, tag):
         add_content_units = [str(tag.pk), str(manifest.pk)]

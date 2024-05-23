@@ -3,7 +3,6 @@ import base64
 import hashlib
 
 from aiofiles import tempfile
-from asgiref.sync import sync_to_async
 from django.conf import settings
 
 from pulpcore.plugin.models import Repository
@@ -99,23 +98,10 @@ async def create_signature(manifest, reference, signing_service):
     """
     async with semaphore:
         # download and write file for object storage
-        if not manifest.data:
-            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-            artifact = await manifest._artifacts.aget()
-            if settings.DEFAULT_FILE_STORAGE != "pulpcore.app.models.storage.FileSystem":
-                async with tempfile.NamedTemporaryFile(dir=".", mode="wb", delete=False) as tf:
-                    await tf.write(await sync_to_async(artifact.file.read)())
-                    await tf.flush()
-                artifact.file.close()
-                manifest_path = tf.name
-            else:
-                manifest_path = artifact.file.path
-            # END OF BACKWARD COMPATIBILITY
-        else:
-            async with tempfile.NamedTemporaryFile(dir=".", mode="wb", delete=False) as tf:
-                await tf.write(manifest.data.encode("utf-8"))
-                await tf.flush()
-            manifest_path = tf.name
+        async with tempfile.NamedTemporaryFile(dir=".", mode="wb", delete=False) as tf:
+            await tf.write(manifest.data.encode("utf-8"))
+            await tf.flush()
+        manifest_path = tf.name
 
         async with tempfile.NamedTemporaryFile(dir=".", prefix="signature") as tf:
             sig_path = tf.name
