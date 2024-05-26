@@ -351,6 +351,13 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
         view_name_pattern=r"remotes(-.*/.*)?-detail",
         read_only=True,
     )
+    secure = serializers.SerializerMethodField(
+        help_text="Whether the distribution is served over HTTP (insecure) or HTTPS (secure)."
+    )
+
+    def get_secure(self, obj):
+        request = self.context["request"]
+        return request.is_secure()
 
     def validate(self, data):
         """
@@ -406,6 +413,7 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
             "namespace",
             "private",
             "description",
+            "secure",
         )
 
 
