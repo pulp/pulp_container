@@ -136,14 +136,11 @@ def has_task_completed(dispatched_task, wait_in_seconds=3):
         time.sleep(1)
         task = Task.objects.get(pk=dispatched_task.pk)
         if task.state == "completed":
-            task.delete()
             return True
         elif task.state in ["waiting", "running"]:
             continue
         else:
-            error = task.error
-            task.delete()
-            raise Exception(str(error))
+            raise Exception(str(task.error))
     raise Throttled()
 
 
