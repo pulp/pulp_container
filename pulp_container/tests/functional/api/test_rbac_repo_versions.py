@@ -2,6 +2,8 @@
 
 import pytest
 
+from django.conf import settings
+
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo
@@ -28,6 +30,9 @@ def test_rbac_repository_version(
     container_manifest_api,
 ):
     """Verify RBAC for a ContainerRepositoryVersion."""
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
     user_creator = gen_user(
         model_roles=[
             "container.containerrepository_creator",
@@ -135,6 +140,9 @@ def test_rbac_push_repository_version(
     container_push_repository_version_api,
 ):
     """Verify RBAC for a ContainerPushRepositoryVersion."""
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
     try:
         # Remove namespace to start out clean
         namespace = container_namespace_api.list(name="test_push_repo").results[0]
@@ -191,7 +199,6 @@ def test_rbac_push_repository_version(
 def test_cross_repository_blob_mount(
     add_to_cleanup,
     gen_user,
-    pulp_cfg,
     registry_client,
     local_registry,
     mount_blob,

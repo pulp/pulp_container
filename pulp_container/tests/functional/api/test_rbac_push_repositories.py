@@ -2,6 +2,8 @@
 
 import pytest
 
+from django.conf import settings
+
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 
@@ -19,6 +21,8 @@ def test_rbac_push_repository(
     container_push_repository_api,
 ):
     """Verify RBAC for a ContainerPushRepository."""
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     namespace_name = utils.uuid4()
     repo_name = f"{namespace_name}/perms"

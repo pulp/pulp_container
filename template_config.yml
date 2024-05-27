@@ -64,6 +64,7 @@ pulp_settings_azure:
 pulp_settings_gcp: null
 pulp_settings_s3:
   flatpak_index: false
+  token_auth_disabled: true
 pydocstyle: true
 release_email: pulp-infra@redhat.com
 release_user: pulpbot

@@ -3,6 +3,8 @@
 from random import choice
 import pytest
 
+from django.conf import settings
+
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.constants import ON_DEMAND_DOWNLOAD_POLICIES
@@ -15,6 +17,8 @@ from pulpcore.client.pulp_container.exceptions import ApiException
 @pytest.mark.parallel
 def test_rbac_remotes(gen_user, container_remote_api):
     """RBAC remotes."""
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     # Setup
     user1 = gen_user(model_roles=["container.containerremote_creator"])

@@ -2,6 +2,8 @@
 
 import pytest
 
+from django.conf import settings
+
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 
@@ -11,6 +13,8 @@ from pulpcore.client.pulp_container.exceptions import ApiException
 @pytest.mark.parallel
 def test_rbac_sync_repositories(gen_user, container_repository_api):
     """RBAC sync repositories."""
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     user1 = gen_user(model_roles=["container.containerrepository_creator"])
     user2 = gen_user(model_roles=["container.containerrepository_viewer"])
