@@ -5,6 +5,8 @@ import pytest
 import requests
 import unittest
 
+from django.conf import settings
+
 from subprocess import CalledProcessError
 from urllib.parse import urlparse, urljoin
 
@@ -71,7 +73,6 @@ def test_push_without_login(
 def test_push_with_dist_perms(
     add_to_cleanup,
     gen_user,
-    anonymous_user,
     registry_client,
     local_registry,
     container_push_repository_api,
@@ -83,6 +84,9 @@ def test_push_with_dist_perms(
 
     It also checks read abilities for users with different set of permissions.
     """
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
     user_creator = gen_user(model_roles=["container.containernamespace_creator"])
     user_dist_collaborator = gen_user()
     user_dist_consumer = gen_user()
@@ -164,12 +168,12 @@ def test_push_with_no_perms(
     gen_user,
     registry_client,
     local_registry,
+    container_distribution_api,
     container_namespace_api,
 ):
     """
     Test that user with no permissions can't perform push.
     """
-    user_creator = gen_user(model_roles=["container.containernamespace_creator"])
     user_helpless = gen_user()
     repo_name = "unsuccessful/perms"
     local_url = f"{repo_name}:2.0"
@@ -178,16 +182,35 @@ def test_push_with_no_perms(
     with user_helpless, pytest.raises(CalledProcessError):
         local_registry.tag_and_push(image_path, local_url)
 
-    # test a user can still pull
-    with user_creator:
+    # test if the helpless user can still pull
+    if settings.TOKEN_AUTH_DISABLED:
+        # push by using the admin user
         local_registry.tag_and_push(image_path, local_url)
         namespace = container_namespace_api.list(name="unsuccessful").results[0]
         add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-    with user_helpless:
-        with pytest.raises(CalledProcessError):
+        with user_helpless:
+            with pytest.raises(CalledProcessError):
+                local_registry.tag_and_push(image_path, local_url)
+            local_registry.pull(local_url)
+
+        # flagging the repository as "private" does not have an effect on pulling
+        distribution = container_distribution_api.list(name=repo_name).results[0]
+        container_distribution_api.partial_update(distribution.pulp_href, {"private": True})
+        with user_helpless:
+            local_registry.pull(local_url)
+    else:
+        # push by using the creator user
+        user_creator = gen_user(model_roles=["container.containernamespace_creator"])
+        with user_creator:
             local_registry.tag_and_push(image_path, local_url)
-        local_registry.pull(local_url)
+            namespace = container_namespace_api.list(name="unsuccessful").results[0]
+            add_to_cleanup(container_namespace_api, namespace.pulp_href)
+
+        with user_helpless:
+            with pytest.raises(CalledProcessError):
+                local_registry.tag_and_push(image_path, local_url)
+            local_registry.pull(local_url)
 
 
 def test_push_to_existing_namespace(
@@ -206,6 +229,9 @@ def test_push_to_existing_namespace(
     Container distribution perms should be enough to push to the existing
     distribution.
     """
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
     user_creator = gen_user(model_roles=["container.containernamespace_creator"])
     user_dist_collaborator = gen_user()
     user_namespace_collaborator = gen_user()
@@ -273,6 +299,9 @@ def test_push_private_repository(
     Test that the same user can pull, but another cannot.
     Test that the other user can pull after marking it non-private.
     """
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
     user_creator = gen_user(model_roles=["container.containernamespace_creator"])
     user_dist_consumer = gen_user()
     user_helpless = gen_user()
@@ -326,6 +355,9 @@ def test_push_matching_username(
     """
     Test that you can push to a nonexisting namespace that matches your username.
     """
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
     user_helpless = gen_user()
     namespace_name = user_helpless.username
     repo_name = f"{namespace_name}/matching"

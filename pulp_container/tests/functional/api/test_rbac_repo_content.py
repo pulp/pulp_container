@@ -2,6 +2,8 @@
 
 import pytest
 
+from django.conf import settings
+
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo
 
@@ -33,6 +35,8 @@ def test_rbac_repository_content(
     container_tag_api,
 ):
     """Assert that certain users can list and read content."""
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     user_creator = gen_user(
         model_roles=[

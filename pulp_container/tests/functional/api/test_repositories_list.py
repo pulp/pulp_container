@@ -5,7 +5,7 @@ import unittest
 from urllib.parse import urljoin
 import requests
 
-from pulp_smash import api, config
+from pulp_smash import api, cli, config, utils
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
 
@@ -30,6 +30,9 @@ from pulpcore.client.pulp_container import (
     RepositoriesContainerApi,
     RemotesContainerApi,
 )
+
+cli_client = cli.Client(config.get_config())
+TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
 
 
 class RepositoriesList:
@@ -59,9 +62,14 @@ class RepositoriesList:
     def get_listed_repositories(self, auth=None):
         """Fetch repositories from the catalog endpoint."""
         repositories_list_endpoint = urljoin(self.cfg.get_base_url(), "/v2/_catalog")
+        response = requests.get(repositories_list_endpoint)
+
+        if TOKEN_AUTH_DISABLED:
+            return response
 
         with self.assertRaises(requests.HTTPError) as cm:
-            requests.get(repositories_list_endpoint).raise_for_status()
+            response.raise_for_status()
+
         content_response = cm.exception.response
         authenticate_header = content_response.headers["Www-Authenticate"]
 
@@ -186,6 +194,7 @@ class RepositoriesListWithPermissionsTestCase(RepositoriesList, unittest.TestCas
         repositories = self.get_listed_repositories(auth)
         self.assertEqual(repositories.json(), {"repositories": [self.distribution3.base_path]})
 
+    @unittest.skipIf(TOKEN_AUTH_DISABLED, "Token authentication is not enabled")
     def test_all_user(self):
         """Check if the user can see all repositories."""
         auth = (self.user_all["username"], self.user_all["password"])
@@ -199,6 +208,7 @@ class RepositoriesListWithPermissionsTestCase(RepositoriesList, unittest.TestCas
         )
         self.assertEqual(repositories.json(), {"repositories": repositories_names})
 
+    @unittest.skipIf(TOKEN_AUTH_DISABLED, "Token authentication is not enabled")
     def test_only_dist1_user(self):
         """Check if the user can see all public repositories, but not all private repositories."""
         auth = (self.user_only_dist1["username"], self.user_only_dist1["password"])
