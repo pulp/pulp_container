@@ -31,3 +31,4 @@ If you'd like to watch a recent talk about Pulp Container and see it in action, 
 - Sign images and host Cosign signatures, SBOMS and attestations
 - Sign images and host Atomic signature type via extensions API
 - Host content via pull-through caching distributions
+- Discover and replicate distributions to serve the same content as the upstream Pulp
