@@ -1,0 +1,1 @@
+Made the pull-through caching machinery resilient to connection errors.
