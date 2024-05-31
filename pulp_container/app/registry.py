@@ -8,7 +8,7 @@ from contextlib import suppress
 from urllib.parse import urljoin
 
 from aiohttp import web
-from aiohttp.client_exceptions import ClientResponseError
+from aiohttp.client_exceptions import ClientResponseError, ClientConnectionError
 from aiohttp.web_exceptions import HTTPTooManyRequests
 from django_guid import set_guid
 from django_guid.utils import generate_guid
@@ -21,6 +21,7 @@ from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import RemoteArtifact, Content, ContentArtifact
 from pulpcore.plugin.content import ArtifactResponse
 from pulpcore.plugin.tasking import dispatch
+from pulpcore.plugin.exceptions import TimeoutException
 
 from pulp_container.app.cache import RegistryContentCache
 from pulp_container.app.models import ContainerDistribution, Tag, Blob, Manifest, BlobManifest
@@ -157,7 +158,7 @@ class Registry(Handler):
                 response = await downloader.run(
                     extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"}
                 )
-            except ClientResponseError:
+            except (ClientResponseError, ClientConnectionError, TimeoutException):
                 # the manifest is not available on the remote anymore
                 # but the old one is still stored in the database
                 pass

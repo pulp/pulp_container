@@ -1,4 +1,16 @@
-from rest_framework.exceptions import NotFound, ParseError
+from rest_framework.exceptions import APIException, NotFound, ParseError
+
+
+class BadGateway(APIException):
+    status_code = 502
+    default_detail = "Invalid response received from the upstream."
+    default_code = "BAD_GATEWAY"
+
+
+class GatewayTimeout(APIException):
+    status_code = 504
+    default_detail = "Response from the upstream timed out."
+    default_code = "GATEWAY_TIMEOUT"
 
 
 class RepositoryNotFound(NotFound):

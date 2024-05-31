@@ -12,7 +12,7 @@ import logging
 import hashlib
 import re
 
-from aiohttp.client_exceptions import ClientResponseError
+from aiohttp.client_exceptions import ClientResponseError, ClientConnectionError
 from itertools import chain
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
@@ -29,6 +29,8 @@ from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
 from pulpcore.plugin.util import get_objects_for_user, get_url
+from pulpcore.plugin.exceptions import TimeoutException
+
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
@@ -55,6 +57,8 @@ from pulp_container.app.cache import (
     RegistryApiCache,
 )
 from pulp_container.app.exceptions import (
+    BadGateway,
+    GatewayTimeout,
     InvalidRequest,
     RepositoryNotFound,
     RepositoryInvalid,
@@ -1117,9 +1121,13 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 # the client could request the manifest outside the docker hub pull limit;
                 # it is necessary to pass this information back to the client
                 raise Throttled()
-            else:
-                # TODO: do not mask out relevant errors, like HTTP 502
+            elif response_error.status == 404:
                 raise ManifestNotFound(reference=pk)
+            else:
+                raise BadGateway(detail=response_error.message)
+        except (ClientConnectionError, TimeoutException):
+            # The remote server is not available at the moment
+            raise GatewayTimeout()
         else:
             digest = response.headers.get("docker-content-digest")
             return models.Manifest.objects.filter(digest=digest).first()
