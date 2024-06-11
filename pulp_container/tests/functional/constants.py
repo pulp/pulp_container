@@ -31,6 +31,9 @@ REGISTRY_V2_FEED_URL = "https://ghcr.io"
 
 # a repository having the size of 1.84kB
 PULP_HELLO_WORLD_REPO = "pulp/hello-world"
+PULP_HELLO_WORLD_LINUX_AMD64_DIGEST = (
+    "sha256:239de6dd745ed1a211123322865b4c342c706e7c1e01644a1bbefe8f8846c5ff"
+)
 
 # a repository containing 4 manifest lists and 5 manifests
 PULP_FIXTURE_1 = "pulp/test-fixture-1"

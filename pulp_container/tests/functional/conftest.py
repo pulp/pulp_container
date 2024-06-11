@@ -5,7 +5,7 @@ import pytest
 import requests
 import subprocess
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
@@ -196,12 +196,16 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
                 registry_client.login(
                     "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
                 )
+
+                try:
+                    registry_client.pull("/".join([registry_name, image_path]))
+                finally:
+                    registry_client.logout(registry_name)
             else:
-                registry_client.logout(registry_name)
-            try:
+                with suppress(subprocess.CalledProcessError):
+                    registry_client.logout(registry_name)
+
                 registry_client.pull("/".join([registry_name, image_path]))
-            finally:
-                registry_client.logout(registry_name)
 
         @staticmethod
         def tag_and_push(image_path, local_url, *args):
