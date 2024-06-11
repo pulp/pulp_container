@@ -310,7 +310,7 @@ class ContainerRegistryApiMixin:
             .order_by("-base_path")
             .first()
         )
-        if not pull_through_cache_distribution:
+        if not pull_through_cache_distribution or not self.request.user.is_authenticated:
             raise RepositoryNotFound(name=path)
 
         upstream_name = path.split(pull_through_cache_distribution.base_path, maxsplit=1)[1].strip(
@@ -1037,7 +1037,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
             except models.Tag.DoesNotExist:
                 distribution = distribution.cast()
-                if distribution.remote and distribution.pull_through_distribution_id:
+                if (
+                    distribution.remote
+                    and distribution.pull_through_distribution_id
+                    and request.user.is_authenticated
+                ):
                     remote = distribution.remote.cast()
                     # issue a head request first to ensure that the content exists on the remote
                     # source; we want to prevent immediate "not found" error responses from
@@ -1075,6 +1079,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         else:
             try:
                 manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
+                return redirects.issue_manifest_redirect(manifest)
             except models.Manifest.DoesNotExist:
                 repository = repository.cast()
                 # the manifest might be a part of listed manifests currently being uploaded
@@ -1083,17 +1088,21 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                     manifest = repository.pending_manifests.get(digest=pk)
                     manifest.touch()
                 except models.Manifest.DoesNotExist:
-                    pass
+                    manifest = None
 
                 distribution = distribution.cast()
-                if distribution.remote and distribution.pull_through_distribution_id:
+                if (
+                    distribution.remote
+                    and distribution.pull_through_distribution_id
+                    and request.user.is_authenticated
+                ):
                     remote = distribution.remote.cast()
                     self.fetch_manifest(remote, pk)
                     return redirects.redirect_to_content_app("manifests", pk)
+                elif manifest:
+                    return redirects.issue_manifest_redirect(manifest)
                 else:
                     raise ManifestNotFound(reference=pk)
-
-            return redirects.issue_manifest_redirect(manifest)
 
     def get_content_units_to_add(self, manifest, tag):
         add_content_units = [str(tag.pk), str(manifest.pk)]
