@@ -1,0 +1,2 @@
+The pulp signing task that produces atomic type signature no longer signs cosign signatures,
+attestations and sboms (images that end with .sig, .att, or .sbom), and ignores them instead.

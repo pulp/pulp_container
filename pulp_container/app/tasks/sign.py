@@ -5,6 +5,7 @@ import hashlib
 from aiofiles import tempfile
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.db.models import Q
 
 from pulpcore.plugin.models import Repository
 
@@ -46,12 +47,15 @@ def sign(repository_pk, signing_service_pk, reference, tags_list=None):
     latest_version = repository.latest_version()
     if tags_list:
         latest_repo_content_tags = latest_version.content.filter(
-            pulp_type=Tag.get_pulp_type(), pk__in=tags_list
+            pulp_type=Tag.get_pulp_type(),
+            pk__in=tags_list,
         )
     else:
         latest_repo_content_tags = latest_version.content.filter(pulp_type=Tag.get_pulp_type())
-    latest_repo_tags = Tag.objects.filter(pk__in=latest_repo_content_tags).select_related(
-        "tagged_manifest"
+    latest_repo_tags = (
+        Tag.objects.filter(pk__in=latest_repo_content_tags)
+        .select_related("tagged_manifest")
+        .exclude(Q(name__endswith=".sig") | Q(name__endswith=".att") | Q(name__endswith=".sbom"))
     )
     signing_service = ManifestSigningService.objects.get(pk=signing_service_pk)
 
