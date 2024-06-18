@@ -519,6 +519,9 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
         distribution_permission = "container.pull_containerdistribution"
         namespace_permission = "container.namespace_pull_containerdistribution"
 
+        if settings.get("TOKEN_AUTH_DISABLED", False):
+            return queryset
+
         public_repositories = queryset.filter(private=False)
         repositories_by_distribution = get_objects_for_user(
             self.request.user, distribution_permission, queryset

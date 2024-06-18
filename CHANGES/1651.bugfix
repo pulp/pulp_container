@@ -1,0 +1,2 @@
+Modified the `_catalog` endpoint to allow non-authed users to see all repos in catalog
+(private and public) when token-auth is disabled.
