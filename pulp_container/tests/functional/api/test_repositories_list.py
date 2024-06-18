@@ -172,6 +172,14 @@ class RepositoriesListWithPermissionsTestCase(RepositoriesList, unittest.TestCas
             ]
         )
 
+        cls.repositories_names_sorted = sorted(
+            [
+                cls.distribution1.base_path,
+                cls.distribution2.base_path,
+                cls.distribution3.base_path,
+            ]
+        )
+
     @classmethod
     def tearDownClass(cls):
         """Clean generated resources."""
@@ -192,26 +200,26 @@ class RepositoriesListWithPermissionsTestCase(RepositoriesList, unittest.TestCas
         """Check if the user can see only public repositories."""
         auth = (self.user_none["username"], self.user_none["password"])
         repositories = self.get_listed_repositories(auth)
-        self.assertEqual(repositories.json(), {"repositories": [self.distribution3.base_path]})
+        if TOKEN_AUTH_DISABLED:
+            self.assertEqual(repositories.json(), {"repositories": self.repositories_names_sorted})
+        else:
+            self.assertEqual(repositories.json(), {"repositories": [self.distribution3.base_path]})
 
-    @unittest.skipIf(TOKEN_AUTH_DISABLED, "Token authentication is not enabled")
     def test_all_user(self):
         """Check if the user can see all repositories."""
         auth = (self.user_all["username"], self.user_all["password"])
         repositories = self.get_listed_repositories(auth)
-        repositories_names = sorted(
-            [
-                self.distribution1.base_path,
-                self.distribution2.base_path,
-                self.distribution3.base_path,
-            ]
-        )
-        self.assertEqual(repositories.json(), {"repositories": repositories_names})
+        self.assertEqual(repositories.json(), {"repositories": self.repositories_names_sorted})
 
-    @unittest.skipIf(TOKEN_AUTH_DISABLED, "Token authentication is not enabled")
     def test_only_dist1_user(self):
         """Check if the user can see all public repositories, but not all private repositories."""
         auth = (self.user_only_dist1["username"], self.user_only_dist1["password"])
         repositories = self.get_listed_repositories(auth)
-        repositories_names = sorted([self.distribution1.base_path, self.distribution3.base_path])
-        self.assertEqual(repositories.json(), {"repositories": repositories_names})
+
+        if TOKEN_AUTH_DISABLED:
+            self.assertEqual(repositories.json(), {"repositories": self.repositories_names_sorted})
+        else:
+            repositories_names = sorted(
+                [self.distribution1.base_path, self.distribution3.base_path]
+            )
+            self.assertEqual(repositories.json(), {"repositories": repositories_names})
