@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import fnmatch
 import re
 import subprocess
 import gnupg
@@ -11,11 +12,15 @@ from asgiref.sync import sync_to_async
 from jsonschema import Draft7Validator, validate, ValidationError
 from django.core.files.storage import default_storage as storage
 from django.db import IntegrityError
+from functools import partial
 from rest_framework.exceptions import Throttled
 
 from pulpcore.plugin.models import Artifact, Task
 
-from pulp_container.constants import MANIFEST_MEDIA_TYPES, MEDIA_TYPE
+from pulp_container.constants import (
+    MANIFEST_MEDIA_TYPES,
+    MEDIA_TYPE,
+)
 from pulp_container.app.exceptions import ManifestInvalid
 from pulp_container.app.json_schemas import (
     OCI_INDEX_SCHEMA,
@@ -309,3 +314,31 @@ def get_content_data(saved_artifact):
         raw_data = file.read()
     content_data = json.loads(raw_data)
     return content_data, raw_data
+
+
+def include(x, patterns):
+    return any(fnmatch.fnmatch(x, pattern) for pattern in patterns)
+
+
+def exclude(x, patterns):
+    return not include(x, patterns)
+
+
+def filter_resource(element, include_patterns, exclude_patterns):
+    """
+    Returns true if element matches {include,exclude}_patterns filters.
+    """
+    if not (include_patterns or exclude_patterns):
+        return True
+    return include(element, include_patterns or []) and exclude(element, exclude_patterns or [])
+
+
+def filter_resources(element_list, include_patterns, exclude_patterns):
+    """
+    Returns a list of elements based on filter parameters ({include,exclude}_patterns).
+    """
+    if include_patterns:
+        element_list = filter(partial(include, patterns=include_patterns), element_list)
+    if exclude_patterns:
+        element_list = filter(partial(exclude, patterns=exclude_patterns), element_list)
+    return list(element_list)
