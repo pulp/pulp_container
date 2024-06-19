@@ -7,8 +7,10 @@ import pytest
 import requests
 import gnupg
 
+from contextlib import suppress
 from urllib.parse import urljoin, urlparse
 
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.utils import execute_pulpcore_python, uuid4, get_pulp_setting
 from pulp_smash.cli import RegistryClient
 
@@ -326,3 +328,30 @@ def container_signature_api(container_client):
 def token_server_url(cli_client):
     """The URL of the token server."""
     return get_pulp_setting(cli_client, "TOKEN_SERVER")
+
+
+# more resilient version backported from pulpcore
+@pytest.fixture(scope="class")
+def add_to_cleanup():
+    """Fixture to allow pulp objects to be deleted in reverse order after the test module."""
+    obj_refs = []
+
+    def _add_to_cleanup(api_client, pulp_href):
+        obj_refs.append((api_client, pulp_href))
+
+    yield _add_to_cleanup
+
+    delete_task_hrefs = []
+    # Delete newest items first to avoid dependency lockups
+    for api_client, pulp_href in reversed(obj_refs):
+        with suppress(Exception):
+            # There was no delete task for this unit or the unit may already have been deleted.
+            # Also we can never be sure which one is the right ApiException to catch.
+            task_url = api_client.delete(pulp_href).task
+            delete_task_hrefs.append(task_url)
+
+    for deleted_task_href in delete_task_hrefs:
+        with suppress(Exception):
+            # The task itself may be gone at this point (e.g. by being part of a deleted domain).
+            # Also we can never be sure which one is the right ApiException to catch.
+            monitor_task(deleted_task_href)
