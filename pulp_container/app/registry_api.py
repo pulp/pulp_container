@@ -21,6 +21,7 @@ from django.core.files.storage import default_storage as storage
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
 from django.db.models import F, Value
+from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 
 from django.conf import settings
@@ -82,6 +83,7 @@ from pulp_container.app.token_verification import (
 from pulp_container.app.utils import (
     determine_media_type,
     extract_data_from_signature,
+    filter_resource,
     has_task_completed,
     validate_manifest,
 )
@@ -97,13 +99,15 @@ from pulp_container.constants import (
 log = logging.getLogger(__name__)
 
 IGNORED_PULL_THROUGH_REMOTE_ATTRIBUTES = [
-    "remote_ptr_id",
+    "remote_ptr",
     "pulp_type",
     "pulp_last_updated",
     "pulp_created",
     "pulp_id",
-    "url",
     "name",
+    "includes",
+    "excludes",
+    "pulp_domain",
 ]
 
 
@@ -309,18 +313,29 @@ class ContainerRegistryApiMixin:
         if not pull_through_cache_distribution:
             raise RepositoryNotFound(name=path)
 
+        upstream_name = path.split(pull_through_cache_distribution.base_path, maxsplit=1)[1].strip(
+            "/"
+        )
+        pull_through_remote = models.ContainerPullThroughRemote.objects.get(
+            pk=pull_through_cache_distribution.remote_id
+        )
+        if not filter_resource(
+            upstream_name, pull_through_remote.includes, pull_through_remote.excludes
+        ):
+            raise RepositoryNotFound(name=path)
+
         try:
             with transaction.atomic():
                 repository, _ = models.ContainerRepository.objects.get_or_create(
                     name=path, retain_repo_versions=1
                 )
 
-                remote_data = _get_pull_through_remote_data(pull_through_cache_distribution)
-                upstream_name = path.split(pull_through_cache_distribution.base_path, maxsplit=1)[1]
+                remote_data = model_to_dict(
+                    pull_through_remote, exclude=IGNORED_PULL_THROUGH_REMOTE_ATTRIBUTES
+                )
                 remote, _ = models.ContainerRemote.objects.get_or_create(
                     name=path,
-                    upstream_name=upstream_name.strip("/"),
-                    url=pull_through_cache_distribution.remote.url,
+                    upstream_name=upstream_name,
                     **remote_data,
                 )
 
@@ -387,15 +402,6 @@ class ContainerRegistryApiMixin:
                 distribution.save()
 
         return distribution, repository
-
-
-def _get_pull_through_remote_data(root_cache_distribution):
-    remote_data = models.ContainerPullThroughRemote.objects.filter(
-        pk=root_cache_distribution.remote_id
-    ).values()[0]
-    for attr in IGNORED_PULL_THROUGH_REMOTE_ATTRIBUTES:
-        remote_data.pop(attr, None)
-    return remote_data
 
 
 class BearerTokenView(APIView):
