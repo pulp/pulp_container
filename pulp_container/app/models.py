@@ -503,6 +503,11 @@ class ContainerPullThroughRemote(Remote, AutoAddObjPermsMixin):
     from within a single instance of this remote.
     """
 
+    TYPE = "pull-through"
+
+    includes = fields.ArrayField(models.TextField(null=True), null=True)
+    excludes = fields.ArrayField(models.TextField(null=True), null=True)
+
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
         permissions = [
@@ -511,6 +516,35 @@ class ContainerPullThroughRemote(Remote, AutoAddObjPermsMixin):
                 "Can manage role assignments on pull-through container remote",
             ),
         ]
+
+    def model_to_dict(self):
+        """
+        Returns a dictionary representation of the model ignoring some
+        pull-through remote attributes.
+        """
+        return {
+            "pulp_labels": self.pulp_labels,
+            "url": self.url,
+            "ca_cert": self.ca_cert,
+            "client_cert": self.client_cert,
+            "client_key": self.client_key,
+            "tls_validation": self.tls_validation,
+            "username": self.username,
+            "password": self.password,
+            "proxy_url": self.proxy_url,
+            "proxy_username": self.proxy_username,
+            "proxy_password": self.proxy_password,
+            "download_concurrency": self.download_concurrency,
+            "max_retries": self.max_retries,
+            "policy": self.policy,
+            "total_timeout": self.total_timeout,
+            "connect_timeout": self.connect_timeout,
+            "sock_connect_timeout": self.sock_connect_timeout,
+            "sock_read_timeout": self.sock_read_timeout,
+            "headers": self.headers,
+            "rate_limit": self.rate_limit,
+            "pulp_domain_id": self.pulp_domain.pk,
+        }
 
 
 class ManifestSigningService(SigningService):
