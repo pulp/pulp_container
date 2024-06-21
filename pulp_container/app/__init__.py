@@ -11,3 +11,4 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
 
     def ready(self):
         super().ready()
+        from . import checks
