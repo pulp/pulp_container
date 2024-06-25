@@ -14,7 +14,12 @@ from pulp_container.app.models import (
 )
 from pulp_container.constants import MEDIA_TYPE
 from pulp_container.app.utils import calculate_digest
-from pulpcore.plugin.models import Artifact, ContentArtifact, Content
+from pulpcore.plugin.models import (
+    Artifact,
+    ContentArtifact,
+    Content,
+    PulpTemporaryFile,
+)
 
 
 def get_or_create_blob(layer_json, manifest, path):
@@ -43,7 +48,7 @@ def get_or_create_blob(layer_json, manifest, path):
             artifact=layer_artifact, content=blob, relative_path=layer_json["digest"]
         ).save()
     if layer_json["mediaType"] != MEDIA_TYPE.CONFIG_BLOB_OCI:
-        BlobManifest(manifest=manifest, manifest_blob=blob).save()
+        BlobManifest.objects.get_or_create(manifest=manifest, manifest_blob=blob)
     return blob
 
 
@@ -68,15 +73,13 @@ def add_image_from_directory_to_repository(path, repository, tag):
     manifest_digest = calculate_digest(bytes_data)
     manifest_text_data = bytes_data.decode("utf-8")
 
-    manifest = Manifest(
+    manifest, _ = Manifest.objects.get_or_create(
         digest=manifest_digest,
         schema_version=2,
         media_type=MEDIA_TYPE.MANIFEST_OCI,
         data=manifest_text_data,
     )
-    manifest.save()
-    tag = Tag(name=tag, tagged_manifest=manifest)
-    tag.save()
+    tag, _ = Tag.objects.get_or_create(name=tag, tagged_manifest=manifest)
 
     with repository.new_version() as new_repo_version:
         manifest_json = json.loads(manifest_text_data)
@@ -95,10 +98,100 @@ def add_image_from_directory_to_repository(path, repository, tag):
     return new_repo_version
 
 
+def build_image(
+    containerfile_name=None,
+    containerfile_tempfile_pk=None,
+    build_context_pk=None,
+    repository_pk=None,
+    tag=None,
+):
+    """
+    Builds an OCI container image from a Containerfile.
+
+    The artifacts are made available inside the build container at the paths specified by their
+    values. The Containerfile can make use of these files during build process.
+
+    Args:
+        containerfile_name (str): The Containerfile relative_path from the build_context repository
+        containerfile_tempfile_pk (str): The pk of a PulpTemporaryFile that contains
+                                         the Containerfile
+        build_context_pk (str): The pk of the RepositoryVersion used as the build context
+        repository_pk (str): The pk of a Repository to add the OCI container image
+        tag (str): Tag name for the new image in the repository
+
+    Returns:
+        A class:`pulpcore.plugin.models.RepositoryVersion` that contains the new OCI container
+        image and tag.
+
+    """
+    if not containerfile_tempfile_pk and not containerfile_name:
+        raise RuntimeError("Neither a name nor temporary file for the Containerfile was specified.")
+
+    if containerfile_tempfile_pk:
+        containerfile_artifact = PulpTemporaryFile.objects.get(pk=containerfile_tempfile_pk)
+
+    repository = ContainerRepository.objects.get(pk=repository_pk)
+    name = str(uuid4())
+    with tempfile.TemporaryDirectory(dir=".") as working_directory:
+        working_directory = os.path.abspath(working_directory)
+        context_path = os.path.join(working_directory, "context")
+        os.makedirs(context_path, exist_ok=True)
+
+        if build_context_pk:
+            content_artifacts = ContentArtifact.objects.filter(
+                content__pulp_type="file.file", content__repositories__in=[build_context_pk]
+            ).order_by("-content__pulp_created")
+            for content_artifact in content_artifacts.select_related("artifact").iterator():
+                if content_artifact.relative_path == containerfile_name:
+                    containerfile_artifact = content_artifact.artifact
+                    continue
+                _copy_file_from_artifact(
+                    context_path, content_artifact.relative_path, content_artifact.artifact.file
+                )
+
+        containerfile_name = containerfile_name or "Containerfile"
+        _copy_file_from_artifact(working_directory, containerfile_name, containerfile_artifact)
+        containerfile_path = os.path.join(working_directory, containerfile_name)
+
+        bud_cp = subprocess.run(
+            [
+                "podman",
+                "build",
+                "-f",
+                containerfile_path,
+                "-t",
+                name,
+                context_path,
+                "--isolation",
+                "rootless",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if bud_cp.returncode != 0:
+            raise Exception(bud_cp.stderr)
+        image_dir = os.path.join(working_directory, "image")
+        os.makedirs(image_dir, exist_ok=True)
+        push_cp = subprocess.run(
+            ["podman", "push", "-f", "oci", name, "dir:{}".format(image_dir)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if push_cp.returncode != 0:
+            raise Exception(push_cp.stderr)
+        repository_version = add_image_from_directory_to_repository(image_dir, repository, tag)
+        if isinstance(containerfile_artifact, PulpTemporaryFile):
+            containerfile_artifact.delete()
+
+    return repository_version
+
+
 def build_image_from_containerfile(
     containerfile_pk=None, artifacts=None, repository_pk=None, tag=None
 ):
     """
+    DEPRECATED: this function is deprecated and will be removed in a future release.
+                Keeping it for now for backward compatibility.
     Builds an OCI container image from a Containerfile.
 
     The artifacts are made available inside the build container at the paths specified by their
@@ -166,3 +259,12 @@ def build_image_from_containerfile(
         repository_version = add_image_from_directory_to_repository(image_dir, repository, tag)
 
     return repository_version
+
+
+def _copy_file_from_artifact(context_path, relative_path, artifact):
+    dest_path = os.path.join(context_path, relative_path)
+    dirs = os.path.dirname(dest_path)
+    if dirs:
+        os.makedirs(dirs, exist_ok=True)
+    with open(dest_path, "wb") as dest:
+        shutil.copyfileobj(artifact.file, dest)
