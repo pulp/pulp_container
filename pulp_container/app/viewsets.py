@@ -7,7 +7,6 @@ Check `Plugin Writer's Guide`_ for more details.
 
 import logging
 
-from django.db import IntegrityError
 from django.db.models import Q
 
 from django_filters import CharFilter, MultipleChoiceFilter
@@ -16,9 +15,9 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 from rest_framework.decorators import action
 
-from pulpcore.plugin.models import RepositoryVersion
+from pulpcore.plugin.models import RepositoryVersion, PulpTemporaryFile
 from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
-from pulpcore.plugin.models import Artifact, Content
+from pulpcore.plugin.models import Content
 from pulpcore.plugin.tasking import dispatch, general_multi_delete
 from pulpcore.plugin.util import (
     extract_pk,
@@ -696,6 +695,7 @@ class ContainerRepositoryViewSet(
                 "condition": [
                     "has_model_or_obj_perms:container.build_image_containerrepository",
                     "has_model_or_obj_perms:container.view_containerrepository",
+                    "has_repo_or_repo_ver_param_model_or_obj_perms:file.view_filerepository",
                 ],
             },
             {
@@ -937,26 +937,26 @@ class ContainerRepositoryViewSet(
         )
 
         serializer.is_valid(raise_exception=True)
+        serialized_data = serializer.deferred_files_validation(serializer.validated_data)
 
-        containerfile = serializer.validated_data["containerfile_artifact"]
-        try:
-            containerfile.save()
-        except IntegrityError:
-            containerfile = Artifact.objects.get(sha256=containerfile.sha256)
-            containerfile.touch()
-        tag = serializer.validated_data["tag"]
+        containerfile_tempfile_pk = None
+        if containerfile := serialized_data.get("containerfile", None):
+            temp_file = PulpTemporaryFile(file=containerfile)
+            temp_file.save()
+            containerfile_tempfile_pk = str(temp_file.pk)
 
-        artifacts = serializer.validated_data["artifacts"]
-        Artifact.objects.filter(pk__in=artifacts.keys()).touch()
+        containerfile_name = serialized_data.get("containerfile_name", None)
+        tag = serialized_data["tag"]
 
         result = dispatch(
-            tasks.build_image_from_containerfile,
+            tasks.build_image,
             exclusive_resources=[repository],
             kwargs={
-                "containerfile_pk": str(containerfile.pk),
+                "containerfile_name": containerfile_name,
+                "containerfile_tempfile_pk": containerfile_tempfile_pk,
                 "tag": tag,
                 "repository_pk": str(repository.pk),
-                "artifacts": artifacts,
+                "build_context_pk": serialized_data.get("build_context_pk", None),
             },
         )
         return OperationPostponedResponse(result, request)

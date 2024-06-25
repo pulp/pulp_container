@@ -1,12 +1,10 @@
 from gettext import gettext as _
-import os
 import re
 
 from django.core.validators import URLValidator
 from rest_framework import serializers
 
 from pulpcore.plugin.models import (
-    Artifact,
     ContentRedirectContentGuard,
     Remote,
     Repository,
@@ -30,8 +28,10 @@ from pulpcore.plugin.serializers import (
     ValidateFieldsMixin,
 )
 
+from pulp_file.app.models import FileContent
 from pulp_container.app import models
 from pulp_container.constants import SIGNATURE_TYPE
+
 
 VALID_SIGNATURE_NAME_REGEX = r"^sha256:[0-9a-f]{64}@[0-9a-f]{32}$"
 VALID_TAG_REGEX = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
@@ -758,13 +758,12 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
     A repository must be specified, to which the container image content will be added.
     """
 
-    containerfile_artifact = RelatedField(
-        many=False,
-        lookup_field="pk",
-        view_name="artifacts-detail",
-        queryset=Artifact.objects.all(),
+    containerfile_name = serializers.CharField(
+        required=False,
+        allow_blank=True,
         help_text=_(
-            "Artifact representing the Containerfile that should be used to run podman-build."
+            "Name of the Containerfile, from build_context, that should be used to run "
+            "podman-build."
         ),
     )
     containerfile = serializers.FileField(
@@ -774,65 +773,77 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
     tag = serializers.CharField(
         required=False, default="latest", help_text="A tag name for the new image being built."
     )
-    artifacts = serializers.JSONField(
+    build_context = RepositoryVersionRelatedField(
         required=False,
-        help_text="A JSON string where each key is an artifact href and the value is it's "
-        "relative path (name) inside the /pulp_working_directory of the build container "
-        "executing the Containerfile.",
+        help_text=_("RepositoryVersion to be used as the build context for container images."),
+        allow_null=True,
+        queryset=RepositoryVersion.objects.filter(repository__pulp_type="file.file"),
     )
-
-    def __init__(self, *args, **kwargs):
-        """Initializer for OCIBuildImageSerializer."""
-        super().__init__(*args, **kwargs)
-        self.fields["containerfile_artifact"].required = False
 
     def validate(self, data):
         """Validates that all the fields make sense."""
         data = super().validate(data)
 
-        if "containerfile" in data:
-            if "containerfile_artifact" in data:
-                raise serializers.ValidationError(
-                    _("Only one of 'containerfile' and 'containerfile_artifact' may be specified.")
-                )
-            data["containerfile_artifact"] = Artifact.init_and_validate(data.pop("containerfile"))
-        elif "containerfile_artifact" in data:
-            data["containerfile_artifact"].touch()
-        else:
+        if bool(data.get("containerfile", None)) == bool(data.get("containerfile_name", None)):
             raise serializers.ValidationError(
-                _("'containerfile' or 'containerfile_artifact' must " "be specified.")
+                _("Exactly one of 'containerfile' or 'containerfile_name' must be specified.")
             )
-        artifacts = {}
-        if "artifacts" in data:
-            for url, relative_path in data["artifacts"].items():
-                if os.path.isabs(relative_path):
+
+        if "containerfile_name" in data and "build_context" not in data:
+            raise serializers.ValidationError(
+                _("A 'build_context' must be specified when 'containerfile_name' is present.")
+            )
+
+        # TODO: this can be removed after https://github.com/pulp/pulpcore/issues/5786
+        if data.get("build_context", None):
+            data["repository_version"] = data["build_context"]
+
+        return data
+
+    def deferred_files_validation(self, data):
+        """
+        Defer the validation of on_demand_artifacts and the `Containerfile` to avoid rerunning
+        unnecessary database queries when checking permissions (DRF Access Policy).
+        """
+        if build_context := data.get("build_context", None):
+
+            # check if the on_demand_artifacts exist
+            for on_demand_artifact in build_context.on_demand_artifacts.iterator():
+                if not on_demand_artifact.content_artifact.artifact:
                     raise serializers.ValidationError(
-                        _("Relative path cannot start with '/'. " "{0}").format(relative_path)
+                        _(
+                            "It is not possible to use File content synced with on-demand "
+                            "policy without pulling the data first."
+                        )
                     )
-                artifactfield = RelatedField(
-                    view_name="artifacts-detail",
-                    queryset=Artifact.objects.all(),
-                    source="*",
-                    initial=url,
+
+            # check if the containerfile_name exists in the build_context (File Repository)
+            if (
+                data.get("containerfile_name", None)
+                and not FileContent.objects.filter(
+                    repositories__in=[build_context.repository.pk],
+                    relative_path=data["containerfile_name"],
+                ).exists()
+            ):
+                raise serializers.ValidationError(
+                    _(
+                        'Could not find the Containerfile "'
+                        + data["containerfile_name"]
+                        + '" in the build_context provided'
+                    )
                 )
-                try:
-                    artifact = artifactfield.run_validation(data=url)
-                    artifact.touch()
-                    artifacts[str(artifact.pk)] = relative_path
-                except serializers.ValidationError as e:
-                    # Append the URL of missing Artifact to the error message
-                    e.detail[0] = "%s %s" % (e.detail[0], url)
-                    raise e
-        data["artifacts"] = artifacts
+
+            data["build_context_pk"] = build_context.repository.pk
+
         return data
 
     class Meta:
         fields = (
-            "containerfile_artifact",
+            "containerfile_name",
             "containerfile",
             "repository",
             "tag",
-            "artifacts",
+            "build_context",
         )
 
 
