@@ -7,23 +7,28 @@
 
 Users can add new images to a container repository by uploading a Containerfile. The syntax for
 Containerfile is the same as for a Dockerfile. The same REST API endpoint also accepts a JSON
-string that maps artifacts in Pulp to a filename. Any artifacts passed in are available inside the
-build container at `/pulp_working_directory`.
+string that maps artifacts in Pulp to a filename. Any files passed in (via `build_context`) are
+available inside the build container at the path defined in File Content `relative-path`.
 
-## Create a Repository
+It is possible to define the Containerfile in two ways:
+* from a [local file](site:pulp_container/docs/admin/guides/build-image#build-from-a-containerfile-uploaded-during-build-request) and pass it during build request
+* from an [existing file](site:pulp_container/docs/admin/guides/build-image#upload-the-containerfile-as-a-file-content) in the `build_context`
+
+## Create a Container Repository
 
 ```bash
-REPO_HREF=$(pulp container repository create --name building | jq -r '.pulp_href')
+CONTAINER_REPO=$(pulp container repository create --name building | jq -r '.pulp_href')
 ```
 
-## Create an Artifact
+## Create a File Repository and populate it
 
 ```bash
+FILE_REPO=$(pulp file repository create --name bar --autopublish | jq -r '.pulp_href')
+
 echo 'Hello world!' > example.txt
 
-ARTIFACT_HREF=$(http --form POST http://localhost/pulp/api/v3/artifacts/ \
-    file@./example.txt \
-    | jq -r '.pulp_href')
+pulp file content upload --relative-path foo/bar/example.txt \
+--file ./example.txt --repository bar
 ```
 
 ## Create a Containerfile
@@ -31,22 +36,41 @@ ARTIFACT_HREF=$(http --form POST http://localhost/pulp/api/v3/artifacts/ \
 ```bash
 echo 'FROM centos:7
 
-# Copy a file using COPY statement. Use the relative path specified in the 'artifacts' parameter.
+# Copy a file using COPY statement. Use the path specified in the '--relative-path' parameter.
 COPY foo/bar/example.txt /inside-image.txt
 
 # Print the content of the file when the container starts
 CMD ["cat", "/inside-image.txt"]' >> Containerfile
 ```
 
-## Build an OCI image
+
+## Build from a Containerfile uploaded during build request
+
+### Build an OCI image with the "local" Containerfile
 
 ```bash
-TASK_HREF=$(http --form POST :$REPO_HREF'build_image/' containerfile@./Containerfile \
-artifacts="{\"$ARTIFACT_HREF\": \"foo/bar/example.txt\"}"  | jq -r '.task')
+TASK_HREF=$(http --form POST :$CONTAINER_REPO'build_image/' "containerfile@./Containerfile" \
+build_context=${FILE_REPO}versions/1/ | jq -r '.task')
 ```
+
+
+## Upload the Containerfile to a File Repository and use it to build
+
+### Upload the Containerfile as a File Content
+
+```bash
+pulp file content upload --relative-path MyContainerfile --file ./Containerfile --repository bar
+```
+
+### Build an OCI image from a Containerfile present in build_context
+
+```bash
+TASK_HREF=$(http --form POST :$CONTAINER_REPO'build_image/' containerfile_name=MyContainerfile \
+build_context=${FILE_REPO}versions/2/ | jq -r '.task')
+```
+
 
 !!! warning
 
-    Non-staff users, lacking read access to the `artifacts` endpoint, may encounter restricted
-    functionality as they are prohibited from listing artifacts uploaded to Pulp and utilizing
-    them within the build process.
+    File repositories synced with on-demand policy will not automatically pull the missing artifacts.
+    Trying to build using a file that is not yet pulled will fail.

@@ -1,0 +1,1 @@
+Removed support for using raw artifacts as the build context and for the Containerfile.
