@@ -160,6 +160,13 @@ No significant changes.
 
 ---
 
+## 2.16.7 (2024-06-21) {: #2.16.7 }
+
+
+No significant changes.
+
+---
+
 ## 2.16.6 (2024-03-15) {: #2.16.6 }
 
 ### Bugfixes
@@ -366,6 +373,13 @@ No significant changes.
 ### Misc
 
 -   [#1093](https://github.com/pulp/pulp_container/issues/1093), [#1154](https://github.com/pulp/pulp_container/issues/1154)
+
+---
+
+## 2.14.14 (2024-06-20) {: #2.14.14 }
+
+
+No significant changes.
 
 ---
 
