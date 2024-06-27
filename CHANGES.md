@@ -8,6 +8,19 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.16.8 (2024-06-27) {: #2.16.8 }
+
+
+#### Bugfixes {: #2.16.8-bugfix }
+
+- Fixed a bug that disallowed users from leveraging the remote authentication.
+  [#1577](https://github.com/pulp/pulp_container/issues/1577)
+- Fixed a bug that caused the registry to not accept requests from anonymous users when token
+  authentication was disabled.
+  [#1605](https://github.com/pulp/pulp_container/issues/1605)
+
+---
+
 ## 2.16.7 (2024-06-21) {: #2.16.7 }
 
 
