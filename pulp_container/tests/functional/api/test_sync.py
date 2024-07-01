@@ -1,7 +1,7 @@
 """Tests that sync container plugin repositories."""
 
 import pytest
-from pulpcore.tests.functional import PulpTaskError
+from pulpcore.tests.functional.utils import PulpTaskError
 
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1, PULP_LABELED_FIXTURE
 
@@ -87,11 +87,11 @@ def test_sync_reclaim_resync(
     container_remote,
     container_sync,
     monitor_task,
-    repositories_reclaim_space_api_client,
+    pulpcore_bindings,
 ):
     """Check if re-syncing the content after the reclamation ends with no error."""
     container_sync(container_repo, container_remote)
-    monitor_task(repositories_reclaim_space_api_client.reclaim({"repo_hrefs": ["*"]}).task)
+    monitor_task(pulpcore_bindings.RepositoriesReclaimSpaceApi.reclaim({"repo_hrefs": ["*"]}).task)
     container_sync(container_repo, container_remote)
 
 

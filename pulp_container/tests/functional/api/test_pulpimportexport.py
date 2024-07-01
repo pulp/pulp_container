@@ -28,10 +28,7 @@ def test_import_export_standard(
     container_repository_api,
     container_repository_version_api,
     container_manifest_api,
-    exporters_pulp_api_client,
-    exporters_pulp_exports_api_client,
-    importers_pulp_api_client,
-    importers_pulp_imports_api_client,
+    pulpcore_bindings,
     gen_object_with_cleanup,
     has_pulp_plugin,
 ):
@@ -48,11 +45,11 @@ def test_import_export_standard(
         "path": f"/tmp/{uuid.uuid4()}/",
         "repositories": [repository.pulp_href],
     }
-    exporter = gen_object_with_cleanup(exporters_pulp_api_client, body)
+    exporter = gen_object_with_cleanup(pulpcore_bindings.ExportersPulpApi, body)
 
-    export_response = exporters_pulp_exports_api_client.create(exporter.pulp_href, {})
+    export_response = pulpcore_bindings.ExportersPulpExportsApi.create(exporter.pulp_href, {})
     export_href = monitor_task(export_response.task).created_resources[0]
-    export = exporters_pulp_exports_api_client.read(export_href)
+    export = pulpcore_bindings.ExportersPulpExportsApi.read(export_href)
 
     # Clean the old repository out
     monitor_task(container_repository_version_api.delete(repository.latest_version_href).task)
@@ -65,14 +62,14 @@ def test_import_export_standard(
         "name": str(uuid.uuid4()),
         "repo_mapping": {repository.name: import_repository.name},
     }
-    importer = gen_object_with_cleanup(importers_pulp_api_client, body)
+    importer = gen_object_with_cleanup(pulpcore_bindings.ImportersPulpApi, body)
 
     if has_pulp_plugin("core", min="3.36.0"):
         filenames = [f for f in list(export.output_file_info.keys()) if f.endswith(".tar")]
     else:
         filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
 
-    import_response = importers_pulp_imports_api_client.create(
+    import_response = pulpcore_bindings.ImportersPulpImportsApi.create(
         importer.pulp_href, {"path": filenames[0]}
     )
     if hasattr(import_response, "task_group"):
@@ -111,10 +108,7 @@ def test_import_export_create_repositories(
     container_repository_api,
     container_tag_api,
     container_manifest_api,
-    exporters_pulp_api_client,
-    exporters_pulp_exports_api_client,
-    importers_pulp_api_client,
-    importers_pulp_imports_api_client,
+    pulpcore_bindings,
     gen_object_with_cleanup,
     has_pulp_plugin,
 ):
@@ -135,24 +129,24 @@ def test_import_export_create_repositories(
         "path": f"/tmp/{uuid.uuid4()}/",
         "repositories": [distribution.repository],
     }
-    exporter = gen_object_with_cleanup(exporters_pulp_api_client, body)
-    export_response = exporters_pulp_exports_api_client.create(exporter.pulp_href, {})
+    exporter = gen_object_with_cleanup(pulpcore_bindings.ExportersPulpApi, body)
+    export_response = pulpcore_bindings.ExportersPulpExportsApi.create(exporter.pulp_href, {})
     export_href = monitor_task(export_response.task).created_resources[0]
-    export = exporters_pulp_exports_api_client.read(export_href)
+    export = pulpcore_bindings.ExportersPulpExportsApi.read(export_href)
 
     # Clean the old repository out
     monitor_task(container_distribution_api.delete(distribution.pulp_href).task)
     delete_orphans()
 
     body = {"name": str(uuid.uuid4())}
-    importer = gen_object_with_cleanup(importers_pulp_api_client, body)
+    importer = gen_object_with_cleanup(pulpcore_bindings.ImportersPulpApi, body)
 
     if has_pulp_plugin("core", min="3.36.0"):
         filenames = [f for f in list(export.output_file_info.keys()) if f.endswith(".tar")]
     else:
         filenames = [f for f in list(export.output_file_info.keys()) if f.endswith("tar.gz")]
 
-    import_response = importers_pulp_imports_api_client.create(
+    import_response = pulpcore_bindings.ImportersPulpImportsApi.create(
         importer.pulp_href, {"path": filenames[0], "create_repositories": True}
     )
     if hasattr(import_response, "task_group"):

@@ -30,7 +30,7 @@ CMD ["cat", "/tmp/inside-image.txt"]"""
 
 
 def test_build_image(
-    artifacts_api_client,
+    pulpcore_bindings,
     container_repository_api,
     container_distribution_api,
     gen_object_with_cleanup,
@@ -41,7 +41,7 @@ def test_build_image(
     with NamedTemporaryFile() as text_file:
         text_file.write(b"some text")
         text_file.flush()
-        artifact = gen_object_with_cleanup(artifacts_api_client, text_file.name)
+        artifact = gen_object_with_cleanup(pulpcore_bindings.ArtifactsApi, text_file.name)
 
     repository = gen_object_with_cleanup(
         container_repository_api, ContainerContainerRepository(**gen_repo())
