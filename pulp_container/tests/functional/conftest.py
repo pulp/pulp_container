@@ -259,9 +259,9 @@ def signing_script_filename(signing_gpg_homedir_path):
 
 @pytest.fixture
 def container_signing_service(
+    pulpcore_bindings,
     signing_gpg_metadata,
     signing_script_filename,
-    signing_service_api_client,
 ):
     """A fixture for a signing service."""
     st = os.stat(signing_script_filename)
@@ -284,7 +284,7 @@ def container_signing_service(
 
     subprocess.check_output(cmd)
 
-    signing_service = signing_service_api_client.list(name=service_name).results[0]
+    signing_service = pulpcore_bindings.SigningServicesApi.list(name=service_name).results[0]
     assert signing_service.pubkey_fingerprint == fingerprint
     assert signing_service.public_key == gpg.export_keys(keyid)
 
