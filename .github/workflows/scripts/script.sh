@@ -16,7 +16,6 @@ cd "$(dirname "$(realpath -e "$0")")"/../../..
 source .github/workflows/scripts/utils.sh
 
 export POST_SCRIPT=$PWD/.github/workflows/scripts/post_script.sh
-export POST_DOCS_TEST=$PWD/.github/workflows/scripts/post_docs_test.sh
 export FUNC_TEST_SCRIPT=$PWD/.github/workflows/scripts/func_test_script.sh
 
 # Needed for both starting the service and building the docs.
@@ -38,10 +37,6 @@ if [[ "$TEST" = "docs" ]]; then
   make PULP_URL="$PULP_URL" diagrams html
   tar -cvf docs.tar ./_build
   cd ..
-
-  if [ -f "$POST_DOCS_TEST" ]; then
-    source "$POST_DOCS_TEST"
-  fi
   exit
 fi
 
