@@ -23,7 +23,7 @@ including `quay`, `google container registry`, or even another instance of Pulp.
     Container plugin supports both Docker and OCI media types.
 
 ```bash
-pulp container remote create --name foo --url "https://registry-1.docker.io" --upstream_name=pulp/test-fixture-1
+pulp container remote create --name foo --url "https://registry-1.docker.io" --upstream-name=pulp/test-fixture-1
 ```
 
 !!! note
