@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import base64
-import fnmatch
 import hashlib
 import json
 import logging
@@ -34,6 +33,7 @@ from pulp_container.app.utils import (
     determine_media_type,
     validate_manifest,
     calculate_digest,
+    filter_resources,
     get_content_data,
 )
 
@@ -118,7 +118,9 @@ class ContainerFirstStage(Stage):
             repo_name = self.remote.namespaced_upstream_name
             tag_list_url = "/v2/{name}/tags/list".format(name=repo_name)
             tag_list = await self.get_paginated_tag_list(tag_list_url, repo_name)
-            tag_list = self.filter_tags(tag_list)
+            tag_list = filter_resources(
+                tag_list, self.remote.include_tags, self.remote.exclude_tags
+            )
             await pb.aincrement()
 
         for tag_name in tag_list:
@@ -302,28 +304,6 @@ class ContainerFirstStage(Stage):
             signature_dc.content.signed_manifest = await signed_manifest_dc.resolution()
             await self.put(signature_dc)
         self.signature_dcs.clear()
-
-    def filter_tags(self, tag_list):
-        """
-        Filter tags by a list of included and excluded tags.
-        """
-        include_tags = self.remote.include_tags
-        if include_tags:
-            tag_list = [
-                tag
-                for tag in tag_list
-                if any(fnmatch.fnmatch(tag, pattern) for pattern in include_tags)
-            ]
-
-        exclude_tags = self.remote.exclude_tags
-        if exclude_tags:
-            tag_list = [
-                tag
-                for tag in tag_list
-                if not any(fnmatch.fnmatch(tag, pattern) for pattern in exclude_tags)
-            ]
-
-        return tag_list
 
     async def get_paginated_tag_list(self, rel_link, repo_name):
         """

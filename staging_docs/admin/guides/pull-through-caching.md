@@ -43,3 +43,36 @@ ensures a more reliable container deployment system in production environments.
     generate a new repository version that incorporates both the "10" and "11" tags, automatically
     removing the previous version. Repositories and their content remain manageable through standard
     Pulp API endpoints. The repositories are read-only and public by default.
+
+
+### Filtering the repositories
+
+It is possible to use the includes/excludes fields to set a list of upstream repositories that Pulp
+will be able to pull from.
+
+```
+# define a pull-through remote with the includes/excludes fields
+REMOTE_HREF=$(http ${BASE_ADDR}/pulp/api/v3/remotes/container/pull-through/ name=docker-cache url=https://registry-1.docker.io includes=["*pulp*"] excludes=["*molecule_debian*"] | jq -r ".pulp_href")
+
+# create a pull-through distribution linked to the initialized remote
+http ${BASE_ADDR}/pulp/api/v3/distributions/container/pull-through/ remote=${REMOTE_HREF} name=docker-cache base_path=docker-cache
+```
+
+Pulling allowed content:
+
+```
+podman pull localhost:24817/docker-cache/pulp/test-fixture-1:manifest_a
+```
+
+Pulling from a repository that includes *molecule_debian* in its name will fail because it is filtered by the *excludes* definition:
+```
+podman pull localhost:24817/docker-cache/pulp/molecule_debian11
+Error response from daemon: repository localhost:24817/docker-cache/pulp/molecule_debian11 not found: name unknown: Repository not found.
+```
+
+Since only repositories with *pulp* in their names are included (`includes=["*pulp*"]`), the following image pull will also fail:
+
+```
+podman pull localhost:24817/docker-cache/library/hello-world
+Error response from daemon: repository localhost:24817/docker-cache/library/hello-world not found: name unknown: Repository not found.
+```
