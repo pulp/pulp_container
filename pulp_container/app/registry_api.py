@@ -339,13 +339,12 @@ class ContainerRegistryApiMixin:
                     **remote_data,
                 )
 
-                # TODO: Propagate the user's permissions and private flag from the pull-through
-                #  distribution to this distribution
                 distribution, _ = models.ContainerDistribution.objects.get_or_create(
                     name=path,
                     base_path=path,
                     remote=remote,
                     repository=repository,
+                    private=pull_through_cache_distribution.private,
                 )
         except IntegrityError:
             # some entities needed to be created, but their keys already exist in the database
