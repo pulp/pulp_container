@@ -2,6 +2,8 @@ import time
 import subprocess
 import pytest
 
+from django.conf import settings
+
 from subprocess import CalledProcessError
 from uuid import uuid4
 
@@ -127,6 +129,34 @@ def test_anonymous_pull_by_digest(
     add_pull_through_entities_to_cleanup(local_image_path.split("@")[0])
 
     with anonymous_user:
+        local_registry.pull(local_image_path)
+
+
+def test_pull_from_private_distribution(
+    delete_orphans_pre,
+    add_pull_through_entities_to_cleanup,
+    anonymous_user,
+    local_registry,
+    pull_through_distribution,
+    gen_user,
+):
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
+    image = f"{PULP_HELLO_WORLD_REPO}:latest"
+    local_image_path = f"{pull_through_distribution(private=True).base_path}/{image}"
+
+    with anonymous_user, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path)
+
+    local_registry.pull(local_image_path)
+
+    add_pull_through_entities_to_cleanup(local_image_path.split(":")[0])
+
+    with anonymous_user, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path)
+
+    with gen_user(model_roles=["container.containernamespace_collaborator"]):
         local_registry.pull(local_image_path)
 
 
