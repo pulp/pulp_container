@@ -333,6 +333,10 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
                 "Modify content in any push repository in a namespace",
             ),
             (
+                "namespace_modify_content_containerrepository",
+                "Modify content in any repository in a namespace",
+            ),
+            (
                 "namespace_change_containerpushrepository",
                 "Update any existing push repository in a namespace",
             ),
@@ -710,6 +714,10 @@ class ContainerPullThroughDistribution(Distribution, AutoAddObjPermsMixin):
             (
                 "manage_roles_containerpullthroughdistribution",
                 "Can manage role assignments on pull-through cache distribution",
+            ),
+            (
+                "pull_new_containerdistribution",
+                "Can pull new content via the pull-through cache distribution",
             ),
         ]
 

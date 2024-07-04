@@ -297,6 +297,7 @@ object permissions for the namespace:
 "container.namespace_change_containerdistribution"
 "container.namespace_view_containerpushrepository"
 "container.namespace_modify_content_containerpushrepository"
+"container.namespace_modify_content_containerrepository"
 ```
 
 The users in the owners group have the permissions to add/remove users from all three groups
@@ -321,6 +322,7 @@ following object permissions for the namespace:
 "container.namespace_change_containerdistribution"
 "container.namespace_view_containerpushrepository"
 "container.namespace_modify_content_containerpushrepository"
+"container.namespace_modify_content_containerrepository"
 ```
 
 Users in the Collaborator group can do everything that the owners can, with the exception of
@@ -398,7 +400,7 @@ with the Distribution:
 "container.modify_content_containerpushrepository"
 ```
 
-Users in the Collaborator group can do everything that the owners can, with the exception of deleting
+Users in the Collaborator group can do everything that the owners can, with the exception for deleting
 the Distribution.
 
 #### Distribution Consumers
@@ -421,6 +423,49 @@ with the Distribution:
 Users in the Consumers group can the `pull` the repository. Users should only need to be added to
 this group if the Distribution has been configured with `private=True`. If the Distribution is
 public, then anyone can `pull` from the repository associated with the Distribution.
+
+
+#### Pull-through Distribution Owners
+
+This role allows users to manage and pull content from the pull-through cache distribution.
+
+```
+"container.view_containerpullthroughdistribution"
+"container.delete_containerpullthroughdistribution"
+"container.change_containerpullthroughdistribution"
+"container.manage_roles_containerpullthroughdistribution"
+"container.pull_new_containerdistribution"
+```
+
+#### Pull-through Distribution Collaborators
+
+Users who have this role assigned can preview and pull new content from the main pull-through cache
+distribution.
+
+```
+"container.view_containerpullthroughdistribution"
+"container.pull_new_containerdistribution"
+```
+
+#### Pull-through Distribution Consumers
+
+Similarly to the collaborator role, the following set of permissions is set for the consumer role:
+
+```
+"container.view_containerpullthroughdistribution"
+"container.pull_new_containerdistribution"
+```
+
+It is recommended to assign at least one role with these permissions to allow users to pull new
+content from a remote repository:
+```
+"container.namespace_modify_content_containerrepository" (e.g., namespace collaborator)
+"container.namespace_add_containerdistribution" (e.g., namespace collaborator)
+"container.pull_new_containerdistribution" (e.g., pull-through cache consumer)
+```
+
+Users without the permissions can still pull already cached content from Pulp. This behaviour is
+further restricted by flagging a distribution as `private=True`.
 
 ### Private Repositories
 

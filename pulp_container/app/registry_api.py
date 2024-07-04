@@ -51,7 +51,7 @@ from rest_framework.views import APIView, exception_handler
 from rest_framework.status import HTTP_401_UNAUTHORIZED
 
 from pulp_container.app import models, serializers
-from pulp_container.app.authorization import AuthorizationService
+from pulp_container.app.authorization import AuthorizationService, PermissionChecker
 from pulp_container.app.cache import (
     find_base_path_cached,
     FlatpakIndexStaticCache,
@@ -291,7 +291,9 @@ class ContainerRegistryApiMixin:
         Get distribution, repository and repository_version for pull access.
         """
         try:
-            distribution = models.ContainerDistribution.objects.get(base_path=path)
+            distribution = models.ContainerDistribution.objects.prefetch_related(
+                "pull_through_distribution"
+            ).get(base_path=path)
         except models.ContainerDistribution.DoesNotExist:
             # get a pull-through cache distribution whose base_path is a substring of the path
             return self.get_pull_through_drv(path)
@@ -345,6 +347,7 @@ class ContainerRegistryApiMixin:
                     remote=remote,
                     repository=repository,
                     private=pull_through_cache_distribution.private,
+                    namespace=pull_through_cache_distribution.namespace,
                 )
         except IntegrityError:
             # some entities needed to be created, but their keys already exist in the database
@@ -1036,10 +1039,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
             except models.Tag.DoesNotExist:
                 distribution = distribution.cast()
+                permission_checker = PermissionChecker(request.user)
                 if (
                     distribution.remote
-                    and distribution.pull_through_distribution_id
-                    and request.user.is_authenticated
+                    and distribution.pull_through_distribution
+                    and permission_checker.has_pull_through_permissions(distribution)
                 ):
                     remote = distribution.remote.cast()
                     # issue a head request first to ensure that the content exists on the remote
@@ -1090,10 +1094,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                     manifest = None
 
                 distribution = distribution.cast()
+                permission_checker = PermissionChecker(request.user)
                 if (
                     distribution.remote
-                    and distribution.pull_through_distribution_id
-                    and request.user.is_authenticated
+                    and distribution.pull_through_distribution
+                    and permission_checker.has_pull_through_permissions(distribution)
                 ):
                     remote = distribution.remote.cast()
                     self.fetch_manifest(remote, pk)
@@ -1109,7 +1114,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             models.MEDIA_TYPE.MANIFEST_LIST,
             models.MEDIA_TYPE.INDEX_OCI,
         ):
-            for listed_manifest in manifest.listed_manifests:
+            for listed_manifest in manifest.listed_manifests.all():
                 add_content_units.append(listed_manifest.pk)
                 add_content_units.append(listed_manifest.config_blob_id)
                 add_content_units.extend(listed_manifest.blobs.values_list("pk", flat=True))

@@ -12,6 +12,7 @@ from pulp_container.tests.functional.constants import (
     PULP_HELLO_WORLD_REPO,
     PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
     PULP_FIXTURE_1,
+    PULP_FIXTURE_1_MANIFEST_A_DIGEST,
 )
 
 
@@ -111,28 +112,7 @@ def test_manifest_pull(delete_orphans_pre, pull_through_distribution, pull_and_v
     pull_and_verify(images, pull_through_distribution())
 
 
-def test_anonymous_pull_by_digest(
-    delete_orphans_pre,
-    add_pull_through_entities_to_cleanup,
-    anonymous_user,
-    local_registry,
-    pull_through_distribution,
-):
-    image = f"{PULP_HELLO_WORLD_REPO}@{PULP_HELLO_WORLD_LINUX_AMD64_DIGEST}"
-    local_image_path = f"{pull_through_distribution().base_path}/{image}"
-
-    with anonymous_user, pytest.raises(CalledProcessError):
-        local_registry.pull(local_image_path)
-
-    local_registry.pull(local_image_path)
-
-    add_pull_through_entities_to_cleanup(local_image_path.split("@")[0])
-
-    with anonymous_user:
-        local_registry.pull(local_image_path)
-
-
-def test_pull_from_private_distribution(
+def test_pull_by_digest(
     delete_orphans_pre,
     add_pull_through_entities_to_cleanup,
     anonymous_user,
@@ -140,24 +120,89 @@ def test_pull_from_private_distribution(
     pull_through_distribution,
     gen_user,
 ):
+    image1 = f"{PULP_HELLO_WORLD_REPO}@{PULP_HELLO_WORLD_LINUX_AMD64_DIGEST}"
+    image2 = f"{PULP_FIXTURE_1}@{PULP_FIXTURE_1_MANIFEST_A_DIGEST}"
+    local_image_path1 = f"{pull_through_distribution().base_path}/{image1}"
+    local_image_path2 = f"{pull_through_distribution().base_path}/{image2}"
+
+    with anonymous_user, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path1)
+
+    local_registry.pull(local_image_path1)
+
+    add_pull_through_entities_to_cleanup(local_image_path1.split("@")[0])
+
+    with anonymous_user:
+        local_registry.pull(local_image_path1)
+
+    with gen_user():
+        local_registry.pull(local_image_path1)
+
+    with gen_user(), pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path2)
+
+    with gen_user(model_roles=["container.containernamespace_collaborator"]):
+        local_registry.pull(local_image_path1)
+        local_registry.pull(local_image_path2)
+
+
+def test_pull_from_private_distribution(
+    delete_orphans_pre,
+    add_pull_through_entities_to_cleanup,
+    anonymous_user,
+    container_namespace_api,
+    container_distribution_api,
+    local_registry,
+    pull_through_distribution,
+    gen_user,
+):
     if settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
-    image = f"{PULP_HELLO_WORLD_REPO}:latest"
-    local_image_path = f"{pull_through_distribution(private=True).base_path}/{image}"
+    pull_through_distribution = pull_through_distribution(private=True)
+
+    image1 = f"{PULP_HELLO_WORLD_REPO}:latest"
+    image2 = f"{PULP_FIXTURE_1}:manifest_a"
+    local_image_path1 = f"{pull_through_distribution.base_path}/{image1}"
+    local_image_path2 = f"{pull_through_distribution.base_path}/{image2}"
 
     with anonymous_user, pytest.raises(CalledProcessError):
-        local_registry.pull(local_image_path)
+        local_registry.pull(local_image_path1)
 
-    local_registry.pull(local_image_path)
+    local_registry.pull(local_image_path1)
 
-    add_pull_through_entities_to_cleanup(local_image_path.split(":")[0])
+    namespace = container_namespace_api.list(name=pull_through_distribution.base_path).results[0]
+    add_pull_through_entities_to_cleanup(local_image_path1.split(":")[0])
 
     with anonymous_user, pytest.raises(CalledProcessError):
-        local_registry.pull(local_image_path)
+        local_registry.pull(local_image_path1)
 
-    with gen_user(model_roles=["container.containernamespace_collaborator"]):
-        local_registry.pull(local_image_path)
+    namespace_collaborator = gen_user(
+        object_roles=[("container.containernamespace_collaborator", namespace.pulp_href)]
+    )
+    with namespace_collaborator:
+        local_registry.pull(local_image_path1)
+
+    with gen_user(model_roles=["container.containerpullthroughdistribution_consumer"]):
+        local_registry.pull(local_image_path1)
+        # test if the user can pull a completely new image through the cache
+        local_registry.pull(local_image_path2)
+
+    add_pull_through_entities_to_cleanup(local_image_path2.split(":")[0])
+
+    with gen_user(model_roles=["container.containerdistribution_collaborator"]):
+        local_registry.pull(local_image_path2)
+
+    distro1_name = local_image_path1.split(":")[0]
+    distro1 = container_distribution_api.list(name=distro1_name).results[0]
+    distro_1_collaborator = gen_user(
+        object_roles=[("container.containerdistribution_collaborator", distro1.pulp_href)]
+    )
+    with distro_1_collaborator:
+        local_registry.pull(local_image_path1)
+
+    with distro_1_collaborator, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path2)
 
 
 def test_conflicting_names_and_paths(
