@@ -31,6 +31,10 @@ class RegistryAccessPolicy(AccessPolicy):
             access_policy_obj = AccessPolicyModel.objects.get(
                 viewset_name="distributions/container/container"
             )
+        elif isinstance(view.get_object(), models.ContainerPullThroughDistribution):
+            access_policy_obj = AccessPolicyModel.objects.get(
+                viewset_name="distributions/container/pull-through"
+            )
         else:
             access_policy_obj = AccessPolicyModel.objects.get(
                 viewset_name="pulp_container/namespaces"

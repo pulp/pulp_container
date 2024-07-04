@@ -37,6 +37,9 @@ PULP_HELLO_WORLD_LINUX_AMD64_DIGEST = (
 
 # a repository containing 4 manifest lists and 5 manifests
 PULP_FIXTURE_1 = "pulp/test-fixture-1"
+PULP_FIXTURE_1_MANIFEST_A_DIGEST = (
+    "sha256:d8fbbbf3fec1857c32c110292a9decf9744f9f97d7247019ae4776c241395221"
+)
 
 # a dummy repository containing two manifests (index and image) with an arbitrary bootc label
 PULP_LABELED_FIXTURE = "pulp/bootc-labeled"

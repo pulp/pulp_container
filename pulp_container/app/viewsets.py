@@ -1298,6 +1298,14 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
                     "has_model_or_obj_perms:container.manage_roles_containerdistribution"
                 ],
             },
+            {
+                "action": ["pull_new_content"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_namespace_obj_perms:container.namespace_modify_content_containerrepository"
+                ],
+            },
         ],
         "creation_hooks": [
             {
@@ -1453,6 +1461,14 @@ class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
                     "has_model_or_obj_perms:container.manage_roles_containerpullthroughdistribution"
                 ],
             },
+            {
+                "action": ["pull_new_distribution"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition_expression": [
+                    "has_model_or_obj_perms:container.pull_new_containerdistribution"
+                ],
+            },
         ],
         "creation_hooks": [
             {
@@ -1472,12 +1488,15 @@ class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
             "container.delete_containerpullthroughdistribution",
             "container.change_containerpullthroughdistribution",
             "container.manage_roles_containerpullthroughdistribution",
+            "container.pull_new_containerdistribution",
         ],
         "container.containerpullthroughdistribution_collaborator": [
             "container.view_containerpullthroughdistribution",
+            "container.pull_new_containerdistribution",
         ],
         "container.containerpullthroughdistribution_consumer": [
             "container.view_containerpullthroughdistribution",
+            "container.pull_new_containerdistribution",
         ],
     }
 
@@ -1544,7 +1563,9 @@ class ContainerNamespaceViewSet(
                 "action": ["view_distribution"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.namespace_view_containerdistribution",  # noqa: E501
+                "condition": [
+                    "has_model_or_obj_perms:container.namespace_view_containerdistribution"
+                ],
             },
             {
                 "action": ["list_roles", "add_role", "remove_role"],
@@ -1579,6 +1600,7 @@ class ContainerNamespaceViewSet(
             "container.namespace_change_containerdistribution",
             "container.namespace_view_containerpushrepository",
             "container.namespace_modify_content_containerpushrepository",
+            "container.namespace_modify_content_containerrepository",
             "container.namespace_change_containerpushrepository",
             "container.manage_roles_containernamespace",
         ],
@@ -1592,6 +1614,7 @@ class ContainerNamespaceViewSet(
             "container.namespace_change_containerdistribution",
             "container.namespace_view_containerpushrepository",
             "container.namespace_modify_content_containerpushrepository",
+            "container.namespace_modify_content_containerrepository",
             "container.namespace_change_containerpushrepository",
         ],
         "container.containernamespace_consumer": [

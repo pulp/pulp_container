@@ -11,12 +11,17 @@ from functools import partial
 
 from django.conf import settings
 from django.http import HttpRequest
+from django.db.models import F, Value
 from rest_framework.request import Request
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
-from pulp_container.app.models import ContainerDistribution, ContainerNamespace
+from pulp_container.app.models import (
+    ContainerDistribution,
+    ContainerNamespace,
+    ContainerPullThroughDistribution,
+)
 from pulp_container.app.access_policy import RegistryAccessPolicy
 
 TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
@@ -62,14 +67,15 @@ class AuthorizationService:
         self.user = user
         self.service = service
         self.scopes = scopes
-        self.access_policy = RegistryAccessPolicy()
+
+        permission_checker = PermissionChecker(user)
 
         self.actions_permissions = defaultdict(
             lambda: lambda *args: False,
             {
-                "pull": self.has_pull_permissions,
-                "push": self.has_push_permissions,
-                "*": self.has_view_catalog_permissions,
+                "pull": permission_checker.has_pull_permissions,
+                "push": permission_checker.has_push_permissions,
+                "*": permission_checker.has_view_catalog_permissions,
             },
         )
 
@@ -184,6 +190,39 @@ class AuthorizationService:
 
         return [{"type": typ, "name": name, "actions": list(permitted_actions)}]
 
+    @staticmethod
+    def generate_claim_set(issuer, issued_at, subject, audience, access):
+        """
+        Generate the claim set that will be signed and dispatched back to the requesting subject.
+        """
+        token_id = str(uuid.UUID(int=random.getrandbits(128), version=4))
+        expiration = issued_at + TOKEN_EXPIRATION_TIME
+        return {
+            "access": access,
+            "aud": audience,
+            "exp": expiration,
+            "iat": issued_at,
+            "iss": issuer,
+            "jti": token_id,
+            "nbf": issued_at,
+            "sub": subject,
+        }
+
+
+def get_pull_through_distribution(path):
+    return (
+        ContainerPullThroughDistribution.objects.annotate(path=Value(path))
+        .filter(path__startswith=F("base_path"))
+        .order_by("-base_path")
+        .first()
+    )
+
+
+class PermissionChecker:
+    def __init__(self, user):
+        self.user = user
+        self.access_policy = RegistryAccessPolicy()
+
     def has_permission(self, obj, method, action, data):
         """Check if user has permission to perform action."""
 
@@ -207,13 +246,24 @@ class AuthorizationService:
             try:
                 namespace = ContainerNamespace.objects.get(name=namespace_name)
             except ContainerNamespace.DoesNotExist:
-                # Check if user is allowed to create a new namespace
+                # Check if the user is allowed to create a new namespace
                 return self.has_permission(None, "POST", "create", {"name": namespace_name})
-            # Check if user is allowed to view distributions in the namespace
-            return self.has_permission(
-                namespace, "GET", "view_distribution", {"name": namespace_name}
-            )
 
+            if pt_distribution := get_pull_through_distribution(path):
+                # Check if the user is allowed to create a new distribution
+                return self.has_pull_through_new_distribution_permissions(pt_distribution)
+            else:
+                # Check if the user is allowed to view distributions in the namespace
+                return self.has_permission(
+                    namespace, "GET", "view_distribution", {"name": namespace_name}
+                )
+
+        if pt_distribution := get_pull_through_distribution(path):
+            # Check if the user is allowed to pull new content via a pull-through distribution
+            if self.has_pull_through_permissions(distribution):
+                return True
+
+        # Check if the user has general pull permissions
         return self.has_permission(distribution, "GET", "pull", {"base_path": path})
 
     def has_push_permissions(self, path):
@@ -241,28 +291,19 @@ class AuthorizationService:
         if path != "catalog":
             return False
 
-        # Fake the request
-        request = Request(HttpRequest())
-        request.method = "GET"
-        request.user = self.user
-        # Fake the view
-        view = FakeViewWithSerializer("catalog", lambda: ContainerDistribution())
-        return self.access_policy.has_permission(request, view)
+        return self.has_permission(ContainerDistribution(), "GET", "catalog", {})
 
-    @staticmethod
-    def generate_claim_set(issuer, issued_at, subject, audience, access):
-        """
-        Generate the claim set that will be signed and dispatched back to the requesting subject.
-        """
-        token_id = str(uuid.UUID(int=random.getrandbits(128), version=4))
-        expiration = issued_at + TOKEN_EXPIRATION_TIME
-        return {
-            "access": access,
-            "aud": audience,
-            "exp": expiration,
-            "iat": issued_at,
-            "iss": issuer,
-            "jti": token_id,
-            "nbf": issued_at,
-            "sub": subject,
-        }
+    def has_pull_through_permissions(self, distribution):
+        return self.has_pull_through_new_content_permissions(
+            distribution
+        ) or self.has_pull_through_new_distribution_permissions(
+            distribution.pull_through_distribution
+        )
+
+    def has_pull_through_new_content_permissions(self, distribution):
+        return self.has_permission(distribution, "GET", "pull_new_content", {})
+
+    def has_pull_through_new_distribution_permissions(self, pt_distribution):
+        return self.has_permission(
+            pt_distribution, "GET", "pull_new_distribution", {}
+        ) or self.has_permission(pt_distribution.namespace, "POST", "create_distribution", {})
