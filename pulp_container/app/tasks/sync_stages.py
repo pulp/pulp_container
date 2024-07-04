@@ -34,7 +34,6 @@ from pulp_container.app.utils import (
     determine_media_type,
     validate_manifest,
     calculate_digest,
-    get_content_data,
 )
 
 log = logging.getLogger(__name__)
@@ -77,25 +76,9 @@ class ContainerFirstStage(Stage):
 
         digest = response.headers.get("docker-content-digest")
 
-        if (
-            manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest)
-            .afirst()
-        ):
-            if raw_text_data := manifest.data:
-                content_data = json.loads(raw_text_data)
-
-            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-            elif saved_artifact := await manifest._artifacts.afirst():
-                content_data, raw_bytes_data = await sync_to_async(get_content_data)(saved_artifact)
-                raw_text_data = raw_bytes_data.decode("utf-8")
-            # if artifact is not available (due to reclaim space) we will download it again
-            else:
-                content_data, raw_text_data, response = await self._download_manifest_data(
-                    response.url
-                )
-            # END OF BACKWARD COMPATIBILITY
-
+        if manifest := await Manifest.objects.filter(digest=digest).afirst():
+            raw_text_data = manifest.data
+            content_data = json.loads(raw_text_data)
         else:
             content_data, raw_text_data, response = await self._download_manifest_data(response.url)
 
@@ -333,9 +316,7 @@ class ContainerFirstStage(Stage):
         while True:
             link = urljoin(self.remote.url, rel_link)
             list_downloader = self.remote.get_downloader(url=link)
-            # FIXME this can be rolledback after https://github.com/pulp/pulp_container/issues/1288
-            # tags/list endpoint does not like any unnecessary headers to be sent
-            await list_downloader.run(extra_data={"repo_name": repo_name, "headers": {}})
+            await list_downloader.run(extra_data={"repo_name": repo_name})
             with open(list_downloader.path) as tags_raw:
                 tags_dict = json.loads(tags_raw.read())
                 tag_list.extend(tags_dict["tags"])
@@ -470,22 +451,8 @@ class ContainerFirstStage(Stage):
         )
         manifest_url = urljoin(self.remote.url, relative_url)
 
-        if (
-            manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest)
-            .afirst()
-        ):
-            if manifest.data:
-                content_data = json.loads(manifest.data)
-            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-            elif saved_artifact := await manifest._artifacts.afirst():
-                content_data, _ = await sync_to_async(get_content_data)(saved_artifact)
-            # if artifact is not available (due to reclaim space) we will download it again
-            else:
-                content_data, manifest = await self._download_and_instantiate_manifest(
-                    manifest_url, digest
-                )
-            # END OF BACKWARD COMPATIBILITY
+        if manifest := await Manifest.objects.filter(digest=digest).afirst():
+            content_data = json.loads(manifest.data)
         else:
             content_data, manifest = await self._download_and_instantiate_manifest(
                 manifest_url, digest
@@ -582,9 +549,7 @@ class ContainerFirstStage(Stage):
                 man_dc.content.digest,
             )
             signatures_downloader = self.remote.get_downloader(url=signatures_url)
-            # FIXME this can be rolledback after https://github.com/pulp/pulp_container/issues/1288
-            # signature extensions endpoint does not like any unnecessary headers to be sent
-            await signatures_downloader.run(extra_data={"headers": {}})
+            await signatures_downloader.run()
             with open(signatures_downloader.path) as signatures_fd:
                 api_extension_signatures = json.loads(signatures_fd.read())
             for signature in api_extension_signatures.get("signatures", []):
