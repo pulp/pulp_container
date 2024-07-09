@@ -13,6 +13,11 @@ from pulp_container.constants import V2_ACCEPT_HEADERS
 
 log = getLogger(__name__)
 
+# Usually webservers ignore accept headers for blob endpoint
+# However, some webservers when serving blobs need to have explicitly specified octet-stream
+# in the accept headers
+V2_ACCEPT_HEADERS_OCTET = {"Accept": V2_ACCEPT_HEADERS["Accept"] + ",application/octet-stream"}
+
 
 class RegistryAuthHttpDownloader(HttpDownloader):
     """
@@ -50,11 +55,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         # these accept headers are going to be sent with every request to ensure downloader
         # can download manifests, namely in the repair core task
         # FIXME this can be rolledback after https://github.com/pulp/pulp_container/issues/1288
-        headers = V2_ACCEPT_HEADERS
-        # Usually webservers ignore accept headers for blob endpoint
-        # However, some webservers when serving blobs need to have explicitly specified octet-stream
-        # in the accept headers
-        headers["Accept"] = headers["Accept"] + ",application/octet-stream"
+        headers = V2_ACCEPT_HEADERS_OCTET
         repo_name = None
         if extra_data is not None:
             headers = extra_data.get("headers", headers)
