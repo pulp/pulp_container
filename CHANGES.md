@@ -8,6 +8,16 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.16.9 (2024-07-09) {: #2.16.9 }
+
+
+#### Bugfixes {: #2.16.9-bugfix }
+
+- Fixed the long accept header limit exceed during sync.
+  [#1696](https://github.com/pulp/pulp_container/issues/1696)
+
+---
+
 ## 2.16.8 (2024-06-27) {: #2.16.8 }
 
 
