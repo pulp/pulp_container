@@ -160,6 +160,16 @@ No significant changes.
 
 ---
 
+## 2.16.9 (2024-07-09) {: #2.16.9 }
+
+
+#### Bugfixes {: #2.16.9-bugfix }
+
+- Fixed the long accept header limit exceed during sync.
+  [#1696](https://github.com/pulp/pulp_container/issues/1696)
+
+---
+
 ## 2.16.8 (2024-06-27) {: #2.16.8 }
 
 
@@ -386,6 +396,16 @@ No significant changes.
 ### Misc
 
 -   [#1093](https://github.com/pulp/pulp_container/issues/1093), [#1154](https://github.com/pulp/pulp_container/issues/1154)
+
+---
+
+## 2.14.15 (2024-07-09) {: #2.14.15 }
+
+
+#### Bugfixes {: #2.14.15-bugfix }
+
+- Fixed the long accept header limit exceed during sync.
+  [#1696](https://github.com/pulp/pulp_container/issues/1696)
 
 ---
 
