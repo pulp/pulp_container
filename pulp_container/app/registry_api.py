@@ -69,6 +69,7 @@ from pulp_container.app.exceptions import (
     ManifestNotFound,
     ManifestInvalid,
     ManifestSignatureInvalid,
+    PayloadTooLarge,
 )
 from pulp_container.app.redirects import (
     FileStorageRedirects,
@@ -90,9 +91,9 @@ from pulp_container.app.utils import (
 )
 from pulp_container.constants import (
     EMPTY_BLOB,
+    MEGABYTE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
-    SIGNATURE_PAYLOAD_MAX_SIZE,
     SIGNATURE_TYPE,
     V2_ACCEPT_HEADERS,
 )
@@ -790,7 +791,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         with transaction.atomic():
             # 1 chunk, create artifact right away
             with NamedTemporaryFile("ab") as temp_file:
-                temp_file.write(chunk.read())
+                while subchunk := chunk.read(MEGABYTE):
+                    temp_file.write(subchunk)
                 temp_file.flush()
 
                 uploaded_file = PulpTemporaryUploadedFile.from_file(
@@ -1157,6 +1159,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 raise Throttled()
             elif response_error.status == 404:
                 raise ManifestNotFound(reference=pk)
+            elif response_error.status == 413:
+                raise PayloadTooLarge()
             else:
                 raise BadGateway(detail=response_error.message)
         except (ClientConnectionError, TimeoutException):
@@ -1379,8 +1383,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 subchunk = chunk.read(2000000)
                 if not subchunk:
                     break
-                temp_file.write(subchunk)
                 size += len(subchunk)
+                if size > settings["OCI_PAYLOAD_MAX_SIZE"]:
+                    temp_file.flush()
+                    raise PayloadTooLarge()
+                temp_file.write(subchunk)
                 for algorithm in Artifact.DIGEST_FIELDS:
                     hashers[algorithm].update(subchunk)
             temp_file.flush()
@@ -1451,7 +1458,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
         except models.Manifest.DoesNotExist:
             raise ManifestNotFound(reference=pk)
 
-        signature_payload = request.META["wsgi.input"].read(SIGNATURE_PAYLOAD_MAX_SIZE)
+        signature_payload = request.META["wsgi.input"].read(settings["OCI_PAYLOAD_MAX_SIZE"])
         try:
             signature_dict = json.loads(signature_payload)
         except json.decoder.JSONDecodeError:

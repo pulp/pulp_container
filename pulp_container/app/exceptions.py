@@ -1,3 +1,4 @@
+from rest_framework import status
 from rest_framework.exceptions import APIException, NotFound, ParseError
 
 
@@ -147,6 +148,29 @@ class InvalidRequest(ParseError):
                         "code": "INVALID_REQUEST",
                         "message": message,
                         "detail": {},
+                    }
+                ]
+            }
+        )
+
+
+class PayloadTooLarge(APIException):
+    """An exception to render an HTTP 413 response."""
+
+    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    default_code = "manifest_invalid"
+
+    def __init__(self, message=None, code=None):
+        """Initialize the exception with the message for invalid size."""
+        message = message or "payload too large"
+        code = code or self.default_code
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": code,
+                        "message": message,
+                        "detail": "http: request body too large",
                     }
                 ]
             }

@@ -19,6 +19,7 @@ from pulp_container.constants import (
     SIGNATURE_TYPE,
     V2_ACCEPT_HEADERS,
 )
+from pulp_container.app.downloaders import PayloadTooLarge
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -62,7 +63,12 @@ class ContainerFirstStage(Stage):
 
     async def _download_manifest_data(self, manifest_url):
         downloader = self.remote.get_downloader(url=manifest_url)
-        response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+        try:
+            response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+        except PayloadTooLarge as e:
+            log.warning(e.message + ": max size limit exceeded!")
+            raise RuntimeError("Manifest max size limit exceeded.")
+
         with open(response.path, "rb") as content_file:
             raw_bytes_data = content_file.read()
         response.artifact_attributes["file"] = response.path
@@ -542,6 +548,12 @@ class ContainerFirstStage(Stage):
                         "{} is not accessible, can't sync an image signature. "
                         "Error: {} {}".format(signature_url, exc.status, exc.message)
                     )
+                except PayloadTooLarge as e:
+                    log.warning(
+                        "Failed to sync signature {}. Error: {}".format(signature_url, e.args[0])
+                    )
+                    signature_counter += 1
+                    continue
 
                 with open(signature_download_result.path, "rb") as f:
                     signature_raw = f.read()
