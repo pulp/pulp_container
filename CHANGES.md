@@ -8,6 +8,52 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.21.0 (2024-07-19) {: #2.21.0 }
+
+
+#### Features {: #2.21.0-feature }
+
+- Added support for filtering remote repositories in pull-through caching using `includes` and
+  `excludes` fields. These fields can be set on pull-through caching remote objects.
+  [#459](https://github.com/pulp/pulp_container/issues/459)
+- Added support for the Replication feature. The replication process allows a Pulp instance to
+  replicate container repositories from an upstream Pulp, creating the required remotes,
+  repositories (those will always be read-only), and distributions.
+  [#1648](https://github.com/pulp/pulp_container/issues/1648)
+
+#### Bugfixes {: #2.21.0-bugfix }
+
+- The pulp signing task that produces atomic type signature no longer signs cosign signatures,
+  attestations and sboms (images that end with .sig, .att, or .sbom), and ignores them instead.
+  [#1347](https://github.com/pulp/pulp_container/issues/1347)
+- Fixed a bug that caused intermittent failures during the pull-through caching when using non-local
+  filesystem storage.
+  [#1493](https://github.com/pulp/pulp_container/issues/1493)
+- Made the pull-through caching machinery resilient to connection errors.
+  [#1499](https://github.com/pulp/pulp_container/issues/1499)
+- Pulp Container specific settings are now properly validated during the deployment checks of a Pulp
+  instance.
+  [#1550](https://github.com/pulp/pulp_container/issues/1550)
+- Tasks created after uploading manifests will now remain available for further inspection and will not be deleted.
+  [#1602](https://github.com/pulp/pulp_container/issues/1602)
+- Disallowed anonymous users to pull images from private pull-through distributions.
+  [#1623](https://github.com/pulp/pulp_container/issues/1623)
+- Permitted users with the `pull_new_containerdistribution` permission to pull new data via
+  pull-through distributions.
+  [#1624](https://github.com/pulp/pulp_container/issues/1624)
+- Modified the `_catalog` endpoint to allow non-authed users to see all repos in catalog
+  (private and public) when token-auth is disabled.
+  [#1651](https://github.com/pulp/pulp_container/issues/1651)
+- Disallowed anonymous users to pull new content via a pull-through caching distribution. Content that
+  is already cached/downloaded can be still pulled.
+  [#1657](https://github.com/pulp/pulp_container/issues/1657)
+
+#### Misc {: #2.21.0-misc }
+
+- [#1607](https://github.com/pulp/pulp_container/issues/1607), [#1681](https://github.com/pulp/pulp_container/issues/1681)
+
+---
+
 ## 2.20.0 (2024-05-06) {: #2.20.0 }
 
 ### Features
