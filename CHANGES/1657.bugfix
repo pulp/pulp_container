@@ -1,2 +1,0 @@
-Disallowed anonymous users to pull new content via a pull-through caching distribution. Content that
-is already cached/downloaded can be still pulled.

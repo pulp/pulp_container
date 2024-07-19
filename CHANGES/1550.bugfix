@@ -1,2 +1,0 @@
-Pulp Container specific settings are now properly validated during the deployment checks of a Pulp
-instance.
