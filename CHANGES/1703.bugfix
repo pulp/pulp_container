@@ -1,0 +1,2 @@
+Fixed an issue causing an HTTP 500 error when a GET request for a non-existing
+blob was made to a distribution with only a `repository_version` set.
