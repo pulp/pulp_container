@@ -287,13 +287,15 @@ class ContainerRegistryApiMixin:
         except models.ContainerDistribution.DoesNotExist:
             # get a pull-through cache distribution whose base_path is a substring of the path
             return self.get_pull_through_drv(path)
-        if distribution.repository:
+        repository = distribution.repository
+        if repository:
             repository_version = distribution.repository.latest_version()
         elif distribution.repository_version:
             repository_version = distribution.repository_version
+            repository = repository_version.repository
         else:
             raise RepositoryNotFound(name=path)
-        return distribution, distribution.repository, repository_version
+        return distribution, repository, repository_version
 
     def get_pull_through_drv(self, path):
         pull_through_cache_distribution = (
