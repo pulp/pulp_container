@@ -28,7 +28,7 @@ from pulp_container.tests.functional.constants import (
     REGISTRY_V2_REPO_HELLO_WORLD,
     PULP_HELLO_WORLD_LINUX_TAG,
 )
-from pulp_container.constants import EMPTY_BLOB, MEDIA_TYPE
+from pulp_container.constants import EMPTY_BLOB, EMPTY_JSON, MEDIA_TYPE
 
 from pulpcore.client.pulp_container import (
     ContainerContainerDistribution,
@@ -278,6 +278,18 @@ class PullContentTestCase(unittest.TestCase):
         local_url = urljoin(self.cfg.get_base_url(), "inexistentimagename")
         with self.assertRaises(exceptions.CalledProcessError):
             registry.pull(local_url)
+
+    def test_pull_nonexistent_blob(self):
+        """
+        Verify that a GET request to a nonexistent BLOB will be properly handled
+        instead of outputting a stacktrace.
+        """
+        blob_path = "/v2/{}/blobs/{}".format(self.distribution_with_repo.base_path, EMPTY_JSON)
+        non_existing_blob_url = urljoin(self.cfg.get_base_url(), blob_path)
+
+        auth = get_auth_for_url(non_existing_blob_url)
+        content_response = requests.get(non_existing_blob_url, auth=auth)
+        assert content_response.status_code, 404
 
 
 class PullOnDemandContentTestCase(unittest.TestCase):
