@@ -8,6 +8,17 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.20.1 (2024-07-25) {: #2.20.1 }
+
+
+#### Bugfixes {: #2.20.1-bugfix }
+
+- Fixed an issue causing an HTTP 500 error when a GET request for a non-existing
+  blob was made to a distribution with only a `repository_version` set.
+  [#1703](https://github.com/pulp/pulp_container/issues/1703)
+
+---
+
 ## 2.20.0 (2024-05-06) {: #2.20.0 }
 
 ### Features
