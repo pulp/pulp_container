@@ -1,8 +1,9 @@
-# Overview
+# Welcome to Pulp Container
 
 The Pulp Container plugin extends Pulp so that you can host your container registry and distribute containers in an on-premises environment.
 Pulp is a Container and Artifact Registry that implements [OCI Distribution Specification](https://github.com/opencontainers/distribution-spec/)
 and [OCI Image Format Specification](https://github.com/opencontainers/image-spec).
+
 On top of the standard registry capabilites, Pulp Registry provides additional features. For example, you can synchronize from any Container Registry that is HTTP API V2-compatible.
 Depending on your needs, you can perform whole or partial syncs from these remote repositories, blend content from different sources, and distribute them throughout your organization using Pulp.
 You can also build OCI-compatible images with Pulp Container and push them to a repository in Pulp so you can distribute private containers.
