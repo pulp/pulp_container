@@ -54,6 +54,24 @@
 
 ---
 
+## 2.20.2 (2024-07-26) {: #2.20.2 }
+
+
+No significant changes.
+
+---
+
+## 2.20.1 (2024-07-25) {: #2.20.1 }
+
+
+#### Bugfixes {: #2.20.1-bugfix }
+
+- Fixed an issue causing an HTTP 500 error when a GET request for a non-existing
+  blob was made to a distribution with only a `repository_version` set.
+  [#1703](https://github.com/pulp/pulp_container/issues/1703)
+
+---
+
 ## 2.20.0 (2024-05-06) {: #2.20.0 }
 
 ### Features
@@ -442,6 +460,13 @@ No significant changes.
 ### Misc
 
 -   [#1093](https://github.com/pulp/pulp_container/issues/1093), [#1154](https://github.com/pulp/pulp_container/issues/1154)
+
+---
+
+## 2.14.16 (2024-07-24) {: #2.14.16 }
+
+
+No significant changes.
 
 ---
 
