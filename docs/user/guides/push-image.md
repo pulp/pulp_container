@@ -47,7 +47,8 @@ X-Frame-Options: SAMEORIGIN
 !!! note
 
     Content is pushed to a push repository type. A push repository does not support mirroring of the
-    remote content via the Pulp API.
+    remote content via the Pulp API. Trying to push content with the same name as an existing
+    "regular" repository will fail.
 
 !!! note
 

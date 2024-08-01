@@ -27,6 +27,7 @@ from pulp_container.tests.functional.utils import (
 )
 
 from pulpcore.client.pulp_container import (
+    ContainerContainerRepository,
     ContentManifestsApi,
     ContentTagsApi,
     DistributionsContainerApi,
@@ -392,6 +393,26 @@ def test_push_matching_username(
         distribution = container_distribution_api.read(created_resources[0])
 
         add_to_cleanup(container_namespace_api, distribution.namespace)
+
+
+def test_push_to_existing_regular_repository(
+    container_repository_api,
+    gen_object_with_cleanup,
+    local_registry,
+    registry_client,
+):
+    """
+    Test the push to an existing non-push repository.
+
+    It should fail to create a new push repository.
+    """
+    gen_object_with_cleanup(container_repository_api, ContainerContainerRepository(name="foo"))
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    local_url = "foo:1.0"
+
+    registry_client.pull(image_path)
+    with pytest.raises(CalledProcessError):
+        local_registry.tag_and_push(image_path, local_url)
 
 
 class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):

@@ -17,6 +17,7 @@ from itertools import chain
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.storage import default_storage as storage
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
@@ -320,9 +321,13 @@ class ContainerRegistryApiMixin:
         upstream_name = path.split(pull_through_cache_distribution.base_path, maxsplit=1)[1].strip(
             "/"
         )
-        pull_through_remote = models.ContainerPullThroughRemote.objects.get(
-            pk=pull_through_cache_distribution.remote_id
-        )
+        try:
+            pull_through_remote = models.ContainerPullThroughRemote.objects.get(
+                pk=pull_through_cache_distribution.remote_id
+            )
+        except ObjectDoesNotExist:
+            raise RepositoryNotFound(name=path)
+
         if not filter_resource(
             upstream_name, pull_through_remote.includes, pull_through_remote.excludes
         ):
@@ -392,10 +397,15 @@ class ContainerRegistryApiMixin:
 
     def create_dr(self, path, request):
         with transaction.atomic():
-            repository = serializers.ContainerPushRepositorySerializer.get_or_create({"name": path})
-            distribution = serializers.ContainerDistributionSerializer.get_or_create(
-                {"base_path": path, "name": path}, {"repository": get_url(repository)}
-            )
+            try:
+                repository = serializers.ContainerPushRepositorySerializer.get_or_create(
+                    {"name": path}
+                )
+                distribution = serializers.ContainerDistributionSerializer.get_or_create(
+                    {"base_path": path, "name": path}, {"repository": get_url(repository)}
+                )
+            except ObjectDoesNotExist:
+                raise RepositoryInvalid(name=path, message="Repository is read-only.")
 
             if distribution.repository:
                 dist_repository = distribution.repository.cast()
