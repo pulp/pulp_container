@@ -1,0 +1,2 @@
+Fixed an HTTP 500 error returned when pushing an image with the same name as the name of an existing
+read-only repository.
