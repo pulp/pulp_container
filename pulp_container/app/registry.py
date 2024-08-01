@@ -448,9 +448,7 @@ class PullThroughDownloader:
         manifest = Manifest(
             digest=digest,
             schema_version=(
-                2
-                if manifest_data["mediaType"] in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI)
-                else 1
+                2 if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI) else 1
             ),
             media_type=media_type,
             config_blob=config_blob,
@@ -468,8 +466,9 @@ class PullThroughDownloader:
             await sync_to_async(manifest.touch)()
         await sync_to_async(self.repository.pending_manifests.add)(manifest)
 
-        for layer in manifest_data["layers"]:
-            blob = await self.save_blob(layer["digest"], manifest)
+        for layer in manifest_data.get("layers") or manifest_data.get("fsLayers"):
+            layer_digest = layer.get("digest") or layer.get("blobSum")
+            blob = await self.save_blob(layer_digest, manifest)
             await sync_to_async(self.repository.pending_blobs.add)(blob)
 
     async def save_blob(self, digest, manifest):

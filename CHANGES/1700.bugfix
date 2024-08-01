@@ -1,0 +1,2 @@
+Resolved an issue with the pull-through cache that was causing errors when retrieving v2 schema 1
+manifests.
