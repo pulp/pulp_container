@@ -1,4 +1,7 @@
+from gettext import gettext as _
 from rest_framework.exceptions import APIException, NotFound, ParseError
+
+from rest_framework.status import HTTP_413_REQUEST_ENTITY_TOO_LARGE
 
 
 class BadGateway(APIException):
@@ -151,3 +154,9 @@ class InvalidRequest(ParseError):
                 ]
             }
         )
+
+
+class PayloadTooLarge(APIException):
+    status_code = HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    default_detail = _("The playload is larger than the defined limits.")
+    default_code = "request_entity_too_large"

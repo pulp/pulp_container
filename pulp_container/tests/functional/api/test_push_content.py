@@ -394,6 +394,30 @@ def test_push_matching_username(
         add_to_cleanup(container_namespace_api, distribution.namespace)
 
 
+def test_push_with_layer_size_limit(
+    add_to_cleanup,
+    container_distribution_api,
+    registry_client,
+    local_registry,
+):
+    """
+    Test that push fails when a layer is greater than max_upload_size
+    """
+    repo_name = "test/layer_size_limit"
+    local_url = f"{repo_name}:2.0"
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    registry_client.pull(image_path)
+
+    distribution = {"name": "foo", "base_path": repo_name, "max_payload_size": 100}
+    distribution_response = container_distribution_api.create(distribution)
+    created_resources = monitor_task(distribution_response.task).created_resources
+    distribution = container_distribution_api.read(created_resources[0])
+    add_to_cleanup(container_distribution_api, distribution.pulp_href)
+
+    with pytest.raises(CalledProcessError):
+        local_registry.tag_and_push(image_path, local_url)
+
+
 class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
     """A test case that verifies if a container client can push manifest lists to the registry."""
 

@@ -68,6 +68,7 @@ from pulp_container.app.exceptions import (
     ManifestNotFound,
     ManifestInvalid,
     ManifestSignatureInvalid,
+    PayloadTooLarge,
 )
 from pulp_container.app.redirects import (
     FileStorageRedirects,
@@ -761,7 +762,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         Create a new upload.
 
         """
-        _, repository = self.get_dr_push(request, path, create=True)
+        distribution, repository = self.get_dr_push(request, path, create=True)
 
         if self.tries_to_mount_blob(request):
             response = self.mount_blob(request, path, repository)
@@ -769,7 +770,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             # if the digest parameter is present, the request body will be
             # used to complete the upload in a single request.
             # this is monolithic upload
-            response = self.single_request_upload(request, path, repository, digest)
+            response = self.single_request_upload(request, path, repository, digest, distribution)
         else:
             upload = models.Upload(repository=repository, size=0)
             upload.save()
@@ -815,9 +816,10 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                     ca.save(update_fields=["artifact"])
         return blob
 
-    def single_request_upload(self, request, path, repository, digest):
+    def single_request_upload(self, request, path, repository, digest, distribution):
         """Monolithic upload."""
         chunk = request.META["wsgi.input"]
+        self._verify_payload_size(distribution, chunk)
         artifact = self.create_single_chunk_artifact(chunk)
         blob = self.create_blob(artifact, digest)
         repository.pending_blobs.add(blob)
@@ -855,9 +857,10 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         """
         Process a chunk that will be appended to an existing upload.
         """
-        _, repository = self.get_dr_push(request, path)
+        distribution, repository = self.get_dr_push(request, path)
         upload = get_object_or_404(models.Upload, repository=repository, pk=pk)
         chunk = request.META["wsgi.input"]
+        self._verify_payload_size(distribution, chunk)
         if range_header := request.headers.get("Content-Range"):
             found = self.content_range_pattern.match(range_header)
             if not found:
@@ -899,13 +902,14 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         body or last chunk can be uploaded.
 
         """
-        _, repository = self.get_dr_push(request, path)
+        distribution, repository = self.get_dr_push(request, path)
 
         digest = request.query_params["digest"]
         chunk = request.META["wsgi.input"]
         # last chunk (and the only one) from monolitic upload
         # or last chunk from chunked upload
         last_chunk = ContentFile(chunk.read())
+        self._verify_payload_size(distribution, chunk)
         upload = get_object_or_404(models.Upload, pk=pk, repository=repository)
 
         if artifact := upload.artifact:
@@ -941,6 +945,10 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
         repository.pending_blobs.add(blob)
         return BlobResponse(blob, path, 201, request)
+
+    def _verify_payload_size(self, distribution, chunk):
+        if distribution.max_payload_size and chunk.reader.length > distribution.max_payload_size:
+            raise PayloadTooLarge()
 
 
 class RedirectsMixin:
