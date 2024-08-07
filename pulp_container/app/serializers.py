@@ -1,5 +1,4 @@
 from gettext import gettext as _
-import os
 import re
 
 from django.core.validators import URLValidator
@@ -758,13 +757,12 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
     A repository must be specified, to which the container image content will be added.
     """
 
-    containerfile_artifact = RelatedField(
-        many=False,
-        lookup_field="pk",
-        view_name="artifacts-detail",
-        queryset=Artifact.objects.all(),
+    containerfile_name = serializers.CharField(
+        required=False,
+        allow_blank=True,
         help_text=_(
-            "Artifact representing the Containerfile that should be used to run podman-build."
+            "Name of the Containerfile, from build_context, that should be used to run "
+            "podman-build."
         ),
     )
     containerfile = serializers.FileField(
@@ -774,56 +772,40 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
     tag = serializers.CharField(
         required=False, default="latest", help_text="A tag name for the new image being built."
     )
-    artifacts = serializers.JSONField(
+    build_context = RepositoryVersionRelatedField(
         required=False,
-        help_text="A JSON string where each key is an artifact href and the value is it's "
-        "relative path (name) inside the /pulp_working_directory of the build container "
-        "executing the Containerfile.",
+        help_text=_("RepositoryVersion to be used as the build context for container images."),
+        allow_null=True,
+        queryset=RepositoryVersion.objects.filter(repository__pulp_type="file.file"),
     )
 
     def __init__(self, *args, **kwargs):
         """Initializer for OCIBuildImageSerializer."""
         super().__init__(*args, **kwargs)
-        self.fields["containerfile_artifact"].required = False
 
     def validate(self, data):
         """Validates that all the fields make sense."""
         data = super().validate(data)
 
-        if "containerfile" in data:
-            if "containerfile_artifact" in data:
-                raise serializers.ValidationError(
-                    _("Only one of 'containerfile' and 'containerfile_artifact' may be specified.")
-                )
-            data["containerfile_artifact"] = Artifact.init_and_validate(data.pop("containerfile"))
-        elif "containerfile_artifact" in data:
-            data["containerfile_artifact"].touch()
-        else:
+        if bool(data.get("containerfile", None)) == bool(data.get("containerfile_name", None)):
             raise serializers.ValidationError(
-                _("'containerfile' or 'containerfile_artifact' must " "be specified.")
+                _("'containerfile' or 'containerfile_name' must be specified.")
             )
-        artifacts = {}
-        if "artifacts" in data:
-            for url, relative_path in data["artifacts"].items():
-                if os.path.isabs(relative_path):
-                    raise serializers.ValidationError(
-                        _("Relative path cannot start with '/'. " "{0}").format(relative_path)
-                    )
-                artifactfield = RelatedField(
-                    view_name="artifacts-detail",
-                    queryset=Artifact.objects.all(),
-                    source="*",
-                    initial=url,
-                )
-                try:
-                    artifact = artifactfield.run_validation(data=url)
-                    artifact.touch()
-                    artifacts[str(artifact.pk)] = relative_path
-                except serializers.ValidationError as e:
-                    # Append the URL of missing Artifact to the error message
-                    e.detail[0] = "%s %s" % (e.detail[0], url)
-                    raise e
-        data["artifacts"] = artifacts
+
+        if "containerfile" in data:
+            data["containerfile_artifact"] = Artifact.init_and_validate(data.pop("containerfile"))
+
+        if "containerfile_name" in data and "build_context" not in data:
+            raise serializers.ValidationError(
+                _("A 'build_context' must be specified when 'containerfile_name' is present.")
+            )
+
+        # the "has_repo_or_repo_ver_param_model_or_obj_perms" permission condition function expects
+        # a "repo" or "repository_version" arguments, so we need to pass "build_context" as
+        # "repository_version" to be able to validate the permissions
+        if data.get("build_context", None):
+            data["repository_version"] = data["build_context"]
+
         return data
 
     class Meta:
@@ -832,7 +814,7 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
             "containerfile",
             "repository",
             "tag",
-            "artifacts",
+            "build_context",
         )
 
 

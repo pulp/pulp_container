@@ -696,6 +696,7 @@ class ContainerRepositoryViewSet(
                 "condition": [
                     "has_model_or_obj_perms:container.build_image_containerrepository",
                     "has_model_or_obj_perms:container.view_containerrepository",
+                    "has_repo_or_repo_ver_param_model_or_obj_perms:file.view_filerepository",
                 ],
             },
             {
@@ -938,25 +939,31 @@ class ContainerRepositoryViewSet(
 
         serializer.is_valid(raise_exception=True)
 
-        containerfile = serializer.validated_data["containerfile_artifact"]
-        try:
-            containerfile.save()
-        except IntegrityError:
-            containerfile = Artifact.objects.get(sha256=containerfile.sha256)
-            containerfile.touch()
-        tag = serializer.validated_data["tag"]
+        containerfile_pk = None
+        if containerfile := serializer.validated_data.get("containerfile_artifact", None):
+            try:
+                containerfile.save()
+            except IntegrityError:
+                containerfile = Artifact.objects.get(sha256=containerfile.sha256)
+                containerfile.touch()
+            containerfile_pk = str(containerfile.pk)
 
-        artifacts = serializer.validated_data["artifacts"]
-        Artifact.objects.filter(pk__in=artifacts.keys()).touch()
+        tag = serializer.validated_data["tag"]
+        containerfile_name = serializer.validated_data.get("containerfile_name", None)
+
+        build_context_pk = None
+        if build_context := serializer.validated_data.get("build_context", None):
+            build_context_pk = build_context.pk
 
         result = dispatch(
             tasks.build_image_from_containerfile,
             exclusive_resources=[repository],
             kwargs={
-                "containerfile_pk": str(containerfile.pk),
+                "containerfile_name": containerfile_name,
+                "containerfile_pk": containerfile_pk,
                 "tag": tag,
                 "repository_pk": str(repository.pk),
-                "artifacts": artifacts,
+                "build_context_pk": build_context_pk,
             },
         )
         return OperationPostponedResponse(result, request)

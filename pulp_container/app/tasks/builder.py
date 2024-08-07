@@ -14,7 +14,7 @@ from pulp_container.app.models import (
 )
 from pulp_container.constants import MEDIA_TYPE
 from pulp_container.app.utils import calculate_digest
-from pulpcore.plugin.models import Artifact, ContentArtifact, Content
+from pulpcore.plugin.models import Artifact, ContentArtifact, Content, RepositoryVersion
 
 
 def get_or_create_blob(layer_json, manifest, path):
@@ -96,7 +96,11 @@ def add_image_from_directory_to_repository(path, repository, tag):
 
 
 def build_image_from_containerfile(
-    containerfile_pk=None, artifacts=None, repository_pk=None, tag=None
+    containerfile_pk=None,
+    build_context_pk=None,
+    repository_pk=None,
+    tag=None,
+    containerfile_name=None,
 ):
     """
     Builds an OCI container image from a Containerfile.
@@ -106,34 +110,52 @@ def build_image_from_containerfile(
 
     Args:
         containerfile_pk (str): The pk of an Artifact that contains the Containerfile
-        artifacts (dict): A dictionary where each key is an artifact PK and the value is it's
-                          relative path (name) inside the /pulp_working_directory of the build
-                          container executing the Containerfile.
         repository_pk (str): The pk of a Repository to add the OCI container image
         tag (str): Tag name for the new image in the repository
+        build_context_pk: The pk of a RepositoryVersion with the artifacts used in the build context
+                      of the Containerfile.
+        containerfile_name: Name of the Containerfile, stored as a File Content, from build_context
 
     Returns:
         A class:`pulpcore.plugin.models.RepositoryVersion` that contains the new OCI container
         image and tag.
 
     """
-    containerfile = Artifact.objects.get(pk=containerfile_pk)
+    if containerfile_pk:
+        containerfile = Artifact.objects.get(pk=containerfile_pk)
     repository = ContainerRepository.objects.get(pk=repository_pk)
     name = str(uuid4())
     with tempfile.TemporaryDirectory(dir=".") as working_directory:
         working_directory = os.path.abspath(working_directory)
         context_path = os.path.join(working_directory, "context")
         os.makedirs(context_path, exist_ok=True)
-        for key, val in artifacts.items():
-            artifact = Artifact.objects.get(pk=key)
-            dest_path = os.path.join(context_path, val)
-            dirs = os.path.split(dest_path)[0]
-            if dirs:
-                os.makedirs(dirs, exist_ok=True)
-            with open(dest_path, "wb") as dest:
-                shutil.copyfileobj(artifact.file, dest)
 
-            containerfile_path = os.path.join(working_directory, "Containerfile")
+        if build_context_pk:
+            build_context = RepositoryVersion.objects.get(pk=build_context_pk)
+            content_artifacts = ContentArtifact.objects.filter(
+                content__pulp_type="file.file", content__in=build_context.content
+            ).order_by("-content__pulp_created")
+            for content_artifact in content_artifacts.select_related("artifact").iterator():
+                if not content_artifact.artifact:
+                    raise RuntimeError(
+                        "It is not possible to use File content synced with on-demand "
+                        "policy without pulling the data first."
+                    )
+                if containerfile_name and content_artifact.relative_path == containerfile_name:
+                    containerfile = Artifact.objects.get(pk=content_artifact.artifact.pk)
+                    continue
+                _copy_file_from_artifact(
+                    context_path, content_artifact.relative_path, content_artifact.artifact.file
+                )
+
+        try:
+            containerfile
+        except NameError:
+            raise RuntimeError(
+                '"' + containerfile_name + '" containerfile not found in build_context!'
+            )
+
+        containerfile_path = os.path.join(working_directory, "Containerfile")
 
         with open(containerfile_path, "wb") as dest:
             shutil.copyfileobj(containerfile.file, dest)
@@ -166,3 +188,12 @@ def build_image_from_containerfile(
         repository_version = add_image_from_directory_to_repository(image_dir, repository, tag)
 
     return repository_version
+
+
+def _copy_file_from_artifact(context_path, relative_path, artifact):
+    dest_path = os.path.join(context_path, relative_path)
+    dirs = os.path.dirname(dest_path)
+    if dirs:
+        os.makedirs(dirs, exist_ok=True)
+    with open(dest_path, "wb") as dest:
+        shutil.copyfileobj(artifact.file, dest)
