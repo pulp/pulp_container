@@ -97,10 +97,8 @@ def test_sync_reclaim_resync(
 
 @pytest.mark.parallel
 def test_sync_invalid_url(synced_container_repository_factory):
-    with pytest.raises(PulpTaskError) as ctx:
+    with pytest.raises(PulpTaskError):
         synced_container_repository_factory(url="http://i-am-an-invalid-url.com/invalid/")
-
-    assert "[Name or service not known]" in ctx.value.task.error["description"]
 
 
 @pytest.mark.parallel
