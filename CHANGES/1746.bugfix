@@ -1,2 +1,0 @@
-Resolved an issue with syncing content causing errors when retrieving manifests without a mediaType
-definition.
