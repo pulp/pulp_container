@@ -54,6 +54,16 @@
 
 ---
 
+## 2.20.3 (2024-08-27) {: #2.20.3 }
+
+#### Bugfixes {: #2.20.3-bugfix }
+
+- Resolved an issue with syncing content causing errors when retrieving manifests without a mediaType
+  definition.
+  [#1746](https://github.com/pulp/pulp_container/issues/1746)
+
+---
+
 ## 2.20.2 (2024-07-26) {: #2.20.2 }
 
 
