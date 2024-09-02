@@ -147,13 +147,14 @@ class ContainerFirstStage(Stage):
                 content_data, raw_text_data, response = await artifact
 
                 digest = calculate_digest(raw_text_data)
+                tag_name = response.url.split("/")[-1]
 
                 # Look for cosign signatures
                 # cosign signature has a tag convention 'sha256-1234.sig'
                 if self.signed_only and not signature_source:
                     if (
                         not (tag_name.endswith(".sig") and tag_name.startswith("sha256-"))
-                        and f"sha256-{digest}.sig" not in tag_list
+                        and f"sha256-{digest.removeprefix('sha256:')}.sig" not in tag_list
                     ):
                         # skip this tag, there is no corresponding signature
                         log.info(
@@ -168,7 +169,6 @@ class ContainerFirstStage(Stage):
                 media_type = determine_media_type(content_data, response)
                 validate_manifest(content_data, media_type, digest)
 
-                tag_name = response.url.split("/")[-1]
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
 
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):

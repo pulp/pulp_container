@@ -1,0 +1,2 @@
+Resolved an issue where syncing filtered content with a `cosign` signature from a remote source lacking `Sigstore`,
+and with `signed_only: true` enabled, could occasionally fail.
