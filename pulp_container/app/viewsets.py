@@ -511,6 +511,25 @@ class ContainerPullThroughRemoteViewSet(RemoteViewSet, RolesMixin):
         ],
     }
 
+    @extend_schema(
+        description="Trigger an asynchronous delete task",
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    def destroy(self, request, pk, **kwargs):
+        """
+        Delete a model instance
+        """
+        # check if there is no distribution associated with this remote before removing it
+        linked_distribution = models.ContainerPullThroughDistribution.objects.filter(remote_id=pk)
+        if linked_distribution.exists():
+            log.info(
+                f"The pull-through distribution {linked_distribution[0].name} has a reference to "
+                f"the remote being removed ({request._request.path}). "
+                f"After removing it, trying to pull content from {linked_distribution[0].base_path}"
+                " pull-through distribution can lead to errors."
+            )
+        return super().destroy(request, pk, **kwargs)
+
 
 class TagOperationsMixin:
     """

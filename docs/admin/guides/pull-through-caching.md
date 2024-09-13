@@ -45,6 +45,12 @@ ensures a more reliable container deployment system in production environments.
     Pulp API endpoints. The repositories are read-only and public by default.
 
 
+!!! info
+
+    Removing a pull-through remote associated to a distribution may result in errors when attempting
+    to retrieve content not yet cached in Pulp.
+
+
 ### Filtering the repositories
 
 It is possible to use the includes/excludes fields to set a list of upstream repositories that Pulp
