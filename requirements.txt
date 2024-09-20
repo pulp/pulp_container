@@ -1,5 +1,5 @@
 jsonschema>=4.4,<4.18
-pulpcore>=3.28.0,<3.40
+pulpcore>=3.28.15,<3.40
 pyjwkest>=1.4,<=1.4.2
 pyjwt[crypto]>=2.4,<2.8
 tablib<3.6.0
