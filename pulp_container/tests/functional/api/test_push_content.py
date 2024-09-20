@@ -39,6 +39,7 @@ def test_push_using_registry_client_admin(
     add_to_cleanup,
     registry_client,
     local_registry,
+    container_manifest_api,
     container_namespace_api,
 ):
     """Test push with official registry client and logged in as admin."""
@@ -48,6 +49,15 @@ def test_push_using_registry_client_admin(
     registry_client.pull(image_path)
     local_registry.tag_and_push(image_path, local_url)
     local_registry.pull(local_url)
+
+    # check pulp manifest model fields
+    local_image = local_registry.inspect(local_url)
+    manifest = container_manifest_api.list(digest=local_image[0]["Digest"])
+    manifest = manifest.to_dict()["results"][0]
+    assert manifest["architecture"] == "amd64"
+    assert manifest["os"] == "linux"
+    assert manifest["compressed_layers_size"] > 0
+
     # ensure that same content can be pushed twice without permission errors
     local_registry.tag_and_push(image_path, local_url)
 
