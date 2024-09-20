@@ -474,3 +474,14 @@ def check_manifest_fields(container_manifest_api):
         return True
 
     return _check_manifest_fields
+
+
+@pytest.fixture
+def check_manifest_arch_os_size():
+    def _check_manifest_arch_os_size(manifest):
+        manifests = manifest.to_dict()["results"]
+        assert any("amd64" in manifest["architecture"] for manifest in manifests)
+        assert any("linux" in manifest["os"] for manifest in manifests)
+        assert any(manifest["compressed_image_size"] > 0 for manifest in manifests)
+
+    return _check_manifest_arch_os_size

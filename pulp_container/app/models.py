@@ -85,6 +85,11 @@ class Manifest(Content):
         labels (models.JSONField): Metadata stored inside the image configuration.
         is_bootable (models.BooleanField): Indicates whether the image is bootable or not.
         is_flatpak (models.BooleanField): Indicates whether the image is a flatpak package or not.
+        architecture (models.TextField): CPU architecture for which the binaries in the image are
+            designed to run.
+        os (models.TextField): Operating System which the image is built to run on.
+        compressed_image_size (models.IntegerField): Sum of the sizes, in bytes, of all compressed
+            layers.
 
     Relations:
         blobs (models.ManyToManyField): Many-to-many relationship with Blob.
@@ -112,6 +117,9 @@ class Manifest(Content):
 
     annotations = models.JSONField(default=dict)
     labels = models.JSONField(default=dict)
+    architecture = models.TextField(null=True)
+    os = models.TextField(null=True)
+    compressed_image_size = models.IntegerField(null=True)
 
     # DEPRECATED: this field is deprecated and will be removed in a future release.
     is_bootable = models.BooleanField(default=False)
@@ -212,6 +220,31 @@ class Manifest(Content):
 
         return False
 
+    def init_architecture_and_os(self):
+        # schema1 has the architecture/os definition in the Manifest (not in the ConfigBlob)
+        # and none of these fields are required
+        if self.json_manifest.get("architecture", None) or self.json_manifest.get("os", None):
+            self.architecture = self.json_manifest.get("architecture", None)
+            self.os = self.json_manifest.get("os", None)
+            return
+
+        config_artifact = self.config_blob._artifacts.get()
+        config_data, _ = get_content_data(config_artifact)
+        self.architecture = config_data.get("architecture", None)
+        self.os = config_data.get("os", None)
+
+    def init_compressed_image_size(self):
+        # manifestv2 schema1 has only blobSum definition for each layer
+        if self.json_manifest.get("fsLayers", None):
+            self.compressed_image_size = 0
+            return
+
+        layers = self.json_manifest.get("layers")
+        compressed_size = 0
+        for layer in layers:
+            compressed_size += layer.get("size")
+        self.compressed_image_size = compressed_size
+
     def is_bootable_image(self):
         return (
             self.annotations.get("containers.bootc") == "1"
@@ -301,8 +334,9 @@ class ManifestListManifest(models.Model):
         manifest_list (models.ForeignKey): Many-to-one relationship with ManifestList.
     """
 
-    architecture = models.TextField()
-    os = models.TextField()
+    # in oci-index spec, platform is an optional field
+    architecture = models.TextField(default="", blank=True)
+    os = models.TextField(default="", blank=True)
     os_version = models.TextField(default="", blank=True)
     os_features = models.TextField(default="", blank=True)
     features = models.TextField(default="", blank=True)
@@ -314,6 +348,14 @@ class ManifestListManifest(models.Model):
     manifest_list = models.ForeignKey(
         Manifest, related_name="manifest_lists", on_delete=models.CASCADE
     )
+
+    def set_platform_configs(self, platform):
+        self.architecture = platform["architecture"]
+        self.os = platform["os"]
+        self.features = platform.get("features", "")
+        self.variant = platform.get("variant", "")
+        self.os_version = platform.get("os.version", "")
+        self.os_features = platform.get("os.features", "")
 
     class Meta:
         unique_together = ("image_manifest", "manifest_list")

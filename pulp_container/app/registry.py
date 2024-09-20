@@ -454,10 +454,12 @@ class PullThroughDownloader:
             config_blob=config_blob,
             data=raw_text_data,
         )
+        await sync_to_async(manifest.init_architecture_and_os)()
 
         # skip if media_type of schema1
         if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
             await sync_to_async(manifest.init_metadata)(manifest_data=manifest_data)
+        await sync_to_async(manifest.init_compressed_image_size)()
 
         try:
             await manifest.asave()

@@ -87,11 +87,15 @@ def add_image_from_directory_to_repository(path, repository, tag):
 
         config_blob = get_or_create_blob(manifest_json["config"], manifest, path)
         manifest.config_blob = config_blob
-        manifest.save()
+        manifest.init_architecture_and_os()
 
         pks_to_add = []
+        compressed_size = 0
         for layer in manifest_json["layers"]:
+            compressed_size += layer.get("size")
             pks_to_add.append(get_or_create_blob(layer, manifest, path).pk)
+        manifest.compressed_image_size = compressed_size
+        manifest.save()
 
         pks_to_add.extend([manifest.pk, tag.pk, config_blob.pk])
         new_repo_version.add_content(Content.objects.filter(pk__in=pks_to_add))
