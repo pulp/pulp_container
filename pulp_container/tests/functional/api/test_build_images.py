@@ -209,7 +209,13 @@ def test_invalid_containerfile_from_build_context(
 
 
 def test_without_build_context(
-    build_image, container_distribution_api, container_repo, gen_object_with_cleanup, local_registry
+    build_image,
+    check_manifest_arch_os_size,
+    container_distribution_api,
+    container_manifest_api,
+    container_repo,
+    gen_object_with_cleanup,
+    local_registry,
 ):
     """Test build with only a Containerfile (no additional files)"""
 
@@ -237,3 +243,5 @@ CMD ["ls", "/"]"""
     local_registry.pull(distribution.base_path)
     image = local_registry.inspect(distribution.base_path)
     assert image[0]["Config"]["Cmd"] == ["ls", "/"]
+    manifest = container_manifest_api.list(digest=image[0]["Digest"])
+    check_manifest_arch_os_size(manifest)

@@ -40,12 +40,22 @@ class Command(BaseCommand):
         manifests_updated_count = 0
 
         manifests_v1 = Manifest.objects.filter(
-            Q(media_type=MEDIA_TYPE.MANIFEST_V1), Q(data__isnull=True) | Q(type__isnull=True)
+            Q(media_type=MEDIA_TYPE.MANIFEST_V1),
+            Q(data__isnull=True)
+            | Q(type__isnull=True)
+            | Q(architecture__isnull=True)
+            | Q(os__isnull=True)
+            | Q(compressed_image_size__isnull=True),
         )
         manifests_updated_count += self.update_manifests(manifests_v1)
 
         manifests_v2 = Manifest.objects.filter(
-            Q(data__isnull=True) | Q(annotations={}, labels={}) | Q(type__isnull=True)
+            Q(data__isnull=True)
+            | Q(annotations={}, labels={})
+            | Q(type__isnull=True)
+            | Q(architecture__isnull=True)
+            | Q(os__isnull=True)
+            | Q(compressed_image_size__isnull=True)
         )
         manifests_v2 = manifests_v2.exclude(
             media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.MANIFEST_V1]
@@ -79,6 +89,9 @@ class Command(BaseCommand):
             "is_flatpak",
             "data",
             "type",
+            "os",
+            "architecture",
+            "compressed_image_size",
         ]
 
         for manifest in manifests_qs.iterator():
@@ -106,6 +119,7 @@ class Command(BaseCommand):
         return manifests_updated_count
 
     def init_manifest(self, manifest):
+        updated = False
         if not manifest.data:
             manifest_artifact = manifest._artifacts.get()
             manifest_data, raw_bytes_data = get_content_data(manifest_artifact)
@@ -114,9 +128,25 @@ class Command(BaseCommand):
             if not (manifest.annotations or manifest.labels or manifest.type):
                 manifest.init_metadata(manifest_data)
 
+            if self.needs_os_arch_size_update(manifest):
+                self.init_manifest_os_arch_size(manifest)
             manifest._artifacts.clear()
-            return True
+            updated = True
 
-        elif not manifest.type:
-            return manifest.init_image_nature()
-        return False
+        if not manifest.type:
+            updated = manifest.init_image_nature()
+
+        if self.needs_os_arch_size_update(manifest):
+            self.init_manifest_os_arch_size(manifest)
+            updated = True
+
+        return updated
+
+    def needs_os_arch_size_update(self, manifest):
+        return manifest.media_type not in [MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI] and not (
+            manifest.architecture or manifest.os or manifest.compressed_image_size
+        )
+
+    def init_manifest_os_arch_size(self, manifest):
+        manifest.init_architecture_and_os()
+        manifest.init_compressed_image_size()
