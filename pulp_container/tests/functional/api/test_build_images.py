@@ -31,6 +31,7 @@ CMD ["cat", "/tmp/inside-image.txt"]"""
 
 def test_build_image(
     pulpcore_bindings,
+    container_manifest_api,
     container_repository_api,
     container_distribution_api,
     gen_object_with_cleanup,
@@ -61,3 +62,9 @@ def test_build_image(
     local_registry.pull(distribution.base_path)
     image = local_registry.inspect(distribution.base_path)
     assert image[0]["Config"]["Cmd"] == ["cat", "/tmp/inside-image.txt"]
+
+    manifest = container_manifest_api.list(digest=image[0]["Digest"])
+    manifest = manifest.to_dict()["results"][0]
+    assert manifest["architecture"] == "amd64"
+    assert manifest["os"] == "linux"
+    assert manifest["compressed_layers_size"] > 0

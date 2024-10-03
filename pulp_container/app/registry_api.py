@@ -85,6 +85,7 @@ from pulp_container.app.utils import (
     determine_media_type,
     extract_data_from_signature,
     filter_resource,
+    get_content_data,
     has_task_completed,
     validate_manifest,
 )
@@ -1203,7 +1204,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         if is_manifest_list:
             manifests = {}
             for manifest in content_data.get("manifests"):
-                manifests[manifest["digest"]] = manifest["platform"]
+                manifests[manifest["digest"]] = manifest.get("platform", None)
 
             digests = set(manifests.keys())
 
@@ -1217,17 +1218,17 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
 
             manifests_to_list = []
             for manifest in found_manifests:
-                platform = manifests[manifest.digest]
                 manifest_to_list = models.ManifestListManifest(
                     manifest_list=manifest,
                     image_manifest=manifest_list,
-                    architecture=platform["architecture"],
-                    os=platform["os"],
-                    features=platform.get("features", ""),
-                    variant=platform.get("variant", ""),
-                    os_version=platform.get("os.version", ""),
-                    os_features=platform.get("os.features", ""),
                 )
+                if platform := manifests[manifest.digest]:
+                    manifest_to_list.architecture = (platform["architecture"],)
+                    manifest_to_list.os = (platform["os"],)
+                    manifest_to_list.features = (platform.get("features", ""),)
+                    manifest_to_list.variant = (platform.get("variant", ""),)
+                    manifest_to_list.os_version = (platform.get("os.version", ""),)
+                    manifest_to_list.os_features = (platform.get("os.features", ""),)
                 manifests_to_list.append(manifest_to_list)
 
             models.ManifestListManifest.objects.bulk_create(
@@ -1295,6 +1296,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             config_blob = found_config_blobs.first()
             manifest = self._init_manifest(manifest_digest, media_type, raw_text_data, config_blob)
             manifest.init_metadata(manifest_data=content_data)
+            manifest.init_compressed_layers_size(manifest_data=content_data)
 
             manifest = self._save_manifest(manifest)
 
@@ -1351,13 +1353,19 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             return ManifestResponse(manifest, path, request, status=201)
 
     def _init_manifest(self, manifest_digest, media_type, raw_text_data, config_blob=None):
-        return models.Manifest(
+        manifest = models.Manifest(
             digest=manifest_digest,
             schema_version=2,
             media_type=media_type,
             config_blob=config_blob,
             data=raw_text_data,
         )
+        if config_blob:
+            blob_artifact = Artifact.objects.get(sha256=config_blob.digest.removeprefix("sha256:"))
+            config_blob, _ = get_content_data(blob_artifact)
+            manifest.os = config_blob.get("os", None)
+            manifest.architecture = config_blob.get("architecture", None)
+        return manifest
 
     def _save_manifest(self, manifest):
         try:

@@ -3,7 +3,12 @@
 import pytest
 from pulpcore.tests.functional.utils import PulpTaskError
 
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1, PULP_LABELED_FIXTURE
+from pulp_container.constants import MEDIA_TYPE
+from pulp_container.tests.functional.constants import (
+    PULP_FIXTURE_1,
+    PULP_LABELED_FIXTURE,
+    PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
+)
 
 from pulp_container.tests.functional.constants import (
     REGISTRY_V2_FEED_URL,
@@ -39,8 +44,14 @@ def synced_container_repository_factory(
 
 
 @pytest.mark.parallel
-def test_basic_sync(container_repo, container_remote, container_repository_api, container_sync):
-    container_sync(container_repo, container_remote)
+def test_basic_sync(
+    container_repo,
+    container_remote,
+    container_repository_api,
+    container_sync,
+    container_manifest_api,
+):
+    repo_version = container_sync(container_repo, container_remote).created_resources[0]
     repository = container_repository_api.read(container_repo.pulp_href)
 
     assert "versions/1/" in repository.latest_version_href
@@ -52,6 +63,16 @@ def test_basic_sync(container_repo, container_remote, container_repository_api, 
     repository = container_repository_api.read(repository.pulp_href)
 
     assert repository.latest_version_href == latest_version_href
+
+    manifest = container_manifest_api.list(
+        repository_version=repo_version,
+        media_type=[MEDIA_TYPE.MANIFEST_V2],
+        digest=PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
+    )
+    manifest = manifest.to_dict()["results"][0]
+    assert manifest["architecture"] == "amd64"
+    assert manifest["os"] == "linux"
+    assert manifest["compressed_layers_size"] > 0
 
 
 @pytest.mark.parallel

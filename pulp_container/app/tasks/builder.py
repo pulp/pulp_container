@@ -13,7 +13,7 @@ from pulp_container.app.models import (
     Tag,
 )
 from pulp_container.constants import MEDIA_TYPE
-from pulp_container.app.utils import calculate_digest
+from pulp_container.app.utils import calculate_digest, get_content_data
 from pulpcore.plugin.models import Artifact, ContentArtifact, Content
 
 
@@ -83,11 +83,18 @@ def add_image_from_directory_to_repository(path, repository, tag):
 
         config_blob = get_or_create_blob(manifest_json["config"], manifest, path)
         manifest.config_blob = config_blob
-        manifest.save()
+        blob_artifact = Artifact.objects.get(sha256=config_blob.digest.removeprefix("sha256:"))
+        config_blob_dict, _ = get_content_data(blob_artifact)
+        manifest.architecture = config_blob_dict.get("architecture", None)
+        manifest.os = config_blob_dict.get("os", None)
 
         pks_to_add = []
+        compressed_size = 0
         for layer in manifest_json["layers"]:
+            compressed_size += layer.get("size")
             pks_to_add.append(get_or_create_blob(layer, manifest, path).pk)
+        manifest.compressed_layers_size = compressed_size
+        manifest.save()
 
         pks_to_add.extend([manifest.pk, tag.pk, config_blob.pk])
         new_repo_version.add_content(Content.objects.filter(pk__in=pks_to_add))

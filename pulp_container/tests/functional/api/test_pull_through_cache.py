@@ -38,6 +38,7 @@ def add_pull_through_entities_to_cleanup(
 def pull_and_verify(
     anonymous_user,
     add_pull_through_entities_to_cleanup,
+    container_manifest_api,
     container_pull_through_distribution_api,
     container_distribution_api,
     container_repository_api,
@@ -58,6 +59,13 @@ def pull_and_verify(
             # 1. pull remote content through the pull-through distribution
             local_registry.pull(local_image_path)
             local_image = local_registry.inspect(local_image_path)
+
+            # 1.1. check pulp manifest model fields
+            manifest = container_manifest_api.list(digest=local_image[0]["Digest"])
+            manifest = manifest.to_dict()["results"][0]
+            assert manifest["architecture"] == "amd64"
+            assert manifest["os"] == "linux"
+            assert manifest["compressed_layers_size"] > 0
 
             path, tag = local_image_path.split(":")
             tags_to_verify.append(tag)

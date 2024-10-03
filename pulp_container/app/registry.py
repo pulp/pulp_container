@@ -438,10 +438,15 @@ class PullThroughDownloader:
         )
 
     async def init_pending_content(self, digest, manifest_data, media_type, raw_text_data):
+
+        os = manifest_data.get("os", None)
+        architecture = manifest_data.get("architecture", None)
         if config := manifest_data.get("config", None):
             config_digest = config["digest"]
             config_blob = await self.save_config_blob(config_digest)
             await sync_to_async(self.repository.pending_blobs.add)(config_blob)
+            os = config.get("os")
+            architecture = config.get("architecture")
         else:
             config_blob = None
 
@@ -453,11 +458,15 @@ class PullThroughDownloader:
             media_type=media_type,
             config_blob=config_blob,
             data=raw_text_data,
+            os=os,
+            architecture=architecture,
         )
 
         # skip if media_type of schema1
         if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
             await sync_to_async(manifest.init_metadata)(manifest_data=manifest_data)
+
+        await sync_to_async(manifest.init_compressed_layers_size)(manifest_data=manifest_data)
 
         try:
             await manifest.asave()

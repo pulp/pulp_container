@@ -1,3 +1,4 @@
+import json
 from json.decoder import JSONDecodeError
 
 from gettext import gettext as _
@@ -39,10 +40,22 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         manifests_updated_count = 0
 
-        manifests_v1 = Manifest.objects.filter(data__isnull=True, media_type=MEDIA_TYPE.MANIFEST_V1)
+        manifests_v1 = Manifest.objects.filter(
+            Q(media_type=MEDIA_TYPE.MANIFEST_V1),
+            Q(data__isnull=True)
+            | Q(architecture__isnull=True)
+            | Q(os__isnull=True)
+            | Q(compressed_layers_size__isnull=True),
+        )
         manifests_updated_count += self.update_manifests(manifests_v1)
 
-        manifests_v2 = Manifest.objects.filter(Q(data__isnull=True) | Q(annotations={}, labels={}))
+        manifests_v2 = Manifest.objects.filter(
+            Q(data__isnull=True)
+            | Q(annotations={}, labels={})
+            | Q(architecture__isnull=True)
+            | Q(os__isnull=True)
+            | Q(compressed_layers_size__isnull=True)
+        )
         manifests_v2 = manifests_v2.exclude(
             media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI, MEDIA_TYPE.MANIFEST_V1]
         )
@@ -68,6 +81,17 @@ class Command(BaseCommand):
     def update_manifests(self, manifests_qs):
         manifests_updated_count = 0
         manifests_to_update = []
+        fields_to_update = [
+            "annotations",
+            "labels",
+            "is_bootable",
+            "is_flatpak",
+            "data",
+            "os",
+            "architecture",
+            "compressed_layers_size",
+        ]
+
         for manifest in manifests_qs.iterator():
             # suppress non-existing/already migrated artifacts and corrupted JSON files
             with suppress(ObjectDoesNotExist, JSONDecodeError):
@@ -76,7 +100,6 @@ class Command(BaseCommand):
                     manifests_to_update.append(manifest)
 
             if len(manifests_to_update) > 1000:
-                fields_to_update = ["annotations", "labels", "is_bootable", "is_flatpak", "data"]
                 manifests_qs.model.objects.bulk_update(
                     manifests_to_update,
                     fields_to_update,
@@ -85,7 +108,6 @@ class Command(BaseCommand):
                 manifests_to_update.clear()
 
         if manifests_to_update:
-            fields_to_update = ["annotations", "labels", "is_bootable", "is_flatpak", "data"]
             manifests_qs.model.objects.bulk_update(
                 manifests_to_update,
                 fields_to_update,
@@ -103,8 +125,23 @@ class Command(BaseCommand):
             if not (manifest.annotations or manifest.labels):
                 manifest.init_metadata(manifest_data)
 
+            if self.needs_os_arch_size_update(manifest):
+                self.init_manifest_os_arch_size(manifest)
             manifest._artifacts.clear()
+            return True
 
+        elif self.needs_os_arch_size_update(manifest):
+            self.init_manifest_os_arch_size(manifest)
             return True
 
         return False
+
+    def needs_os_arch_size_update(self, manifest):
+        return manifest.media_type not in [MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI] and not (
+            manifest.architecture or manifest.os or manifest.compressed_layers_size
+        )
+
+    def init_manifest_os_arch_size(self, manifest):
+        manifest_data = json.loads(manifest.data)
+        manifest.init_architecture_and_os(manifest_data)
+        manifest.init_compressed_layers_size(manifest_data)
