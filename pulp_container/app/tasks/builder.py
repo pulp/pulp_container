@@ -83,6 +83,7 @@ def add_image_from_directory_to_repository(path, repository, tag):
 
     with repository.new_version() as new_repo_version:
         manifest_json = json.loads(manifest_text_data)
+        manifest.init_metadata(manifest_json)
 
         config_blob = get_or_create_blob(manifest_json["config"], manifest, path)
         manifest.config_blob = config_blob

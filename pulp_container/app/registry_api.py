@@ -90,6 +90,7 @@ from pulp_container.app.utils import (
 )
 from pulp_container.constants import (
     EMPTY_BLOB,
+    MANIFEST_TYPE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
     SIGNATURE_PAYLOAD_MAX_SIZE,
@@ -1213,6 +1214,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 ManifestInvalid(digest=manifest_digest)
 
             manifest_list = self._init_manifest(manifest_digest, media_type, raw_text_data)
+            manifest_list.type = MANIFEST_TYPE.INDEX
             manifest_list = self._save_manifest(manifest_list)
 
             manifests_to_list = []
@@ -1235,6 +1237,9 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             )
             manifest = manifest_list
 
+            # DEPRECATED: is_bootable and is_flatpak are deprecated and will be removed in a
+            #             future release. Keeping this block for now to avoid introducing a bug or
+            #             a regression.
             # once relations for listed manifests are established, it is
             # possible to initialize the nature of the manifest list
             if manifest.init_manifest_list_nature():

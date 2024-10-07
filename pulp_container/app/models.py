@@ -32,7 +32,14 @@ from pulpcore.plugin.util import gpg_verify
 
 from . import downloaders
 from pulp_container.app.utils import get_content_data
-from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
+from pulp_container.constants import (
+    COSIGN_MEDIA_TYPES,
+    COSIGN_MEDIA_TYPES_MANIFEST_TYPE_MAPPING,
+    MANIFEST_MEDIA_TYPES,
+    MANIFEST_TYPE,
+    MEDIA_TYPE,
+    SIGNATURE_TYPE,
+)
 
 
 logger = getLogger(__name__)
@@ -72,6 +79,7 @@ class Manifest(Content):
         digest (models.TextField): The manifest digest.
         schema_version (models.IntegerField): The manifest schema version.
         media_type (models.TextField): The manifest media type.
+        type (models.TextField): The manifest's type (flatpak, bootable, signature, etc.).
         data (models.TextField): The manifest's data in text format.
         annotations (models.JSONField): Metadata stored inside the image manifest.
         labels (models.JSONField): Metadata stored inside the image configuration.
@@ -99,12 +107,15 @@ class Manifest(Content):
     digest = models.TextField(db_index=True)
     schema_version = models.IntegerField()
     media_type = models.TextField(choices=MANIFEST_CHOICES)
+    type = models.CharField(null=True)
     data = models.TextField(null=True)
 
     annotations = models.JSONField(default=dict)
     labels = models.JSONField(default=dict)
 
+    # DEPRECATED: this field is deprecated and will be removed in a future release.
     is_bootable = models.BooleanField(default=False)
+    # DEPRECATED: this field is deprecated and will be removed in a future release.
     is_flatpak = models.BooleanField(default=False)
 
     blobs = models.ManyToManyField(Blob, through="BlobManifest")
@@ -154,39 +165,84 @@ class Manifest(Content):
             return self.init_manifest_nature()
 
     def init_manifest_list_nature(self):
+        updated_type = False
+        if not self.type:
+            self.type = MANIFEST_TYPE.INDEX
+            updated_type = True
+
         for manifest in self.listed_manifests.all():
             # it suffices just to have a single manifest of a specific nature;
             # there is no case where the manifest is both bootable and flatpak-based
-            if manifest.is_bootable:
+            if manifest.type == MANIFEST_TYPE.BOOTABLE:
                 self.is_bootable = True
                 return True
-            elif manifest.is_flatpak:
+            elif manifest.type == MANIFEST_TYPE.FLATPAK:
                 self.is_flatpak = True
                 return True
 
-        return False
+        return updated_type
 
     def init_manifest_nature(self):
         if self.is_bootable_image():
+            # DEPRECATED: is_bootable is deprecated and will be removed in a future release.
             self.is_bootable = True
+            self.type = MANIFEST_TYPE.BOOTABLE
             return True
         elif self.is_flatpak_image():
+            # DEPRECATED: is_flatpak is deprecated and will be removed in a future release.
             self.is_flatpak = True
+            self.type = MANIFEST_TYPE.FLATPAK
             return True
-        else:
-            return False
+        elif self.is_helm_chart():
+            self.type = MANIFEST_TYPE.HELM
+            return True
+        elif media_type := self.is_cosign():
+            self.type = self.get_cosign_type(media_type)
+            return True
+        elif self.is_manifest_image():
+            self.type = MANIFEST_TYPE.IMAGE
+            return True
+
+        return False
 
     def is_bootable_image(self):
-        if (
+        return (
             self.annotations.get("containers.bootc") == "1"
             or self.labels.get("containers.bootc") == "1"
-        ):
-            return True
-        else:
-            return False
+        )
 
     def is_flatpak_image(self):
         return True if self.labels.get("org.flatpak.ref") else False
+
+    def is_manifest_image(self):
+        return self.media_type in MANIFEST_MEDIA_TYPES.IMAGE
+
+    @property
+    def json_manifest(self):
+        return json.loads(self.data)
+
+    def is_cosign(self):
+        try:
+            # layers is not a mandatory field
+            layers = self.json_manifest["layers"]
+        except KeyError:
+            return False
+
+        for layer in layers:
+            if layer["mediaType"] in COSIGN_MEDIA_TYPES:
+                return layer["mediaType"]
+        return False
+
+    def get_cosign_type(self, media_type):
+        if media_type in MEDIA_TYPE.COSIGN_SBOM:
+            return MANIFEST_TYPE.COSIGN_SBOM
+        return COSIGN_MEDIA_TYPES_MANIFEST_TYPE_MAPPING.get(media_type, MANIFEST_TYPE.UNKNOWN)
+
+    def is_helm_chart(self):
+        try:
+            return self.json_manifest["config"]["mediaType"] == MEDIA_TYPE.CONFIG_BLOB_HELM
+        except KeyError:
+            return False
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
