@@ -7,6 +7,7 @@ from django.conf import settings
 from subprocess import CalledProcessError
 from uuid import uuid4
 
+from pulp_container.constants import MANIFEST_TYPE
 from pulp_container.tests.functional.constants import (
     REGISTRY_V2,
     PULP_HELLO_WORLD_REPO,
@@ -38,6 +39,7 @@ def add_pull_through_entities_to_cleanup(
 def pull_and_verify(
     anonymous_user,
     add_pull_through_entities_to_cleanup,
+    check_manifest_fields,
     container_pull_through_distribution_api,
     container_distribution_api,
     container_repository_api,
@@ -58,6 +60,12 @@ def pull_and_verify(
             # 1. pull remote content through the pull-through distribution
             local_registry.pull(local_image_path)
             local_image = local_registry.inspect(local_image_path)
+
+            # 1.1. check pulp manifest model fields
+            assert check_manifest_fields(
+                manifest_filters={"digest": local_image[0]["Digest"]},
+                fields={"type": MANIFEST_TYPE.IMAGE},
+            )
 
             path, tag = local_image_path.split(":")
             tags_to_verify.append(tag)

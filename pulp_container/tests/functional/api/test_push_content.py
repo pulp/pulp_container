@@ -17,7 +17,7 @@ from pulp_smash.pulp3.bindings import (
     PulpTestCase,
 )
 
-from pulp_container.constants import MEDIA_TYPE
+from pulp_container.constants import MEDIA_TYPE, MANIFEST_TYPE
 
 from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
@@ -39,6 +39,7 @@ def test_push_using_registry_client_admin(
     add_to_cleanup,
     registry_client,
     local_registry,
+    check_manifest_fields,
     container_namespace_api,
 ):
     """Test push with official registry client and logged in as admin."""
@@ -48,6 +49,14 @@ def test_push_using_registry_client_admin(
     registry_client.pull(image_path)
     local_registry.tag_and_push(image_path, local_url)
     local_registry.pull(local_url)
+
+    # check pulp manifest model fields
+    local_image = local_registry.inspect(local_url)
+    assert check_manifest_fields(
+        manifest_filters={"digest": local_image[0]["Digest"]},
+        fields={"type": MANIFEST_TYPE.IMAGE},
+    )
+
     # ensure that same content can be pushed twice without permission errors
     local_registry.tag_and_push(image_path, local_url)
 

@@ -12,6 +12,7 @@ from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage, ContentSaver
 
 from pulp_container.constants import (
+    MANIFEST_TYPE,
     MEDIA_TYPE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
@@ -287,6 +288,7 @@ class ContainerFirstStage(Stage):
         self.manifest_dcs.clear()
 
         for manifest_list_dc in self.manifest_list_dcs:
+            manifest_list_dc.content.type = MANIFEST_TYPE.INDEX
             for listed_manifest in manifest_list_dc.extra_data["listed_manifests"]:
                 # Just await here. They will be associated in the post_save hook.
                 await listed_manifest["manifest_dc"].resolution()
@@ -392,6 +394,7 @@ class ContainerFirstStage(Stage):
             annotations=manifest_data.get("annotations", {}),
         )
 
+        manifest.init_manifest_nature()
         manifest_dc = DeclarativeContent(content=manifest)
         return manifest_dc
 
@@ -644,6 +647,8 @@ class ContainerContentSaver(ContentSaver):
         if manifest_list_manifests:
             ManifestListManifest.objects.bulk_create(manifest_list_manifests, ignore_conflicts=True)
 
+        # DEPRECATED: is_bootable/is_flatpak are deprecated and will be removed in a future release.
+        # keeping this block for now to avoid introducing a bug or a regression
         # after creating the relation between listed manifests and manifest lists,
         # it is possible to initialize the nature of the corresponding manifest lists
         for ml in manifest_lists:
