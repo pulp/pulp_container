@@ -1238,7 +1238,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             # once relations for listed manifests are established, it is
             # possible to initialize the nature of the manifest list
             if manifest.init_manifest_list_nature():
-                manifest.save(update_fields=["is_bootable", "is_flatpak"])
+                manifest.save(update_fields=["is_bootable", "is_flatpak", "type"])
 
             found_blobs = models.Blob.objects.filter(
                 digest__in=found_manifests.values_list("blobs__digest"),

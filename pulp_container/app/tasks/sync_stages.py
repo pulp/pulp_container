@@ -366,6 +366,7 @@ class ContainerFirstStage(Stage):
             data=raw_text_data,
         )
 
+        manifest_list.type = manifest_list.manifest_list_type()
         manifest_list_dc = DeclarativeContent(content=manifest_list)
         manifest_list_dc.extra_data["listed_manifests"] = []
         return manifest_list_dc
@@ -392,6 +393,7 @@ class ContainerFirstStage(Stage):
             annotations=manifest_data.get("annotations", {}),
         )
 
+        manifest.init_manifest_nature()
         manifest_dc = DeclarativeContent(content=manifest)
         return manifest_dc
 

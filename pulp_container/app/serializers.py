@@ -64,6 +64,11 @@ class ManifestSerializer(NoArtifactContentSerializer):
     digest = serializers.CharField(help_text="sha256 of the Manifest file")
     schema_version = serializers.IntegerField(help_text="Manifest schema version")
     media_type = serializers.CharField(help_text="Manifest media type of the file")
+    type = serializers.CharField(
+        help_text="Manifest type (flatpak, bootable, signature, etc.).",
+        required=False,
+        default=None,
+    )
     listed_manifests = DetailRelatedField(
         many=True,
         help_text="Manifests that are referenced by this Manifest List",
@@ -116,6 +121,7 @@ class ManifestSerializer(NoArtifactContentSerializer):
             "labels",
             "is_bootable",
             "is_flatpak",
+            "type",
         )
         model = models.Manifest
 
