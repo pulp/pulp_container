@@ -27,6 +27,7 @@ from pulp_container.app.models import (
     ManifestSignature,
     Tag,
 )
+from pulp_container.app.exceptions import PayloadTooLarge
 from pulp_container.app.utils import (
     extract_data_from_signature,
     urlpath_sanitize,
@@ -62,7 +63,14 @@ class ContainerFirstStage(Stage):
 
     async def _download_manifest_data(self, manifest_url):
         downloader = self.remote.get_downloader(url=manifest_url)
-        response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+        try:
+            response = await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
+        except PayloadTooLarge as e:
+            # if it failed to download the manifest, log the error and
+            # there is nothing to return
+            log.warning(e.args[0])
+            return None, None, None
+
         with open(response.path, "rb") as content_file:
             raw_bytes_data = content_file.read()
         response.artifact_attributes["file"] = response.path
@@ -145,6 +153,11 @@ class ContainerFirstStage(Stage):
 
             for artifact in asyncio.as_completed(to_download_artifact):
                 content_data, raw_text_data, response = await artifact
+
+                # skip the current object if it failed to be downloaded
+                if not content_data:
+                    await pb_parsed_tags.aincrement()
+                    continue
 
                 digest = calculate_digest(raw_text_data)
                 tag_name = response.url.split("/")[-1]
@@ -542,6 +555,12 @@ class ContainerFirstStage(Stage):
                         "{} is not accessible, can't sync an image signature. "
                         "Error: {} {}".format(signature_url, exc.status, exc.message)
                     )
+                except PayloadTooLarge as e:
+                    log.warning(
+                        "Failed to sync signature {}. Error: {}".format(signature_url, e.args[0])
+                    )
+                    signature_counter += 1
+                    continue
 
                 with open(signature_download_result.path, "rb") as f:
                     signature_raw = f.read()

@@ -13,6 +13,7 @@ import hashlib
 import re
 
 from aiohttp.client_exceptions import ClientResponseError, ClientConnectionError
+from io import BytesIO
 from itertools import chain
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
@@ -69,6 +70,7 @@ from pulp_container.app.exceptions import (
     ManifestNotFound,
     ManifestInvalid,
     ManifestSignatureInvalid,
+    PayloadTooLarge,
 )
 from pulp_container.app.redirects import (
     FileStorageRedirects,
@@ -92,12 +94,13 @@ from pulp_container.constants import (
     EMPTY_BLOB,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
-    SIGNATURE_PAYLOAD_MAX_SIZE,
     SIGNATURE_TYPE,
     V2_ACCEPT_HEADERS,
+    MEGABYTE,
 )
 
 log = logging.getLogger(__name__)
+
 
 IGNORED_PULL_THROUGH_REMOTE_ATTRIBUTES = [
     "remote_ptr",
@@ -790,7 +793,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         with transaction.atomic():
             # 1 chunk, create artifact right away
             with NamedTemporaryFile("ab") as temp_file:
-                temp_file.write(chunk.read())
+                while subchunk := chunk.read(MEGABYTE):
+                    temp_file.write(subchunk)
                 temp_file.flush()
 
                 uploaded_file = PulpTemporaryUploadedFile.from_file(
@@ -827,8 +831,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
     def single_request_upload(self, request, path, repository, digest):
         """Monolithic upload."""
-        chunk = request.META["wsgi.input"]
-        artifact = self.create_single_chunk_artifact(chunk)
+        artifact = self.create_single_chunk_artifact(request)
         blob = self.create_blob(artifact, digest)
         repository.pending_blobs.add(blob)
         return BlobResponse(blob, path, 201, request)
@@ -867,7 +870,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         """
         _, repository = self.get_dr_push(request, path)
         upload = get_object_or_404(models.Upload, repository=repository, pk=pk)
-        chunk = request.META["wsgi.input"]
+        chunk = request.stream or BytesIO()
         if range_header := request.headers.get("Content-Range"):
             found = self.content_range_pattern.match(range_header)
             if not found:
@@ -891,7 +894,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 chunk = ContentFile(chunk.read())
                 upload.append(chunk, upload.size)
             else:
-                artifact = self.create_single_chunk_artifact(chunk)
+                artifact = self.create_single_chunk_artifact(request)
                 upload.artifact = artifact
                 if not length:
                     length = artifact.size
@@ -912,10 +915,9 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         _, repository = self.get_dr_push(request, path)
 
         digest = request.query_params["digest"]
-        chunk = request.META["wsgi.input"]
-        # last chunk (and the only one) from monolitic upload
-        # or last chunk from chunked upload
-        last_chunk = ContentFile(chunk.read())
+        # if request body is 0 no instance of stream will be created
+        chunk = request.stream or BytesIO()
+        last_chunk = ContentFile(request.read())
         upload = get_object_or_404(models.Upload, pk=pk, repository=repository)
 
         if artifact := upload.artifact:
@@ -1171,8 +1173,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         Responds with the actual manifest
         """
         # iterate over all the layers and create
-        chunk = request.META["wsgi.input"]
-        artifact = self.receive_artifact(chunk)
+        artifact = self.receive_artifact(request)
         manifest_digest = "sha256:{id}".format(id=artifact.sha256)
 
         with storage.open(artifact.file.name, mode="rb") as artifact_file:
@@ -1379,8 +1380,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 subchunk = chunk.read(2000000)
                 if not subchunk:
                     break
-                temp_file.write(subchunk)
                 size += len(subchunk)
+                if size > settings["MANIFEST_PAYLOAD_MAX_SIZE"]:
+                    temp_file.flush()
+                    raise PayloadTooLarge()
+                temp_file.write(subchunk)
                 for algorithm in Artifact.DIGEST_FIELDS:
                     hashers[algorithm].update(subchunk)
             temp_file.flush()
@@ -1451,9 +1455,18 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
         except models.Manifest.DoesNotExist:
             raise ManifestNotFound(reference=pk)
 
-        signature_payload = request.META["wsgi.input"].read(SIGNATURE_PAYLOAD_MAX_SIZE)
+        signature_max_size = settings["SIGNATURE_PAYLOAD_MAX_SIZE"]
+        if signature_max_size:
+            meta = request.META
+            try:
+                content_length = int(meta.get("CONTENT_LENGTH", meta.get("HTTP_CONTENT_LENGTH", 0)))
+            except (ValueError, TypeError):
+                content_length = 0
+            if content_length > signature_max_size:
+                raise PayloadTooLarge()
+
         try:
-            signature_dict = json.loads(signature_payload)
+            signature_dict = json.loads(request.read(signature_max_size))
         except json.decoder.JSONDecodeError:
             raise ManifestSignatureInvalid(digest=pk)
 
