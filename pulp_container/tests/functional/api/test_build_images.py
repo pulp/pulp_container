@@ -7,6 +7,7 @@ from pulp_smash.pulp3.utils import gen_distribution
 from pulp_smash.pulp3.bindings import monitor_task
 
 from pulpcore.client.pulp_container import ApiException, ContainerContainerDistribution
+from pulp_container.constants import MANIFEST_TYPE
 
 
 @pytest.fixture
@@ -62,6 +63,7 @@ def build_image(container_repository_api):
 
 def test_build_image_with_uploaded_containerfile(
     build_image,
+    check_manifest_fields,
     containerfile_name,
     container_distribution_api,
     container_repo,
@@ -85,6 +87,9 @@ def test_build_image_with_uploaded_containerfile(
     local_registry.pull(distribution.base_path)
     image = local_registry.inspect(distribution.base_path)
     assert image[0]["Config"]["Cmd"] == ["cat", "/tmp/inside-image.txt"]
+    assert check_manifest_fields(
+        manifest_filters={"digest": image[0]["Digest"]}, fields={"type": MANIFEST_TYPE.IMAGE}
+    )
 
 
 def test_build_image_from_repo_version_with_anon_user(

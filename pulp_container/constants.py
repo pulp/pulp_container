@@ -19,6 +19,8 @@ MEDIA_TYPE = SimpleNamespace(
     FOREIGN_BLOB_OCI_TAR_GZIP="application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
     FOREIGN_BLOB_OCI_TAR_ZSTD="application/vnd.oci.image.layer.nondistributable.v1.tar+zstd",
     OCI_EMPTY_JSON="application/vnd.oci.empty.v1+json",
+    HELM="application/vnd.cncf.helm.config.v1+json",
+    COSIGN="application/vnd.dev.cosign.simplesigning.v1+json",
 )
 
 V2_ACCEPT_HEADERS = {
@@ -71,3 +73,14 @@ MEGABYTE = 1_000_000
 SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
 
 SIGNATURE_API_EXTENSION_VERSION = 2
+
+MANIFEST_TYPE = SimpleNamespace(
+    IMAGE="image",
+    BOOTABLE="bootable",
+    FLATPAK="flatpak",
+    HELM="helm",
+    OCI_INDEX="oci-index",
+    MANIFEST_LIST="manifestlist",
+    SIGNATURE="signature",
+    UNKNOWN="unknown",
+)

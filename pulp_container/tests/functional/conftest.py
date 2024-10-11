@@ -461,3 +461,16 @@ def pull_through_distribution(
         return distribution
 
     return _pull_through_distribution
+
+
+@pytest.fixture
+def check_manifest_fields(container_manifest_api):
+    def _check_manifest_fields(**kwargs):
+        manifest = container_manifest_api.list(**kwargs["manifest_filters"])
+        manifest = manifest.to_dict()["results"][0]
+        for key in kwargs["fields"]:
+            if manifest[key] != kwargs["fields"][key]:
+                return False
+        return True
+
+    return _check_manifest_fields
