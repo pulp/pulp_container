@@ -15,8 +15,9 @@ ADD/COPY <file relative-path> <location in container>
 ```
 
 It is possible to define the Containerfile in two ways:
-* from a [local file](site:pulp_container/docs/admin/guides/build-image#build-from-a-containerfile-uploaded-during-build-request) and pass it during build request
-* from an [existing file](site:pulp_container/docs/admin/guides/build-image#upload-the-containerfile-as-a-file-content) in the `build_context`
+
+ * from a [local file](site:pulp_container/docs/admin/guides/build-image#build-from-a-containerfile-uploaded-during-build-request) and pass it during build request
+ * from an [existing file](site:pulp_container/docs/admin/guides/build-image#upload-the-containerfile-as-a-file-content) in the `build_context`
 
 ## Create a Container Repository
 
