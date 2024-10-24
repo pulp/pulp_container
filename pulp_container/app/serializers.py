@@ -30,7 +30,7 @@ from pulpcore.plugin.serializers import (
     ValidateFieldsMixin,
 )
 
-from pulp_container.app import models
+from pulp_container.app import models, fields
 from pulp_container.constants import SIGNATURE_TYPE
 
 VALID_SIGNATURE_NAME_REGEX = r"^sha256:[0-9a-f]{64}@[0-9a-f]{32}$"
@@ -84,11 +84,11 @@ class ManifestSerializer(NoArtifactContentSerializer):
         queryset=models.Blob.objects.all(),
     )
 
-    annotations = serializers.JSONField(
+    annotations = fields.JSONObjectField(
         read_only=True,
         help_text=_("Property that contains arbitrary metadata stored inside the image manifest."),
     )
-    labels = serializers.JSONField(
+    labels = fields.JSONObjectField(
         read_only=True,
         help_text=_("Property describing metadata stored inside the image configuration"),
     )
