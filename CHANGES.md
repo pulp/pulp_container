@@ -8,6 +8,18 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.21.1 (2024-10-25) {: #2.21.1 }
+
+#### Bugfixes {: #2.21.1-bugfix }
+
+- Fixed an issue causing an HTTP 500 error when a GET request for a non-existing
+  blob was made to a distribution with only a `repository_version` set.
+  [#1703](https://github.com/pulp/pulp_container/issues/1703)
+- Fixed the JSONField specification so it doesn't break ruby bindings.
+  See context [here](https://github.com/pulp/pulp_rpm/issues/3639).
+
+---
+
 ## 2.21.0 (2024-07-19) {: #2.21.0 }
 
 
@@ -51,6 +63,15 @@
 #### Misc {: #2.21.0-misc }
 
 - [#1607](https://github.com/pulp/pulp_container/issues/1607), [#1681](https://github.com/pulp/pulp_container/issues/1681)
+
+---
+
+## 2.20.4 (2024-10-25) {: #2.20.4 }
+
+#### Bugfixes {: #2.20.4-bugfix }
+
+- Fixed the JSONField specification so it doesn't break ruby bindings.
+  See context [here](https://github.com/pulp/pulp_rpm/issues/3639).
 
 ---
 
