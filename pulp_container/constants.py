@@ -77,14 +77,15 @@ SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
 SIGNATURE_API_EXTENSION_VERSION = 2
 
 MANIFEST_TYPE = SimpleNamespace(
-    IMAGE="image",
+    ARTIFACT="artifact",
     BOOTABLE="bootable",
-    FLATPAK="flatpak",
-    HELM="helm",
-    COSIGN_SIGNATURE="cosign_signature",
     COSIGN_ATTESTATION="cosign_attestation",
     COSIGN_ATTESTATION_BUNDLE="cosign_attestation_bundle",
     COSIGN_SBOM="cosign_sbom",
+    COSIGN_SIGNATURE="cosign_signature",
+    FLATPAK="flatpak",
+    HELM="helm",
+    IMAGE="image",
     INDEX="index",
     UNKNOWN="unknown",
 )

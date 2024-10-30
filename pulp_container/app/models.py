@@ -131,6 +131,10 @@ class Manifest(Content):
         through_fields=("image_manifest", "manifest_list"),
     )
 
+    def __init__(self, *args, **kwargs):
+        self._json_manifest = None
+        super().__init__(*args, **kwargs)
+
     def init_metadata(self, manifest_data=None):
         has_annotations = self.init_annotations(manifest_data)
         has_labels = self.init_labels()
@@ -199,6 +203,9 @@ class Manifest(Content):
         elif media_type := self.is_cosign():
             self.type = self.get_cosign_type(media_type)
             return True
+        elif self.is_artifact():
+            self.type = MANIFEST_TYPE.ARTIFACT
+            return True
         elif self.is_manifest_image():
             self.type = MANIFEST_TYPE.IMAGE
             return True
@@ -219,7 +226,9 @@ class Manifest(Content):
 
     @property
     def json_manifest(self):
-        return json.loads(self.data)
+        if not self._json_manifest:
+            self._json_manifest = json.loads(self.data)
+        return self._json_manifest
 
     def is_cosign(self):
         try:
@@ -243,6 +252,20 @@ class Manifest(Content):
             return self.json_manifest["config"]["mediaType"] == MEDIA_TYPE.CONFIG_BLOB_HELM
         except KeyError:
             return False
+
+    def is_artifact(self):
+        # artifact is valid only for OCI spec
+        if self.media_type != MEDIA_TYPE.MANIFEST_OCI:
+            return False
+
+        if self.json_manifest.get("artifactType", None):
+            return True
+
+        manifest_config_media_type = self.json_manifest["config"]["mediaType"]
+        return (
+            manifest_config_media_type == MEDIA_TYPE.OCI_EMPTY_JSON
+            or manifest_config_media_type not in vars(MEDIA_TYPE).values()
+        )
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
