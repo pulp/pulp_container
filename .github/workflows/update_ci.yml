@@ -69,7 +69,7 @@ jobs:
         with:
           fetch-depth: 0
           path: "pulp_container"
-          ref: "2.21"
+          ref: "2.22"
 
       - name: "Run update"
         working-directory: "pulp_container"
@@ -83,9 +83,9 @@ jobs:
           path: "pulp_container"
           committer: "pulpbot <pulp-infra@redhat.com>"
           author: "pulpbot <pulp-infra@redhat.com>"
-          title: "Update CI files for branch 2.21"
-          branch: "update-ci/2.21"
-          base: "2.21"
+          title: "Update CI files for branch 2.22"
+          branch: "update-ci/2.22"
+          base: "2.22"
           delete-branch: true
       - uses: "actions/checkout@v4"
         with:
