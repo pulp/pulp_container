@@ -798,14 +798,31 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
         """Validates that all the fields make sense."""
         data = super().validate(data)
 
-        if bool(data.get("containerfile", None)) == bool(data.get("containerfile_name", None)):
+        # only one of containerfile or containerfile_name should be provided, none of them is ok
+        # in case we have a build_context because Pulp will try to find a file called Containerfile
+        # in the build_context provided
+        if data.get("containerfile", None) and data.get("containerfile_name", None):
             raise serializers.ValidationError(
-                _("Exactly one of 'containerfile' or 'containerfile_name' must be specified.")
+                _("Only one of 'containerfile' or 'containerfile_name' must be specified.")
             )
 
         if "containerfile_name" in data and "build_context" not in data:
             raise serializers.ValidationError(
                 _("A 'build_context' must be specified when 'containerfile_name' is present.")
+            )
+
+        # with none of build_context nor containerfile_name nor containerfile
+        # there is not enough information to build
+        if not (
+            data.get("containerfile", None)
+            or data.get("containerfile_name", None)
+            or data.get("build_context", None)
+        ):
+            raise serializers.ValidationError(
+                _(
+                    "At least one of 'build_context' or 'containerfile' or 'containerfile_name' "
+                    "must be provided"
+                )
             )
 
         # TODO: this can be removed after https://github.com/pulp/pulpcore/issues/5786
@@ -821,6 +838,12 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
         """
         if build_context := data.get("build_context", None):
 
+            data["build_context_pk"] = build_context.repository.pk
+
+            # if a containerfile was passed with the build_context we can skip the following checks
+            if data.get("containerfile", None):
+                return data
+
             # check if the on_demand_artifacts exist
             for on_demand_artifact in build_context.on_demand_artifacts.iterator():
                 if not on_demand_artifact.content_artifact.artifact:
@@ -831,7 +854,7 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
                         )
                     )
 
-            # check if the containerfile_name exists in the build_context (File Repository)
+            # check if the provided containerfile_name exists in the build_context (File Repository)
             if (
                 data.get("containerfile_name", None)
                 and not FileContent.objects.filter(
@@ -847,7 +870,21 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
                     )
                 )
 
-            data["build_context_pk"] = build_context.repository.pk
+            # check if a Containerfile exists in the build_context when
+            # no containerfile_name is provided
+            if (
+                not data.get("containerfile_name", None)
+                and not FileContent.objects.filter(
+                    repositories__in=[build_context.repository.pk],
+                    relative_path="Containerfile",
+                ).exists()
+            ):
+                raise serializers.ValidationError(
+                    _("Could not find the Containerfile in the build_context provided")
+                )
+
+            if not data.get("containerfile_name", None):
+                data["containerfile_name"] = "Containerfile"
 
         return data
 

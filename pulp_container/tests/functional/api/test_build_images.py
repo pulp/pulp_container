@@ -140,15 +140,31 @@ def test_build_image_from_repo_version_with_creator_user(
 
 def test_build_image_without_containerfile(
     build_image,
+    check_manifest_fields,
+    container_distribution_api,
     container_repo,
+    delete_orphans_pre,
+    gen_object_with_cleanup,
+    local_registry,
     populated_file_repo,
 ):
-    """Test build an OCI image without a containerfile"""
-    with pytest.raises(ApiException):
-        build_image(
-            repository=container_repo.pulp_href,
-            build_context=f"{populated_file_repo.pulp_href}versions/2/",
-        )
+    """Test build an OCI image without explicitly passing a Containerfile"""
+    build_image(
+        repository=container_repo.pulp_href,
+        build_context=f"{populated_file_repo.pulp_href}versions/2/",
+    )
+
+    distribution = gen_object_with_cleanup(
+        container_distribution_api,
+        ContainerContainerDistribution(**gen_distribution(repository=container_repo.pulp_href)),
+    )
+
+    local_registry.pull(distribution.base_path)
+    image = local_registry.inspect(distribution.base_path)
+    assert image[0]["Config"]["Cmd"] == ["cat", "/tmp/inside-image.txt"]
+    assert check_manifest_fields(
+        manifest_filters={"digest": image[0]["Digest"]}, fields={"type": MANIFEST_TYPE.IMAGE}
+    )
 
 
 def test_build_image_without_expected_files(
@@ -237,3 +253,22 @@ CMD ["ls", "/"]"""
     local_registry.pull(distribution.base_path)
     image = local_registry.inspect(distribution.base_path)
     assert image[0]["Config"]["Cmd"] == ["ls", "/"]
+
+
+def test_with_containerfilename_and_containerfile(
+    build_image,
+    containerfile_name,
+    container_repo,
+    delete_orphans_pre,
+    populated_file_repo,
+):
+    """Test build an OCI image with a containerfile and containerfile_name"""
+    with pytest.raises(ApiException) as e:
+        build_image(
+            repository=container_repo.pulp_href,
+            containerfile_name="Non_existing_file",
+            containerfile=containerfile_name,
+            build_context=f"{populated_file_repo.pulp_href}versions/2/",
+        )
+    assert e.value.status == 400
+    assert "Only one of 'containerfile' or 'containerfile_name' must be specified." in e.value.body
