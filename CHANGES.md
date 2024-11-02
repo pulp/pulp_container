@@ -8,6 +8,41 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.22.0 (2024-11-01) {: #2.22.0 }
+
+#### Features {: #2.22.0-feature }
+
+- The `build_image` endpoint has been refactored to accept `build_context`
+  (i.e., a file repository version) instead of raw artifacts. The same applies to Containerfile."
+  [#479](https://github.com/pulp/pulp_container/issues/479)
+- Introduced the `type` field on the Manifests endpoint to enable easier differentiation of image
+  types.
+  [#1751](https://github.com/pulp/pulp_container/issues/1751)
+- Added `architecture`, `os`, and `compressed_image_size` fields to Manifest.
+  [#1767](https://github.com/pulp/pulp_container/issues/1767)
+
+#### Bugfixes {: #2.22.0-bugfix }
+
+- Resolved an issue with the pull-through cache that was causing errors when retrieving v2 schema 1
+  manifests.
+  [#1700](https://github.com/pulp/pulp_container/issues/1700)
+- Fixed an issue causing an HTTP 500 error when a GET request for a non-existing
+  blob was made to a distribution with only a `repository_version` set.
+  [#1703](https://github.com/pulp/pulp_container/issues/1703)
+- Fixed an HTTP 500 error returned when pushing an image with the same name as the name of an existing
+  read-only repository.
+  [#1712](https://github.com/pulp/pulp_container/issues/1712)
+- Resolved an issue with syncing content causing errors when retrieving manifests without a mediaType
+  definition.
+  [#1746](https://github.com/pulp/pulp_container/issues/1746)
+- Resolved an issue where syncing filtered content with a `cosign` signature from a remote source lacking `Sigstore`,
+  and with `signed_only: true` enabled, could occasionally fail.
+  [#1759](https://github.com/pulp/pulp_container/issues/1759)
+- Fixed the JSONField specification so it doesn't break ruby bindings.
+  See context [here](https://github.com/pulp/pulp_rpm/issues/3639).
+
+---
+
 ## 2.21.1 (2024-10-25) {: #2.21.1 }
 
 #### Bugfixes {: #2.21.1-bugfix }
