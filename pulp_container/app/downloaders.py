@@ -89,7 +89,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
                 # Need to retry request
                 if handle_401 and e.status == 401 and response_auth_header is not None:
                     # check if bearer or basic
-                    if "Bearer" in response_auth_header:
+                    if "bearer" in response_auth_header.lower():
                         # Token has not been updated during request
                         if (
                             self.registry_auth["bearer"] is None
@@ -98,7 +98,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
                             self.registry_auth["bearer"] = None
                             await self.update_token(response_auth_header, this_token, repo_name)
                         return await self._run(handle_401=False, extra_data=extra_data)
-                    elif "Basic" in response_auth_header:
+                    elif "basic" in response_auth_header.lower():
                         if self.remote.username:
                             basic = aiohttp.BasicAuth(self.remote.username, self.remote.password)
                             self.registry_auth["basic"] = basic.encode()
