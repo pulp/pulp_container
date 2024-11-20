@@ -1,7 +1,7 @@
 # Mirror and Host Images
 
 Users can populate their repositories with content from an external source like Docker Hub by syncing
-their repository. This enables them to maintain the content in a cosistent state without depending
+their repository. This enables them to maintain the content in a consistent state without depending
 on external sources.
 
 ## Create a Repository
