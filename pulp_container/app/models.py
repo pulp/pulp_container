@@ -27,7 +27,7 @@ from pulpcore.plugin.models import (
     Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
-from pulpcore.plugin.util import gpg_verify
+from pulpcore.plugin.util import gpg_verify, get_domain_pk
 
 
 from . import downloaders
@@ -63,10 +63,11 @@ class Blob(Content):
     TYPE = "blob"
 
     digest = models.TextField(db_index=True)
+    _pulp_domain = models.ForeignKey("core.Domain", default=get_domain_pk, on_delete=models.PROTECT)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
-        unique_together = ("digest",)
+        unique_together = ("digest", "_pulp_domain")
 
 
 class Manifest(Content):
@@ -138,6 +139,7 @@ class Manifest(Content):
         symmetrical=False,
         through_fields=("image_manifest", "manifest_list"),
     )
+    _pulp_domain = models.ForeignKey("core.Domain", default=get_domain_pk, on_delete=models.PROTECT)
 
     def __init__(self, *args, **kwargs):
         self._json_manifest = None
@@ -302,7 +304,7 @@ class Manifest(Content):
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
-        unique_together = ("digest",)
+        unique_together = ("digest", "_pulp_domain")
 
 
 class BlobManifest(models.Model):
@@ -381,10 +383,11 @@ class Tag(Content):
     tagged_manifest = models.ForeignKey(
         Manifest, null=False, related_name="tagged_manifests", on_delete=models.CASCADE
     )
+    _pulp_domain = models.ForeignKey("core.Domain", default=get_domain_pk, on_delete=models.PROTECT)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
-        unique_together = (("name", "tagged_manifest"),)
+        unique_together = ("name", "tagged_manifest", "_pulp_domain")
 
 
 class ManifestSignature(Content):
@@ -421,12 +424,13 @@ class ManifestSignature(Content):
     signed_manifest = models.ForeignKey(
         Manifest, null=False, related_name="signed_manifests", on_delete=models.CASCADE
     )
+    _pulp_domain = models.ForeignKey("core.Domain", default=get_domain_pk, on_delete=models.PROTECT)
     # TODO: Maybe there should be an optional field with a FK to a signing_service for the cases
     #       when Pulp creates a signature.
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
-        unique_together = (("digest",),)
+        unique_together = ("digest", "_pulp_domain")
 
 
 class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
@@ -438,9 +442,10 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
     """
 
     name = models.TextField(db_index=True)
+    pulp_domain = models.ForeignKey("core.Domain", default=get_domain_pk, on_delete=models.PROTECT)
 
     class Meta:
-        unique_together = (("name",),)
+        unique_together = ("name", "pulp_domain")
         permissions = [
             ("namespace_add_containerdistribution", "Add any distribution to a namespace"),
             ("namespace_delete_containerdistribution", "Delete any distribution from a namespace"),

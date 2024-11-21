@@ -20,13 +20,19 @@ class CommonRedirects:
         self.distribution = distribution
         self.path = path
         self.request = request
+        self.path_prefix = (
+            f"pulp/container/{request.pulp_domain.name}"
+            if settings.DOMAIN_ENABLED
+            else "pulp/container"
+        )
 
     def redirect_to_content_app(self, content_type, content_id):
         """
         Redirect to the content app.
         """
+
         return self.distribution.redirect_to_content_app(
-            f"{settings.CONTENT_ORIGIN}/pulp/container/{self.path}/{content_type}/{content_id}"
+            f"{settings.CONTENT_ORIGIN}/{self.path_prefix}/{self.path}/{content_type}/{content_id}"
         )
 
     def issue_manifest_redirect(self, manifest):
