@@ -10,12 +10,12 @@ import time
 
 from asgiref.sync import sync_to_async
 from jsonschema import Draft7Validator, validate, ValidationError
-from django.core.files.storage import default_storage as storage
 from django.db import IntegrityError
 from functools import partial
 from rest_framework.exceptions import Throttled
 
 from pulpcore.plugin.models import Artifact, Task
+from pulpcore.plugin.util import get_domain
 
 from pulp_container.constants import (
     MANIFEST_MEDIA_TYPES,
@@ -299,6 +299,7 @@ def pad_unpadded_b64(unpadded_b64):
 
 
 async def save_artifact(artifact_attributes):
+    artifact_attributes.setdefault("pulp_domain", get_domain())
     saved_artifact = Artifact(**artifact_attributes)
     try:
         await saved_artifact.asave()
@@ -310,7 +311,8 @@ async def save_artifact(artifact_attributes):
 
 
 def get_content_data(saved_artifact):
-    with storage.open(saved_artifact.file.name, mode="rb") as file:
+    # I don't think this is async safe, it might perform a query
+    with saved_artifact.file.storage.open(saved_artifact.file.name, mode="rb") as file:
         raw_data = file.read()
     content_data = json.loads(raw_data)
     return content_data, raw_data

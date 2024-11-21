@@ -20,6 +20,7 @@ from pulpcore.plugin.models import (
     Content,
     PulpTemporaryFile,
 )
+from pulpcore.plugin.util import get_domain
 
 
 def get_or_create_blob(layer_json, manifest, path):
@@ -35,8 +36,9 @@ def get_or_create_blob(layer_json, manifest, path):
         class:`pulp_container.app.models.Blob`
 
     """
+    domain = get_domain()
     try:
-        blob = Blob.objects.get(digest=layer_json["digest"])
+        blob = Blob.objects.get(digest=layer_json["digest"], _pulp_domain=domain)
         blob.touch()
     except Blob.DoesNotExist:
         layer_file_name = os.path.join(path, layer_json["digest"][7:])
@@ -66,6 +68,7 @@ def add_image_from_directory_to_repository(path, repository, tag):
         image and tag.
 
     """
+    domain = get_domain()
     manifest_path = os.path.join(path, "manifest.json")
 
     with open(manifest_path, "rb") as f:
@@ -78,8 +81,9 @@ def add_image_from_directory_to_repository(path, repository, tag):
         schema_version=2,
         media_type=MEDIA_TYPE.MANIFEST_OCI,
         data=manifest_text_data,
+        _pulp_domain=domain,
     )
-    tag, _ = Tag.objects.get_or_create(name=tag, tagged_manifest=manifest)
+    tag, _ = Tag.objects.get_or_create(name=tag, tagged_manifest=manifest, _pulp_domain=domain)
 
     with repository.new_version() as new_repo_version:
         manifest_json = json.loads(manifest_text_data)

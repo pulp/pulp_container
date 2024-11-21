@@ -18,7 +18,6 @@ from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.files.storage import default_storage as storage
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
 from django.db.models import F, Value
@@ -30,7 +29,7 @@ from django.conf import settings
 from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
-from pulpcore.plugin.util import get_objects_for_user, get_url
+from pulpcore.plugin.util import get_objects_for_user, get_url, get_domain
 from pulpcore.plugin.exceptions import TimeoutException
 
 from rest_framework.exceptions import (
@@ -292,10 +291,11 @@ class ContainerRegistryApiMixin:
         """
         Get distribution, repository and repository_version for pull access.
         """
+        domain = get_domain()
         try:
             distribution = models.ContainerDistribution.objects.prefetch_related(
                 "pull_through_distribution"
-            ).get(base_path=path)
+            ).get(base_path=path, pulp_domain=domain)
         except models.ContainerDistribution.DoesNotExist:
             # get a pull-through cache distribution whose base_path is a substring of the path
             return self.get_pull_through_drv(path)
@@ -310,9 +310,10 @@ class ContainerRegistryApiMixin:
         return distribution, repository, repository_version
 
     def get_pull_through_drv(self, path):
+        domain = get_domain()
         pull_through_cache_distribution = (
             models.ContainerPullThroughDistribution.objects.annotate(path=Value(path))
-            .filter(path__startswith=F("base_path"))
+            .filter(path__startswith=F("base_path"), pulp_domain=domain)
             .order_by("-base_path")
             .first()
         )
@@ -337,7 +338,7 @@ class ContainerRegistryApiMixin:
         try:
             with transaction.atomic():
                 repository, _ = models.ContainerRepository.objects.get_or_create(
-                    name=path, retain_repo_versions=1
+                    name=path, retain_repo_versions=1, pulp_domain=domain
                 )
 
                 remote_data = model_to_dict(
@@ -346,6 +347,7 @@ class ContainerRegistryApiMixin:
                 remote, _ = models.ContainerRemote.objects.get_or_create(
                     name=path,
                     upstream_name=upstream_name,
+                    pulp_domain=domain,
                     **remote_data,
                 )
 
@@ -356,6 +358,7 @@ class ContainerRegistryApiMixin:
                     repository=repository,
                     private=pull_through_cache_distribution.private,
                     namespace=pull_through_cache_distribution.namespace,
+                    pulp_domain=domain,
                 )
         except IntegrityError:
             # some entities needed to be created, but their keys already exist in the database
@@ -372,8 +375,11 @@ class ContainerRegistryApiMixin:
 
         Optionally create them if not found.
         """
+        domain = get_domain()
         try:
-            distribution = models.ContainerDistribution.objects.get(base_path=path)
+            distribution = models.ContainerDistribution.objects.get(
+                base_path=path, pulp_domain=domain
+            )
         except models.ContainerDistribution.DoesNotExist:
             if create:
                 distribution, repository = self.create_dr(path, request)
@@ -388,7 +394,7 @@ class ContainerRegistryApiMixin:
             elif create:
                 with transaction.atomic():
                     repository = serializers.ContainerPushRepositorySerializer.get_or_create(
-                        {"name": path}
+                        {"name": path, "pulp_domain": domain}
                     )
                     distribution.repository = repository
                     distribution.save()
@@ -397,13 +403,15 @@ class ContainerRegistryApiMixin:
         return distribution, repository
 
     def create_dr(self, path, request):
+        domain = get_domain()
         with transaction.atomic():
             try:
                 repository = serializers.ContainerPushRepositorySerializer.get_or_create(
-                    {"name": path}
+                    {"name": path, "pulp_domain": domain}
                 )
                 distribution = serializers.ContainerDistributionSerializer.get_or_create(
-                    {"base_path": path, "name": path}, {"repository": get_url(repository)}
+                    {"base_path": path, "name": path, "pulp_domain": domain},
+                    {"repository": get_url(repository)},
                 )
             except ObjectDoesNotExist:
                 raise RepositoryInvalid(name=path, message="Repository is read-only.")
@@ -535,7 +543,8 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
 
     def get_queryset(self, *args, **kwargs):
         """Filter the queryset based on public repositories and assigned permissions."""
-        queryset = super().get_queryset()
+        domain = get_domain()
+        queryset = super().get_queryset().filter(pulp_domain=domain)
 
         distribution_permission = "container.pull_containerdistribution"
         namespace_permission = "container.namespace_pull_containerdistribution"
@@ -548,7 +557,7 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
             self.request.user, distribution_permission, queryset
         )
 
-        namespaces = models.ContainerNamespace.objects.all()
+        namespaces = models.ContainerNamespace.objects.filter(pulp_domain=domain)
         repositories_by_namespace = get_objects_for_user(
             self.request.user, namespace_permission, namespaces
         )
@@ -580,7 +589,7 @@ class FlatpakIndexDynamicView(APIView):
                     tag, mlm.manifest_list, oss, architectures, manifests
                 )
 
-    def get_manifest_config(self, manifest):
+    def get_manifest_config(self, manifest, storage):
         # Special handling for the manifest's config options not being fully stored on the model yet
         # See migrations 38 & 43
         config = {
@@ -613,6 +622,7 @@ class FlatpakIndexDynamicView(APIView):
         req_architectures = None
         req_label_exists = set()
         req_label_values = {}
+        domain = get_domain()
         for key, values in request.query_params.lists():
             if key == "repository":
                 req_repositories = values
@@ -639,12 +649,15 @@ class FlatpakIndexDynamicView(APIView):
         if "org.flatpak.ref" not in req_label_exists:
             raise ParseError(detail="Missing label:org.flatpak.ref:exists=1.")
 
-        distributions = models.ContainerDistribution.objects.filter(private=False).only("base_path")
+        distributions = models.ContainerDistribution.objects.filter(
+            private=False, pulp_domain=domain
+        ).only("base_path")
 
         if req_repositories:
             distributions = distributions.filter(base_path__in=req_repositories)
 
         results = []
+        storage = domain.get_storage()
         for distribution in distributions:
             images = []
             if distribution.repository:
@@ -662,7 +675,7 @@ class FlatpakIndexDynamicView(APIView):
                     tag.name, tag.tagged_manifest, req_oss, req_architectures, manifests
                 )
             for manifest, tagged in manifests.items():
-                config_data = self.get_manifest_config(manifest)
+                config_data = self.get_manifest_config(manifest, storage)
                 labels = config_data["labels"]
                 if not labels:
                     continue
@@ -826,17 +839,18 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 artifact = Artifact.init_and_validate(uploaded_file)
                 artifact.save()
             except IntegrityError:
-                artifact = Artifact.objects.get(sha256=artifact.sha256)
+                artifact = Artifact.objects.get(sha256=artifact.sha256, pulp_domain=get_domain())
                 artifact.touch()
         return artifact
 
     def create_blob(self, artifact, digest):
+        domain = get_domain()
         with transaction.atomic():
             try:
-                blob = models.Blob(digest=digest)
+                blob = models.Blob(digest=digest, _pulp_domain=domain)
                 blob.save()
             except IntegrityError:
-                blob = models.Blob.objects.get(digest=digest)
+                blob = models.Blob.objects.get(digest=digest, _pulp_domain=domain)
                 blob.touch()
             try:
                 blob_artifact = ContentArtifact(
@@ -868,7 +882,9 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         """Mount a blob that is already present in another repository."""
         from_path = request.query_params["from"]
         try:
-            distribution = models.ContainerDistribution.objects.get(base_path=from_path)
+            distribution = models.ContainerDistribution.objects.get(
+                base_path=from_path, pulp_domain=get_domain()
+            )
         except models.ContainerDistribution.DoesNotExist:
             raise RepositoryNotFound(name=path)
 
@@ -969,7 +985,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
                 artifact = Artifact.init_and_validate(uploaded_file)
                 artifact.save()
             except IntegrityError:
-                artifact = Artifact.objects.get(sha256=artifact.sha256)
+                artifact = Artifact.objects.get(sha256=artifact.sha256, pulp_domain=get_domain())
                 artifact.touch()
 
         blob = self.create_blob(artifact, digest)
@@ -989,18 +1005,15 @@ class RedirectsMixin:
         Determine a storage type and initialize the redirect class according to that.
         """
         super().__init__(*args, **kwargs)
-
+        domain = get_domain()
         if (
-            settings.STORAGES["default"]["BACKEND"] == "pulpcore.app.models.storage.FileSystem"
+            domain.storage_class == "pulpcore.app.models.storage.FileSystem"
             or not settings.REDIRECT_TO_OBJECT_STORAGE
         ):
             self.redirects_class = FileStorageRedirects
-        elif settings.STORAGES["default"]["BACKEND"] == "storages.backends.s3boto3.S3Boto3Storage":
+        elif domain.storage_class == "storages.backends.s3boto3.S3Boto3Storage":
             self.redirects_class = S3StorageRedirects
-        elif (
-            settings.STORAGES["default"]["BACKEND"]
-            == "storages.backends.azure_storage.AzureStorage"
-        ):
+        elif domain.storage_class == "storages.backends.azure_storage.AzureStorage":
             self.redirects_class = AzureStorageRedirects
         else:
             raise NotImplementedError()
@@ -1074,6 +1087,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         distribution, repository, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)
+        domain = get_domain()
 
         if pk[:7] != "sha256:":
             try:
@@ -1094,11 +1108,13 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                     if manifest is None:
                         return redirects.redirect_to_content_app("manifests", pk)
 
-                    tag = models.Tag(name=pk, tagged_manifest=manifest)
+                    tag = models.Tag(name=pk, tagged_manifest=manifest, _pulp_domain=domain)
                     try:
                         tag.save()
                     except IntegrityError:
-                        tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
+                        tag = models.Tag.objects.get(
+                            name=tag.name, tagged_manifest=manifest, _pulp_domain=domain
+                        )
                         tag.touch()
 
                     add_content_units = self.get_content_units_to_add(manifest, tag)
@@ -1193,12 +1209,14 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             raise GatewayTimeout()
         else:
             digest = response.headers.get("docker-content-digest")
-            return models.Manifest.objects.filter(digest=digest).first()
+            return models.Manifest.objects.filter(digest=digest, pulp_domain=get_domain()).first()
 
     def put(self, request, path, pk=None):
         """
         Responds with the actual manifest
         """
+        domain = get_domain()
+        storage = domain.get_storage()
         # iterate over all the layers and create
         chunk = request.META["wsgi.input"]
         artifact = self.receive_artifact(chunk)
@@ -1337,11 +1355,13 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
 
         # a manifest cannot be tagged by its digest - an identifier specified in the 'pk' parameter
         if not pk.startswith("sha256:"):
-            tag = models.Tag(name=pk, tagged_manifest=manifest)
+            tag = models.Tag(name=pk, tagged_manifest=manifest, _pulp_domain=domain)
             try:
                 tag.save()
             except IntegrityError:
-                tag = models.Tag.objects.get(name=tag.name, tagged_manifest=manifest)
+                tag = models.Tag.objects.get(
+                    name=tag.name, tagged_manifest=manifest, _pulp_domain=domain
+                )
                 tag.touch()
 
             add_content_units = [str(tag.pk), str(manifest.pk)] + [
@@ -1387,19 +1407,23 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             media_type=media_type,
             config_blob=config_blob,
             data=raw_text_data,
+            _pulp_domain=get_domain(),
         )
 
     def _save_manifest(self, manifest):
         try:
             manifest.save()
         except IntegrityError:
-            manifest = models.Manifest.objects.get(digest=manifest.digest)
+            manifest = models.Manifest.objects.get(
+                digest=manifest.digest, _pulp_domain=get_domain()
+            )
             manifest.touch()
 
         return manifest
 
     def receive_artifact(self, chunk):
         """Handles assembling of Manifest as it's being uploaded."""
+        domain = get_domain()
         with NamedTemporaryFile("ab") as temp_file:
             size = 0
             hashers = {}
@@ -1417,11 +1441,11 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             digests = {}
             for algorithm in Artifact.DIGEST_FIELDS:
                 digests[algorithm] = hashers[algorithm].hexdigest()
-            artifact = Artifact(file=temp_file.name, size=size, **digests)
+            artifact = Artifact(file=temp_file.name, size=size, pulp_domain=domain, **digests)
             try:
                 artifact.save()
             except IntegrityError:
-                artifact = Artifact.objects.get(sha256=artifact.sha256)
+                artifact = Artifact.objects.get(sha256=artifact.sha256, pulp_domain=domain)
                 artifact.touch()
             return artifact
 
@@ -1438,14 +1462,14 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
     def get(self, request, path, pk):
         """Return a signature identified by its sha256 checksum."""
         _, _, repository_version = self.get_drv_pull(path)
-
+        domain = get_domain()
         try:
             manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
         except models.Manifest.DoesNotExist:
             try:
                 # the manifest was initialized as a pending content unit
                 # or has not been assigned to any repository yet
-                manifest = models.Manifest.objects.get(digest=pk)
+                manifest = models.Manifest.objects.get(digest=pk, _pulp_domain=domain)
                 manifest.touch()
             except models.Manifest.DoesNotExist:
                 raise ManifestNotFound(reference=pk)
@@ -1473,6 +1497,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
     def put(self, request, path, pk):
         """Create a new signature from the received data."""
         _, repository = self.get_dr_push(request, path)
+        domain = get_domain()
 
         try:
             manifest = models.Manifest.objects.get(
@@ -1509,11 +1534,14 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
             creator=signature_json["optional"].get("creator"),
             data=signature_dict["content"],
             signed_manifest=manifest,
+            _pulp_domain=domain,
         )
         try:
             signature.save()
         except IntegrityError:
-            signature = models.ManifestSignature.objects.get(digest=signature.digest)
+            signature = models.ManifestSignature.objects.get(
+                digest=signature.digest, _pulp_domain=domain
+            )
             signature.touch()
 
         immediate_task = dispatch(

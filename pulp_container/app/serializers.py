@@ -27,6 +27,7 @@ from pulpcore.plugin.serializers import (
     SingleArtifactContentSerializer,
     ValidateFieldsMixin,
 )
+from pulpcore.plugin.util import get_domain
 
 from pulp_file.app.models import FileContent
 from pulp_container.app import models, fields
@@ -428,7 +429,7 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
         validated_data = super().validate(data)
         if "content_guard" not in validated_data:
             validated_data["content_guard"] = ContentRedirectContentGuardSerializer.get_or_create(
-                {"name": "content redirect"}
+                {"name": "content redirect", "pulp_domain": get_domain()}
             )
         if validated_data.get("repository_version"):
             repository = validated_data["repository_version"].repository.cast()
@@ -444,7 +445,7 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
         if base_path:
             namespace_name = base_path.split("/")[0]
             validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
-                {"name": namespace_name}
+                {"name": namespace_name, "pulp_domain": get_domain()}
             )
         return validated_data
 
@@ -513,14 +514,14 @@ class ContainerPullThroughDistributionSerializer(DistributionSerializer):
 
         if "content_guard" not in validated_data:
             validated_data["content_guard"] = ContentRedirectContentGuardSerializer.get_or_create(
-                {"name": "content redirect"}
+                {"name": "content redirect", "pulp_domain": get_domain()}
             )
 
         base_path = validated_data.get("base_path")
         if base_path:
             namespace_name = base_path.split("/")[0]
             validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
-                {"name": namespace_name}
+                {"name": namespace_name, "pulp_domain": get_domain()}
             )
 
         return validated_data
@@ -864,6 +865,7 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
                 and not FileContent.objects.filter(
                     repositories__in=[build_context.repository.pk],
                     relative_path=data["containerfile_name"],
+                    _pulp_domain=get_domain(),
                 ).exists()
             ):
                 raise serializers.ValidationError(
