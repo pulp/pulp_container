@@ -8,6 +8,7 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
     label = "container"
     version = "2.23.0.dev"
     python_package_name = "pulp-container"
+    domain_compatible = True
 
     def ready(self):
         super().ready()

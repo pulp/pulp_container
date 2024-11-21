@@ -17,7 +17,6 @@ from pulp_container.tests.functional.utils import (
     get_auth_for_url,
 )
 from pulp_container.tests.functional.constants import (
-    CONTAINER_TAG_PATH,
     PULP_FIXTURE_1,
 )
 from pulp_container.constants import MEDIA_TYPE
@@ -30,6 +29,9 @@ from pulpcore.client.pulp_container import (
     DistributionsContainerApi,
     RepositoriesContainerApi,
     RemotesContainerApi,
+    ContentTagsApi,
+    ContentManifestsApi,
+    ContentBlobsApi,
 )
 
 
@@ -52,6 +54,9 @@ class TokenAuthenticationTestCase(unittest.TestCase):
         cls.repositories_api = RepositoriesContainerApi(api_client)
         cls.remotes_api = RemotesContainerApi(api_client)
         cls.distributions_api = DistributionsContainerApi(api_client)
+        cls.tags_api = ContentTagsApi(api_client)
+        cls.manifest_api = ContentManifestsApi(api_client)
+        cls.blob_api = ContentBlobsApi(api_client)
 
         cls.repository = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
 
@@ -130,14 +135,13 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
     def compare_config_blob_digests(self, pulled_manifest_digest):
         """Check if a valid config was pulled from a registry."""
-        tags_by_name_url = f"{CONTAINER_TAG_PATH}?name=manifest_a"
-        tag_response = self.client.get(tags_by_name_url)
+        tag_response = self.tags_api.list(name="manifest_a")
 
-        tagged_manifest_href = tag_response[0]["tagged_manifest"]
-        manifest_response = self.client.get(tagged_manifest_href)
+        tagged_manifest_href = tag_response.results[0].tagged_manifest
+        manifest = self.manifest_api.read(tagged_manifest_href)
+        config_blob = self.blob_api.read(manifest.config_blob)
 
-        config_blob_response = self.client.get(manifest_response["config_blob"])
-        self.assertEqual(pulled_manifest_digest, config_blob_response["digest"])
+        self.assertEqual(pulled_manifest_digest, config_blob.digest)
 
 
 def test_invalid_user(pulp_settings, local_registry):

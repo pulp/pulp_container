@@ -15,10 +15,14 @@ from pulp_smash.pulp3.bindings import (
 )
 from pulp_smash.pulp3.utils import gen_repo
 
+from pulpcore.app import settings
 from pulpcore.client.pulp_container import ContainerRepositorySyncURL
 
 from pulp_container.tests.functional.utils import gen_container_remote
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
+
+
+pytestmark = pytest.mark.skipif(settings.DOMAIN_ENABLED, reason="Domains do not support export.")
 
 
 def test_import_export_standard(
