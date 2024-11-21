@@ -1,4 +1,5 @@
 from logging import getLogger
+from django.conf import settings
 
 from pulpcore.plugin.models import Repository
 from pulpcore.plugin.viewsets import RepositoryVersionViewSet
@@ -12,10 +13,13 @@ _logger = getLogger(__name__)
 def has_namespace_obj_perms(request, view, action, permission):
     """
     Check if a user has object-level perms on the namespace associated with the distribution
-    or repository.
+    or repository. If they have model/domain level permission then return True.
     """
     if request.user.has_perm(permission):
         return True
+    if settings.DOMAIN_ENABLED:
+        if request.user.has_perm(permission, request.pulp_domain):
+            return True
     if isinstance(view, RepositoryVersionViewSet):
         obj = Repository.objects.get(pk=view.kwargs["repository_pk"]).cast()
     else:
@@ -44,23 +48,31 @@ def has_namespace_perms(request, view, action, permission):
         return False
     namespace = base_path.split("/")[0]
     try:
-        namespace = models.ContainerNamespace.objects.get(name=namespace)
+        namespace = models.ContainerNamespace.objects.get(
+            name=namespace, pulp_domain=request.pulp_domain
+        )
     except models.ContainerNamespace.DoesNotExist:
         return False
     else:
-        return request.user.has_perm(permission) or request.user.has_perm(ns_perm, namespace)
+        return (
+            request.user.has_perm(permission)
+            or request.user.has_perm(permission, request.pulp_domain)
+            or request.user.has_perm(ns_perm, namespace)
+        )
 
 
 def has_namespace_or_obj_perms(request, view, action, permission):
     """
-    Check if a user has a namespace-level perms or object-level permission
+    Check if a user has a namespace-level perms or permissions on the original object
     """
     ns_perm = "container.namespace_{}".format(permission.split(".", 1)[1])
     if has_namespace_obj_perms(request, view, action, ns_perm):
         return True
     else:
-        return request.user.has_perm(permission) or request.user.has_perm(
-            permission, view.get_object()
+        return (
+            request.user.has_perm(permission)
+            or request.user.has_perm(permission, request.pulp_domain)
+            or request.user.has_perm(permission, view.get_object())
         )
 
 
@@ -99,13 +111,15 @@ def has_namespace_model_perms(request, view, action):
     """
     if request.user.has_perm("container.add_containernamespace"):
         return True
+    if settings.DOMAIN_ENABLED:
+        return request.user.has_perm("container.add_containernamespace", obj=request.pulp_domain)
     return False
 
 
 def has_distribution_perms(request, view, action, permission):
     """
     Check if the user has permissions on the corresponding distribution.
-    Model or object permission is sufficient.
+    Model, domain or object permission is sufficient.
     """
     if request.user.has_perm(permission):
         return True

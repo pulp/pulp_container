@@ -23,6 +23,7 @@ from pulpcore.plugin.util import (
     extract_pk,
     get_objects_for_user,
     raise_for_unknown_content_units,
+    get_domain,
 )
 from pulpcore.plugin.viewsets import (
     AsyncUpdateMixin,
@@ -203,13 +204,13 @@ class ContainerContentQuerySetMixin:
                 distributions__in=get_objects_for_user(
                     self.request.user,
                     push_perm,
-                    models.ContainerDistribution.objects.all(),
+                    models.ContainerDistribution.objects.filter(pulp_domain=get_domain()),
                 )
             ).only("pk")
             allowed_mirror_repos = get_objects_for_user(
                 self.request.user,
                 mirror_perm,
-                models.ContainerRepository.objects.all(),
+                models.ContainerRepository.objects.filter(pulp_domain=get_domain()),
             ).only("pk")
             content_qs = qs.model.objects.filter(
                 Q(repositories__in=allowed_push_repos) | Q(repositories__in=allowed_mirror_repos)
@@ -374,21 +375,21 @@ class ContainerRemoteViewSet(RemoteViewSet, RolesMixin):
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_perms:container.add_containerremote",
+                "condition": "has_model_or_domain_perms:container.add_containerremote",
             },
             {
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.view_containerremote",
+                "condition": "has_model_or_domain_or_obj_perms:container.view_containerremote",
             },
             {
                 "action": ["update", "partial_update", "set_label", "unset_label"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.change_containerremote",
-                    "has_model_or_obj_perms:container.view_containerremote",
+                    "has_model_or_domain_or_obj_perms:container.change_containerremote",
+                    "has_model_or_domain_or_obj_perms:container.view_containerremote",
                 ],
             },
             {
@@ -396,15 +397,17 @@ class ContainerRemoteViewSet(RemoteViewSet, RolesMixin):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.delete_containerremote",
-                    "has_model_or_obj_perms:container.view_containerremote",
+                    "has_model_or_domain_or_obj_perms:container.delete_containerremote",
+                    "has_model_or_domain_or_obj_perms:container.view_containerremote",
                 ],
             },
             {
                 "action": ["list_roles", "add_role", "remove_role"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": ["has_model_or_obj_perms:container.manage_roles_containerremote"],
+                "condition": [
+                    "has_model_or_domain_or_obj_perms:container.manage_roles_containerremote"
+                ],
             },
         ],
         "creation_hooks": [
@@ -452,21 +455,21 @@ class ContainerPullThroughRemoteViewSet(RemoteViewSet, RolesMixin):
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_perms:container.add_containerpullthroughremote",
+                "condition": "has_model_or_domain_perms:container.add_containerpullthroughremote",
             },
             {
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.view_containerpullthroughremote",
+                "condition": "has_model_or_domain_or_obj_perms:container.view_containerpullthroughremote",  # noqa
             },
             {
                 "action": ["update", "partial_update"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.change_containerpullthroughremote",
-                    "has_model_or_obj_perms:container.view_containerpullthroughremote",
+                    "has_model_or_domain_or_obj_perms:container.change_containerpullthroughremote",
+                    "has_model_or_domain_or_obj_perms:container.view_containerpullthroughremote",
                 ],
             },
             {
@@ -474,8 +477,8 @@ class ContainerPullThroughRemoteViewSet(RemoteViewSet, RolesMixin):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.delete_containerpullthroughremote",
-                    "has_model_or_obj_perms:container.view_containerpullthroughremote",
+                    "has_model_or_domain_or_obj_perms:container.delete_containerpullthroughremote",
+                    "has_model_or_domain_or_obj_perms:container.view_containerpullthroughremote",
                 ],
             },
             {
@@ -483,7 +486,7 @@ class ContainerPullThroughRemoteViewSet(RemoteViewSet, RolesMixin):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.manage_roles_containerpullthroughremote"
+                    "has_model_or_domain_or_obj_perms:container.manage_roles_containerpullthroughremote"  # noqa
                 ],
             },
         ],
@@ -602,9 +605,9 @@ class SignOperationsMixin:
 
         tags_list = serializer.validated_data.get("tags_list")
         if tags_list:
-            tags_list_pks = models.Tag.objects.filter(name__in=tags_list).values_list(
-                "pk", flat=True
-            )
+            tags_list_pks = models.Tag.objects.filter(
+                name__in=tags_list, pulp_domain=get_domain()
+            ).values_list("pk", flat=True)
             tags_list_pks = list(tags_list_pks)
         else:
             tags_list_pks = None
@@ -643,21 +646,21 @@ class ContainerRepositoryViewSet(
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_perms:container.add_containerrepository",
+                "condition": "has_model_or_domain_perms:container.add_containerrepository",
             },
             {
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.view_containerrepository",
+                "condition": "has_model_or_domain_or_obj_perms:container.view_containerrepository",
             },
             {
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.delete_containerrepository",
-                    "has_model_or_obj_perms:container.view_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.delete_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -665,8 +668,8 @@ class ContainerRepositoryViewSet(
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.change_containerrepository",
-                    "has_model_or_obj_perms:container.view_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.change_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -674,9 +677,9 @@ class ContainerRepositoryViewSet(
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.sync_containerrepository",
-                    "has_remote_param_model_or_obj_perms:container.view_containerremote",
-                    "has_model_or_obj_perms:container.view_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.sync_containerrepository",
+                    "has_remote_param_model_or_domain_or_obj_perms:container.view_containerremote",
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -684,8 +687,8 @@ class ContainerRepositoryViewSet(
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.modify_content_containerrepository",
-                    "has_model_or_obj_perms:container.view_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.modify_content_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository",
                 ],
             },
             {
@@ -693,16 +696,18 @@ class ContainerRepositoryViewSet(
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.build_image_containerrepository",
-                    "has_model_or_obj_perms:container.view_containerrepository",
-                    "has_repo_or_repo_ver_param_model_or_obj_perms:file.view_filerepository",
+                    "has_model_or_domain_or_obj_perms:container.build_image_containerrepository",
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository",
+                    "has_repo_or_repo_ver_param_model_or_domain_or_obj_perms:file.view_filerepository",  # noqa
                 ],
             },
             {
                 "action": ["list_roles", "add_role", "remove_role"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": ["has_model_or_obj_perms:container.manage_roles_containerrepository"],
+                "condition": [
+                    "has_model_or_domain_or_obj_perms:container.manage_roles_containerrepository"
+                ],
             },
         ],
         "creation_hooks": [
@@ -826,7 +831,7 @@ class ContainerRepositoryViewSet(
         """
         Queues a task that creates a new RepositoryVersion by removing content units.
         """
-        remove_content_units = []
+        remove_content_units = {}
         repository = self.get_object()
         serializer = serializers.RecursiveManageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -834,16 +839,20 @@ class ContainerRepositoryViewSet(
         if "content_units" in request.data:
             for url in request.data["content_units"]:
                 if url == "*":
-                    remove_content_units = [url]
+                    remove_content_units = {"*": "all"}
                     break
 
-                content = NamedModelViewSet.get_resource(url, Content)
-                remove_content_units.append(str(content.pk))
+                remove_content_units[extract_pk(url)] = url
+            else:
+                self.touch_content_units(remove_content_units)
 
         result = dispatch(
             tasks.recursive_remove_content,
             exclusive_resources=[repository],
-            kwargs={"repository_pk": str(repository.pk), "content_units": remove_content_units},
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "content_units": list(remove_content_units.keys()),
+            },
         )
         return OperationPostponedResponse(result, request)
 
@@ -975,15 +984,15 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
                 "action": ["list", "retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_repository_model_or_obj_perms:container.view_containerrepository",
+                "condition": "has_repository_model_or_domain_or_obj_perms:container.view_containerrepository",  # noqa
             },
             {
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_repository_model_or_obj_perms:container.delete_containerrepository_versions",  # noqa
-                    "has_repository_model_or_obj_perms:container.view_containerrepository",
+                    "has_repository_model_or_domain_or_obj_perms:container.delete_containerrepository_versions",  # noqa
+                    "has_repository_model_or_domain_or_obj_perms:container.view_containerrepository",  # noqa
                 ],
             },
             {
@@ -991,8 +1000,8 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_repository_model_or_obj_perms:container.delete_containerrepository",
-                    "has_repository_model_or_obj_perms:container.view_containerrepository",
+                    "has_repository_model_or_domain_or_obj_perms:container.delete_containerrepository",  # noqa
+                    "has_repository_model_or_domain_or_obj_perms:container.view_containerrepository",  # noqa
                 ],
             },
             {
@@ -1000,8 +1009,8 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_repository_model_or_obj_perms:container.sync_containerrepository",
-                    "has_repository_model_or_obj_perms:container.view_containerrepository",
+                    "has_repository_model_or_domain_or_obj_perms:container.sync_containerrepository",  # noqa
+                    "has_repository_model_or_domain_or_obj_perms:container.view_containerrepository",  # noqa
                 ],
             },
         ],
@@ -1133,23 +1142,25 @@ class ContainerPushRepositoryViewSet(
         Returns a queryset by filtering by namespace permission to view distributions and
         distribution level permissions.
         """
-
-        qs = models.ContainerPushRepository.objects.all()
+        domain = get_domain()
+        qs = models.ContainerPushRepository.objects.filter(pulp_domain=domain)
         namespaces = get_objects_for_user(
             self.request.user,
             ns_perm,
-            models.ContainerNamespace.objects.all(),
+            models.ContainerNamespace.objects.filter(pulp_domain=domain),
         )
         ns_repository_pks = models.ContainerDistribution.objects.filter(
-            namespace__in=namespaces
+            namespace__in=namespaces,
+            pulp_domain=domain,
         ).values_list("repository")
         dist_repository_pks = get_objects_for_user(
             self.request.user,
             dist_perm,
-            models.ContainerDistribution.objects.all(),
+            models.ContainerDistribution.objects.filter(pulp_domain=domain),
         ).values_list("repository")
         public_repository_pks = models.ContainerDistribution.objects.filter(
-            private=False
+            private=False,
+            pulp_domain=domain,
         ).values_list("repository")
         return qs.filter(
             Q(pk__in=ns_repository_pks)
@@ -1295,7 +1306,7 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.manage_roles_containerdistribution"
+                    "has_model_or_domain_or_obj_perms:container.manage_roles_containerdistribution"
                 ],
             },
             {
@@ -1348,24 +1359,26 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
         """
         Returns a queryset of distributions filtered by namespace permissions and public status.
         """
-
-        public_qs = models.ContainerDistribution.objects.filter(private=False)
+        domain = get_domain()
+        public_qs = models.ContainerDistribution.objects.filter(private=False, pulp_domain=domain)
         obj_perm_qs = get_objects_for_user(
             self.request.user,
             dist_perm,
-            models.ContainerDistribution.objects.all(),
+            models.ContainerDistribution.objects.filter(pulp_domain=domain),
         )
         namespaces = get_objects_for_user(
             self.request.user,
             ns_perm,
-            models.ContainerNamespace.objects.all(),
+            models.ContainerNamespace.objects.filter(pulp_domain=domain),
         )
         namespaces |= get_objects_for_user(
             self.request.user,
             dist_perm,
-            models.ContainerNamespace.objects.all(),
+            models.ContainerNamespace.objects.filter(pulp_domain=domain),
         )
-        ns_qs = models.ContainerDistribution.objects.filter(namespace__in=namespaces)
+        ns_qs = models.ContainerDistribution.objects.filter(
+            namespace__in=namespaces, pulp_domain=domain
+        )
         return public_qs | obj_perm_qs | ns_qs
 
     @extend_schema(
@@ -1458,7 +1471,7 @@ class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.manage_roles_containerpullthroughdistribution"
+                    "has_model_or_domain_or_obj_perms:container.manage_roles_containerpullthroughdistribution"  # noqa
                 ],
             },
             {
@@ -1466,7 +1479,7 @@ class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition_expression": [
-                    "has_model_or_obj_perms:container.pull_new_containerdistribution"
+                    "has_model_or_domain_or_obj_perms:container.pull_new_containerdistribution"
                 ],
             },
         ],
@@ -1530,7 +1543,7 @@ class ContainerNamespaceViewSet(
                 "action": ["create"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_perms:container.add_containernamespace",
+                "condition": "has_model_or_domain_perms:container.add_containernamespace",
             },
             {
                 "action": ["create"],
@@ -1542,36 +1555,36 @@ class ContainerNamespaceViewSet(
                 "action": ["retrieve", "my_permissions"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.view_containernamespace",
+                "condition": "has_model_or_domain_or_obj_perms:container.view_containernamespace",
             },
             {
                 "action": ["destroy"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.delete_containernamespace",
-                    "has_model_or_obj_perms:container.view_containernamespace",
+                    "has_model_or_domain_or_obj_perms:container.delete_containernamespace",
+                    "has_model_or_domain_or_obj_perms:container.view_containernamespace",
                 ],
             },
             {
                 "action": ["create_distribution"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.namespace_add_containerdistribution",
+                "condition": "has_model_or_domain_or_obj_perms:container.namespace_add_containerdistribution",  # noqa
             },
             {
                 "action": ["view_distribution"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
-                    "has_model_or_obj_perms:container.namespace_view_containerdistribution"
+                    "has_model_or_domain_or_obj_perms:container.namespace_view_containerdistribution"  # noqa
                 ],
             },
             {
                 "action": ["list_roles", "add_role", "remove_role"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_obj_perms:container.manage_roles_containernamespace",
+                "condition": "has_model_or_domain_or_obj_perms:container.manage_roles_containernamespace",  # noqa
             },
         ],
         "creation_hooks": [

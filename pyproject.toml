@@ -25,7 +25,7 @@ classifiers=[
 requires-python = ">=3.9"
 dependencies = [
   "jsonschema>=4.4,<4.24",
-  "pulpcore>=3.49.0,<3.85",
+  "pulpcore>=3.68.2,<3.85",
   "pyjwt[crypto]>=2.4,<2.11",
 ]
 

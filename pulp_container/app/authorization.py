@@ -17,6 +17,7 @@ from rest_framework.request import Request
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
+from pulpcore.plugin.util import get_domain
 from pulp_container.app.models import (
     ContainerDistribution,
     ContainerNamespace,
@@ -209,10 +210,10 @@ class AuthorizationService:
         }
 
 
-def get_pull_through_distribution(path):
+def get_pull_through_distribution(path, domain):
     return (
         ContainerPullThroughDistribution.objects.annotate(path=Value(path))
-        .filter(path__startswith=F("base_path"))
+        .filter(pulp_domain=domain, path__startswith=F("base_path"))
         .order_by("-base_path")
         .first()
     )
@@ -231,6 +232,7 @@ class PermissionChecker:
         request.method = method
         request.user = self.user
         request._full_data = data
+        request.pulp_domain = get_domain()
         # Fake the corresponding view
         view = FakeViewWithSerializer(action, lambda: obj)
         return self.access_policy.has_permission(request, view)
@@ -239,50 +241,63 @@ class PermissionChecker:
         """
         Check if the user has permissions to pull from the repository specified by the path.
         """
+        domain = get_domain()
         try:
-            distribution = ContainerDistribution.objects.get(base_path=path)
+            distribution = ContainerDistribution.objects.get(base_path=path, pulp_domain=domain)
         except ContainerDistribution.DoesNotExist:
             namespace_name = path.split("/")[0]
             try:
-                namespace = ContainerNamespace.objects.get(name=namespace_name)
+                namespace = ContainerNamespace.objects.get(name=namespace_name, pulp_domain=domain)
             except ContainerNamespace.DoesNotExist:
                 # Check if the user is allowed to create a new namespace
-                return self.has_permission(None, "POST", "create", {"name": namespace_name})
+                return self.has_permission(
+                    None, "POST", "create", {"name": namespace_name, "pulp_domain": domain}
+                )
 
-            if pt_distribution := get_pull_through_distribution(path):
+            if pt_distribution := get_pull_through_distribution(path, domain):
                 # Check if the user is allowed to create a new distribution
                 return self.has_pull_through_new_distribution_permissions(pt_distribution)
             else:
                 # Check if the user is allowed to view distributions in the namespace
                 return self.has_permission(
-                    namespace, "GET", "view_distribution", {"name": namespace_name}
+                    namespace,
+                    "GET",
+                    "view_distribution",
+                    {"name": namespace_name, "pulp_domain": domain},
                 )
 
-        if pt_distribution := get_pull_through_distribution(path):
+        if get_pull_through_distribution(path, domain):
             # Check if the user is allowed to pull new content via a pull-through distribution
             if self.has_pull_through_permissions(distribution):
                 return True
 
         # Check if the user has general pull permissions
-        return self.has_permission(distribution, "GET", "pull", {"base_path": path})
+        return self.has_permission(
+            distribution, "GET", "pull", {"base_path": path, "pulp_domain": domain}
+        )
 
     def has_push_permissions(self, path):
         """
         Check if the user has permissions to push to the repository specified by the path.
         """
+        domain = get_domain()
         try:
-            distribution = ContainerDistribution.objects.get(base_path=path)
+            distribution = ContainerDistribution.objects.get(base_path=path, pulp_domain=domain)
         except ContainerDistribution.DoesNotExist:
             namespace_name = path.split("/")[0]
             try:
-                namespace = ContainerNamespace.objects.get(name=namespace_name)
+                namespace = ContainerNamespace.objects.get(name=namespace_name, pulp_domain=domain)
             except ContainerNamespace.DoesNotExist:
                 # Check if user is allowed to create a new namespace
-                return self.has_permission(None, "POST", "create", {"name": namespace_name})
+                return self.has_permission(
+                    None, "POST", "create", {"name": namespace_name, "pulp_domain": domain}
+                )
             # Check if user is allowed to create a new distribution in the namespace
             return self.has_permission(namespace, "POST", "create_distribution", {})
 
-        return self.has_permission(distribution, "POST", "push", {"base_path": path})
+        return self.has_permission(
+            distribution, "POST", "push", {"base_path": path, "pulp_domain": domain}
+        )
 
     def has_view_catalog_permissions(self, path):
         """

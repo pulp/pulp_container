@@ -2,6 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Value
 
 from pulpcore.plugin.cache import CacheKeys, AsyncContentCache, SyncContentCache
+from pulpcore.plugin.util import get_domain, cache_key
 
 from pulp_container.app.models import ContainerDistribution, ContainerPullThroughDistribution
 from pulp_container.app.exceptions import RepositoryNotFound
@@ -65,23 +66,25 @@ def find_base_path_cached(request, cached):
 
     """
     path = request.resolver_match.kwargs["path"]
-    path_exists = cached.exists(base_key=path)
+    base_key = cache_key(path)
+    path_exists = cached.exists(base_key=base_key)
     if path_exists:
-        return path
+        return base_key
     else:
+        domain = get_domain()
         try:
-            distro = ContainerDistribution.objects.get(base_path=path)
+            distro = ContainerDistribution.objects.get(base_path=path, pulp_domain=domain)
         except ObjectDoesNotExist:
             distro = (
                 ContainerPullThroughDistribution.objects.annotate(path=Value(path))
-                .filter(path__startswith=F("base_path"))
+                .filter(path__startswith=F("base_path"), pulp_domain=domain)
                 .order_by("-base_path")
                 .first()
             )
             if not distro:
                 raise RepositoryNotFound(name=path)
 
-        return distro.base_path
+        return cache_key(distro.base_path)
 
 
 class FlatpakIndexStaticCache(SyncContentCache):

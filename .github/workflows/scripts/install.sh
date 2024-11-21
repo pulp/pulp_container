@@ -95,7 +95,7 @@ if [ "$TEST" = "s3" ]; then
   sed -i -e '$a s3_test: true\
 minio_access_key: "'$MINIO_ACCESS_KEY'"\
 minio_secret_key: "'$MINIO_SECRET_KEY'"\
-pulp_scenario_settings: {"flatpak_index": false, "token_auth_disabled": true}\
+pulp_scenario_settings: {"domain_enabled": true, "flatpak_index": false, "token_auth_disabled": true}\
 pulp_scenario_env: {}\
 test_storages_compat_layer: true\
 ' vars/main.yaml
@@ -110,7 +110,7 @@ if [ "$TEST" = "azure" ]; then
       - ./azurite:/etc/pulp\
     command: "azurite-blob --blobHost 0.0.0.0"' vars/main.yaml
   sed -i -e '$a azure_test: true\
-pulp_scenario_settings: {"content_origin": null, "flatpak_index": true}\
+pulp_scenario_settings: {"content_origin": null, "domain_enabled": true, "flatpak_index": true}\
 pulp_scenario_env: {}\
 ' vars/main.yaml
 fi
