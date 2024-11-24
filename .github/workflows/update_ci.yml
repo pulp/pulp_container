@@ -69,28 +69,6 @@ jobs:
         with:
           fetch-depth: 0
           path: "pulp_container"
-          ref: "2.9"
-
-      - name: "Run update"
-        working-directory: "pulp_container"
-        run: |
-          ../plugin_template/scripts/update_ci.sh --release
-
-      - name: "Create Pull Request for CI files"
-        uses: "peter-evans/create-pull-request@v6"
-        with:
-          token: "${{ secrets.RELEASE_TOKEN }}"
-          path: "pulp_container"
-          committer: "pulpbot <pulp-infra@redhat.com>"
-          author: "pulpbot <pulp-infra@redhat.com>"
-          title: "Update CI files for branch 2.9"
-          branch: "update-ci/2.9"
-          base: "2.9"
-          delete-branch: true
-      - uses: "actions/checkout@v4"
-        with:
-          fetch-depth: 0
-          path: "pulp_container"
           ref: "2.10"
 
       - name: "Run update"
@@ -152,5 +130,27 @@ jobs:
           title: "Update CI files for branch 2.15"
           branch: "update-ci/2.15"
           base: "2.15"
+          delete-branch: true
+      - uses: "actions/checkout@v4"
+        with:
+          fetch-depth: 0
+          path: "pulp_container"
+          ref: "2.9"
+
+      - name: "Run update"
+        working-directory: "pulp_container"
+        run: |
+          ../plugin_template/scripts/update_ci.sh --release
+
+      - name: "Create Pull Request for CI files"
+        uses: "peter-evans/create-pull-request@v6"
+        with:
+          token: "${{ secrets.RELEASE_TOKEN }}"
+          path: "pulp_container"
+          committer: "pulpbot <pulp-infra@redhat.com>"
+          author: "pulpbot <pulp-infra@redhat.com>"
+          title: "Update CI files for branch 2.9"
+          branch: "update-ci/2.9"
+          base: "2.9"
           delete-branch: true
 ...
