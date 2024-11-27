@@ -5,6 +5,43 @@ requires = [
 ]
 build-backend = 'setuptools.build_meta'
 
+[project]
+name = "pulp-container"
+version = "2.23.0.dev"
+description = "Container plugin for the Pulp Project"
+readme = "README.md"
+authors = [
+  {name="Pulp Team", email="pulp-list@redhat.com"},
+]
+classifiers=[
+  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+  "Operating System :: POSIX :: Linux",
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Django",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+]
+requires-python = ">=3.9"
+dependencies = [
+  "jsonschema>=4.4,<4.24",
+  "pulpcore>=3.49.0,<3.70",
+  "pyjwt[crypto]>=2.4,<2.11",
+]
+
+[project.urls]
+Homepage = "https://pulpproject.org"
+Documentation = "https://pulpproject.org/pulp_container/"
+Repository = "https://github.com/pulp/pulp_container"
+"Bug Tracker" = "https://github.com/pulp/pulp_container/issues"
+Changelog = "https://pulpproject.org/pulp_container/changes/"
+
+[project.entry-points."pulpcore.plugin"]
+pulp_container = "pulp_container:default_app_config"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
 [tool.towncrier]
 package = "pulp_container"
 filename = "CHANGES.md"
@@ -33,18 +70,13 @@ exclude = '''
 
 [tool.check-manifest]
 ignore = [
-    ".bumpversion.cfg",
     ".gitleaks.toml",
     "CHANGES/**",
-    "CONTRIBUTING.rst",
-    "HISTORY.rst",
     "dev_requirements.txt",
     "doc_requirements.txt",
     "docs/**",
     "staging_docs/**",
     "template_config.yml",
-    ".travis/**",
-    ".travis.yml",
     ".pep8speaks.yml",
     ".ci/**",
     ".github/**",
