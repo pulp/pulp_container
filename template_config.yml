@@ -69,6 +69,7 @@ supported_release_branches:
 - '2.14'
 - '2.15'
 - '2.16'
+- '2.19'
 - '2.20'
 sync_ci: true
 test_azure: true
