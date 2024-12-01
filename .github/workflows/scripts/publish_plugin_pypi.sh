@@ -28,6 +28,6 @@ then
 fi
 
 twine upload -u __token__ -p "$PYPI_API_TOKEN" \
-"dist/pulp_container-$VERSION-py3-none-any.whl" \
-"dist/pulp-container-$VERSION.tar.gz" \
+dist/pulp?container-"$VERSION"-py3-none-any.whl \
+dist/pulp?container-"$VERSION".tar.gz \
 ;
