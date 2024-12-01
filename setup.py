@@ -17,7 +17,7 @@ setup(
     author="Pulp Team",
     author_email="pulp-list@redhat.com",
     url="https://pulpproject.org/",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=requirements,
     include_package_data=True,
     packages=find_packages(exclude=["tests", "tests.*"]),
