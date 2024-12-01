@@ -28,14 +28,14 @@ jobs:
           path: "pulp_container"
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - uses: "actions/setup-python@v4"
+      - uses: "actions/setup-python@v5"
         with:
           python-version: "3.11"
 
       - name: "Install python dependencies"
         run: |
           echo ::group::PYDEPS
-          pip install bump2version towncrier
+          pip install bump-my-version towncrier
           echo ::endgroup::
 
       - name: "Configure Git with pulpbot name and email"

@@ -26,14 +26,20 @@ jobs:
           fetch-depth: 0
           path: "pulp_container"
 
-      - uses: "actions/setup-python@v4"
+      - uses: "actions/checkout@v4"
+        with:
+          fetch-depth: 1
+          repository: "pulp/plugin_template"
+          path: "plugin_template"
+
+      - uses: "actions/setup-python@v5"
         with:
           python-version: "3.11"
 
       - name: "Install python dependencies"
         run: |
           echo ::group::PYDEPS
-          pip install bump2version jinja2 pyyaml packaging
+          pip install bump-my-version packaging -r plugin_template/requirements.txt
           echo ::endgroup::
 
       - name: "Setting secrets"
@@ -48,7 +54,7 @@ jobs:
         run: |
           # Just to be sure...
           git checkout main
-          NEW_BRANCH="$(bump2version --dry-run --list release | sed -Ene 's/^new_version=([[:digit:]]+\.[[:digit:]]+)\..*$/\1/p')"
+          NEW_BRANCH="$(bump-my-version show new_version --increment release | sed -Ene 's/^([[:digit:]]+\.[[:digit:]]+)\.[[:digit:]]+$/\1/p')"
           if [ -z "$NEW_BRANCH" ]
           then
             echo Could not determine the new branch name.
@@ -64,19 +70,12 @@ jobs:
       - name: Bump version on main branch
         working-directory: pulp_container
         run: |
-          bump2version --no-commit minor
+          bump-my-version bump --no-commit minor
 
       - name: Remove entries from CHANGES directory
         working-directory: pulp_container
         run: |
           find CHANGES -type f -regex ".*\.\(bugfix\|doc\|feature\|misc\|deprecation\|removal\)" -exec git rm {} +
-
-      - name: Checkout plugin template
-        uses: actions/checkout@v4
-        with:
-          repository: pulp/plugin_template
-          path: plugin_template
-          fetch-depth: 0
 
       - name: Update CI branches in template_config
         working-directory: plugin_template
@@ -94,10 +93,8 @@ jobs:
           branch: minor-version-bump
           base: main
           title: Bump minor version
-          body: '[noissue]'
           commit-message: |
             Bump minor version
-            [noissue]
           delete-branch: true
 
       - name: Push release branch

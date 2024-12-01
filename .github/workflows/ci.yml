@@ -25,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
           path: "pulp_container"
-      - uses: "actions/setup-python@v4"
+      - uses: "actions/setup-python@v5"
         with:
           python-version: "3.11"
       - name: "Install python dependencies"
@@ -42,9 +42,9 @@ jobs:
           GITHUB_CONTEXT: "${{ github.event.pull_request.commits_url }}"
         run: |
           .github/workflows/scripts/check_commit.sh
-      - name: "Verify requirements files"
-        run: |
-          python .ci/scripts/check_requirements.py
+
+  docs:
+    uses: "./.github/workflows/docs.yml"
 
   lint:
     uses: "./.github/workflows/lint.yml"
@@ -56,6 +56,9 @@ jobs:
   test:
     needs: "build"
     uses: "./.github/workflows/test.yml"
+    with:
+      matrix_env: |
+        [{"TEST": "pulp"}, {"TEST": "azure"}, {"TEST": "s3"}, {"TEST": "lowerbounds"}]
 
   deprecations:
     runs-on: "ubuntu-latest"
@@ -67,10 +70,11 @@ jobs:
           mkdir -p "pulp_container"
         working-directory: "."
       - name: "Download Deprecations"
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: "deprecations"
+          pattern: "deprecations-*"
           path: "pulp_container"
+          merge-multiple: true
       - name: "Print deprecations"
         run: |
           cat deprecations-*.txt | sort -u
@@ -83,6 +87,7 @@ jobs:
       - "check-commits"
       - "lint"
       - "test"
+      - "docs"
     if: "always()"
     steps:
       - name: "Collect needed jobs results"
