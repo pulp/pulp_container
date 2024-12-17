@@ -6,7 +6,7 @@ fi
 
 # add the copied certificates from install.sh to the container's trusted certificates list
 if [[ "$TEST" = "azure" ]]; then
-  cmd_prefix sudo trust anchor /etc/pki/tls/cert.pem
+  cmd_prefix trust anchor /etc/pki/tls/cert.pem
 else
-  cmd_prefix sudo trust anchor /etc/pulp/certs/pulp_webserver.crt
+  cmd_prefix trust anchor /etc/pulp/certs/pulp_webserver.crt
 fi
