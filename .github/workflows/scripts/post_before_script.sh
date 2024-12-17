@@ -2,4 +2,8 @@
 cmd_prefix dnf install -yq dbus-daemon flatpak
 
 # add the copied certificates from install.sh to the container's trusted certificates list
-cmd_prefix sudo trust anchor /etc/pulp/certs/pulp_webserver.crt
+if [[ "$TEST" = "azure" ]]; then
+  cmd_prefix trust anchor /etc/pki/tls/cert.pem
+else
+  cmd_prefix trust anchor /etc/pulp/certs/pulp_webserver.crt
+fi
