@@ -211,7 +211,7 @@ DOCKER_MANIFEST_V1_SCHEMA = {
                     "header": {
                         "type": "object",
                         "properties": {"alg": {"type": "string"}, "jwk": {"type": "object"}},
-                        "required": ["alg", "jwk"],
+                        "required": ["alg"],
                     },
                     "signature": {"type": "string"},
                 },
