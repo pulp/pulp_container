@@ -1,2 +1,0 @@
-Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
-was defined as required.

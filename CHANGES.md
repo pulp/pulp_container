@@ -8,6 +8,16 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.14.17 (2025-01-07) {: #2.14.17 }
+
+#### Bugfixes {: #2.14.17-bugfix }
+
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
+
+---
+
 ## 2.14.16 (2024-07-24) {: #2.14.16 }
 
 
