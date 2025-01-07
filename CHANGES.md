@@ -4,7 +4,34 @@
 [//]: # (fix problems like typo corrections or such.)
 [//]: # (To add a new change log entry, please see the contributing docs.)
 [//]: # (WARNING: Don't drop the towncrier directive!)
+
 [//]: # (towncrier release notes start)
+
+## 2.19.4 (2025-01-07) {: #2.19.4 }
+
+#### Bugfixes {: #2.19.4-bugfix }
+
+- Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
+  media types retrieved from a remote registry.
+  [#1444](https://github.com/pulp/pulp_container/issues/1444)
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  [#1552](https://github.com/pulp/pulp_container/issues/1552)
+- Fixed a bug that disallowed users from leveraging the remote authentication.
+  [#1577](https://github.com/pulp/pulp_container/issues/1577)
+- Fixed a bug that caused the registry to not accept requests from anonymous users when token
+  authentication was disabled.
+  [#1605](https://github.com/pulp/pulp_container/issues/1605)
+- Fixed the long accept header limit exceed during sync.
+  [#1696](https://github.com/pulp/pulp_container/issues/1696)
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
+
+---
+
 ## 2.19.3 (2024-04-23) {: #2.19.3 }
 
 ### Bugfixes
