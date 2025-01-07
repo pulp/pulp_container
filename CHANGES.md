@@ -8,6 +8,19 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.15.7 (2025-01-07) {: #2.15.7 }
+
+#### Bugfixes {: #2.15.7-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
+
+---
+
 ## 2.15.6 (2024-03-15) {: #2.15.6 }
 
 ### Bugfixes
