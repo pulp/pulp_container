@@ -43,6 +43,12 @@
 
 ---
 
+## 2.21.2 (2025-01-07) {: #2.21.2 }
+
+No significant changes.
+
+---
+
 ## 2.21.1 (2024-10-25) {: #2.21.1 }
 
 #### Bugfixes {: #2.21.1-bugfix }
@@ -98,6 +104,19 @@
 #### Misc {: #2.21.0-misc }
 
 - [#1607](https://github.com/pulp/pulp_container/issues/1607), [#1681](https://github.com/pulp/pulp_container/issues/1681)
+
+---
+
+## 2.20.5 (2025-01-07) {: #2.20.5 }
+
+#### Bugfixes {: #2.20.5-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
 
 ---
 
@@ -169,6 +188,31 @@ No significant changes.
 ### Misc
 
 -   
+
+---
+
+## 2.19.4 (2025-01-07) {: #2.19.4 }
+
+#### Bugfixes {: #2.19.4-bugfix }
+
+- Added ``application/vnd.docker.distribution.manifest.v1+prettyjws`` to the list of accepted
+  media types retrieved from a remote registry.
+  [#1444](https://github.com/pulp/pulp_container/issues/1444)
+- Fixed sync failure due to ignored certs during registry signature extentions API check.
+  [#1552](https://github.com/pulp/pulp_container/issues/1552)
+- Fixed a bug that disallowed users from leveraging the remote authentication.
+  [#1577](https://github.com/pulp/pulp_container/issues/1577)
+- Fixed a bug that caused the registry to not accept requests from anonymous users when token
+  authentication was disabled.
+  [#1605](https://github.com/pulp/pulp_container/issues/1605)
+- Fixed the long accept header limit exceed during sync.
+  [#1696](https://github.com/pulp/pulp_container/issues/1696)
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
 
 ---
 
@@ -287,6 +331,16 @@ No significant changes.
 
 -   Fixed re-sync failures after reclaiming disk space.
     [#1400](https://github.com/pulp/pulp_container/issues/1400)
+
+---
+
+## 2.16.10 (2025-01-07) {: #2.16.10 }
+
+#### Bugfixes {: #2.16.10-bugfix }
+
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
 
 ---
 
@@ -414,6 +468,19 @@ No significant changes.
 
 ---
 
+## 2.15.7 (2025-01-07) {: #2.15.7 }
+
+#### Bugfixes {: #2.15.7-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
+
+---
+
 ## 2.15.6 (2024-03-15) {: #2.15.6 }
 
 ### Bugfixes
@@ -526,6 +593,16 @@ No significant changes.
 ### Misc
 
 -   [#1093](https://github.com/pulp/pulp_container/issues/1093), [#1154](https://github.com/pulp/pulp_container/issues/1154)
+
+---
+
+## 2.14.17 (2025-01-07) {: #2.14.17 }
+
+#### Bugfixes {: #2.14.17-bugfix }
+
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
 
 ---
 
