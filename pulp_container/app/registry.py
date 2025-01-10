@@ -83,7 +83,7 @@ class Registry(Handler):
         full_headers["Docker-Content-Digest"] = headers["Docker-Content-Digest"]
         full_headers["Docker-Distribution-API-Version"] = "registry/2.0"
 
-        if settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem":
+        if settings.STORAGES["default"]["BACKEND"] == "pulpcore.app.models.storage.FileSystem":
             file = artifact.file
             path = os.path.join(settings.MEDIA_ROOT, file.name)
             if not os.path.exists(path):
