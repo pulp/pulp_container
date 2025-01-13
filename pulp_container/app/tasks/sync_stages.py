@@ -10,6 +10,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 from asgiref.sync import sync_to_async
 from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage, ContentSaver
+from pulpcore.plugin.util import get_domain
 
 from pulp_container.constants import (
     MANIFEST_TYPE,
@@ -80,7 +81,7 @@ class ContainerFirstStage(Stage):
 
         if (
             manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest)
+            .filter(digest=digest, pulp_domain=get_domain())
             .afirst()
         ):
             if raw_text_data := manifest.data:
@@ -461,7 +462,7 @@ class ContainerFirstStage(Stage):
 
         if (
             manifest := await Manifest.objects.prefetch_related("contentartifact_set")
-            .filter(digest=digest)
+            .filter(digest=digest, pulp_domain=get_domain())
             .afirst()
         ):
             if manifest.data:
