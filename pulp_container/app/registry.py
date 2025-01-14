@@ -200,10 +200,6 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-            if not tag.tagged_manifest.data:
-                return await self.dispatch_tag(request, tag, response_headers)
-            # END OF BACKWARD COMPATIBILITY
             return web.Response(text=tag.tagged_manifest.data, headers=response_headers)
 
         # return what was found in case media_type is accepted header (docker, oci)
@@ -213,40 +209,10 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-            if not tag.tagged_manifest.data:
-                return await self.dispatch_tag(request, tag, response_headers)
-            # END OF BACKWARD COMPATIBILITY
             return web.Response(text=tag.tagged_manifest.data, headers=response_headers)
 
         # return 404 in case the client is requesting docker manifest v2 schema 1
         raise PathNotResolved(tag_name)
-
-    # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
-    async def dispatch_tag(self, request, tag, response_headers):
-        """
-        Finds an artifact associated with a Tag and sends it to the client, otherwise tries
-        to stream it.
-
-        Args:
-            request(:class:`~aiohttp.web.Request`): The request to prepare a response for.
-            tag: Tag
-            response_headers (dict): dictionary that contains the 'Content-Type' header to send
-                with the response
-
-        Returns:
-            :class:`aiohttp.web.StreamResponse` or :class:`aiohttp.web.FileResponse`: The response
-                streamed back to the client.
-
-        """
-        try:
-            artifact = await tag.tagged_manifest._artifacts.aget()
-        except ObjectDoesNotExist:
-            ca = await sync_to_async(lambda x: x[0])(tag.tagged_manifest.contentartifact_set.all())
-            return await self._stream_content_artifact(request, web.StreamResponse(), ca)
-        else:
-            return await Registry._dispatch(artifact, response_headers)
-        # END OF BACKWARD COMPATIBILITY
 
     @RegistryContentCache(
         base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
@@ -283,16 +249,6 @@ class Registry(Handler):
                     "Content-Type": manifest.media_type,
                     "Docker-Content-Digest": manifest.digest,
                 }
-                # TODO: BACKWARD COMPATIBILITY - remove after migrating to artifactless manifest
-                if not manifest.data:
-                    if saved_artifact := await manifest._artifacts.afirst():
-                        return await Registry._dispatch(saved_artifact, headers)
-                    else:
-                        ca = await sync_to_async(lambda x: x[0])(manifest.contentartifact_set.all())
-                        return await self._stream_content_artifact(
-                            request, web.StreamResponse(), ca
-                        )
-                # END OF BACKWARD COMPATIBILITY
                 return web.Response(text=manifest.data, headers=headers)
             elif content_type == "blobs":
                 ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
