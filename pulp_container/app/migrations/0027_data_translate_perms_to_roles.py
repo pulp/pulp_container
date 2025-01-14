@@ -237,7 +237,6 @@ class Migration(migrations.Migration):
     if global_apps.is_installed('guardian'):
         dependencies.extend([
             ('guardian', '0002_generic_permissions_index'),
-            ('core', '0080_proxy_group_model'),
             migrations.swappable_dependency(settings.AUTH_USER_MODEL),
             ('auth', '0012_alter_user_first_name_max_length'),
             ('contenttypes', '0002_remove_content_type_name'),
