@@ -1120,7 +1120,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                     self.fetch_manifest(remote, pk)
                     return redirects.redirect_to_content_app("manifests", pk)
                 elif manifest:
-                    return redirects.issue_manifest_redirect(manifest)
+                    return Response(manifest.data)
                 else:
                     raise ManifestNotFound(reference=pk)
 
