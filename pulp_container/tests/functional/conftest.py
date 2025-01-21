@@ -435,6 +435,17 @@ def container_sync(container_repository_api, monitor_task):
 
 
 @pytest.fixture
+def container_distribution_factory(container_distribution_api, gen_object_with_cleanup):
+    def _container_distribution_factory(**kwargs):
+        distro = {"name": str(uuid4()), "base_path": str(uuid4())}
+        if kwargs:
+            distro.update(kwargs)
+        return gen_object_with_cleanup(container_distribution_api, distro)
+
+    return _container_distribution_factory
+
+
+@pytest.fixture
 def pull_through_distribution(
     gen_object_with_cleanup,
     container_pull_through_remote_api,

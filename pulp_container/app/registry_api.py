@@ -580,6 +580,32 @@ class FlatpakIndexDynamicView(APIView):
                     tag, mlm.manifest_list, oss, architectures, manifests
                 )
 
+    def get_manifest_config(self, manifest):
+        # Special handling for the manifest's config options not being fully stored on the model yet
+        # See migrations 38 & 43
+        config = {
+            "labels": manifest.labels,
+            "architecture": manifest.architecture,
+            "os": manifest.os,
+        }
+        if any(not config[value] for value in ("labels", "architecture", "os")):
+            # Try to read the original config blob, could be missing if user did a reclaim :(
+            if manifest.config_blob:
+                try:
+                    config_artifact = manifest.config_blob._artifacts.get()
+                except Artifact.DoesNotExist:
+                    log.warning(f"Manifest {manifest.pk}'s config blob was not found.")
+                else:
+                    with storage.open(config_artifact.file.name) as file:
+                        raw_data = file.read()
+                    config_data = json.loads(raw_data)
+                    config["labels"] = config_data.get("config", {}).get("Labels")
+                    config["os"] = config_data["os"]
+                    config["architecture"] = config_data["architecture"]
+            else:
+                log.warning(f"Manifest {manifest.pk} has no config blob.")
+        return config
+
     def get(self, request):
         req_repositories = None
         req_tags = None
@@ -636,10 +662,8 @@ class FlatpakIndexDynamicView(APIView):
                     tag.name, tag.tagged_manifest, req_oss, req_architectures, manifests
                 )
             for manifest, tagged in manifests.items():
-                with storage.open(manifest.config_blob._artifacts.get().file.name) as file:
-                    raw_data = file.read()
-                config_data = json.loads(raw_data)
-                labels = config_data.get("config", {}).get("Labels")
+                config_data = self.get_manifest_config(manifest)
+                labels = config_data["labels"]
                 if not labels:
                     continue
                 if any(label not in labels.keys() for label in req_label_exists):
