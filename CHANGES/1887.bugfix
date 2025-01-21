@@ -1,0 +1,1 @@
+Fixed flatpak index returning 500 when Manifest content was on_demand or had been reclaimed.
