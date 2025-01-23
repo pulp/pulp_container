@@ -8,6 +8,21 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.22.1 (2025-01-22) {: #2.22.1 }
+
+#### Bugfixes {: #2.22.1-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
+- Fixed flatpak index returning 500 when Manifest content was on_demand or had been reclaimed.
+  [#1887](https://github.com/pulp/pulp_container/issues/1887)
+
+---
+
 ## 2.22.0 (2024-11-01) {: #2.22.0 }
 
 #### Features {: #2.22.0-feature }
