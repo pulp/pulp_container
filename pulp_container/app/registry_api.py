@@ -1146,10 +1146,10 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 elif manifest:
                     headers = {
                         "Content-Type": manifest.media_type,
-                        "Docker-Content-Digest": pk,
+                        "Docker-Content-Digest": manifest.digest,
                         "Docker-Distribution-API-Version": "registry/2.0",
                     }
-                    return Response(manifest.data, headers=headers)
+                    return Response(manifest.json_manifest, headers=headers)
                 else:
                     raise ManifestNotFound(reference=pk)
 
