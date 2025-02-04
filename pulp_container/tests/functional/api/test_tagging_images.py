@@ -13,7 +13,6 @@ from pulp_container.tests.functional.utils import (
     gen_container_client,
 )
 from pulp_container.tests.functional.constants import (
-    CONTAINER_TAG_PATH,
     PULP_FIXTURE_1,
     REGISTRY_V2_REPO_PULP,
 )
@@ -185,8 +184,7 @@ class RepositoryTaggingTestCase(TaggingTestCommons, unittest.TestCase):
             repository_href=self.repository.pulp_href, new_version="4"
         )
 
-        removed_tags_href = "{unit_path}?{filters}".format(
-            unit_path=CONTAINER_TAG_PATH,
+        removed_tags_href = "content/container/tags/?{filters}".format(
             filters=f"repository_version_removed={new_repository_version_href}",
         )
 
@@ -194,7 +192,7 @@ class RepositoryTaggingTestCase(TaggingTestCommons, unittest.TestCase):
 
         removed_content = repository_version.content_summary.removed
         removed_tags = removed_content["container.tag"]["href"]
-        self.assertEqual(removed_tags, removed_tags_href)
+        self.assertTrue(removed_tags.endswith(removed_tags_href))
 
         added_content = repository_version.content_summary.added
         self.assertEqual(added_content, {})

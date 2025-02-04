@@ -1,4 +1,5 @@
 from pulpcore.plugin.models import CreatedResource, Repository
+from pulpcore.plugin.util import get_domain
 from pulp_container.app.models import Manifest, Tag
 
 
@@ -21,7 +22,9 @@ def tag_image(manifest_pk, tag, repository_pk):
         tagged_manifest=manifest
     )
 
-    manifest_tag, created = Tag.objects.get_or_create(name=tag, tagged_manifest=manifest)
+    manifest_tag, created = Tag.objects.get_or_create(
+        name=tag, tagged_manifest=manifest, _pulp_domain=get_domain()
+    )
 
     if created:
         resource = CreatedResource(content_object=manifest_tag)

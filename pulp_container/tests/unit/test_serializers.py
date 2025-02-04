@@ -7,7 +7,9 @@ from pulpcore.plugin.util import set_current_user
 from pulp_container.app.serializers import ContainerDistributionSerializer, TagOperationSerializer
 from pulp_container.app.models import ContainerPushRepository, ContainerRepository
 
-V3_API_ROOT = settings.V3_API_ROOT
+V3_API_ROOT = (
+    settings.API_ROOT + "default/api/v3/" if settings.DOMAIN_ENABLED else settings.V3_API_ROOT
+)
 
 
 class TestContainerDistributionSerializer(TestCase):

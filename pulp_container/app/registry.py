@@ -22,6 +22,7 @@ from pulpcore.plugin.models import RemoteArtifact, Content, ContentArtifact
 from pulpcore.plugin.content import ArtifactResponse
 from pulpcore.plugin.tasking import dispatch
 from pulpcore.plugin.exceptions import TimeoutException
+from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.cache import RegistryContentCache
 from pulp_container.app.models import ContainerDistribution, Tag, Blob, Manifest, BlobManifest
@@ -272,11 +273,11 @@ class Registry(Handler):
         content = repository_version.content | Content.objects.filter(pk__in=pending_content)
         # "/pulp/container/{path:.+}/{content:(blobs|manifests)}/sha256:{digest:.+}"
         content_type = request.match_info["content"]
-
+        domain = get_domain()
         try:
             if content_type == "manifests":
                 manifest = await Manifest.objects.prefetch_related("contentartifact_set").aget(
-                    digest=digest
+                    digest=digest, _pulp_domain=domain
                 )
                 headers = {
                     "Content-Type": manifest.media_type,
@@ -438,6 +439,7 @@ class PullThroughDownloader:
         )
 
     async def init_pending_content(self, digest, manifest_data, media_type, raw_text_data):
+        domain = get_domain()
         if config := manifest_data.get("config", None):
             config_digest = config["digest"]
             config_blob = await self.save_config_blob(config_digest)
@@ -453,6 +455,7 @@ class PullThroughDownloader:
             media_type=media_type,
             config_blob=config_blob,
             data=raw_text_data,
+            _pulp_domain=domain,  # For clarity
         )
         await sync_to_async(manifest.init_architecture_and_os)()
 
@@ -464,7 +467,7 @@ class PullThroughDownloader:
         try:
             await manifest.asave()
         except IntegrityError:
-            manifest = await Manifest.objects.aget(digest=manifest.digest)
+            manifest = await Manifest.objects.aget(digest=manifest.digest, _pulp_domain=domain)
             await sync_to_async(manifest.touch)()
         await sync_to_async(self.repository.pending_manifests.add)(manifest)
 
@@ -474,11 +477,12 @@ class PullThroughDownloader:
             await sync_to_async(self.repository.pending_blobs.add)(blob)
 
     async def save_blob(self, digest, manifest):
-        blob = Blob(digest=digest)
+        domain = get_domain()
+        blob = Blob(digest=digest, _pulp_domain=domain)
         try:
             await blob.asave()
         except IntegrityError:
-            blob = await Blob.objects.aget(digest=digest)
+            blob = await Blob.objects.aget(digest=digest, _pulp_domain=domain)
             await sync_to_async(blob.touch)()
 
         bm_rel = BlobManifest(manifest=manifest, manifest_blob=blob)
@@ -502,6 +506,7 @@ class PullThroughDownloader:
             sha256=digest[len("sha256:") :],
             content_artifact=ca,
             remote=self.remote,
+            pulp_domain=domain,
         )
         with suppress(IntegrityError):
             await ra.asave()
@@ -509,6 +514,7 @@ class PullThroughDownloader:
         return blob
 
     async def save_config_blob(self, config_digest):
+        domain = get_domain()
         blob_relative_url = "/v2/{name}/blobs/{digest}".format(
             name=self.remote.namespaced_upstream_name, digest=config_digest
         )
@@ -517,13 +523,14 @@ class PullThroughDownloader:
         response = await downloader.run()
 
         response.artifact_attributes["file"] = response.path
+        response.artifact_attributes["pulp_domain"] = domain
         saved_artifact = await save_artifact(response.artifact_attributes)
 
-        config_blob = Blob(digest=config_digest)
+        config_blob = Blob(digest=config_digest, _pulp_domain=domain)
         try:
             await config_blob.asave()
         except IntegrityError:
-            config_blob = await Blob.objects.aget(digest=config_digest)
+            config_blob = await Blob.objects.aget(digest=config_digest, _pulp_domain=domain)
             await sync_to_async(config_blob.touch)()
 
         content_artifact = ContentArtifact(
