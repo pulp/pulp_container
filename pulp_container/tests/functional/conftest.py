@@ -9,24 +9,7 @@ from contextlib import contextmanager, suppress
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
-from pulpcore.client.pulp_container import (
-    ApiClient,
-    PulpContainerNamespacesApi,
-    RemotesContainerApi,
-    RemotesPullThroughApi,
-    RepositoriesContainerApi,
-    RepositoriesContainerPushApi,
-    RepositoriesContainerVersionsApi,
-    RepositoriesContainerPushVersionsApi,
-    DistributionsContainerApi,
-    DistributionsPullThroughApi,
-    ContentTagsApi,
-    ContentManifestsApi,
-    ContentBlobsApi,
-    ContentSignaturesApi,
-    ContainerContainerRepository,
-    ContainerRepositorySyncURL,
-)
+from pulpcore.tests.functional.utils import BindingsNamespace
 
 from pulp_container.tests.functional.utils import (
     TOKEN_AUTH_DISABLED,
@@ -305,99 +288,110 @@ def container_signing_service(
     subprocess.check_output(cmd)
 
 
-@pytest.fixture(scope="session")
-def container_client(bindings_cfg):
-    """Fixture for container_client."""
-    return ApiClient(bindings_cfg)
+# Bindings API Fixtures
 
 
 @pytest.fixture(scope="session")
-def container_namespace_api(container_client):
+def container_bindings(_api_client_set, bindings_cfg):
+    """
+    A namespace providing preconfigured pulp_python api clients.
+
+    e.g. `python_bindings.RepositoriesPythonApi.list()`.
+    """
+    from pulpcore.client import pulp_container as container_bindings_module
+
+    api_client = container_bindings_module.ApiClient(bindings_cfg)
+    _api_client_set.add(api_client)
+    yield BindingsNamespace(container_bindings_module, api_client)
+    _api_client_set.remove(api_client)
+
+
+# TODO: Remove all of these once rewrite is complete
+@pytest.fixture(scope="session")
+def container_namespace_api(container_bindings):
     """Container namespace API fixture."""
-    return PulpContainerNamespacesApi(container_client)
+    return container_bindings.PulpContainerNamespacesApi
 
 
 @pytest.fixture(scope="session")
-def container_remote_api(container_client):
+def container_remote_api(container_bindings):
     """Container remote API fixture."""
-    return RemotesContainerApi(container_client)
+    return container_bindings.RemotesContainerApi
 
 
 @pytest.fixture(scope="session")
-def container_pull_through_remote_api(container_client):
+def container_pull_through_remote_api(container_bindings):
     """Pull through cache container remote API fixture."""
-    return RemotesPullThroughApi(container_client)
+    return container_bindings.RemotesPullThroughApi
 
 
 @pytest.fixture(scope="session")
-def container_repository_api(container_client):
+def container_repository_api(container_bindings):
     """Container repository API fixture."""
-    return RepositoriesContainerApi(container_client)
+    return container_bindings.RepositoriesContainerApi
 
 
 @pytest.fixture(scope="session")
-def container_repository_version_api(container_client):
+def container_repository_version_api(container_bindings):
     """Container repository version API fixture."""
-    return RepositoriesContainerVersionsApi(container_client)
+    return container_bindings.RepositoriesContainerVersionsApi
 
 
 @pytest.fixture(scope="session")
-def container_push_repository_api(container_client):
+def container_push_repository_api(container_bindings):
     """Container push repository API fixture."""
-    return RepositoriesContainerPushApi(container_client)
+    return container_bindings.RepositoriesContainerPushApi
 
 
 @pytest.fixture(scope="session")
-def container_push_repository_version_api(container_client):
+def container_push_repository_version_api(container_bindings):
     """Container repository version API fixture."""
-    return RepositoriesContainerPushVersionsApi(container_client)
+    return container_bindings.RepositoriesContainerPushVersionsApi
 
 
 @pytest.fixture(scope="session")
-def container_distribution_api(container_client):
+def container_distribution_api(container_bindings):
     """Container distribution API fixture."""
-    return DistributionsContainerApi(container_client)
+    return container_bindings.DistributionsContainerApi
 
 
 @pytest.fixture(scope="session")
-def container_pull_through_distribution_api(container_client):
+def container_pull_through_distribution_api(container_bindings):
     """Pull through cache distribution API Fixture."""
-    return DistributionsPullThroughApi(container_client)
+    return container_bindings.DistributionsPullThroughApi
 
 
 @pytest.fixture(scope="session")
-def container_tag_api(container_client):
+def container_tag_api(container_bindings):
     """Container tag API fixture."""
-    return ContentTagsApi(container_client)
+    return container_bindings.ContentTagsApi
 
 
 @pytest.fixture(scope="session")
-def container_manifest_api(container_client):
+def container_manifest_api(container_bindings):
     """Container manifest API fixture."""
-    return ContentManifestsApi(container_client)
+    return container_bindings.ContentManifestsApi
 
 
 @pytest.fixture(scope="session")
-def container_blob_api(container_client):
+def container_blob_api(container_bindings):
     """Container blob API fixture."""
-    return ContentBlobsApi(container_client)
+    return container_bindings.ContentBlobsApi
 
 
 @pytest.fixture(scope="session")
-def container_signature_api(container_client):
+def container_signature_api(container_bindings):
     """Container image signature API fixture."""
-    return ContentSignaturesApi(container_client)
+    return container_bindings.ContentSignaturesApi
 
 
 @pytest.fixture
-def container_repository_factory(container_repository_api, gen_object_with_cleanup):
+def container_repository_factory(container_bindings, gen_object_with_cleanup):
     def _container_repository_factory(**kwargs):
         repository = {"name": str(uuid4())}
         if kwargs:
             repository.update(kwargs)
-        return gen_object_with_cleanup(
-            container_repository_api, ContainerContainerRepository(**repository)
-        )
+        return gen_object_with_cleanup(container_bindings.RepositoriesContainerApi, repository)
 
     return _container_repository_factory
 
@@ -408,10 +402,10 @@ def container_repo(container_repository_factory):
 
 
 @pytest.fixture
-def container_remote_factory(container_remote_api, gen_object_with_cleanup):
+def container_remote_factory(container_bindings, gen_object_with_cleanup):
     def _container_remote_factory(url=REGISTRY_V2_FEED_URL, **kwargs):
         remote = gen_container_remote(url, **kwargs)
-        return gen_object_with_cleanup(container_remote_api, remote)
+        return gen_object_with_cleanup(container_bindings.RemotesContainerApi, remote)
 
     return _container_remote_factory
 
@@ -422,25 +416,25 @@ def container_remote(container_remote_factory):
 
 
 @pytest.fixture
-def container_sync(container_repository_api, monitor_task):
+def container_sync(container_bindings, monitor_task):
     def _sync(repo, remote=None):
         remote_href = remote.pulp_href if remote else repo.remote
 
-        sync_data = ContainerRepositorySyncURL(remote=remote_href)
+        sync_data = {"remote": remote_href}
 
-        sync_response = container_repository_api.sync(repo.pulp_href, sync_data)
+        sync_response = container_bindings.RepositoriesContainerApi.sync(repo.pulp_href, sync_data)
         return monitor_task(sync_response.task)
 
     return _sync
 
 
 @pytest.fixture
-def container_distribution_factory(container_distribution_api, gen_object_with_cleanup):
+def container_distribution_factory(container_bindings, gen_object_with_cleanup):
     def _container_distribution_factory(**kwargs):
         distro = {"name": str(uuid4()), "base_path": str(uuid4())}
         if kwargs:
             distro.update(kwargs)
-        return gen_object_with_cleanup(container_distribution_api, distro)
+        return gen_object_with_cleanup(container_bindings.DistributionsContainerApi, distro)
 
     return _container_distribution_factory
 
@@ -448,12 +442,11 @@ def container_distribution_factory(container_distribution_api, gen_object_with_c
 @pytest.fixture
 def pull_through_distribution(
     gen_object_with_cleanup,
-    container_pull_through_remote_api,
-    container_pull_through_distribution_api,
+    container_bindings,
 ):
     def _pull_through_distribution(includes=None, excludes=None, private=False):
         remote = gen_object_with_cleanup(
-            container_pull_through_remote_api,
+            container_bindings.RemotesPullThroughApi,
             {
                 "name": str(uuid4()),
                 "url": REGISTRY_V2_FEED_URL,
@@ -468,16 +461,16 @@ def pull_through_distribution(
             "remote": remote.pulp_href,
             "private": private,
         }
-        distribution = gen_object_with_cleanup(container_pull_through_distribution_api, data)
+        distribution = gen_object_with_cleanup(container_bindings.DistributionsPullThroughApi, data)
         return distribution
 
     return _pull_through_distribution
 
 
 @pytest.fixture
-def check_manifest_fields(container_manifest_api):
+def check_manifest_fields(container_bindings):
     def _check_manifest_fields(**kwargs):
-        manifest = container_manifest_api.list(**kwargs["manifest_filters"])
+        manifest = container_bindings.ContentManifestsApi.list(**kwargs["manifest_filters"])
         manifest = manifest.to_dict()["results"][0]
         for key in kwargs["fields"]:
             if manifest[key] != kwargs["fields"][key]:
