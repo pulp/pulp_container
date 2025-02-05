@@ -3,10 +3,6 @@ import pytest
 from tempfile import NamedTemporaryFile
 
 from pulpcore.tests.functional.utils import PulpTaskError
-from pulp_smash.pulp3.utils import gen_distribution
-from pulp_smash.pulp3.bindings import monitor_task
-
-from pulpcore.client.pulp_container import ApiException, ContainerContainerDistribution
 from pulp_container.constants import MANIFEST_TYPE
 
 
@@ -31,6 +27,7 @@ def populated_file_repo(
     file_bindings,
     file_repo,
     tmp_path_factory,
+    monitor_task,
 ):
     filename = tmp_path_factory.mktemp("fixtures") / "example.txt"
     filename.write_bytes(b"test content")
@@ -48,9 +45,9 @@ def populated_file_repo(
 
 
 @pytest.fixture
-def build_image(container_repository_api):
+def build_image(container_bindings, monitor_task):
     def _build_image(repository, containerfile=None, containerfile_name=None, build_context=None):
-        build_response = container_repository_api.build_image(
+        build_response = container_bindings.RepositoriesContainerApi.build_image(
             container_container_repository_href=repository,
             containerfile=containerfile,
             containerfile_name=containerfile_name or "",
@@ -65,11 +62,10 @@ def test_build_image_with_uploaded_containerfile(
     build_image,
     check_manifest_fields,
     containerfile_name,
-    container_distribution_api,
+    container_distribution_factory,
     container_repo,
     populated_file_repo,
     delete_orphans_pre,
-    gen_object_with_cleanup,
     local_registry,
 ):
     """Test build an OCI image from a file repository_version."""
@@ -79,10 +75,7 @@ def test_build_image_with_uploaded_containerfile(
         build_context=f"{populated_file_repo.pulp_href}versions/1/",
     )
 
-    distribution = gen_object_with_cleanup(
-        container_distribution_api,
-        ContainerContainerDistribution(**gen_distribution(repository=container_repo.pulp_href)),
-    )
+    distribution = container_distribution_factory(repository=container_repo.pulp_href)
 
     local_registry.pull(distribution.base_path)
     image = local_registry.inspect(distribution.base_path)
@@ -99,6 +92,7 @@ def test_build_image_from_repo_version_with_anon_user(
     delete_orphans_pre,
     populated_file_repo,
     gen_user,
+    container_bindings,
 ):
     """Test if a user without permission to file repo can build an OCI image."""
     user_helpless = gen_user(
@@ -107,7 +101,7 @@ def test_build_image_from_repo_version_with_anon_user(
             "container.containerrepository_content_manager",
         ]
     )
-    with user_helpless, pytest.raises(ApiException):
+    with user_helpless, pytest.raises(container_bindings.ApiException):
         build_image(
             container_repo.pulp_href,
             containerfile_name,
@@ -140,11 +134,12 @@ def test_build_image_from_repo_version_with_creator_user(
 
 def test_build_image_without_containerfile(
     build_image,
+    container_bindings,
     container_repo,
     populated_file_repo,
 ):
     """Test build an OCI image without a containerfile"""
-    with pytest.raises(ApiException):
+    with pytest.raises(container_bindings.ApiException):
         build_image(
             repository=container_repo.pulp_href,
             build_context=f"{populated_file_repo.pulp_href}versions/2/",
@@ -168,10 +163,9 @@ def test_build_image_without_expected_files(
 
 def test_build_image_from_containerfile_name(
     build_image,
-    container_distribution_api,
+    container_distribution_factory,
     container_repo,
     delete_orphans_pre,
-    gen_object_with_cleanup,
     local_registry,
     populated_file_repo,
 ):
@@ -182,10 +176,7 @@ def test_build_image_from_containerfile_name(
         build_context=f"{populated_file_repo.pulp_href}versions/2/",
     )
 
-    distribution = gen_object_with_cleanup(
-        container_distribution_api,
-        ContainerContainerDistribution(**gen_distribution(repository=container_repo.pulp_href)),
-    )
+    distribution = container_distribution_factory(repository=container_repo.pulp_href)
 
     local_registry.pull(distribution.base_path)
     image = local_registry.inspect(distribution.base_path)
@@ -194,11 +185,12 @@ def test_build_image_from_containerfile_name(
 
 def test_invalid_containerfile_from_build_context(
     build_image,
+    container_bindings,
     container_repo,
     populated_file_repo,
 ):
     """Test with a non-existing Containerfile in file repository."""
-    with pytest.raises(ApiException) as e:
+    with pytest.raises(container_bindings.ApiException) as e:
         build_image(
             repository=container_repo.pulp_href,
             containerfile_name="Non_existing_file",
@@ -211,10 +203,9 @@ def test_invalid_containerfile_from_build_context(
 def test_without_build_context(
     build_image,
     check_manifest_arch_os_size,
-    container_distribution_api,
-    container_manifest_api,
+    container_distribution_factory,
+    container_bindings,
     container_repo,
-    gen_object_with_cleanup,
     local_registry,
 ):
     """Test build with only a Containerfile (no additional files)"""
@@ -235,13 +226,10 @@ CMD ["ls", "/"]"""
         containerfile=next(containerfile_name),
     )
 
-    distribution = gen_object_with_cleanup(
-        container_distribution_api,
-        ContainerContainerDistribution(**gen_distribution(repository=container_repo.pulp_href)),
-    )
+    distribution = container_distribution_factory(repository=container_repo.pulp_href)
 
     local_registry.pull(distribution.base_path)
     image = local_registry.inspect(distribution.base_path)
     assert image[0]["Config"]["Cmd"] == ["ls", "/"]
-    manifest = container_manifest_api.list(digest=image[0]["Digest"])
+    manifest = container_bindings.ContentManifestsApi.list(digest=image[0]["Digest"])
     check_manifest_arch_os_size(manifest)
