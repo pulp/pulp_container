@@ -1,13 +1,7 @@
 import pytest
 
-from pulp_smash.pulp3.bindings import monitor_task
-from pulp_smash.pulp3.utils import gen_repo
 
-from pulpcore.client.pulp_container import (
-    ContainerContainerRepository,
-    ContainerRepositorySyncURL,
-)
-from pulp_container.tests.functional.utils import gen_container_remote
+from pulp_container.tests.functional.conftest import gen_container_remote
 
 REDHAT_REGISTRY_V2 = "https://registry.access.redhat.com"
 DEPRECATED_REPOSITORY_NAME = "rhel7-rhel-minimal"
@@ -19,9 +13,10 @@ SIGSTORE_URL = "https://access.redhat.com/webassets/docker/content/sigstore"
 @pytest.fixture
 def synced_repository(
     delete_orphans_pre,
-    container_repository_api,
-    container_remote_api,
-    gen_object_with_cleanup,
+    container_repo,
+    container_remote_factory,
+    container_bindings,
+    monitor_task,
     request,
 ):
     """A repository that contains signatures synced from sigstore, if specified."""
@@ -35,32 +30,29 @@ def synced_repository(
     if request.param["sigstore"]:
         data["sigstore"] = request.param["sigstore"]
 
-    remote = gen_object_with_cleanup(container_remote_api, data)
-
-    data = ContainerContainerRepository(**gen_repo())
-    repository = gen_object_with_cleanup(container_repository_api, data)
+    remote = container_remote_factory(**data)
 
     signed_only = request.param["signed_only"]
-    data = ContainerRepositorySyncURL(remote=remote.pulp_href, signed_only=signed_only)
-    response = container_repository_api.sync(repository.pulp_href, data)
+    data = {"remote": remote.pulp_href, "signed_only": signed_only}
+    response = container_bindings.RepositoriesContainerApi.sync(container_repo.pulp_href, data)
     monitor_task(response.task)
 
-    return container_repository_api.read(repository.pulp_href)
+    return container_bindings.RepositoriesContainerApi.read(container_repo.pulp_href)
 
 
 @pytest.mark.parametrize(
     "synced_repository", [{"sigstore": None, "signed_only": False}], indirect=True
 )
-def test_sync_images_without_signatures(
-    container_signature_api, container_tag_api, synced_repository
-):
+def test_sync_images_without_signatures(container_bindings, synced_repository):
     """Sync a repository without specifying sigstore."""
-    signatures = container_signature_api.list(
+    signatures = container_bindings.ContentSignaturesApi.list(
         repository_version=synced_repository.latest_version_href
     ).results
     assert len(signatures) == 0
 
-    tags = container_tag_api.list(repository_version=synced_repository.latest_version_href).results
+    tags = container_bindings.ContentTagsApi.list(
+        repository_version=synced_repository.latest_version_href
+    ).results
     assert len(tags) == 2
 
 
@@ -73,19 +65,19 @@ def test_sync_images_without_signatures(
     ],
     indirect=True,
 )
-def test_sync_signed_images_from_sigstore(
-    container_signature_api, container_manifest_api, container_tag_api, synced_repository
-):
+def test_sync_signed_images_from_sigstore(container_bindings, synced_repository):
     """Sync a repository with specifying sigstore."""
-    signatures = container_signature_api.list(
+    signatures = container_bindings.ContentSignaturesApi.list(
         repository_version=synced_repository.latest_version_href
     ).results
-    tags = container_tag_api.list(repository_version=synced_repository.latest_version_href).results
+    tags = container_bindings.ContentTagsApi.list(
+        repository_version=synced_repository.latest_version_href
+    ).results
 
     tags_dict = {tag.name: tag for tag in tags}
 
     single_manifest_href = tags_dict[IMAGE_MANIFEST_TAG].tagged_manifest
-    manifest = container_manifest_api.read(single_manifest_href)
+    manifest = container_bindings.ContentManifestsApi.read(single_manifest_href)
 
     single_manifest_signatures = list(
         filter(lambda s: s.signed_manifest == manifest.pulp_href, signatures)
@@ -97,10 +89,11 @@ def test_sync_signed_images_from_sigstore(
     assert all(s.name.startswith(manifest.digest) for s in single_manifest_signatures)
 
     manifest_list_href = tags_dict[MANIFEST_LIST_TAG].tagged_manifest
-    manifest_list = container_manifest_api.read(manifest_list_href)
+    manifest_list = container_bindings.ContentManifestsApi.read(manifest_list_href)
 
     listed_manifests = [
-        container_manifest_api.read(lm_href) for lm_href in manifest_list.listed_manifests
+        container_bindings.ContentManifestsApi.read(lm_href)
+        for lm_href in manifest_list.listed_manifests
     ]
     for lm in listed_manifests:
         manifest_signatures = list(filter(lambda s: lm.pulp_href == s.signed_manifest, signatures))
@@ -116,14 +109,14 @@ def test_sync_signed_images_from_sigstore(
 @pytest.mark.parametrize(
     "synced_repository", [{"sigstore": None, "signed_only": True}], indirect=True
 )
-def test_sync_images_without_sigstore_requiring_signatures(
-    container_signature_api, container_tag_api, synced_repository
-):
+def test_sync_images_without_sigstore_requiring_signatures(container_bindings, synced_repository):
     """Sync a repository with no sigstore but with the signed_only option enabled."""
-    signatures = container_signature_api.list(
+    signatures = container_bindings.ContentSignaturesApi.list(
         repository_version=synced_repository.latest_version_href
     ).results
     assert len(signatures) == 0
 
-    tags = container_tag_api.list(repository_version=synced_repository.latest_version_href).results
+    tags = container_bindings.ContentTagsApi.list(
+        repository_version=synced_repository.latest_version_href
+    ).results
     assert len(tags) == 0
