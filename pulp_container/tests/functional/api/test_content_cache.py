@@ -58,7 +58,7 @@ def fetch_response_metadata(response):
     return response.status_code, response.headers.get("X-PULP-CACHE")
 
 
-@pytest.mark.parallel
+# @pytest.mark.parallel  # Some other parallel test is causing this fail periodically
 def test_content_cache(
     container_bindings,
     container_repository_factory,

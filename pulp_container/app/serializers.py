@@ -159,6 +159,15 @@ class BlobSerializer(SingleArtifactContentSerializer):
 
     digest = serializers.CharField(help_text="sha256 of the Blob file")
 
+    def __init__(self, *args, **kwargs):
+        """Fix for bindings to allow for on-demand blobs."""
+        # TODO: Move into pulpcore
+        # This is a fix for the bindings to allow for serializing on-demand blobs.
+        # There is no create API for blobs, so this doesn't affect the API.
+        super().__init__(*args, **kwargs)
+        if "artifact" in self.fields:
+            self.fields["artifact"].allow_null = True
+
     class Meta:
         fields = SingleArtifactContentSerializer.Meta.fields + ("digest",)
         model = models.Blob
