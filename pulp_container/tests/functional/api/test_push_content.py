@@ -3,36 +3,14 @@
 import json
 import pytest
 import requests
-import unittest
-
-from django.conf import settings
 
 from subprocess import CalledProcessError
-from urllib.parse import urlparse, urljoin
-
-from pulp_smash import cli, config
-from pulp_smash.pulp3.bindings import (
-    delete_orphans,
-    monitor_task,
-    PulpTestCase,
-)
+from urllib.parse import urljoin
 
 from pulp_container.constants import MEDIA_TYPE, MANIFEST_TYPE
 
-from pulp_container.tests.functional.api import rbac_base
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
-from pulp_container.tests.functional.utils import (
-    gen_container_client,
-    get_auth_for_url,
-)
-
-from pulpcore.client.pulp_container import (
-    ContainerContainerRepository,
-    ContentManifestsApi,
-    ContentTagsApi,
-    DistributionsContainerApi,
-    RepositoriesContainerPushApi,
-)
+from pulp_container.tests.functional.utils import get_auth_for_url
 
 
 def test_push_using_registry_client_admin(
@@ -41,8 +19,7 @@ def test_push_using_registry_client_admin(
     registry_client,
     local_registry,
     check_manifest_fields,
-    container_manifest_api,
-    container_namespace_api,
+    container_bindings,
 ):
     """Test push with official registry client and logged in as admin."""
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
@@ -58,15 +35,15 @@ def test_push_using_registry_client_admin(
         manifest_filters={"digest": local_image[0]["Digest"]},
         fields={"type": MANIFEST_TYPE.IMAGE},
     )
-    manifest = container_manifest_api.list(digest=local_image[0]["Digest"])
+    manifest = container_bindings.ContentManifestsApi.list(digest=local_image[0]["Digest"])
     check_manifest_arch_os_size(manifest)
 
     # ensure that same content can be pushed twice without permission errors
     local_registry.tag_and_push(image_path, local_url)
 
     # cleanup, namespace removal also removes related distributions
-    namespace = container_namespace_api.list(name="foo").results[0]
-    add_to_cleanup(container_namespace_api, namespace.pulp_href)
+    namespace = container_bindings.PulpContainerNamespacesApi.list(name="foo").results[0]
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
 
 def test_push_without_login(
@@ -89,16 +66,15 @@ def test_push_with_dist_perms(
     gen_user,
     registry_client,
     local_registry,
-    container_push_repository_api,
-    container_distribution_api,
-    container_namespace_api,
+    container_bindings,
+    pulp_settings,
 ):
     """
     Test that it's enough to have container distribution and namespace perms to perform push.
 
     It also checks read abilities for users with different set of permissions.
     """
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     user_creator = gen_user(model_roles=["container.containernamespace_creator"])
@@ -116,27 +92,27 @@ def test_push_with_dist_perms(
         local_registry.tag_and_push(image_path, local_url)
 
     # cleanup, namespace removal also removes related distributions
-    namespace = container_namespace_api.list(name="test").results[0]
-    add_to_cleanup(container_namespace_api, namespace.pulp_href)
+    namespace = container_bindings.PulpContainerNamespacesApi.list(name="test").results[0]
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
     with user_creator:
-        distributions = container_distribution_api.list(name="test/perms")
+        distributions = container_bindings.DistributionsContainerApi.list(name="test/perms")
         distribution = distributions.results[0]
-        container_distribution_api.add_role(
+        container_bindings.DistributionsContainerApi.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_collaborator",
                 "users": [user_dist_collaborator.username],
             },
         )
-        container_distribution_api.add_role(
+        container_bindings.DistributionsContainerApi.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_consumer",
                 "users": [user_dist_consumer.username],
             },
         )
-        container_distribution_api.add_role(
+        container_bindings.PulpContainerNamespacesApi.add_role(
             distribution.namespace,
             {
                 "role": "container.containernamespace_collaborator",
@@ -144,20 +120,20 @@ def test_push_with_dist_perms(
             },
         )
 
-    assert container_push_repository_api.list(name=repo_name).count == 1
+    assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
     with user_creator:
-        assert container_push_repository_api.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
     with user_dist_collaborator:
-        assert container_push_repository_api.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
     with user_dist_consumer:
-        assert container_push_repository_api.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
     with user_namespace_collaborator:
-        assert container_push_repository_api.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
     with user_reader:
-        assert container_push_repository_api.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
     with user_helpless:
         # "{repo_name}" turns out to be a public repository
-        assert container_push_repository_api.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
 
 
 def test_push_with_view_perms(
@@ -182,8 +158,8 @@ def test_push_with_no_perms(
     gen_user,
     registry_client,
     local_registry,
-    container_distribution_api,
-    container_namespace_api,
+    container_bindings,
+    pulp_settings,
 ):
     """
     Test that user with no permissions can't perform push.
@@ -197,11 +173,13 @@ def test_push_with_no_perms(
         local_registry.tag_and_push(image_path, local_url)
 
     # test if the helpless user can still pull
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         # push by using the admin user
         local_registry.tag_and_push(image_path, local_url)
-        namespace = container_namespace_api.list(name="unsuccessful").results[0]
-        add_to_cleanup(container_namespace_api, namespace.pulp_href)
+        namespace = container_bindings.PulpContainerNamespacesApi.list(name="unsuccessful").results[
+            0
+        ]
+        add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
         with user_helpless:
             with pytest.raises(CalledProcessError):
@@ -209,8 +187,10 @@ def test_push_with_no_perms(
             local_registry.pull(local_url)
 
         # flagging the repository as "private" does not have an effect on pulling
-        distribution = container_distribution_api.list(name=repo_name).results[0]
-        container_distribution_api.partial_update(distribution.pulp_href, {"private": True})
+        distribution = container_bindings.DistributionsContainerApi.list(name=repo_name).results[0]
+        container_bindings.DistributionsContainerApi.partial_update(
+            distribution.pulp_href, {"private": True}
+        )
         with user_helpless:
             local_registry.pull(local_url)
     else:
@@ -218,8 +198,10 @@ def test_push_with_no_perms(
         user_creator = gen_user(model_roles=["container.containernamespace_creator"])
         with user_creator:
             local_registry.tag_and_push(image_path, local_url)
-            namespace = container_namespace_api.list(name="unsuccessful").results[0]
-            add_to_cleanup(container_namespace_api, namespace.pulp_href)
+            namespace = container_bindings.PulpContainerNamespacesApi.list(
+                name="unsuccessful"
+            ).results[0]
+            add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
         with user_helpless:
             with pytest.raises(CalledProcessError):
@@ -232,8 +214,8 @@ def test_push_to_existing_namespace(
     gen_user,
     registry_client,
     local_registry,
-    container_distribution_api,
-    container_namespace_api,
+    container_bindings,
+    pulp_settings,
 ):
     """
     Test the push to an existing namespace with collaborator permissions.
@@ -243,7 +225,7 @@ def test_push_to_existing_namespace(
     Container distribution perms should be enough to push to the existing
     distribution.
     """
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     user_creator = gen_user(model_roles=["container.containernamespace_creator"])
@@ -255,13 +237,13 @@ def test_push_to_existing_namespace(
     registry_client.pull(image_path)
     with user_creator:
         local_registry.tag_and_push(image_path, local_url)
-        namespace = container_namespace_api.list(name="team").results[0]
-        add_to_cleanup(container_namespace_api, namespace.pulp_href)
+        namespace = container_bindings.PulpContainerNamespacesApi.list(name="team").results[0]
+        add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
         # Add user_dist_collaborator to the collaborator group
-        distributions = container_distribution_api.list(name="team/owner")
+        distributions = container_bindings.DistributionsContainerApi.list(name="team/owner")
         distribution = distributions.results[0]
-        container_distribution_api.add_role(
+        container_bindings.DistributionsContainerApi.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_collaborator",
@@ -284,7 +266,7 @@ def test_push_to_existing_namespace(
         local_registry.tag_and_push(image_path, local_url)
 
     with user_creator:
-        container_namespace_api.add_role(
+        container_bindings.PulpContainerNamespacesApi.add_role(
             distribution.namespace,
             {
                 "role": "container.containernamespace_collaborator",
@@ -305,15 +287,16 @@ def test_push_private_repository(
     gen_user,
     registry_client,
     local_registry,
-    container_distribution_api,
-    container_namespace_api,
+    container_bindings,
+    monitor_task,
+    pulp_settings,
 ):
     """
     Test that you can create a private distribution and push to it.
     Test that the same user can pull, but another cannot.
     Test that the other user can pull after marking it non-private.
     """
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     user_creator = gen_user(model_roles=["container.containernamespace_creator"])
@@ -326,15 +309,15 @@ def test_push_private_repository(
     distribution = {"name": repo_name, "base_path": repo_name, "private": True}
     registry_client.pull(image_path)
     with user_creator:
-        distribution_response = container_distribution_api.create(distribution)
+        distribution_response = container_bindings.DistributionsContainerApi.create(distribution)
         created_resources = monitor_task(distribution_response.task).created_resources
-        distribution = container_distribution_api.read(created_resources[0])
-        add_to_cleanup(container_namespace_api, distribution.namespace)
+        distribution = container_bindings.DistributionsContainerApi.read(created_resources[0])
+        add_to_cleanup(container_bindings.PulpContainerNamespacesApi, distribution.namespace)
 
         local_registry.tag_and_push(image_path, local_url)
         local_registry.pull(local_url)
 
-        container_distribution_api.add_role(
+        container_bindings.DistributionsContainerApi.add_role(
             distribution.pulp_href,
             {
                 "role": "container.containerdistribution_consumer",
@@ -349,7 +332,7 @@ def test_push_private_repository(
 
     with user_creator:
         distribution.private = False
-        distribution_response = container_distribution_api.partial_update(
+        distribution_response = container_bindings.DistributionsContainerApi.partial_update(
             distribution.pulp_href, {"private": False}
         )
         monitor_task(distribution_response.task)
@@ -363,13 +346,14 @@ def test_push_matching_username(
     gen_user,
     registry_client,
     local_registry,
-    container_distribution_api,
-    container_namespace_api,
+    container_bindings,
+    monitor_task,
+    pulp_settings,
 ):
     """
     Test that you can push to a nonexisting namespace that matches your username.
     """
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     user_helpless = gen_user()
@@ -382,8 +366,10 @@ def test_push_matching_username(
     registry_client.pull(image_path)
     with user_helpless:
         local_registry.tag_and_push(image_path, local_url)
-        namespace = container_namespace_api.list(name=namespace_name).results[0]
-        add_to_cleanup(container_namespace_api, namespace.pulp_href)
+        namespace = container_bindings.PulpContainerNamespacesApi.list(name=namespace_name).results[
+            0
+        ]
+        add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
         with pytest.raises(CalledProcessError):
             local_registry.tag_and_push(image_path, invalid_local_url)
@@ -391,26 +377,27 @@ def test_push_matching_username(
         # test you can create distribution under the namespace that matches login
         repo_name2 = f"{namespace_name}/matching2"
         distribution = {"name": repo_name2, "base_path": repo_name2, "private": True}
-        distribution_response = container_distribution_api.create(distribution)
+        distribution_response = container_bindings.DistributionsContainerApi.create(distribution)
         created_resources = monitor_task(distribution_response.task).created_resources
-        distribution = container_distribution_api.read(created_resources[0])
+        distribution = container_bindings.DistributionsContainerApi.read(created_resources[0])
 
         # cleanup, namespace removal also removes related distributions
-        namespace_response = container_namespace_api.delete(namespace.pulp_href)
+        namespace_response = container_bindings.PulpContainerNamespacesApi.delete(
+            namespace.pulp_href
+        )
         monitor_task(namespace_response.task)
 
         # test you can create distribution if namespace does not exist but matches login
         distribution = {"name": repo_name, "base_path": repo_name, "private": True}
-        distribution_response = container_distribution_api.create(distribution)
+        distribution_response = container_bindings.DistributionsContainerApi.create(distribution)
         created_resources = monitor_task(distribution_response.task).created_resources
-        distribution = container_distribution_api.read(created_resources[0])
+        distribution = container_bindings.DistributionsContainerApi.read(created_resources[0])
 
-        add_to_cleanup(container_namespace_api, distribution.namespace)
+        add_to_cleanup(container_bindings.PulpContainerNamespacesApi, distribution.namespace)
 
 
 def test_push_to_existing_regular_repository(
-    container_repository_api,
-    gen_object_with_cleanup,
+    container_repository_factory,
     local_registry,
     registry_client,
 ):
@@ -419,7 +406,7 @@ def test_push_to_existing_regular_repository(
 
     It should fail to create a new push repository.
     """
-    gen_object_with_cleanup(container_repository_api, ContainerContainerRepository(name="foo"))
+    container_repository_factory(name="foo")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     local_url = "foo:1.0"
 
@@ -428,76 +415,54 @@ def test_push_to_existing_regular_repository(
         local_registry.tag_and_push(image_path, local_url)
 
 
-class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
+class PushManifestListTestCase:
     """A test case that verifies if a container client can push manifest lists to the registry."""
 
-    @classmethod
-    def setUpClass(cls):
+    @pytest.fixture(scope="class", autouse=True)
+    def setup(self, local_registry):
         """Initialize a new manifest list that will be pushed to the registry."""
-        cls.cfg = config.get_config()
-        cls.registry = cli.RegistryClient(cls.cfg)
-        cls.registry.raise_if_unsupported(unittest.SkipTest, "Tests require podman/docker")
-        cls.registry_name = urlparse(cls.cfg.get_base_url()).netloc
-
-        admin_user, admin_password = cls.cfg.pulp_auth
-        cls.registry.login("-u", admin_user, "-p", admin_password, cls.registry_name)
-        cls.user_admin = {"username": admin_user, "password": admin_password}
-
-        api_client = gen_container_client()
-        api_client.configuration.username = cls.user_admin["username"]
-        api_client.configuration.password = cls.user_admin["password"]
-        cls.pushrepository_api = RepositoriesContainerPushApi(api_client)
-        cls.distributions_api = DistributionsContainerApi(api_client)
-        cls.manifests_api = ContentManifestsApi(api_client)
-        cls.tags_api = ContentTagsApi(api_client)
-
-        cls.manifest_a = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-        cls.manifest_b = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
-        cls.manifest_c = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
-        cls._pull(cls.manifest_a)
-        cls._pull(cls.manifest_b)
-        cls._pull(cls.manifest_c)
+        self.manifest_a = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+        self.manifest_b = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
+        self.manifest_c = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
+        local_registry.pull(self.manifest_a)
+        local_registry.pull(self.manifest_b)
+        local_registry.pull(self.manifest_c)
+        self.registry_name = local_registry.name
 
         # create a new manifest list composed of the pulled manifest images
-        cls.v2s2_tag = "manifest_list"
-        cls.v2s2_image_path = f"{cls.registry_name}/foo_v2s2:{cls.v2s2_tag}"
-        cls.registry._dispatch_command("manifest", "create", cls.v2s2_tag)
-        cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_a)
-        cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_b)
-        cls.registry._dispatch_command("manifest", "add", cls.v2s2_tag, cls.manifest_c)
+        self.v2s2_tag = "manifest_list"
+        self.v2s2_image_path = f"{self.registry_name}/foo_v2s2:{self.v2s2_tag}"
+        local_registry._dispatch_command("manifest", "create", self.v2s2_tag)
+        local_registry._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_a)
+        local_registry._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_b)
+        local_registry._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_c)
 
         # create a new manifest list composed of the pulled manifest images
-        cls.oci_tag = "manifest_list_oci"
-        cls.oci_image_path = f"{cls.registry_name}/foo_oci:{cls.oci_tag}"
-        cls.registry._dispatch_command("manifest", "create", cls.oci_tag)
-        cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_a)
-        cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_b)
-        cls.registry._dispatch_command("manifest", "add", cls.oci_tag, cls.manifest_c)
+        self.oci_tag = "manifest_list_oci"
+        self.oci_image_path = f"{self.registry_name}/foo_oci:{self.oci_tag}"
+        local_registry._dispatch_command("manifest", "create", self.oci_tag)
+        local_registry._dispatch_command("manifest", "add", self.oci_tag, self.manifest_a)
+        local_registry._dispatch_command("manifest", "add", self.oci_tag, self.manifest_b)
+        local_registry._dispatch_command("manifest", "add", self.oci_tag, self.manifest_c)
 
         # create an empty manifest list
-        cls.empty_image_tag = "empty_manifest_list"
-        cls.empty_image_path = f"{cls.registry_name}/foo_empty:{cls.empty_image_tag}"
-        cls.registry._dispatch_command("manifest", "create", cls.empty_image_tag)
+        self.empty_image_tag = "empty_manifest_list"
+        self.empty_image_path = f"{self.registry_name}/foo_empty:{self.empty_image_tag}"
+        local_registry._dispatch_command("manifest", "create", self.empty_image_tag)
 
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up created images."""
-        cls.registry._dispatch_command("manifest", "rm", cls.v2s2_tag)
-        cls.registry._dispatch_command("manifest", "rm", cls.oci_tag)
-        cls.registry._dispatch_command("manifest", "rm", cls.empty_image_tag)
+        yield
 
-        cls.registry._dispatch_command("image", "rm", cls.manifest_a)
-        cls.registry._dispatch_command("image", "rm", cls.manifest_b)
-        cls.registry._dispatch_command("image", "rm", cls.manifest_c)
+        local_registry._dispatch_command("manifest", "rm", self.v2s2_tag)
+        local_registry._dispatch_command("manifest", "rm", self.oci_tag)
+        local_registry._dispatch_command("manifest", "rm", self.empty_image_tag)
 
-        delete_orphans()
+        local_registry._dispatch_command("image", "rm", self.manifest_a)
+        local_registry._dispatch_command("image", "rm", self.manifest_b)
+        local_registry._dispatch_command("image", "rm", self.manifest_c)
 
-    def test_push_manifest_list_v2s2(self):
+    def test_push_manifest_list_v2s2(self, local_registry, container_bindings, add_to_cleanup):
         """Push the created manifest list in the v2s2 format."""
-        self.registry.login(
-            "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
-        )
-        self.registry.manifest_push(
+        local_registry.manifest_push(
             self.v2s2_tag,
             self.v2s2_image_path,
             "--all",
@@ -506,7 +471,7 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
         )
 
         # pushing the same manifest list two times should not fail
-        self.registry.manifest_push(
+        local_registry.manifest_push(
             self.v2s2_tag,
             self.v2s2_image_path,
             "--all",
@@ -514,24 +479,26 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
             "v2s2",
         )
 
-        distribution = self.distributions_api.list(name="foo_v2s2").results[0]
-        self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
+        distribution = container_bindings.DistributionsContainerApi.list(name="foo_v2s2").results[0]
+        add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
+        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+            distribution.repository
+        ).latest_version_href
 
-        tags = self.tags_api.list(repository_version=repo_version).results
+        tags = container_bindings.ContentTagsApi.list(repository_version=repo_version).results
         assert len(tags) == 1
 
         latest_tag = tags[0]
         assert latest_tag.name == self.v2s2_tag
 
-        manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
+        manifest_list = container_bindings.ContentManifestsApi.read(latest_tag.tagged_manifest)
         assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
         assert manifest_list.schema_version == 2
 
         # load manifest_list.json
         image_path = "/v2/{}/manifests/{}".format(distribution.base_path, latest_tag.name)
-        latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
+        latest_image_url = urljoin(container_bindings.cfg.get_base_url(), image_path)
 
         auth = get_auth_for_url(latest_image_url)
         content_response = requests.get(
@@ -544,20 +511,17 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         referenced_manifests_digests = sorted(
             [
-                self.manifests_api.read(manifest_href).digest
+                container_bindings.ContentManifestsApi.read(manifest_href).digest
                 for manifest_href in manifest_list.listed_manifests
             ]
         )
         assert referenced_manifests_digests == manifests_v2s2_digests
 
-        self.registry.pull(self.v2s2_image_path)
+        local_registry.pull(self.v2s2_image_path)
 
-    def test_push_manifest_list_oci(self):
+    def test_push_manifest_list_oci(self, local_registry, container_bindings, add_to_cleanup):
         """Push the created manifest list in the OCI format."""
-        self.registry.login(
-            "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
-        )
-        self.registry.manifest_push(
+        local_registry.manifest_push(
             self.oci_tag,
             self.oci_image_path,
             "--all",
@@ -565,24 +529,26 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
             "oci",
         )
 
-        distribution = self.distributions_api.list(name="foo_oci").results[0]
-        self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
+        distribution = container_bindings.DistributionsContainerApi.list(name="foo_oci").results[0]
+        add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
+        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+            distribution.repository
+        ).latest_version_href
 
-        tags = self.tags_api.list(repository_version=repo_version).results
+        tags = container_bindings.ContentTagsApi.list(repository_version=repo_version).results
         assert len(tags) == 1
 
         latest_tag = tags[0]
         assert latest_tag.name == self.oci_tag
 
-        manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
+        manifest_list = container_bindings.ContentManifestsApi.read(latest_tag.tagged_manifest)
         assert manifest_list.media_type == MEDIA_TYPE.INDEX_OCI
         assert manifest_list.schema_version == 2
 
         # load manifest_list.json
         image_path = "/v2/{}/manifests/{}".format(distribution.base_path, latest_tag.name)
-        latest_image_url = urljoin(self.cfg.get_base_url(), image_path)
+        latest_image_url = urljoin(container_bindings.cfg.get_base_url(), image_path)
 
         auth = get_auth_for_url(latest_image_url)
         content_response = requests.get(
@@ -595,29 +561,32 @@ class PushManifestListTestCase(PulpTestCase, rbac_base.BaseRegistryTest):
 
         referenced_manifests_digests = sorted(
             [
-                self.manifests_api.read(manifest_href).digest
+                container_bindings.ContentManifestsApi.read(manifest_href).digest
                 for manifest_href in manifest_list.listed_manifests
             ]
         )
         assert referenced_manifests_digests == manifests_oci_digests
 
-        self.registry.pull(self.oci_image_path)
+        local_registry.pull(self.oci_image_path)
 
-    def test_push_empty_manifest_list(self):
+    def test_push_empty_manifest_list(self, local_registry, container_bindings, add_to_cleanup):
         """Push an empty manifest list to the registry."""
-        self.registry.login(
-            "-u", self.user_admin["username"], "-p", self.user_admin["password"], self.registry_name
-        )
-        self.registry.manifest_push(self.empty_image_tag, self.empty_image_path)
+        local_registry.manifest_push(self.empty_image_tag, self.empty_image_path)
 
-        distribution = self.distributions_api.list(name="foo_empty").results[0]
-        self.addCleanup(self.distributions_api.delete, distribution.pulp_href)
+        distribution = container_bindings.DistributionsContainerApi.list(name="foo_empty").results[
+            0
+        ]
+        add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = self.pushrepository_api.read(distribution.repository).latest_version_href
-        latest_tag = self.tags_api.list(repository_version_added=repo_version).results[0]
+        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+            distribution.repository
+        ).latest_version_href
+        latest_tag = container_bindings.ContentTagsApi.list(
+            repository_version_added=repo_version
+        ).results[0]
         assert latest_tag.name == self.empty_image_tag
 
-        manifest_list = self.manifests_api.read(latest_tag.tagged_manifest)
+        manifest_list = container_bindings.ContentManifestsApi.read(latest_tag.tagged_manifest)
         # empty manifest lists are being pushed in the v2s2 format by default
         assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
         assert manifest_list.schema_version == 2
