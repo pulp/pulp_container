@@ -1,36 +1,21 @@
 """Tests that verify that RBAC for repository versions work properly."""
 
 import pytest
-
-from django.conf import settings
-
-from pulp_smash import utils
-from pulp_smash.pulp3.bindings import monitor_task
-from pulp_smash.pulp3.utils import gen_repo
-
-from pulpcore.client.pulp_container.exceptions import ApiException
+import uuid
 
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
-from pulp_container.tests.functional.utils import TOKEN_AUTH_DISABLED, gen_container_remote
-
-from pulpcore.client.pulp_container import (
-    ContainerContainerRepository,
-    ContainerRepositorySyncURL,
-    TagImage,
-)
 
 
 def test_rbac_repository_version(
     gen_user,
-    gen_object_with_cleanup,
-    container_repository_api,
-    container_repository_version_api,
-    container_remote_api,
-    container_tag_api,
-    container_manifest_api,
+    container_bindings,
+    container_repository_factory,
+    container_remote_factory,
+    pulp_settings,
+    monitor_task,
 ):
     """Verify RBAC for a ContainerRepositoryVersion."""
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     user_creator = gen_user(
@@ -54,45 +39,51 @@ def test_rbac_repository_version(
 
     # sync a repo
     with user_creator:
-        repository = gen_object_with_cleanup(
-            container_repository_api, ContainerContainerRepository(**gen_repo())
+        repository = container_repository_factory()
+        remote = container_remote_factory(upstream_name=PULP_FIXTURE_1)
+        sync_data = {"remote": remote.pulp_href}
+        sync_response = container_bindings.RepositoriesContainerApi.sync(
+            repository.pulp_href, sync_data
         )
-        remote = gen_object_with_cleanup(
-            container_remote_api, gen_container_remote(upstream_name=PULP_FIXTURE_1)
-        )
-        sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
-        sync_response = container_repository_api.sync(repository.pulp_href, sync_data)
         monitor_task(sync_response.task)
-        repository = container_repository_api.read(repository.pulp_href)
+        repository = container_bindings.RepositoriesContainerApi.read(repository.pulp_href)
 
     """
     Test that users can list repository versions if they have enough rights
     """
-    assert container_repository_version_api.list(repository.pulp_href).count == 2
+    assert container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href).count == 2
     with user_creator:
-        assert container_repository_version_api.list(repository.pulp_href).count == 2
+        assert (
+            container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href).count
+            == 2
+        )
     with user_reader:
-        assert container_repository_version_api.list(repository.pulp_href).count == 2
-    with user_helpless, pytest.raises(ApiException):
-        container_repository_version_api.list(repository.pulp_href)
+        assert (
+            container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href).count
+            == 2
+        )
+    with user_helpless, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href)
 
     """
     Test that users can read specific repository versions if they have enough rights
     """
-    container_repository_version_api.read(repository.latest_version_href)
+    container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
     with user_creator:
-        container_repository_version_api.read(repository.latest_version_href)
+        container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
     with user_reader:
-        container_repository_version_api.read(repository.latest_version_href)
-    with user_helpless, pytest.raises(ApiException):
-        container_repository_version_api.read(repository.latest_version_href)
+        container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
+    with user_helpless, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
 
     """
     Test that users can delete repository versions if they have enough rights
     """
 
-    manifest_a = container_manifest_api.read(
-        container_tag_api.list(name="manifest_a", repository_version=repository.latest_version_href)
+    manifest_a = container_bindings.ContentManifestsApi.read(
+        container_bindings.ContentTagsApi.list(
+            name="manifest_a", repository_version=repository.latest_version_href
+        )
         .results[0]
         .tagged_manifest
     )
@@ -103,30 +94,38 @@ def test_rbac_repository_version(
         """
         nonlocal repository
 
-        tag_data = TagImage(tag="new_tag", digest=manifest_a.digest)
-        tag_response = container_repository_api.tag(repository.pulp_href, tag_data)
+        tag_data = {"tag": "new_tag", "digest": manifest_a.digest}
+        tag_response = container_bindings.RepositoriesContainerApi.tag(
+            repository.pulp_href, tag_data
+        )
         monitor_task(tag_response.task)
-        repository = container_repository_api.read(repository.pulp_href)
+        repository = container_bindings.RepositoriesContainerApi.read(repository.pulp_href)
         return repository.latest_version_href
 
-    with user_helpless, pytest.raises(ApiException):
-        container_repository_api.delete(repository.latest_version_href)
-    with user_reader, pytest.raises(ApiException):
-        container_repository_api.delete(repository.latest_version_href)
+    with user_helpless, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerApi.delete(repository.latest_version_href)
+    with user_reader, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerApi.delete(repository.latest_version_href)
 
-    response = container_repository_version_api.delete(create_new_repo_version())
+    response = container_bindings.RepositoriesContainerVersionsApi.delete(create_new_repo_version())
     monitor_task(response.task)
 
     with user_creator:
-        response = container_repository_version_api.delete(create_new_repo_version())
+        response = container_bindings.RepositoriesContainerVersionsApi.delete(
+            create_new_repo_version()
+        )
         monitor_task(response.task)
 
     with user_repo_content_manager:
-        response = container_repository_version_api.delete(create_new_repo_version())
+        response = container_bindings.RepositoriesContainerVersionsApi.delete(
+            create_new_repo_version()
+        )
         monitor_task(response.task)
 
     with user_repo_owner:
-        response = container_repository_version_api.delete(create_new_repo_version())
+        response = container_bindings.RepositoriesContainerVersionsApi.delete(
+            create_new_repo_version()
+        )
         monitor_task(response.task)
 
 
@@ -135,18 +134,19 @@ def test_rbac_push_repository_version(
     gen_user,
     registry_client,
     local_registry,
-    container_namespace_api,
-    container_push_repository_api,
-    container_push_repository_version_api,
+    container_bindings,
+    pulp_settings,
 ):
     """Verify RBAC for a ContainerPushRepositoryVersion."""
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     try:
         # Remove namespace to start out clean
-        namespace = container_namespace_api.list(name="test_push_repo").results[0]
-        container_namespace_api.delete(namespace.pulp_href)
+        namespace = container_bindings.PulpContainerNamespacesApi.list(
+            name="test_push_repo"
+        ).results[0]
+        container_bindings.PulpContainerNamespacesApi.delete(namespace.pulp_href)
     except IndexError:
         pass
 
@@ -165,35 +165,46 @@ def test_rbac_push_repository_version(
     local_url = f"{repo_name}:1.0"
     with user_creator:
         local_registry.tag_and_push(image_path, local_url)
-        repository = container_push_repository_api.list(name=repo_name).results[0]
+        repository = container_bindings.RepositoriesContainerPushApi.list(name=repo_name).results[0]
 
     # Remove namespace after the test
     add_to_cleanup(
-        container_namespace_api,
-        container_namespace_api.list(name="test_push_repo").results[0].pulp_href,
+        container_bindings.PulpContainerNamespacesApi,
+        container_bindings.PulpContainerNamespacesApi.list(name="test_push_repo")
+        .results[0]
+        .pulp_href,
     )
 
     """
     Test that users can list repository versions if they have enough permissions
     """
-    assert container_push_repository_version_api.list(repository.pulp_href).count == 2
+    assert (
+        container_bindings.RepositoriesContainerPushVersionsApi.list(repository.pulp_href).count
+        == 2
+    )
     with user_creator:
-        assert container_push_repository_version_api.list(repository.pulp_href).count == 2
+        assert (
+            container_bindings.RepositoriesContainerPushVersionsApi.list(repository.pulp_href).count
+            == 2
+        )
     with user_reader:
-        assert container_push_repository_version_api.list(repository.pulp_href).count == 2
-    with user_helpless, pytest.raises(ApiException):
-        container_push_repository_version_api.list(repository.pulp_href)
+        assert (
+            container_bindings.RepositoriesContainerPushVersionsApi.list(repository.pulp_href).count
+            == 2
+        )
+    with user_helpless, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerPushVersionsApi.list(repository.pulp_href)
 
     """
     Test that users can read specific repository versions if they have enough permissions
     """
-    container_push_repository_version_api.read(repository.latest_version_href)
+    container_bindings.RepositoriesContainerPushVersionsApi.read(repository.latest_version_href)
     with user_creator:
-        container_push_repository_version_api.read(repository.latest_version_href)
+        container_bindings.RepositoriesContainerPushVersionsApi.read(repository.latest_version_href)
     with user_reader:
-        container_push_repository_version_api.read(repository.latest_version_href)
-    with user_helpless, pytest.raises(ApiException):
-        container_push_repository_version_api.read(repository.latest_version_href)
+        container_bindings.RepositoriesContainerPushVersionsApi.read(repository.latest_version_href)
+    with user_helpless, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerPushVersionsApi.read(repository.latest_version_href)
 
 
 def test_cross_repository_blob_mount(
@@ -202,31 +213,34 @@ def test_cross_repository_blob_mount(
     registry_client,
     local_registry,
     mount_blob,
-    container_push_repository_api,
-    container_distribution_api,
-    container_namespace_api,
-    container_blob_api,
+    container_bindings,
     gen_object_with_cleanup,
+    pulp_settings,
+    monitor_task,
 ):
     """Test that users can cross mount blobs from different repositories."""
-    if TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("Cannot test blob mounting without token authentication.")
 
-    source_repo = utils.uuid4()
-    dest_repo = utils.uuid4()
+    source_repo = str(uuid.uuid4())
+    dest_repo = str(uuid.uuid4())
     local_url = f"{source_repo}:manifest_a"
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
     local_registry.tag_and_push(image_path, local_url)
-    repository = container_push_repository_api.list(name=source_repo).results[0]
-    blobs = container_blob_api.list(repository_version=repository.latest_version_href).results
-    distribution = container_distribution_api.list(name=source_repo).results[0]
+    repository = container_bindings.RepositoriesContainerPushApi.list(name=source_repo).results[0]
+    blobs = container_bindings.ContentBlobsApi.list(
+        repository_version=repository.latest_version_href
+    ).results
+    distribution = container_bindings.DistributionsContainerApi.list(name=source_repo).results[0]
     monitor_task(
-        container_distribution_api.partial_update(distribution.pulp_href, {"private": True}).task
+        container_bindings.DistributionsContainerApi.partial_update(
+            distribution.pulp_href, {"private": True}
+        ).task
     )
 
     # Cleanup
-    add_to_cleanup(container_namespace_api, distribution.namespace)
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, distribution.namespace)
 
     # Test that an admin can cross mount but do not perform any further assertions because
     # the blobs are committed only after uploading the final tagged manifest
@@ -240,8 +254,10 @@ def test_cross_repository_blob_mount(
         assert response.status_code == 200
 
     try:
-        distribution2 = container_distribution_api.list(name=dest_repo).results[0]
-        monitor_task(container_distribution_api.delete(distribution2.pulp_href).task)
+        distribution2 = container_bindings.DistributionsContainerApi.list(name=dest_repo).results[0]
+        monitor_task(
+            container_bindings.DistributionsContainerApi.delete(distribution2.pulp_href).task
+        )
     except ValueError:
         pass
 
@@ -270,9 +286,9 @@ def test_cross_repository_blob_mount(
 
     # Test if an owner of another namespace cannot utilize the blob mounting because of
     # insufficient permissions
-    dest_tester_namespace = utils.uuid4()
+    dest_tester_namespace = str(uuid.uuid4())
     tester_namespace = gen_object_with_cleanup(
-        container_namespace_api, {"name": dest_tester_namespace}
+        container_bindings.PulpContainerNamespacesApi, {"name": dest_tester_namespace}
     )
     tester_owner = gen_user(
         object_roles=[("container.containernamespace_owner", tester_namespace.pulp_href)]
@@ -284,7 +300,7 @@ def test_cross_repository_blob_mount(
 
 
 @pytest.fixture
-def mount_blob(local_registry, container_distribution_api, container_namespace_api, add_to_cleanup):
+def mount_blob(local_registry, container_bindings, add_to_cleanup):
     """A fixture function to mount blobs to new repositories that will be cleaned up."""
 
     def _mount_blob(blob, source, dest):
@@ -292,8 +308,8 @@ def mount_blob(local_registry, container_distribution_api, container_namespace_a
         response, auth = local_registry.get_response("POST", mount_path)
 
         if response.status_code == 201:
-            distribution = container_distribution_api.list(name=dest).results[0]
-            add_to_cleanup(container_namespace_api, distribution.namespace)
+            distribution = container_bindings.DistributionsContainerApi.list(name=dest).results[0]
+            add_to_cleanup(container_bindings.PulpContainerNamespacesApi, distribution.namespace)
 
         return response, auth
 

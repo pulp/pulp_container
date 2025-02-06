@@ -1,80 +1,44 @@
 """Tests for fetching the list of all repositories."""
 
-import unittest
+import pytest
 
 from urllib.parse import urljoin
 import requests
 
-from pulp_smash import api, cli, config, utils
-from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
-from pulp_smash.pulp3.utils import gen_distribution, gen_repo
-
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1
-
 from pulp_container.tests.functional.utils import (
-    del_user,
-    gen_container_remote,
-    gen_container_client,
-    gen_user,
     BearerTokenAuth,
     AuthenticationHeaderQueries,
 )
 
-from pulpcore.client.pulp_container import (
-    ContainerContainerRepository,
-    ContainerContainerDistribution,
-    ContainerContainerRemote,
-    ContainerRepositorySyncURL,
-    DistributionsContainerApi,
-    PulpContainerNamespacesApi,
-    RepositoriesContainerApi,
-    RemotesContainerApi,
-)
 
-cli_client = cli.Client(config.get_config())
-TOKEN_AUTH_DISABLED = utils.get_pulp_setting(cli_client, "TOKEN_AUTH_DISABLED")
+@pytest.fixture
+def synced_repo_and_remote(container_repo, container_remote_factory, container_sync):
+    """Create class wide-variables."""
+    remote = container_remote_factory(upstream_name=PULP_FIXTURE_1)
+    container_sync(container_repo, remote)
+
+    return container_repo, remote
 
 
-class RepositoriesList:
-    """Base class used for initializing and listing repositories."""
+@pytest.fixture
+def get_listed_repositories(bindings_cfg, pulp_settings):
+    """Fetch repositories from the catalog endpoint."""
+    repositories_list_endpoint = urljoin(bindings_cfg.host, "/v2/_catalog")
 
-    @classmethod
-    def setUpClass(cls):
-        """Create class wide-variables."""
-        api_client = gen_container_client()
-        cls.repositories_api = RepositoriesContainerApi(api_client)
-        cls.remotes_api = RemotesContainerApi(api_client)
-        cls.distributions_api = DistributionsContainerApi(api_client)
-        cls.namespaces_api = PulpContainerNamespacesApi(api_client)
-
-        cls.cfg = config.get_config()
-        cls.client = api.Client(cls.cfg, api.json_handler)
-
-        cls.repository = cls.repositories_api.create(ContainerContainerRepository(**gen_repo()))
-
-        remote_data = gen_container_remote(upstream_name=PULP_FIXTURE_1)
-        cls.remote = cls.remotes_api.create(ContainerContainerRemote(**remote_data))
-
-        sync_data = ContainerRepositorySyncURL(remote=cls.remote.pulp_href)
-        sync_response = cls.repositories_api.sync(cls.repository.pulp_href, sync_data)
-        monitor_task(sync_response.task)
-
-    def get_listed_repositories(self, auth=None):
-        """Fetch repositories from the catalog endpoint."""
-        repositories_list_endpoint = urljoin(self.cfg.get_base_url(), "/v2/_catalog")
+    def _get_listed_repositories(auth=None):
         response = requests.get(repositories_list_endpoint)
 
-        if TOKEN_AUTH_DISABLED:
+        if pulp_settings.TOKEN_AUTH_DISABLED:
             return response
 
-        with self.assertRaises(requests.HTTPError) as cm:
+        with pytest.raises(requests.HTTPError):
             response.raise_for_status()
 
-        content_response = cm.exception.response
-        authenticate_header = content_response.headers["Www-Authenticate"]
+        authenticate_header = response.headers["Www-Authenticate"]
 
         queries = AuthenticationHeaderQueries(authenticate_header)
-        self.assertEqual(queries.scopes, ["registry:catalog:*"])
+        assert queries.scopes == ["registry:catalog:*"]
 
         content_response = requests.get(
             queries.realm, params={"service": queries.service, "scope": queries.scopes}, auth=auth
@@ -87,139 +51,76 @@ class RepositoriesList:
         repositories.raise_for_status()
         return repositories
 
-
-class RepositoriesListTestCase(RepositoriesList, unittest.TestCase):
-    """Test case for listing all repositories within the registry."""
-
-    @classmethod
-    def setUpClass(cls):
-        """Create class wide-variables."""
-        super().setUpClass()
-
-        distribution_data = gen_distribution(repository=cls.repository.pulp_href)
-        distribution_response = cls.distributions_api.create(
-            ContainerContainerDistribution(**distribution_data)
-        )
-        created_resources = monitor_task(distribution_response.task).created_resources
-        cls.distribution1 = cls.distributions_api.read(created_resources[0])
-
-        distribution_data = gen_distribution(repository=cls.repository.pulp_href)
-        distribution_response = cls.distributions_api.create(
-            ContainerContainerDistribution(**distribution_data)
-        )
-        created_resources = monitor_task(distribution_response.task).created_resources
-        cls.distribution2 = cls.distributions_api.read(created_resources[0])
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean generated resources."""
-        cls.repositories_api.delete(cls.repository.pulp_href)
-        cls.remotes_api.delete(cls.remote.pulp_href)
-
-        cls.distributions_api.delete(cls.distribution1.pulp_href)
-        cls.distributions_api.delete(cls.distribution2.pulp_href)
-
-        delete_orphans()
-
-    def test_listing_repositories(self):
-        """Check if all repositories are correctly listed for an administrator."""
-        repositories = self.get_listed_repositories()
-        repositories_names = sorted([self.distribution1.base_path, self.distribution2.base_path])
-        self.assertEqual(repositories.json(), {"repositories": repositories_names})
+    return _get_listed_repositories
 
 
-class RepositoriesListWithPermissionsTestCase(RepositoriesList, unittest.TestCase):
+def test_listing_repositories(
+    synced_repo_and_remote, container_distribution_factory, get_listed_repositories, bindings_cfg
+):
+    """Check if all repositories are correctly listed for an administrator."""
+    repository, remote = synced_repo_and_remote
+    distribution1 = container_distribution_factory(repository=repository.pulp_href)
+    distribution2 = container_distribution_factory(repository=repository.pulp_href)
+    repositories = get_listed_repositories(auth=(bindings_cfg.username, bindings_cfg.password))
+    repositories_names = sorted([distribution1.base_path, distribution2.base_path])
+    assert repositories.json() == {"repositories": repositories_names}
+
+
+def test_list_repositories_with_permissions(
+    get_listed_repositories,
+    gen_user,
+    synced_repo_and_remote,
+    container_distribution_factory,
+    container_bindings,
+    pulp_settings,
+):
     """Test case for listing repositories within the registry with respect to users' permissions."""
+    repository, remote = synced_repo_and_remote
+    distribution1 = container_distribution_factory(repository=repository.pulp_href, private=True)
+    distribution2 = container_distribution_factory(repository=repository.pulp_href, private=True)
+    distribution3 = container_distribution_factory(repository=repository.pulp_href)
+    namespace1 = container_bindings.PulpContainerNamespacesApi.read(distribution1.namespace)
+    user_none = gen_user()
+    user_all = gen_user(
+        model_roles=[
+            "container.containerdistribution_consumer",
+            "container.containernamespace_consumer",
+        ]
+    )
+    user_only_dist1 = gen_user(
+        object_roles=[
+            ("container.containerdistribution_consumer", distribution1.pulp_href),
+            ("container.containernamespace_consumer", namespace1.pulp_href),
+        ]
+    )
+    repositories_names_sorted = sorted(
+        [
+            distribution1.base_path,
+            distribution2.base_path,
+            distribution3.base_path,
+        ]
+    )
 
-    @classmethod
-    def setUpClass(cls):
-        """Create class wide-variables."""
-        super().setUpClass()
+    # Test none user: Check if the user can see only public repositories.
+    auth = (user_none.username, user_none.password)
+    repositories = get_listed_repositories(auth)
+    if pulp_settings.TOKEN_AUTH_DISABLED:
+        assert repositories.json() == {"repositories": repositories_names_sorted}
+    else:
+        assert repositories.json() == {"repositories": [distribution3.base_path]}
 
-        distribution_data = gen_distribution(repository=cls.repository.pulp_href, private=True)
-        distribution_response = cls.distributions_api.create(
-            ContainerContainerDistribution(**distribution_data)
-        )
-        created_resources = monitor_task(distribution_response.task).created_resources
-        cls.distribution1 = cls.distributions_api.read(created_resources[0])
-        cls.namespace1 = cls.namespaces_api.read(cls.distribution1.namespace)
+    # Test all user: Check if the user can see all repositories.
+    auth = (user_all.username, user_all.password)
+    repositories = get_listed_repositories(auth)
+    assert repositories.json() == {"repositories": repositories_names_sorted}
 
-        distribution_data = gen_distribution(repository=cls.repository.pulp_href, private=True)
-        distribution_response = cls.distributions_api.create(
-            ContainerContainerDistribution(**distribution_data)
-        )
-        created_resources = monitor_task(distribution_response.task).created_resources
-        cls.distribution2 = cls.distributions_api.read(created_resources[0])
+    # Test only dist1 user: Check if the user can see all public repositories,
+    # but not all private repositories.
+    auth = (user_only_dist1.username, user_only_dist1.password)
+    repositories = get_listed_repositories(auth)
 
-        distribution_data = gen_distribution(repository=cls.repository.pulp_href)
-        distribution_response = cls.distributions_api.create(
-            ContainerContainerDistribution(**distribution_data)
-        )
-        created_resources = monitor_task(distribution_response.task).created_resources
-        cls.distribution3 = cls.distributions_api.read(created_resources[0])
-
-        cls.user_none = gen_user()
-        cls.user_all = gen_user(
-            model_roles=[
-                "container.containerdistribution_consumer",
-                "container.containernamespace_consumer",
-            ]
-        )
-        cls.user_only_dist1 = gen_user(
-            object_roles=[
-                ("container.containerdistribution_consumer", cls.distribution1.pulp_href),
-                ("container.containernamespace_consumer", cls.namespace1.pulp_href),
-            ]
-        )
-
-        cls.repositories_names_sorted = sorted(
-            [
-                cls.distribution1.base_path,
-                cls.distribution2.base_path,
-                cls.distribution3.base_path,
-            ]
-        )
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean generated resources."""
-        cls.repositories_api.delete(cls.repository.pulp_href)
-        cls.remotes_api.delete(cls.remote.pulp_href)
-
-        cls.distributions_api.delete(cls.distribution1.pulp_href)
-        cls.distributions_api.delete(cls.distribution2.pulp_href)
-        cls.distributions_api.delete(cls.distribution3.pulp_href)
-
-        del_user(cls.user_none)
-        del_user(cls.user_all)
-        del_user(cls.user_only_dist1)
-
-        delete_orphans()
-
-    def test_none_user(self):
-        """Check if the user can see only public repositories."""
-        auth = (self.user_none["username"], self.user_none["password"])
-        repositories = self.get_listed_repositories(auth)
-        if TOKEN_AUTH_DISABLED:
-            self.assertEqual(repositories.json(), {"repositories": self.repositories_names_sorted})
-        else:
-            self.assertEqual(repositories.json(), {"repositories": [self.distribution3.base_path]})
-
-    def test_all_user(self):
-        """Check if the user can see all repositories."""
-        auth = (self.user_all["username"], self.user_all["password"])
-        repositories = self.get_listed_repositories(auth)
-        self.assertEqual(repositories.json(), {"repositories": self.repositories_names_sorted})
-
-    def test_only_dist1_user(self):
-        """Check if the user can see all public repositories, but not all private repositories."""
-        auth = (self.user_only_dist1["username"], self.user_only_dist1["password"])
-        repositories = self.get_listed_repositories(auth)
-
-        if TOKEN_AUTH_DISABLED:
-            self.assertEqual(repositories.json(), {"repositories": self.repositories_names_sorted})
-        else:
-            repositories_names = sorted(
-                [self.distribution1.base_path, self.distribution3.base_path]
-            )
-            self.assertEqual(repositories.json(), {"repositories": repositories_names})
+    if pulp_settings.TOKEN_AUTH_DISABLED:
+        assert repositories.json() == {"repositories": repositories_names_sorted}
+    else:
+        repositories_names = sorted([distribution1.base_path, distribution3.base_path])
+        assert repositories.json() == {"repositories": repositories_names}
