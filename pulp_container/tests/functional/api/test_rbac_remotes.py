@@ -2,22 +2,17 @@
 
 from random import choice
 import pytest
+import uuid
 
-from django.conf import settings
+from pulp_container.tests.functional.conftest import gen_container_remote
 
-from pulp_smash import utils
-from pulp_smash.pulp3.bindings import monitor_task
-from pulp_smash.pulp3.constants import ON_DEMAND_DOWNLOAD_POLICIES
-
-from pulp_container.tests.functional.utils import gen_container_remote
-
-from pulpcore.client.pulp_container.exceptions import ApiException
+ON_DEMAND_DOWNLOAD_POLICIES = ("on_demand", "streamed")
 
 
 @pytest.mark.parallel
-def test_rbac_remotes(gen_user, container_remote_api):
+def test_rbac_remotes(gen_user, container_bindings, pulp_settings, monitor_task):
     """RBAC remotes."""
-    if settings.TOKEN_AUTH_DISABLED:
+    if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
     # Setup
@@ -28,66 +23,66 @@ def test_rbac_remotes(gen_user, container_remote_api):
 
     """Create a remote."""
     body = _gen_verbose_remote()
-    with user2, pytest.raises(ApiException):
-        container_remote_api.create(body)
-    with user3, pytest.raises(ApiException):
-        container_remote_api.create(body)
+    with user2, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.create(body)
+    with user3, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.create(body)
     with user1:
-        remote = container_remote_api.create(body)
+        remote = container_bindings.RemotesContainerApi.create(body)
 
     """Read a remote by its href."""
     with user1:
-        container_remote_api.read(remote.pulp_href)
+        container_bindings.RemotesContainerApi.read(remote.pulp_href)
     with user2:
         # read with global read permission
-        container_remote_api.read(remote.pulp_href)
-    with user3, pytest.raises(ApiException):
+        container_bindings.RemotesContainerApi.read(remote.pulp_href)
+    with user3, pytest.raises(container_bindings.ApiException):
         # read without read permission
-        container_remote_api.read(remote.pulp_href)
+        container_bindings.RemotesContainerApi.read(remote.pulp_href)
 
     """Read a remote by its name."""
     with user1:
-        page = container_remote_api.list(name=remote.name)
+        page = container_bindings.RemotesContainerApi.list(name=remote.name)
         assert len(page.results) == 1
     with user2:
-        page = container_remote_api.list(name=remote.name)
+        page = container_bindings.RemotesContainerApi.list(name=remote.name)
         assert len(page.results) == 1
     with user3:
-        page = container_remote_api.list(name=remote.name)
+        page = container_bindings.RemotesContainerApi.list(name=remote.name)
         assert len(page.results) == 0
 
     """Update a remote using HTTP PATCH."""
     body = _gen_verbose_remote()
-    with user2, pytest.raises(ApiException):
-        container_remote_api.partial_update(remote.pulp_href, body)
-    with user3, pytest.raises(ApiException):
-        container_remote_api.partial_update(remote.pulp_href, body)
+    with user2, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.partial_update(remote.pulp_href, body)
+    with user3, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.partial_update(remote.pulp_href, body)
     with user1:
-        response = container_remote_api.partial_update(remote.pulp_href, body)
+        response = container_bindings.RemotesContainerApi.partial_update(remote.pulp_href, body)
         monitor_task(response.task)
-        remote = container_remote_api.read(remote.pulp_href)
+        remote = container_bindings.RemotesContainerApi.read(remote.pulp_href)
 
     """Update a remote using HTTP PUT."""
     body = _gen_verbose_remote()
-    with user2, pytest.raises(ApiException):
-        container_remote_api.update(remote.pulp_href, body)
-    with user3, pytest.raises(ApiException):
-        container_remote_api.update(remote.pulp_href, body)
+    with user2, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.update(remote.pulp_href, body)
+    with user3, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.update(remote.pulp_href, body)
     with user1:
-        response = container_remote_api.update(remote.pulp_href, body)
+        response = container_bindings.RemotesContainerApi.update(remote.pulp_href, body)
         monitor_task(response.task)
-        remote = container_remote_api.read(remote.pulp_href)
+        remote = container_bindings.RemotesContainerApi.read(remote.pulp_href)
 
     """Delete a remote."""
-    with user2, pytest.raises(ApiException):
-        container_remote_api.delete(remote.pulp_href)
-    with user3, pytest.raises(ApiException):
-        container_remote_api.delete(remote.pulp_href)
+    with user2, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.delete(remote.pulp_href)
+    with user3, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.delete(remote.pulp_href)
     with user1:
-        response = container_remote_api.delete(remote.pulp_href)
+        response = container_bindings.RemotesContainerApi.delete(remote.pulp_href)
         monitor_task(response.task)
-    with user1, pytest.raises(ApiException):
-        container_remote_api.read(remote.pulp_href)
+    with user1, pytest.raises(container_bindings.ApiException):
+        container_bindings.RemotesContainerApi.read(remote.pulp_href)
 
 
 def _gen_verbose_remote():
@@ -103,8 +98,8 @@ def _gen_verbose_remote():
     attrs = gen_container_remote()
     attrs.update(
         {
-            "password": utils.uuid4(),
-            "username": utils.uuid4(),
+            "password": str(uuid.uuid4()),
+            "username": str(uuid.uuid4()),
             "policy": choice(ON_DEMAND_DOWNLOAD_POLICIES),
         }
     )
