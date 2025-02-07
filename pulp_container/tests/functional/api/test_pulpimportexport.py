@@ -8,36 +8,26 @@ the case.
 import pytest
 import uuid
 
-from pulp_smash.pulp3.bindings import (
-    delete_orphans,
-    monitor_task,
-    monitor_task_group,
-)
-from pulp_smash.pulp3.utils import gen_repo
-
-from pulpcore.client.pulp_container import ContainerRepositorySyncURL
-
-from pulp_container.tests.functional.utils import gen_container_remote
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
 
 def test_import_export_standard(
     local_registry,
-    container_distribution_api,
-    container_remote_api,
-    container_repository_api,
-    container_repository_version_api,
-    container_manifest_api,
+    container_bindings,
+    container_repository_factory,
+    container_remote_factory,
+    container_distribution_factory,
+    container_sync,
     pulpcore_bindings,
     gen_object_with_cleanup,
     has_pulp_plugin,
+    monitor_task,
+    monitor_task_group,
 ):
     """Test exporting and importing of a container repository."""
-    remote = container_remote_api.create(gen_container_remote())
-    sync_data = ContainerRepositorySyncURL(remote=remote.pulp_href)
-    repository = gen_object_with_cleanup(container_repository_api, gen_repo())
-    sync_response = container_repository_api.sync(repository.pulp_href, sync_data)
-    monitor_task(sync_response.task)
+    remote = container_remote_factory()
+    repository = container_repository_factory()
+    container_sync(repository, remote)
 
     # Export the repository
     body = {
@@ -52,11 +42,15 @@ def test_import_export_standard(
     export = pulpcore_bindings.ExportersPulpExportsApi.read(export_href)
 
     # Clean the old repository out
-    monitor_task(container_repository_version_api.delete(repository.latest_version_href).task)
-    delete_orphans()
+    monitor_task(
+        container_bindings.RepositoriesContainerVersionsApi.delete(
+            repository.latest_version_href
+        ).task
+    )
+    monitor_task(pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 0}).task)
 
     # Import the repository
-    import_repository = gen_object_with_cleanup(container_repository_api, gen_repo())
+    import_repository = container_repository_factory()
 
     body = {
         "name": str(uuid.uuid4()),
@@ -79,8 +73,10 @@ def test_import_export_standard(
     monitor_task_group(task_group_href)
 
     # Verify that the imported repository contains the right associations
-    import_repository = container_repository_api.read(import_repository.pulp_href)
-    manifests = container_manifest_api.list(
+    import_repository = container_bindings.RepositoriesContainerApi.read(
+        import_repository.pulp_href
+    )
+    manifests = container_bindings.ContentManifestsApi.list(
         repository_version=import_repository.latest_version_href
     ).results
 
@@ -92,25 +88,22 @@ def test_import_export_standard(
             assert manifest.config_blob is not None
 
     distribution_path = str(uuid.uuid4())
-    distribution = {
-        "name": distribution_path,
-        "base_path": distribution_path,
-        "repository": import_repository.pulp_href,
-    }
-    gen_object_with_cleanup(container_distribution_api, distribution)
+    container_distribution_factory(
+        name=distribution_path, base_path=distribution_path, repository=import_repository.pulp_href
+    )
     local_registry.pull(f"{distribution_path}@{manifest.digest}")
 
 
 def test_import_export_create_repositories(
     registry_client,
     local_registry,
-    container_distribution_api,
-    container_repository_api,
-    container_tag_api,
-    container_manifest_api,
+    container_bindings,
+    container_distribution_factory,
     pulpcore_bindings,
     gen_object_with_cleanup,
     has_pulp_plugin,
+    monitor_task,
+    monitor_task_group,
 ):
     """Test importing of a push repository without creating an initial repository manually."""
     if registry_client.name != "podman":
@@ -122,7 +115,9 @@ def test_import_export_create_repositories(
     distribution_path = str(uuid.uuid4())
     local_registry.tag_and_push(image_path, f"{distribution_path}:manifest_a")
 
-    distribution = container_distribution_api.list(name=distribution_path).results[0]
+    distribution = container_bindings.DistributionsContainerApi.list(
+        name=distribution_path
+    ).results[0]
 
     body = {
         "name": str(uuid.uuid4()),
@@ -135,8 +130,8 @@ def test_import_export_create_repositories(
     export = pulpcore_bindings.ExportersPulpExportsApi.read(export_href)
 
     # Clean the old repository out
-    monitor_task(container_distribution_api.delete(distribution.pulp_href).task)
-    delete_orphans()
+    monitor_task(container_bindings.DistributionsContainerApi.delete(distribution.pulp_href).task)
+    monitor_task(pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 0}).task)
 
     body = {"name": str(uuid.uuid4())}
     importer = gen_object_with_cleanup(pulpcore_bindings.ImportersPulpApi, body)
@@ -155,15 +150,15 @@ def test_import_export_create_repositories(
         task_group_href = monitor_task(import_response.task).created_resources[1]
     monitor_task_group(task_group_href)
 
-    repositories = container_repository_api.list(name=distribution_path).results
+    repositories = container_bindings.RepositoriesContainerApi.list(name=distribution_path).results
     assert len(repositories) == 1
 
-    tags = container_tag_api.list(
+    tags = container_bindings.ContentTagsApi.list(
         name="manifest_a", repository_version=repositories[0].latest_version_href
     ).results
     assert len(tags) == 1
 
-    manifests = container_manifest_api.list(
+    manifests = container_bindings.ContentManifestsApi.list(
         repository_version=repositories[0].latest_version_href
     ).results
 
@@ -179,8 +174,8 @@ def test_import_export_create_repositories(
         "base_path": distribution_path,
         "repository": repositories[0].pulp_href,
     }
-    gen_object_with_cleanup(container_distribution_api, distribution)
+    container_distribution_factory(**distribution)
     local_registry.pull(f"{distribution_path}:manifest_a")
 
-    monitor_task(container_repository_api.delete(repositories[0].pulp_href).task)
-    delete_orphans()
+    monitor_task(container_bindings.RepositoriesContainerApi.delete(repositories[0].pulp_href).task)
+    monitor_task(pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 0}).task)
