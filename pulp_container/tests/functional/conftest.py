@@ -385,7 +385,7 @@ def container_signature_api(container_bindings):
     return container_bindings.ContentSignaturesApi
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_repository_factory(container_bindings, gen_object_with_cleanup):
     def _container_repository_factory(**kwargs):
         repository = {"name": str(uuid4())}
@@ -401,7 +401,7 @@ def container_repo(container_repository_factory):
     return container_repository_factory()
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_remote_factory(container_bindings, gen_object_with_cleanup):
     def _container_remote_factory(url=REGISTRY_V2_FEED_URL, **kwargs):
         remote = gen_container_remote(url, **kwargs)
@@ -415,7 +415,7 @@ def container_remote(container_remote_factory):
     return container_remote_factory()
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_sync(container_bindings, monitor_task):
     def _sync(repo, remote=None):
         remote_href = remote.pulp_href if remote else repo.remote
@@ -428,7 +428,7 @@ def container_sync(container_bindings, monitor_task):
     return _sync
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_distribution_factory(container_bindings, gen_object_with_cleanup):
     def _container_distribution_factory(**kwargs):
         distro = {"name": str(uuid4()), "base_path": str(uuid4())}
