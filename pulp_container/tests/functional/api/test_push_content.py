@@ -415,50 +415,50 @@ def test_push_to_existing_regular_repository(
         local_registry.tag_and_push(image_path, local_url)
 
 
-class PushManifestListTestCase:
+class TestPushManifestList:
     """A test case that verifies if a container client can push manifest lists to the registry."""
 
+    manifest_a = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    manifest_b = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
+    manifest_c = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
+    v2s2_tag = "manifest_list"
+    v2s2_image_path = f"foo_v2s2:{v2s2_tag}"
+    oci_tag = "manifest_list_oci"
+    oci_image_path = f"foo_oci:{oci_tag}"
+    empty_image_tag = "empty_manifest_list"
+    empty_image_path = f"foo_empty:{empty_image_tag}"
+
     @pytest.fixture(scope="class", autouse=True)
-    def setup(self, local_registry):
+    def setup(self, registry_client):
         """Initialize a new manifest list that will be pushed to the registry."""
-        self.manifest_a = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-        self.manifest_b = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
-        self.manifest_c = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
-        local_registry.pull(self.manifest_a)
-        local_registry.pull(self.manifest_b)
-        local_registry.pull(self.manifest_c)
-        self.registry_name = local_registry.name
+        registry_client.pull(self.manifest_a)
+        registry_client.pull(self.manifest_b)
+        registry_client.pull(self.manifest_c)
 
         # create a new manifest list composed of the pulled manifest images
-        self.v2s2_tag = "manifest_list"
-        self.v2s2_image_path = f"{self.registry_name}/foo_v2s2:{self.v2s2_tag}"
-        local_registry._dispatch_command("manifest", "create", self.v2s2_tag)
-        local_registry._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_a)
-        local_registry._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_b)
-        local_registry._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_c)
+        registry_client._dispatch_command("manifest", "create", self.v2s2_tag)
+        registry_client._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_a)
+        registry_client._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_b)
+        registry_client._dispatch_command("manifest", "add", self.v2s2_tag, self.manifest_c)
 
         # create a new manifest list composed of the pulled manifest images
-        self.oci_tag = "manifest_list_oci"
-        self.oci_image_path = f"{self.registry_name}/foo_oci:{self.oci_tag}"
-        local_registry._dispatch_command("manifest", "create", self.oci_tag)
-        local_registry._dispatch_command("manifest", "add", self.oci_tag, self.manifest_a)
-        local_registry._dispatch_command("manifest", "add", self.oci_tag, self.manifest_b)
-        local_registry._dispatch_command("manifest", "add", self.oci_tag, self.manifest_c)
+        registry_client._dispatch_command("manifest", "create", self.oci_tag)
+        registry_client._dispatch_command("manifest", "add", self.oci_tag, self.manifest_a)
+        registry_client._dispatch_command("manifest", "add", self.oci_tag, self.manifest_b)
+        registry_client._dispatch_command("manifest", "add", self.oci_tag, self.manifest_c)
 
         # create an empty manifest list
-        self.empty_image_tag = "empty_manifest_list"
-        self.empty_image_path = f"{self.registry_name}/foo_empty:{self.empty_image_tag}"
-        local_registry._dispatch_command("manifest", "create", self.empty_image_tag)
+        registry_client._dispatch_command("manifest", "create", self.empty_image_tag)
 
         yield
 
-        local_registry._dispatch_command("manifest", "rm", self.v2s2_tag)
-        local_registry._dispatch_command("manifest", "rm", self.oci_tag)
-        local_registry._dispatch_command("manifest", "rm", self.empty_image_tag)
+        registry_client._dispatch_command("manifest", "rm", self.v2s2_tag)
+        registry_client._dispatch_command("manifest", "rm", self.oci_tag)
+        registry_client._dispatch_command("manifest", "rm", self.empty_image_tag)
 
-        local_registry._dispatch_command("image", "rm", self.manifest_a)
-        local_registry._dispatch_command("image", "rm", self.manifest_b)
-        local_registry._dispatch_command("image", "rm", self.manifest_c)
+        registry_client._dispatch_command("image", "rm", self.manifest_a)
+        registry_client._dispatch_command("image", "rm", self.manifest_b)
+        registry_client._dispatch_command("image", "rm", self.manifest_c)
 
     def test_push_manifest_list_v2s2(self, local_registry, container_bindings, add_to_cleanup):
         """Push the created manifest list in the v2s2 format."""
@@ -498,7 +498,7 @@ class PushManifestListTestCase:
 
         # load manifest_list.json
         image_path = "/v2/{}/manifests/{}".format(distribution.base_path, latest_tag.name)
-        latest_image_url = urljoin(container_bindings.cfg.get_base_url(), image_path)
+        latest_image_url = urljoin(container_bindings.client.configuration.host, image_path)
 
         auth = get_auth_for_url(latest_image_url)
         content_response = requests.get(
@@ -548,7 +548,7 @@ class PushManifestListTestCase:
 
         # load manifest_list.json
         image_path = "/v2/{}/manifests/{}".format(distribution.base_path, latest_tag.name)
-        latest_image_url = urljoin(container_bindings.cfg.get_base_url(), image_path)
+        latest_image_url = urljoin(container_bindings.client.configuration.host, image_path)
 
         auth = get_auth_for_url(latest_image_url)
         content_response = requests.get(
