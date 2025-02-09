@@ -11,9 +11,10 @@ from pulp_container.tests.functional.utils import (
     get_auth_for_url,
 )
 from pulp_container.constants import MEDIA_TYPE
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 
 
-class TokenAuthenticationTestCase:
+class TestTokenAuthentication:
     """
     A test case for authenticating users via Bearer token.
 
@@ -25,12 +26,14 @@ class TokenAuthenticationTestCase:
     @pytest.fixture(scope="class")
     def setup(
         self,
-        container_repo,
-        container_remote,
+        container_repository_factory,
+        container_remote_factory,
         container_sync,
         container_distribution_factory,
         container_bindings,
     ):
+        container_repo = container_repository_factory()
+        container_remote = container_remote_factory(upstream_name=PULP_FIXTURE_1)
         container_sync(container_repo, container_remote)
         distro = container_distribution_factory(repository=container_repo.pulp_href)
         tag_response = container_bindings.ContentTagsApi.list(name="manifest_a")

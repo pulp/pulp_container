@@ -208,6 +208,20 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
                 registry_client.logout(registry_name)
 
         @staticmethod
+        def manifest_push(tag, image_path, *args):
+            local_image_path = "/".join([registry_name, image_path])
+            if bindings_cfg.username is not None:
+                registry_client.login(
+                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
+                )
+            else:
+                registry_client.logout(registry_name)
+            try:
+                registry_client.manifest_push(tag, local_image_path, *args)
+            finally:
+                registry_client.logout(registry_name)
+
+        @staticmethod
         def inspect(local_url):
             local_image_path = "/".join([registry_name, local_url])
             return registry_client.inspect(local_image_path)
@@ -385,7 +399,7 @@ def container_signature_api(container_bindings):
     return container_bindings.ContentSignaturesApi
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_repository_factory(container_bindings, gen_object_with_cleanup):
     def _container_repository_factory(**kwargs):
         repository = {"name": str(uuid4())}
@@ -401,7 +415,7 @@ def container_repo(container_repository_factory):
     return container_repository_factory()
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_remote_factory(container_bindings, gen_object_with_cleanup):
     def _container_remote_factory(url=REGISTRY_V2_FEED_URL, **kwargs):
         remote = gen_container_remote(url, **kwargs)
@@ -415,7 +429,7 @@ def container_remote(container_remote_factory):
     return container_remote_factory()
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_sync(container_bindings, monitor_task):
     def _sync(repo, remote=None):
         remote_href = remote.pulp_href if remote else repo.remote
@@ -428,7 +442,7 @@ def container_sync(container_bindings, monitor_task):
     return _sync
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def container_distribution_factory(container_bindings, gen_object_with_cleanup):
     def _container_distribution_factory(**kwargs):
         distro = {"name": str(uuid4()), "base_path": str(uuid4())}
