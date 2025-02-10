@@ -453,7 +453,7 @@ def container_distribution_factory(container_bindings, gen_object_with_cleanup):
     return _container_distribution_factory
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def pull_through_distribution(
     gen_object_with_cleanup,
     container_bindings,
