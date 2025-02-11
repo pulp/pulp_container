@@ -12,7 +12,6 @@ from uuid import uuid4
 from pulpcore.tests.functional.utils import BindingsNamespace
 
 from pulp_container.tests.functional.utils import (
-    TOKEN_AUTH_DISABLED,
     AuthenticationHeaderQueries,
     BearerTokenAuth,
 )
@@ -122,7 +121,7 @@ def local_registry(request, _local_registry):
 
 
 @pytest.fixture(scope="session")
-def _local_registry(pulp_cfg, bindings_cfg, registry_client):
+def _local_registry(pulp_cfg, bindings_cfg, registry_client, pulp_settings):
     """Local registry with authentication. Session scoped."""
 
     registry_name = urlparse(pulp_cfg.get_base_url()).netloc
@@ -138,7 +137,7 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client):
             url = urljoin(pulp_cfg.get_base_url(), path)
 
             basic_auth = (bindings_cfg.username, bindings_cfg.password)
-            if TOKEN_AUTH_DISABLED:
+            if pulp_settings.TOKEN_AUTH_DISABLED:
                 auth = basic_auth
             else:
                 with pytest.raises(requests.HTTPError):
