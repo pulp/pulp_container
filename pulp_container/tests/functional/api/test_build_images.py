@@ -32,7 +32,7 @@ def populated_file_repo(
     filename = tmp_path_factory.mktemp("fixtures") / "example.txt"
     filename.write_bytes(b"test content")
     upload_task = file_bindings.ContentFilesApi.create(
-        relative_path="foo/bar/example.txt", file=filename, repository=file_repo.pulp_href
+        relative_path="foo/bar/example.txt", file=str(filename), repository=file_repo.pulp_href
     ).task
     monitor_task(upload_task)
 

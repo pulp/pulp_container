@@ -121,10 +121,10 @@ def local_registry(request, _local_registry):
 
 
 @pytest.fixture(scope="session")
-def _local_registry(pulp_cfg, bindings_cfg, registry_client, pulp_settings):
+def _local_registry(bindings_cfg, registry_client, pulp_settings):
     """Local registry with authentication. Session scoped."""
 
-    registry_name = urlparse(pulp_cfg.get_base_url()).netloc
+    registry_name = urlparse(bindings_cfg.host).netloc
 
     class _LocalRegistry:
         @property
@@ -134,7 +134,7 @@ def _local_registry(pulp_cfg, bindings_cfg, registry_client, pulp_settings):
         @staticmethod
         def get_response(method, path, **kwargs):
             """Return a response while dealing with token authentication."""
-            url = urljoin(pulp_cfg.get_base_url(), path)
+            url = urljoin(bindings_cfg.host, path)
 
             basic_auth = (bindings_cfg.username, bindings_cfg.password)
             if pulp_settings.TOKEN_AUTH_DISABLED:
@@ -484,9 +484,9 @@ def pull_through_distribution(
 def check_manifest_fields(container_bindings):
     def _check_manifest_fields(**kwargs):
         manifest = container_bindings.ContentManifestsApi.list(**kwargs["manifest_filters"])
-        manifest = manifest.to_dict()["results"][0]
+        manifest = manifest.results[0]
         for key in kwargs["fields"]:
-            if manifest[key] != kwargs["fields"][key]:
+            if getattr(manifest, key) != kwargs["fields"][key]:
                 return False
         return True
 
@@ -496,9 +496,9 @@ def check_manifest_fields(container_bindings):
 @pytest.fixture
 def check_manifest_arch_os_size():
     def _check_manifest_arch_os_size(manifest):
-        manifests = manifest.to_dict()["results"]
-        assert any("amd64" in manifest["architecture"] for manifest in manifests)
-        assert any("linux" in manifest["os"] for manifest in manifests)
-        assert any(manifest["compressed_image_size"] > 0 for manifest in manifests)
+        manifests = manifest.results
+        assert any("amd64" in manifest.architecture for manifest in manifests)
+        assert any("linux" in manifest.os for manifest in manifests)
+        assert any(manifest.compressed_image_size > 0 for manifest in manifests)
 
     return _check_manifest_arch_os_size

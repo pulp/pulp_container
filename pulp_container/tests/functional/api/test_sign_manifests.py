@@ -1,7 +1,5 @@
 import pytest
 
-from pulpcore.client.pulp_container import RepositorySign
-
 from pulp_container.constants import SIGNATURE_TYPE
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
@@ -33,7 +31,7 @@ def test_sign_manifest(
 ):
     """Test whether a user can sign a manifest by leveraging a signing service."""
     _, _, keyid = signing_gpg_metadata
-    sign_data = RepositorySign(container_signing_service.pulp_href)
+    sign_data = {"manifest_signing_service": container_signing_service.pulp_href}
 
     response = container_push_repository_api.sign(distribution.repository, sign_data)
     created_resources = monitor_task(response.task).created_resources
