@@ -54,6 +54,7 @@ pulp_settings:
   flatpak_index: true
 pulp_settings_azure:
   flatpak_index: true
+  content_origin: null
 pulp_settings_gcp: null
 pulp_settings_s3:
   flatpak_index: false

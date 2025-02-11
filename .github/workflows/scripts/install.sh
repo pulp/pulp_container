@@ -110,7 +110,7 @@ if [ "$TEST" = "azure" ]; then
       - ./azurite:/etc/pulp\
     command: "azurite-blob --blobHost 0.0.0.0"' vars/main.yaml
   sed -i -e '$a azure_test: true\
-pulp_scenario_settings: {"flatpak_index": true}\
+pulp_scenario_settings: {"content_origin": null, "flatpak_index": true}\
 pulp_scenario_env: {}\
 ' vars/main.yaml
 fi

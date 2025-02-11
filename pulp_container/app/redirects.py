@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 from django.http import Http404
+from urllib.parse import urljoin
 
 from pulp_container.app.exceptions import ManifestNotFound
 from pulp_container.app.utils import get_accepted_media_types
@@ -26,7 +27,9 @@ class CommonRedirects:
         Redirect to the content app.
         """
         return self.distribution.redirect_to_content_app(
-            f"{settings.CONTENT_ORIGIN}/pulp/container/{self.path}/{content_type}/{content_id}"
+            urljoin(
+                settings.CONTENT_ORIGIN, f"/pulp/container/{self.path}/{content_type}/{content_id}"
+            )
         )
 
     def issue_manifest_redirect(self, manifest):
