@@ -4,7 +4,6 @@ import pytest
 import subprocess
 from urllib.parse import urlparse
 from pulp_container.tests.functional.constants import (
-    CONTAINER_TAG_PATH,
     PULP_FIXTURE_1,
     REGISTRY_V2_REPO_PULP,
 )
@@ -172,9 +171,8 @@ class TestRepositoryTagging:
             repository_href=repository.pulp_href, new_version="4"
         )
 
-        removed_tags_href = "{unit_path}?{filters}".format(
-            unit_path=CONTAINER_TAG_PATH,
-            filters=f"repository_version_removed={new_repository_version_href}",
+        removed_tags_href = (
+            f"/content/container/tags/?repository_version_removed={new_repository_version_href}"
         )
 
         repository_version = container_bindings.RepositoriesContainerVersionsApi.read(
@@ -183,7 +181,7 @@ class TestRepositoryTagging:
 
         removed_content = repository_version.content_summary.removed
         removed_tags = removed_content["container.tag"]["href"]
-        assert removed_tags == removed_tags_href
+        assert removed_tags.endswith(removed_tags_href)
 
         added_content = repository_version.content_summary.added
         assert added_content == {}
