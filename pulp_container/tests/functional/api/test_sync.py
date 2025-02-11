@@ -1,6 +1,7 @@
 """Tests that sync container plugin repositories."""
 
 import pytest
+from urllib.parse import quote
 from pulpcore.tests.functional.utils import PulpTaskError
 
 from pulp_container.constants import MEDIA_TYPE, MANIFEST_TYPE
@@ -49,6 +50,7 @@ def test_basic_sync(
     container_repository_api,
     container_sync,
     container_manifest_api,
+    has_pulp_plugin,
 ):
     repo_version = container_sync(container_repo, container_remote).created_resources[0]
     repository = container_repository_api.read(container_repo.pulp_href)
@@ -56,11 +58,14 @@ def test_basic_sync(
     assert "versions/1/" in repository.latest_version_href
 
     latest_version_href = repository.latest_version_href
+    media_type = MEDIA_TYPE.MANIFEST_V2
+    if has_pulp_plugin("core", min="3.70"):
+        media_type = quote(media_type)
 
     assert check_manifest_fields(
         manifest_filters={
             "repository_version": repo_version,
-            "media_type": [MEDIA_TYPE.MANIFEST_V2],
+            "media_type": [media_type],
             "digest": PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
         },
         fields={"type": MANIFEST_TYPE.IMAGE},
@@ -75,7 +80,7 @@ def test_basic_sync(
 
     manifest = container_manifest_api.list(
         repository_version=repo_version,
-        media_type=[MEDIA_TYPE.MANIFEST_V2],
+        media_type=[media_type],
         digest=PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
     )
     check_manifest_arch_os_size(manifest)

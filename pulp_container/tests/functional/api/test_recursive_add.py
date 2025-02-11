@@ -210,18 +210,20 @@ class TestManifestCopy:
 
     @pytest.mark.parallel
     def test_fail_to_copy_invalid_manifest_media_type(
-        self, container_repo, container_bindings, from_repo
+        self, container_repo, container_bindings, from_repo, has_pulp_plugin
     ):
         """Specify the media_type, to copy all manifest lists."""
-        with pytest.raises(container_bindings.ApiException) as context:
-            container_bindings.RepositoriesContainerApi.copy_manifests(
-                container_repo.pulp_href,
-                {
-                    "source_repository": from_repo.pulp_href,
-                    "media_types": ["wrongwrongwrong"],
-                },
-            )
-        assert context.value.status == 400
+        # Pydantic addition to bindings in 3.70 prevents this test from working
+        if has_pulp_plugin("core", max="3.70"):
+            with pytest.raises(container_bindings.ApiException) as context:
+                container_bindings.RepositoriesContainerApi.copy_manifests(
+                    container_repo.pulp_href,
+                    {
+                        "source_repository": from_repo.pulp_href,
+                        "media_types": ["wrongwrongwrong"],
+                    },
+                )
+            assert context.value.status == 400
 
     @pytest.mark.parallel
     def test_copy_by_digest_with_incorrect_media_type(
