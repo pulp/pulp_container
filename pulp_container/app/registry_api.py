@@ -691,7 +691,8 @@ class FlatpakIndexDynamicView(APIView):
             if images:
                 results.append({"Name": distribution.base_path, "Images": images})
 
-        return Response(data={"Registry": settings.CONTENT_ORIGIN, "Results": results})
+        host = settings.CONTENT_ORIGIN or request.get_host()
+        return Response(data={"Registry": host, "Results": results})
 
 
 class FlatpakIndexStaticView(FlatpakIndexDynamicView):
