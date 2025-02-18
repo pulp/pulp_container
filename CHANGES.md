@@ -8,6 +8,30 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.23.0 (2025-02-17) {: #2.23.0 }
+
+#### Bugfixes {: #2.23.0-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+- Fixed an issue in `DOCKER_MANIFEST_V1_SCHEMA` definition where the optional `jwk` header parameter
+  was defined as required.
+  [#1874](https://github.com/pulp/pulp_container/issues/1874)
+- Fixed flatpak index returning 500 when Manifest content was on_demand or had been reclaimed.
+  [#1887](https://github.com/pulp/pulp_container/issues/1887)
+
+#### Deprecations and Removals {: #2.23.0-removal }
+
+- Rebased and squashed old migrations to prepare for pulpcore 3.70 compatibility.
+  [#1850](https://github.com/pulp/pulp_container/issues/1850)
+
+#### Misc {: #2.23.0-misc }
+
+- [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
 ## 2.22.1 (2025-01-22) {: #2.22.1 }
 
 #### Bugfixes {: #2.22.1-bugfix }
