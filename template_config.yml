@@ -23,7 +23,7 @@ docker_fixtures: false
 flake8: true
 flake8_ignore: []
 github_org: pulp
-latest_release_branch: '2.23'
+latest_release_branch: '2.24'
 lint_requirements: true
 os_required_packages: []
 parallel_test_workers: 8
@@ -58,9 +58,9 @@ pulp_settings_azure:
   flatpak_index: true
 pulp_settings_gcp: null
 pulp_settings_s3:
+  domain_enabled: true
   flatpak_index: false
   token_auth_disabled: true
-  domain_enabled: true
 pydocstyle: true
 release_email: pulp-infra@redhat.com
 release_user: pulpbot
