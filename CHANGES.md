@@ -8,6 +8,16 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.24.0 (2025-02-19) {: #2.24.0 }
+
+#### Features {: #2.24.0-feature }
+
+- Add partial support for Domains. The plugin can be installed with the feature turned on, but it
+  only functions within the default domain.
+  [#domain-enablement](https://github.com/pulp/pulp_container/issues/domain-enablement)
+
+---
+
 ## 2.23.0 (2025-02-17) {: #2.23.0 }
 
 #### Bugfixes {: #2.23.0-bugfix }
