@@ -1166,7 +1166,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                         "Docker-Content-Digest": manifest.digest,
                         "Docker-Distribution-API-Version": "registry/2.0",
                     }
-                    return Response(manifest.json_manifest, headers=headers)
+                    return Response(text=manifest.data, headers=headers).render()
                 else:
                     raise ManifestNotFound(reference=pk)
 
