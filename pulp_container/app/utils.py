@@ -342,3 +342,12 @@ def filter_resources(element_list, include_patterns, exclude_patterns):
     if exclude_patterns:
         element_list = filter(partial(exclude, patterns=exclude_patterns), element_list)
     return list(element_list)
+
+
+def integer_overflow_safe(value):
+    """
+    Check if the value is greater than a 32-bit integer, but return None if it overflows.
+    """
+    if value is None or value > 2147483647:
+        return None
+    return value

@@ -31,7 +31,7 @@ from pulpcore.plugin.util import gpg_verify
 
 
 from . import downloaders
-from pulp_container.app.utils import get_content_data
+from pulp_container.app.utils import get_content_data, integer_overflow_safe
 from pulp_container.constants import (
     COSIGN_MEDIA_TYPES,
     COSIGN_MEDIA_TYPES_MANIFEST_TYPE_MAPPING,
@@ -243,7 +243,12 @@ class Manifest(Content):
         compressed_size = 0
         for layer in layers:
             compressed_size += layer.get("size")
-        self.compressed_image_size = compressed_size
+        total_size = integer_overflow_safe(compressed_size)
+        if total_size is None:
+            logger.warning(
+                f"Compressed image size overflowed on manifest {self.digest}; setting to None"
+            )
+        self.compressed_image_size = total_size
 
     def is_bootable_image(self):
         return (
