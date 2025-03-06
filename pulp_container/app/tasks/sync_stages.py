@@ -36,6 +36,7 @@ from pulp_container.app.utils import (
     calculate_digest,
     filter_resources,
     get_content_data,
+    integer_overflow_safe,
 )
 
 log = logging.getLogger(__name__)
@@ -343,6 +344,12 @@ class ContainerFirstStage(Stage):
             blob_dc = self.create_blob(layer)
             manifest_dc.extra_data["blob_dcs"].append(blob_dc)
             await self.put(blob_dc)
+        compressed_size = integer_overflow_safe(compressed_size)
+        if compressed_size is None:
+            log.warning(
+                f"Compressed image size overflowed on manifest {manifest_dc.content.digest}; "
+                "setting to None"
+            )
         manifest_dc.content.compressed_image_size = compressed_size
         layer = content_data.get("config", None)
         if layer:
