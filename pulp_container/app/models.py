@@ -120,7 +120,7 @@ class Manifest(Content):
     labels = models.JSONField(default=dict)
     architecture = models.TextField(null=True)
     os = models.TextField(null=True)
-    compressed_image_size = models.IntegerField(null=True)
+    compressed_image_size = models.BigIntegerField(null=True)
 
     # DEPRECATED: this field is deprecated and will be removed in a future release.
     is_bootable = models.BooleanField(default=False)
