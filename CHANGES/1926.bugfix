@@ -1,1 +1,0 @@
-Fixed integer overflow error when pushing or syncing images greater than 2GB.
