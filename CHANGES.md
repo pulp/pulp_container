@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.24.1 (2025-03-12) {: #2.24.1 }
+
+#### Bugfixes {: #2.24.1-bugfix }
+
+- Fixed integer overflow error when pushing or syncing images greater than 2GB.
+  [#1926](https://github.com/pulp/pulp_container/issues/1926)
+
+---
+
 ## 2.24.0 (2025-02-19) {: #2.24.0 }
 
 #### Features {: #2.24.0-feature }
