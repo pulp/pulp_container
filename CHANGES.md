@@ -8,6 +8,16 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.14.18 (2025-03-18) {: #2.14.18 }
+
+#### Bugfixes {: #2.14.18-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
+
+---
+
 ## 2.14.17 (2025-01-07) {: #2.14.17 }
 
 #### Bugfixes {: #2.14.17-bugfix }
