@@ -1,2 +1,0 @@
-Fixed a bug where the authentication scheme in the authorization header
-was not being parsed correctly.
