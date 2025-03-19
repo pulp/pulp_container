@@ -249,6 +249,12 @@ No significant changes.
 
 ---
 
+## 2.19.5 (2025-03-18) {: #2.19.5 }
+
+No significant changes.
+
+---
+
 ## 2.19.4 (2025-01-07) {: #2.19.4 }
 
 #### Bugfixes {: #2.19.4-bugfix }
@@ -389,6 +395,16 @@ No significant changes.
 
 -   Fixed re-sync failures after reclaiming disk space.
     [#1400](https://github.com/pulp/pulp_container/issues/1400)
+
+---
+
+## 2.16.11 (2025-03-18) {: #2.16.11 }
+
+#### Bugfixes {: #2.16.11-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
 
 ---
 
@@ -651,6 +667,16 @@ No significant changes.
 ### Misc
 
 -   [#1093](https://github.com/pulp/pulp_container/issues/1093), [#1154](https://github.com/pulp/pulp_container/issues/1154)
+
+---
+
+## 2.14.18 (2025-03-18) {: #2.14.18 }
+
+#### Bugfixes {: #2.14.18-bugfix }
+
+- Fixed a bug where the authentication scheme in the authorization header
+  was not being parsed correctly.
+  [#1812](https://github.com/pulp/pulp_container/issues/1812)
 
 ---
 
