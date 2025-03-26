@@ -400,11 +400,16 @@ def container_signature_api(container_bindings):
 
 @pytest.fixture(scope="class")
 def container_repository_factory(container_bindings, gen_object_with_cleanup):
-    def _container_repository_factory(**kwargs):
+    def _container_repository_factory(**body):
         repository = {"name": str(uuid4())}
-        if kwargs:
-            repository.update(kwargs)
-        return gen_object_with_cleanup(container_bindings.RepositoriesContainerApi, repository)
+        kwargs = {}
+        if "pulp_domain" in body:
+            kwargs["pulp_domain"] = body.pop("pulp_domain")
+        if body:
+            repository.update(body)
+        return gen_object_with_cleanup(
+            container_bindings.RepositoriesContainerApi, repository, **kwargs
+        )
 
     return _container_repository_factory
 
@@ -416,9 +421,12 @@ def container_repo(container_repository_factory):
 
 @pytest.fixture(scope="class")
 def container_remote_factory(container_bindings, gen_object_with_cleanup):
-    def _container_remote_factory(url=REGISTRY_V2_FEED_URL, **kwargs):
-        remote = gen_container_remote(url, **kwargs)
-        return gen_object_with_cleanup(container_bindings.RemotesContainerApi, remote)
+    def _container_remote_factory(url=REGISTRY_V2_FEED_URL, **body):
+        kwargs = {}
+        if "pulp_domain" in body:
+            kwargs["pulp_domain"] = body.pop("pulp_domain")
+        remote = gen_container_remote(url, **body)
+        return gen_object_with_cleanup(container_bindings.RemotesContainerApi, remote, **kwargs)
 
     return _container_remote_factory
 
@@ -443,11 +451,16 @@ def container_sync(container_bindings, monitor_task):
 
 @pytest.fixture(scope="class")
 def container_distribution_factory(container_bindings, gen_object_with_cleanup):
-    def _container_distribution_factory(**kwargs):
+    def _container_distribution_factory(**body):
         distro = {"name": str(uuid4()), "base_path": str(uuid4())}
-        if kwargs:
-            distro.update(kwargs)
-        return gen_object_with_cleanup(container_bindings.DistributionsContainerApi, distro)
+        kwargs = {}
+        if "pulp_domain" in body:
+            kwargs["pulp_domain"] = body.pop("pulp_domain")
+        if body:
+            distro.update(body)
+        return gen_object_with_cleanup(
+            container_bindings.DistributionsContainerApi, distro, **kwargs
+        )
 
     return _container_distribution_factory
 
@@ -502,3 +515,16 @@ def check_manifest_arch_os_size():
         assert any(manifest.compressed_image_size > 0 for manifest in manifests)
 
     return _check_manifest_arch_os_size
+
+
+@pytest.fixture(scope="session")
+def full_path(pulp_settings):
+    def _full_path(base_path_or_distro, pulp_domain="default"):
+        if not isinstance(base_path_or_distro, str):
+            pulp_domain = base_path_or_distro.pulp_href[len(pulp_settings.API_ROOT) :].split("/")[0]
+            base_path_or_distro = base_path_or_distro.base_path
+        if pulp_settings.DOMAIN_ENABLED:
+            return f"{pulp_domain}/{base_path_or_distro}"
+        return base_path_or_distro
+
+    return _full_path

@@ -55,14 +55,18 @@ def get_listed_repositories(bindings_cfg, pulp_settings):
 
 
 def test_listing_repositories(
-    synced_repo_and_remote, container_distribution_factory, get_listed_repositories, bindings_cfg
+    synced_repo_and_remote,
+    container_distribution_factory,
+    get_listed_repositories,
+    full_path,
+    bindings_cfg,
 ):
     """Check if all repositories are correctly listed for an administrator."""
     repository, remote = synced_repo_and_remote
     distribution1 = container_distribution_factory(repository=repository.pulp_href)
     distribution2 = container_distribution_factory(repository=repository.pulp_href)
     repositories = get_listed_repositories(auth=(bindings_cfg.username, bindings_cfg.password))
-    repositories_names = sorted([distribution1.base_path, distribution2.base_path])
+    repositories_names = sorted([full_path(distribution1), full_path(distribution2)])
     assert repositories.json() == {"repositories": repositories_names}
 
 
@@ -72,6 +76,7 @@ def test_list_repositories_with_permissions(
     synced_repo_and_remote,
     container_distribution_factory,
     container_bindings,
+    full_path,
     pulp_settings,
 ):
     """Test case for listing repositories within the registry with respect to users' permissions."""
@@ -95,9 +100,9 @@ def test_list_repositories_with_permissions(
     )
     repositories_names_sorted = sorted(
         [
-            distribution1.base_path,
-            distribution2.base_path,
-            distribution3.base_path,
+            full_path(distribution1),
+            full_path(distribution2),
+            full_path(distribution3),
         ]
     )
 
@@ -107,7 +112,7 @@ def test_list_repositories_with_permissions(
     if pulp_settings.TOKEN_AUTH_DISABLED:
         assert repositories.json() == {"repositories": repositories_names_sorted}
     else:
-        assert repositories.json() == {"repositories": [distribution3.base_path]}
+        assert repositories.json() == {"repositories": [full_path(distribution3)]}
 
     # Test all user: Check if the user can see all repositories.
     auth = (user_all.username, user_all.password)
@@ -122,5 +127,5 @@ def test_list_repositories_with_permissions(
     if pulp_settings.TOKEN_AUTH_DISABLED:
         assert repositories.json() == {"repositories": repositories_names_sorted}
     else:
-        repositories_names = sorted([distribution1.base_path, distribution3.base_path])
+        repositories_names = sorted([full_path(distribution1), full_path(distribution3)])
         assert repositories.json() == {"repositories": repositories_names}

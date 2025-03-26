@@ -20,10 +20,11 @@ def test_push_using_registry_client_admin(
     local_registry,
     check_manifest_fields,
     container_bindings,
+    full_path,
 ):
     """Test push with official registry client and logged in as admin."""
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-    local_url = "foo/bar:1.0"
+    local_url = full_path("foo/bar:1.0")
 
     registry_client.pull(image_path)
     local_registry.tag_and_push(image_path, local_url)
@@ -50,10 +51,11 @@ def test_push_without_login(
     anonymous_user,
     registry_client,
     local_registry,
+    full_path,
 ):
     """Test that one can't push without being logged in."""
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-    local_url = "foo/bar:1.0"
+    local_url = full_path("foo/bar:1.0")
     registry_client.pull(image_path)
 
     # Try to push without permission
@@ -67,6 +69,7 @@ def test_push_with_dist_perms(
     registry_client,
     local_registry,
     container_bindings,
+    full_path,
     pulp_settings,
 ):
     """
@@ -85,7 +88,7 @@ def test_push_with_dist_perms(
     user_helpless = gen_user()
 
     repo_name = "test/perms"
-    local_url = f"{repo_name}:2.0"
+    local_url = full_path(f"{repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
     with user_creator:
@@ -140,13 +143,14 @@ def test_push_with_view_perms(
     gen_user,
     registry_client,
     local_registry,
+    full_path,
 ):
     """
     Test that push is not working if a user has only view permission for push repos.
     """
     user_reader = gen_user(model_roles=["container.containernamespace_consumer"])
     repo_name = "unsuccessful/perms"
-    local_url = f"{repo_name}:2.0"
+    local_url = full_path(f"{repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
     with user_reader, pytest.raises(CalledProcessError):
@@ -160,13 +164,14 @@ def test_push_with_no_perms(
     local_registry,
     container_bindings,
     pulp_settings,
+    full_path,
 ):
     """
     Test that user with no permissions can't perform push.
     """
     user_helpless = gen_user()
     repo_name = "unsuccessful/perms"
-    local_url = f"{repo_name}:2.0"
+    local_url = full_path(f"{repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
     with user_helpless, pytest.raises(CalledProcessError):
@@ -216,6 +221,7 @@ def test_push_to_existing_namespace(
     local_registry,
     container_bindings,
     pulp_settings,
+    full_path,
 ):
     """
     Test the push to an existing namespace with collaborator permissions.
@@ -232,7 +238,7 @@ def test_push_to_existing_namespace(
     user_dist_collaborator = gen_user()
     user_namespace_collaborator = gen_user()
     repo_name = "team/owner"
-    local_url = f"{repo_name}:2.0"
+    local_url = full_path(f"{repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
     with user_creator:
@@ -252,14 +258,14 @@ def test_push_to_existing_namespace(
         )
 
     collab_repo_name = "team/owner"
-    local_url = f"{collab_repo_name}:2.0"
+    local_url = full_path(f"{collab_repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
     registry_client.pull(image_path)
     with user_dist_collaborator:
         local_registry.tag_and_push(image_path, local_url)
 
     collab_repo_name = "team/collab"
-    local_url = f"{collab_repo_name}:2.0"
+    local_url = full_path(f"{collab_repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
     registry_client.pull(image_path)
     with user_dist_collaborator, pytest.raises(CalledProcessError):
@@ -275,7 +281,7 @@ def test_push_to_existing_namespace(
         )
 
     collab_repo_name = "team/collab"
-    local_url = f"{collab_repo_name}:2.0"
+    local_url = full_path(f"{collab_repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_c"
     registry_client.pull(image_path)
     with user_namespace_collaborator:
@@ -290,6 +296,7 @@ def test_push_private_repository(
     container_bindings,
     monitor_task,
     pulp_settings,
+    full_path,
 ):
     """
     Test that you can create a private distribution and push to it.
@@ -303,7 +310,7 @@ def test_push_private_repository(
     user_dist_consumer = gen_user()
     user_helpless = gen_user()
     repo_name = "test/private"
-    local_url = f"{repo_name}:2.0"
+    local_url = full_path(f"{repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
 
     distribution = {"name": repo_name, "base_path": repo_name, "private": True}
@@ -349,6 +356,7 @@ def test_push_matching_username(
     container_bindings,
     monitor_task,
     pulp_settings,
+    full_path,
 ):
     """
     Test that you can push to a nonexisting namespace that matches your username.
@@ -359,8 +367,8 @@ def test_push_matching_username(
     user_helpless = gen_user()
     namespace_name = user_helpless.username
     repo_name = f"{namespace_name}/matching"
-    local_url = f"{repo_name}:2.0"
-    invalid_local_url = f"other/{repo_name}:2.0"
+    local_url = full_path(f"{repo_name}:2.0")
+    invalid_local_url = full_path(f"other/{repo_name}:2.0")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
 
     registry_client.pull(image_path)
@@ -400,6 +408,7 @@ def test_push_to_existing_regular_repository(
     container_repository_factory,
     local_registry,
     registry_client,
+    full_path,
 ):
     """
     Test the push to an existing non-push repository.
@@ -408,7 +417,7 @@ def test_push_to_existing_regular_repository(
     """
     container_repository_factory(name="foo")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
-    local_url = "foo:1.0"
+    local_url = full_path("foo:1.0")
 
     registry_client.pull(image_path)
     with pytest.raises(CalledProcessError):
@@ -460,11 +469,13 @@ class TestPushManifestList:
         registry_client._dispatch_command("image", "rm", self.manifest_b)
         registry_client._dispatch_command("image", "rm", self.manifest_c)
 
-    def test_push_manifest_list_v2s2(self, local_registry, container_bindings, add_to_cleanup):
+    def test_push_manifest_list_v2s2(
+        self, local_registry, container_bindings, add_to_cleanup, full_path
+    ):
         """Push the created manifest list in the v2s2 format."""
         local_registry.manifest_push(
             self.v2s2_tag,
-            self.v2s2_image_path,
+            full_path(self.v2s2_image_path),
             "--all",
             "--format",
             "v2s2",
@@ -473,7 +484,7 @@ class TestPushManifestList:
         # pushing the same manifest list two times should not fail
         local_registry.manifest_push(
             self.v2s2_tag,
-            self.v2s2_image_path,
+            full_path(self.v2s2_image_path),
             "--all",
             "--format",
             "v2s2",
@@ -497,7 +508,7 @@ class TestPushManifestList:
         assert manifest_list.schema_version == 2
 
         # load manifest_list.json
-        image_path = "/v2/{}/manifests/{}".format(distribution.base_path, latest_tag.name)
+        image_path = "/v2/{}/manifests/{}".format(full_path(distribution), latest_tag.name)
         latest_image_url = urljoin(container_bindings.client.configuration.host, image_path)
 
         auth = get_auth_for_url(latest_image_url)
@@ -517,13 +528,15 @@ class TestPushManifestList:
         )
         assert referenced_manifests_digests == manifests_v2s2_digests
 
-        local_registry.pull(self.v2s2_image_path)
+        local_registry.pull(full_path(self.v2s2_image_path))
 
-    def test_push_manifest_list_oci(self, local_registry, container_bindings, add_to_cleanup):
+    def test_push_manifest_list_oci(
+        self, local_registry, container_bindings, add_to_cleanup, full_path
+    ):
         """Push the created manifest list in the OCI format."""
         local_registry.manifest_push(
             self.oci_tag,
-            self.oci_image_path,
+            full_path(self.oci_image_path),
             "--all",
             "--format",
             "oci",
@@ -547,7 +560,7 @@ class TestPushManifestList:
         assert manifest_list.schema_version == 2
 
         # load manifest_list.json
-        image_path = "/v2/{}/manifests/{}".format(distribution.base_path, latest_tag.name)
+        image_path = "/v2/{}/manifests/{}".format(full_path(distribution), latest_tag.name)
         latest_image_url = urljoin(container_bindings.client.configuration.host, image_path)
 
         auth = get_auth_for_url(latest_image_url)
@@ -567,11 +580,13 @@ class TestPushManifestList:
         )
         assert referenced_manifests_digests == manifests_oci_digests
 
-        local_registry.pull(self.oci_image_path)
+        local_registry.pull(full_path(self.oci_image_path))
 
-    def test_push_empty_manifest_list(self, local_registry, container_bindings, add_to_cleanup):
+    def test_push_empty_manifest_list(
+        self, local_registry, container_bindings, add_to_cleanup, full_path
+    ):
         """Push an empty manifest list to the registry."""
-        local_registry.manifest_push(self.empty_image_tag, self.empty_image_path)
+        local_registry.manifest_push(self.empty_image_tag, full_path(self.empty_image_path))
 
         distribution = container_bindings.DistributionsContainerApi.list(name="foo_empty").results[
             0

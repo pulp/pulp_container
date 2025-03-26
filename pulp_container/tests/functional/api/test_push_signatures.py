@@ -15,6 +15,7 @@ def distribution(
     container_distribution_api,
     signing_gpg_metadata,
     add_to_cleanup,
+    full_path,
 ):
     """Return a distribution created after pushing a signed content to the Pulp Registry."""
     if registry_client.name != "podman":
@@ -26,10 +27,10 @@ def distribution(
     gpg, fingerprint, keyid = signing_gpg_metadata
 
     with registry_client.set_env(GNUPGHOME=str(gpg.gnupghome)):
-        local_registry.tag_and_push(image_path, "test-1:manifest_a", "--sign-by", keyid)
+        local_registry.tag_and_push(image_path, full_path("test-1:manifest_a"), "--sign-by", keyid)
 
         # push the same image for the second time with a different signature (timestamp)
-        local_registry.tag_and_push(image_path, "test-1:manifest_a", "--sign-by", keyid)
+        local_registry.tag_and_push(image_path, full_path("test-1:manifest_a"), "--sign-by", keyid)
 
     distribution = container_distribution_api.list(name="test-1").results[0]
     add_to_cleanup(container_distribution_api, distribution.pulp_href)
@@ -44,6 +45,7 @@ def test_assert_signed_image(
     container_signature_api,
     signing_gpg_metadata,
     distribution,
+    full_path,
 ):
     """Test whether an admin user can fetch a signature from the Pulp Registry."""
     gpg, fingerprint, keyid = signing_gpg_metadata
@@ -61,7 +63,7 @@ def test_assert_signed_image(
     assert signature.signed_manifest == manifest.pulp_href
     assert signature.key_id == keyid
 
-    path = f"/extensions/v2/test-1/signatures/{manifest.digest}"
+    path = f"/extensions/v2/{full_path(distribution)}/signatures/{manifest.digest}"
     response, _ = local_registry.get_response("GET", path)
 
     signatures = response.json()["signatures"]
@@ -79,7 +81,7 @@ def test_assert_signed_image(
         json_s = json.loads(decrypted.data)
 
         image_path = json_s["critical"]["identity"]["docker-reference"]
-        assert image_path == f"{local_registry.name}/test-1:manifest_a"
+        assert image_path == f"{local_registry.name}/{full_path(distribution)}:manifest_a"
 
         s_type = json_s["critical"]["type"]
         assert s_type == SIGNATURE_TYPE.ATOMIC_FULL
