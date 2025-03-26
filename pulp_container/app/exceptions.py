@@ -18,13 +18,15 @@ class RepositoryNotFound(NotFound):
 
     def __init__(self, name):
         """Initialize the exception with the repository name."""
+        from pulp_container.app.utils import get_full_path
+
         super().__init__(
             detail={
                 "errors": [
                     {
                         "code": "NAME_UNKNOWN",
                         "message": "Repository not found.",
-                        "detail": {"name": name},
+                        "detail": {"name": get_full_path(name)},
                     }
                 ]
             }
@@ -36,10 +38,18 @@ class RepositoryInvalid(ParseError):
 
     def __init__(self, name, message=None):
         """Initialize the exception with the repository name."""
+        from pulp_container.app.utils import get_full_path
+
         message = message or "Invalid repository name."
         super().__init__(
             detail={
-                "errors": [{"code": "NAME_INVALID", "message": message, "detail": {"name": name}}]
+                "errors": [
+                    {
+                        "code": "NAME_INVALID",
+                        "message": message,
+                        "detail": {"name": get_full_path(name)},
+                    }
+                ]
             }
         )
 
@@ -54,7 +64,7 @@ class BlobNotFound(NotFound):
                 "errors": [
                     {
                         "code": "BLOB_UNKNOWN",
-                        "message": "Blob not found.",
+                        "message": "Blob not found, hello!?",
                         "detail": {"digest": digest},
                     }
                 ]

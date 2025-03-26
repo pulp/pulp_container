@@ -67,6 +67,7 @@ def test_build_image_with_uploaded_containerfile(
     populated_file_repo,
     delete_orphans_pre,
     local_registry,
+    full_path,
 ):
     """Test build an OCI image from a file repository_version."""
     build_image(
@@ -77,8 +78,8 @@ def test_build_image_with_uploaded_containerfile(
 
     distribution = container_distribution_factory(repository=container_repo.pulp_href)
 
-    local_registry.pull(distribution.base_path)
-    image = local_registry.inspect(distribution.base_path)
+    local_registry.pull(full_path(distribution))
+    image = local_registry.inspect(full_path(distribution))
     assert image[0]["Config"]["Cmd"] == ["cat", "/tmp/inside-image.txt"]
     assert check_manifest_fields(
         manifest_filters={"digest": image[0]["Digest"]}, fields={"type": MANIFEST_TYPE.IMAGE}
@@ -168,6 +169,7 @@ def test_build_image_from_containerfile_name(
     delete_orphans_pre,
     local_registry,
     populated_file_repo,
+    full_path,
 ):
     """Test build an OCI image with a containerfile from build_context."""
     build_image(
@@ -178,8 +180,8 @@ def test_build_image_from_containerfile_name(
 
     distribution = container_distribution_factory(repository=container_repo.pulp_href)
 
-    local_registry.pull(distribution.base_path)
-    image = local_registry.inspect(distribution.base_path)
+    local_registry.pull(full_path(distribution))
+    image = local_registry.inspect(full_path(distribution))
     assert image[0]["Config"]["Cmd"] == ["cat", "/tmp/inside-image.txt"]
 
 
@@ -207,6 +209,7 @@ def test_without_build_context(
     container_bindings,
     container_repo,
     local_registry,
+    full_path,
 ):
     """Test build with only a Containerfile (no additional files)"""
 
@@ -228,8 +231,8 @@ CMD ["ls", "/"]"""
 
     distribution = container_distribution_factory(repository=container_repo.pulp_href)
 
-    local_registry.pull(distribution.base_path)
-    image = local_registry.inspect(distribution.base_path)
+    local_registry.pull(full_path(distribution))
+    image = local_registry.inspect(full_path(distribution))
     assert image[0]["Config"]["Cmd"] == ["ls", "/"]
     manifest = container_bindings.ContentManifestsApi.list(digest=image[0]["Digest"])
     check_manifest_arch_os_size(manifest)

@@ -14,6 +14,12 @@ from pulp_container.app.registry_api import (
     VersionView,
 )
 
+if settings.DOMAIN_ENABLED:
+    re_path = "(?P<pulp_domain>[-a-zA-Z0-9_]+)/(?P<path>.+)"
+    da_path = "<slug:pulp_domain>/<path:path>"
+else:
+    re_path = "(?P<path>.+)"
+    da_path = "<path:path>"
 
 router = SimpleRouter(trailing_slash=False)
 
@@ -26,18 +32,19 @@ head_route = Route(
 )
 
 router.routes.append(head_route)
-router.register(r"^v2/(?P<path>.+)/blobs/uploads\/?", BlobUploads, basename="docker-upload")
-router.register(r"^v2/(?P<path>.+)/blobs", Blobs, basename="blobs")
-router.register(r"^v2/(?P<path>.+)/manifests", Manifests, basename="manifests")
-router.register(r"^extensions/v2/(?P<path>.+)/signatures", Signatures, basename="signatures")
+router.register(rf"v2/{re_path}/blobs/uploads\/?", BlobUploads, basename="docker-upload")
+router.register(rf"v2/{re_path}/blobs", Blobs, basename="blobs")
+router.register(rf"v2/{re_path}/manifests", Manifests, basename="manifests")
+router.register(rf"extensions/v2/{re_path}/signatures", Signatures, basename="signatures")
 
 urlpatterns = [
     path("token/", BearerTokenView.as_view()),
     path("v2/", VersionView.as_view()),
     path("v2/_catalog", CatalogView.as_view()),
-    path("v2/<path:path>/tags/list", TagsListView.as_view()),
+    path(f"v2/{da_path}/tags/list", TagsListView.as_view()),
     path("", include(router.urls)),
 ]
+# print(router.urls)
 if settings.FLATPAK_INDEX:
     urlpatterns.extend(
         [
