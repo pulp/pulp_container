@@ -7,11 +7,13 @@ MANIFEST_TAG = "manifest_a"
 
 
 @pytest.fixture
-def distribution(registry_client, local_registry, container_distribution_api, add_to_cleanup):
+def distribution(
+    registry_client, local_registry, container_distribution_api, full_path, add_to_cleanup
+):
     """The fixture for a distribution that references a repository of the push type."""
     image_path = f"{REGISTRY_V2_REPO_PULP}:{MANIFEST_TAG}"
     registry_client.pull(image_path)
-    local_registry.tag_and_push(image_path, f"test-1:{MANIFEST_TAG}")
+    local_registry.tag_and_push(image_path, full_path(f"test-1:{MANIFEST_TAG}"))
 
     distribution = container_distribution_api.list(name="test-1").results[0]
     add_to_cleanup(container_distribution_api, distribution.pulp_href)

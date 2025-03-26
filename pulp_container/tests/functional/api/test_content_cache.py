@@ -66,6 +66,7 @@ def test_content_cache(
     container_distribution_factory,
     container_sync,
     check_content,
+    full_path,
     bindings_cfg,
     pulp_settings,
     monitor_task,
@@ -79,7 +80,7 @@ def test_content_cache(
     container_sync(repo, remote)
     repo = container_bindings.RepositoriesContainerApi.read(repo.pulp_href)
     distribution = container_distribution_factory(repository=repo.pulp_href)
-    dist_url = urljoin(bindings_cfg.host, f"v2/{distribution.base_path}/")
+    dist_url = urljoin(bindings_cfg.host, f"v2/{full_path(distribution)}/")
 
     # Test whether responses are cached for initial querying.
     check_content(cache_status_first_func, dist_url)
@@ -104,7 +105,7 @@ def test_content_cache(
 
     # Add a new distribution and check if its responses are cached separately.
     distro2 = container_distribution_factory(repository=repo.pulp_href)
-    dist_url2 = urljoin(bindings_cfg.host, f"v2/{distro2.base_path}/")
+    dist_url2 = urljoin(bindings_cfg.host, f"v2/{full_path(distro2)}/")
 
     check_content(cache_status_found_func, dist_url)
     check_content(cache_status_first_func, dist_url=dist_url2)

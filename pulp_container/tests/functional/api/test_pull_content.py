@@ -66,10 +66,10 @@ class TestPullContent:
             [checksum in blob_checksums for checksum in get_blobsums_from_remote_registry()]
         ), "Cannot find a matching layer on remote registry."
 
-    def test_api_performes_schema_conversion(self, bindings_cfg, setup):
+    def test_api_performes_schema_conversion(self, bindings_cfg, full_path, setup):
         """Verify pull via token with accepted content type."""
         _, distribution_with_repo, _ = setup
-        image_path = "/v2/{}/manifests/{}".format(distribution_with_repo.base_path, "latest")
+        image_path = "/v2/{}/manifests/{}".format(full_path(distribution_with_repo), "latest")
         latest_image_url = urljoin(bindings_cfg.host, image_path)
 
         auth = get_auth_for_url(latest_image_url)
@@ -79,12 +79,12 @@ class TestPullContent:
         # I don't understand what this is testing
         assert 400 <= content_response.status_code < 500
 
-    def test_create_empty_blob_on_the_fly(self, bindings_cfg, setup):
+    def test_create_empty_blob_on_the_fly(self, bindings_cfg, full_path, setup):
         """
         Test if empty blob getscreated and served on the fly.
         """
         _, distribution_with_repo, _ = setup
-        blob_path = "/v2/{}/blobs/{}".format(distribution_with_repo.base_path, EMPTY_BLOB)
+        blob_path = "/v2/{}/blobs/{}".format(full_path(distribution_with_repo), EMPTY_BLOB)
         empty_blob_url = urljoin(bindings_cfg.host, blob_path)
 
         auth = get_auth_for_url(empty_blob_url)
@@ -96,7 +96,7 @@ class TestPullContent:
         header_digest = content_response.headers["docker-content-digest"].split(":")[1]
         assert digest == header_digest
 
-    def test_pull_image_from_repository(self, local_registry, registry_client, setup):
+    def test_pull_image_from_repository(self, local_registry, registry_client, full_path, setup):
         """Verify that a client can pull the image from Pulp.
 
         1. Using the RegistryClient pull the image from Pulp.
@@ -105,8 +105,8 @@ class TestPullContent:
         4. Ensure image is deleted after the test.
         """
         _, distribution_with_repo, _ = setup
-        local_registry.pull(distribution_with_repo.base_path)
-        local_image = local_registry.inspect(distribution_with_repo.base_path)
+        local_registry.pull(full_path(distribution_with_repo))
+        local_image = local_registry.inspect(full_path(distribution_with_repo))
 
         registry_client.pull(REGISTRY_V2_REPO_HELLO_WORLD)
         remote_image = registry_client.inspect(REGISTRY_V2_REPO_HELLO_WORLD)
@@ -114,7 +114,9 @@ class TestPullContent:
         registry_client.rmi(REGISTRY_V2_REPO_HELLO_WORLD)
         assert local_image[0]["Id"] == remote_image[0]["Id"]
 
-    def test_pull_image_from_repository_version(self, local_registry, registry_client, setup):
+    def test_pull_image_from_repository_version(
+        self, local_registry, registry_client, full_path, setup
+    ):
         """Verify that a client can pull the image from Pulp.
 
         1. Using the RegistryClient pull the image from Pulp.
@@ -123,8 +125,8 @@ class TestPullContent:
         4. Ensure image is deleted after the test.
         """
         _, _, distribution_with_repo_version = setup
-        local_registry.pull(distribution_with_repo_version.base_path)
-        local_image = local_registry.inspect(distribution_with_repo_version.base_path)
+        local_registry.pull(full_path(distribution_with_repo_version))
+        local_image = local_registry.inspect(full_path(distribution_with_repo_version))
 
         registry_client.pull(REGISTRY_V2_REPO_HELLO_WORLD)
         remote_image = registry_client.inspect(REGISTRY_V2_REPO_HELLO_WORLD)
@@ -132,7 +134,7 @@ class TestPullContent:
         registry_client.rmi(REGISTRY_V2_REPO_HELLO_WORLD)
         assert local_image[0]["Id"] == remote_image[0]["Id"]
 
-    def test_pull_image_with_tag(self, local_registry, registry_client, setup):
+    def test_pull_image_with_tag(self, local_registry, registry_client, full_path, setup):
         """Verify that a client can pull the image from Pulp with a tag.
 
         1. Using the RegistryClient pull the image from Pulp specifying a tag.
@@ -141,9 +143,9 @@ class TestPullContent:
         4. Ensure image is deleted after the test.
         """
         _, distribution_with_repo, _ = setup
-        local_registry.pull(distribution_with_repo.base_path + PULP_HELLO_WORLD_LINUX_TAG)
+        local_registry.pull(full_path(distribution_with_repo) + PULP_HELLO_WORLD_LINUX_TAG)
         local_image = local_registry.inspect(
-            distribution_with_repo.base_path + PULP_HELLO_WORLD_LINUX_TAG
+            full_path(distribution_with_repo) + PULP_HELLO_WORLD_LINUX_TAG
         )
 
         registry_client.pull(REGISTRY_V2_REPO_HELLO_WORLD + PULP_HELLO_WORLD_LINUX_TAG)
@@ -154,22 +156,22 @@ class TestPullContent:
         registry_client.rmi(REGISTRY_V2_REPO_HELLO_WORLD + PULP_HELLO_WORLD_LINUX_TAG)
         assert local_image[0]["Id"] == remote_image[0]["Id"]
 
-    def test_pull_nonexistent_image(self, local_registry):
+    def test_pull_nonexistent_image(self, local_registry, full_path):
         """Verify that a client cannot pull nonexistent image from Pulp.
 
         1. Using the RegistryClient try to pull nonexistent image from Pulp.
         2. Assert that error is occurred and nothing has been pulled.
         """
         with pytest.raises(subprocess.CalledProcessError):
-            local_registry.pull("inexistentimagename")
+            local_registry.pull(full_path("inexistentimagename"))
 
-    def test_pull_nonexistent_blob(self, bindings_cfg, setup):
+    def test_pull_nonexistent_blob(self, bindings_cfg, full_path, setup):
         """
         Verify that a GET request to a nonexistent BLOB will be properly handled
         instead of outputting a stacktrace.
         """
         _, distribution_with_repo, _ = setup
-        blob_path = "/v2/{}/blobs/{}".format(distribution_with_repo.base_path, EMPTY_JSON)
+        blob_path = "/v2/{}/blobs/{}".format(full_path(distribution_with_repo), EMPTY_JSON)
         non_existing_blob_url = urljoin(bindings_cfg.host, blob_path)
 
         auth = get_auth_for_url(non_existing_blob_url)
@@ -234,7 +236,7 @@ class TestPullOnDemandContent:
         ), "Cannot find a matching layer on remote registry."
 
     def test_pull_image_from_repository(
-        self, local_registry, registry_client, pulpcore_bindings, setup
+        self, local_registry, registry_client, pulpcore_bindings, full_path, setup
     ):
         """Verify that a client can pull the image from Pulp (on-demand).
 
@@ -245,8 +247,8 @@ class TestPullOnDemandContent:
         5. Ensure image is deleted after the test.
         """
         _, distribution_with_repo, _, artifact_count = setup
-        local_registry.pull(distribution_with_repo.base_path)
-        local_image = local_registry.inspect(distribution_with_repo.base_path)
+        local_registry.pull(full_path(distribution_with_repo))
+        local_image = local_registry.inspect(full_path(distribution_with_repo))
         registry_client.rmi(local_image[0]["Id"])
 
         registry_client.pull(REGISTRY_V2_REPO_HELLO_WORLD)
@@ -258,7 +260,9 @@ class TestPullOnDemandContent:
         new_artifact_count = pulpcore_bindings.ArtifactsApi.list().count
         assert new_artifact_count > artifact_count
 
-    def test_pull_image_from_repository_version(self, local_registry, registry_client, setup):
+    def test_pull_image_from_repository_version(
+        self, local_registry, registry_client, full_path, setup
+    ):
         """Verify that a client can pull the image from Pulp (on-demand).
 
         1. Using the RegistryClient pull the image from Pulp.
@@ -267,8 +271,8 @@ class TestPullOnDemandContent:
         4. Ensure image is deleted after the test.
         """
         _, _, distribution_with_repo_version, _ = setup
-        local_registry.pull(distribution_with_repo_version.base_path)
-        local_image = local_registry.inspect(distribution_with_repo_version.base_path)
+        local_registry.pull(full_path(distribution_with_repo_version))
+        local_image = local_registry.inspect(full_path(distribution_with_repo_version))
         registry_client.rmi(local_image[0]["Id"])
 
         registry_client.pull(REGISTRY_V2_REPO_HELLO_WORLD)
@@ -277,7 +281,7 @@ class TestPullOnDemandContent:
         registry_client.rmi(REGISTRY_V2_REPO_HELLO_WORLD)
         assert local_image[0]["Id"] == remote_image[0]["Id"]
 
-    def test_pull_image_with_tag(self, local_registry, registry_client, setup):
+    def test_pull_image_with_tag(self, local_registry, registry_client, full_path, setup):
         """Verify that a client can pull the image from Pulp with a tag (on-demand).
 
         1. Using the RegistryClient pull the image from Pulp specifying a tag.
@@ -286,9 +290,9 @@ class TestPullOnDemandContent:
         4. Ensure image is deleted after the test.
         """
         _, distribution_with_repo, _, _ = setup
-        local_registry.pull(distribution_with_repo.base_path + PULP_HELLO_WORLD_LINUX_TAG)
+        local_registry.pull(full_path(distribution_with_repo) + PULP_HELLO_WORLD_LINUX_TAG)
         local_image = local_registry.inspect(
-            distribution_with_repo.base_path + PULP_HELLO_WORLD_LINUX_TAG
+            full_path(distribution_with_repo) + PULP_HELLO_WORLD_LINUX_TAG
         )
         registry_client.rmi(local_image[0]["Id"])
 

@@ -17,6 +17,7 @@ def test_rbac_repository_content(
     container_bindings,
     container_remote_factory,
     container_repository_factory,
+    full_path,
     pulp_settings,
     monitor_task,
 ):
@@ -51,7 +52,7 @@ def test_rbac_repository_content(
     image_path1 = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path1)
     repo_name1 = "testcontent1/perms"
-    local_url1 = f"{repo_name1}:1.0"
+    local_url1 = full_path(f"{repo_name1}:1.0")
     with user_creator:
         local_registry.tag_and_push(image_path1, local_url1)
         push_repository1 = container_bindings.RepositoriesContainerPushApi.list(
@@ -64,7 +65,7 @@ def test_rbac_repository_content(
     image_path2 = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
     registry_client.pull(image_path2)
     repo_name2 = "testcontent2/perms"
-    local_url2 = f"{repo_name2}:1.0"
+    local_url2 = full_path(f"{repo_name2}:1.0")
     with user_creator2:
         local_registry.tag_and_push(image_path2, local_url2)
         push_repository2 = container_bindings.RepositoriesContainerPushApi.list(

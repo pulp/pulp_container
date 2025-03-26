@@ -23,8 +23,12 @@ def add_pull_through_entities_to_cleanup(
     container_remote_api,
     container_distribution_api,
     add_to_cleanup,
+    pulp_settings,
 ):
     def _add_pull_through_entities_to_cleanup(path):
+        if pulp_settings.DOMAIN_ENABLED:
+            path = path.split("/", maxsplit=1)[1]
+        path = path.split(":")[0]
         repository = container_repository_api.list(name=path).results[0]
         add_to_cleanup(container_repository_api, repository.pulp_href)
         remote = container_remote_api.list(name=path).results[0]
@@ -48,20 +52,22 @@ def pull_and_verify(
     container_tag_api,
     registry_client,
     local_registry,
+    full_path,
 ):
     def _pull_and_verify(images, pull_through_distribution):
         tags_to_verify = []
         for version, image_path in enumerate(images, start=1):
             remote_image_path = f"{REGISTRY_V2}/{image_path}"
             local_image_path = f"{pull_through_distribution.base_path}/{image_path}"
+            local_image_pull_path = full_path(local_image_path)  # Handle if domain is enabled
 
             # 0. test if an anonymous user cannot pull new content through the pull-through cache
             with anonymous_user, pytest.raises(CalledProcessError):
-                local_registry.pull(local_image_path)
+                local_registry.pull(local_image_pull_path)
 
             # 1. pull remote content through the pull-through distribution
-            local_registry.pull(local_image_path)
-            local_image = local_registry.inspect(local_image_path)
+            local_registry.pull(local_image_pull_path)
+            local_image = local_registry.inspect(local_image_pull_path)
 
             # 1.1. check pulp manifest model fields
             assert check_manifest_fields(
@@ -74,7 +80,7 @@ def pull_and_verify(
 
             # when the client pulls the image, a repository, distribution, and remote is created in
             # the background; therefore, scheduling the cleanup for these entities is necessary
-            add_pull_through_entities_to_cleanup(path)
+            add_pull_through_entities_to_cleanup(local_image_pull_path)
 
             pull_through_distribution = container_pull_through_distribution_api.list(
                 name=pull_through_distribution.name
@@ -103,7 +109,7 @@ def pull_and_verify(
                 assert False, "The repository was not updated with the cached content."
 
             # 4. test if pulling the same content twice does not raise any error
-            local_registry.pull(local_image_path)
+            local_registry.pull(local_image_pull_path)
 
             # 5. assert the cached tags
             tags = container_tag_api.list(repository_version=repository.latest_version_href).results
@@ -111,7 +117,7 @@ def pull_and_verify(
 
             # 6. test if the anonymous user can pull existing content via the pull-through cache
             with anonymous_user:
-                local_registry.pull(local_image_path)
+                local_registry.pull(local_image_pull_path)
 
     return _pull_and_verify
 
@@ -132,12 +138,14 @@ def test_pull_by_digest(
     anonymous_user,
     local_registry,
     pull_through_distribution,
+    full_path,
     gen_user,
 ):
+    # THIS TEST FAILS WHEN THE CONTENT IS ALREADY PRESENT IN PULP!!
     image1 = f"{PULP_HELLO_WORLD_REPO}@{PULP_HELLO_WORLD_LINUX_AMD64_DIGEST}"
     image2 = f"{PULP_FIXTURE_1}@{PULP_FIXTURE_1_MANIFEST_A_DIGEST}"
-    local_image_path1 = f"{pull_through_distribution().base_path}/{image1}"
-    local_image_path2 = f"{pull_through_distribution().base_path}/{image2}"
+    local_image_path1 = f"{full_path(pull_through_distribution())}/{image1}"
+    local_image_path2 = f"{full_path(pull_through_distribution())}/{image2}"
 
     with anonymous_user, pytest.raises(CalledProcessError):
         local_registry.pull(local_image_path1)
@@ -168,6 +176,7 @@ def test_pull_from_private_distribution(
     container_distribution_api,
     local_registry,
     pull_through_distribution,
+    full_path,
     gen_user,
 ):
     if settings.TOKEN_AUTH_DISABLED:
@@ -177,8 +186,8 @@ def test_pull_from_private_distribution(
 
     image1 = f"{PULP_HELLO_WORLD_REPO}:latest"
     image2 = f"{PULP_FIXTURE_1}:manifest_a"
-    local_image_path1 = f"{pull_through_distribution.base_path}/{image1}"
-    local_image_path2 = f"{pull_through_distribution.base_path}/{image2}"
+    local_image_path1 = f"{full_path(pull_through_distribution)}/{image1}"
+    local_image_path2 = f"{full_path(pull_through_distribution)}/{image2}"
 
     with anonymous_user, pytest.raises(CalledProcessError):
         local_registry.pull(local_image_path1)
@@ -207,7 +216,7 @@ def test_pull_from_private_distribution(
     with gen_user(model_roles=["container.containerdistribution_collaborator"]):
         local_registry.pull(local_image_path2)
 
-    distro1_name = local_image_path1.split(":")[0]
+    distro1_name = f"{pull_through_distribution.base_path}/{image1}".split(":")[0]
     distro1 = container_distribution_api.list(name=distro1_name).results[0]
     distro_1_collaborator = gen_user(
         object_roles=[("container.containerdistribution_collaborator", distro1.pulp_href)]
@@ -228,15 +237,17 @@ def test_conflicting_names_and_paths(
     pull_through_distribution,
     gen_object_with_cleanup,
     local_registry,
+    full_path,
     monitor_task,
 ):
     pull_through_distribution = pull_through_distribution()
     local_image_path = f"{pull_through_distribution.base_path}/{str(uuid4())}"
+    local_image_pull_path = full_path(local_image_path)  # Handle if domain is enabled
 
     remote = container_remote_factory(name=local_image_path)
     # a remote with the same name but a different URL already exists
     with pytest.raises(subprocess.CalledProcessError):
-        local_registry.pull(local_image_path)
+        local_registry.pull(local_image_pull_path)
     monitor_task(container_remote_api.delete(remote.pulp_href).task)
 
     assert 0 == len(container_repository_api.list(name=local_image_path).results)
@@ -245,7 +256,7 @@ def test_conflicting_names_and_paths(
     repository = container_repository_factory(name=local_image_path)
     # a repository with the same name but a different retain configuration already exists
     with pytest.raises(subprocess.CalledProcessError):
-        local_registry.pull(local_image_path)
+        local_registry.pull(local_image_pull_path)
     monitor_task(container_repository_api.delete(repository.pulp_href).task)
 
     assert 0 == len(container_remote_api.list(name=local_image_path).results)
@@ -255,7 +266,7 @@ def test_conflicting_names_and_paths(
     distribution = gen_object_with_cleanup(container_distribution_api, data)
     # a distribution with the same name but different foreign keys already exists
     with pytest.raises(subprocess.CalledProcessError):
-        local_registry.pull(local_image_path)
+        local_registry.pull(local_image_pull_path)
     monitor_task(container_distribution_api.delete(distribution.pulp_href).task)
 
     assert 0 == len(container_repository_api.list(name=local_image_path).results)

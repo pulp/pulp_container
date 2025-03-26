@@ -42,7 +42,7 @@ class TestTokenAuthentication:
         config_blob = container_bindings.ContentBlobsApi.read(manifest.config_blob)
         return distro, config_blob
 
-    def test_pull_image_with_raw_http_requests(self, setup, bindings_cfg):
+    def test_pull_image_with_raw_http_requests(self, setup, full_path, bindings_cfg):
         """
         Test if a content was pulled from a registry by using raw HTTP requests.
 
@@ -51,7 +51,7 @@ class TestTokenAuthentication:
         All requests are sent via aiohttp modules.
         """
         distro, config_blob = setup
-        image_path = f"/v2/{distro.base_path}/manifests/manifest_a"
+        image_path = f"/v2/{full_path(distro)}/manifests/manifest_a"
         latest_image_url = urljoin(bindings_cfg.host, image_path)
 
         auth = get_auth_for_url(latest_image_url)
@@ -61,7 +61,7 @@ class TestTokenAuthentication:
         content_response.raise_for_status()
         assert content_response.json()["config"]["digest"] == config_blob.digest
 
-    def test_pull_image_with_real_container_client(self, setup, local_registry):
+    def test_pull_image_with_real_container_client(self, setup, local_registry, full_path):
         """
         Test if a CLI client is able to pull an image from an authenticated registry.
 
@@ -69,7 +69,7 @@ class TestTokenAuthentication:
         image from a secured registry.
         """
         distro, config_blob = setup
-        image_with_tag = f"{distro.base_path}:manifest_a"
+        image_with_tag = full_path(f"{distro.base_path}:manifest_a")
 
         local_registry.pull(image_with_tag)
 

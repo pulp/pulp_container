@@ -20,7 +20,7 @@ from tempfile import NamedTemporaryFile
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
-from django.db.models import F, Value
+from django.db.models import F, Value, Func, TextField
 from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 
@@ -44,7 +44,7 @@ from rest_framework.pagination import BasePagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer, CharField
 from rest_framework.settings import api_settings
 from rest_framework.viewsets import ViewSet
 from rest_framework.views import APIView, exception_handler
@@ -86,6 +86,7 @@ from pulp_container.app.utils import (
     filter_resource,
     has_task_completed,
     validate_manifest,
+    get_full_path,
 )
 from pulp_container.constants import (
     EMPTY_BLOB,
@@ -147,8 +148,8 @@ class UploadResponse(Response):
             offset = int(upload.size - 1)
         headers = {
             "Docker-Upload-UUID": upload.pk,
-            "Location": f"/v2/{path}/blobs/uploads/{upload.pk}",
-            "Range": "0-{offset}".format(offset=offset),
+            "Location": f"/v2/{get_full_path(path)}/blobs/uploads/{upload.pk}",
+            "Range": f"0-{offset}",
             "Content-Length": 0,
         }
         super().__init__(headers=headers, status=status)
@@ -171,7 +172,7 @@ class ManifestResponse(Response):
         """
         headers = {
             "Docker-Content-Digest": manifest.digest,
-            "Location": "/v2/{path}/manifests/{digest}".format(path=path, digest=manifest.digest),
+            "Location": f"/v2/{get_full_path(path)}/manifests/{manifest.digest}",
             "Content-Length": 0,
         }
         super().__init__(headers=headers, status=status, content_type=manifest.media_type)
@@ -185,9 +186,7 @@ class ManifestSignatureResponse(Response):
     def __init__(self, signature, path, status=201):
         """Initialize the headers with the path to the repository and corresponding digests."""
         headers = {
-            "Location": "/extensions/v2/{path}/signatures/{digest}".format(
-                path=path, digest=signature.signed_manifest.digest
-            ),
+            "Location": f"/extensions/v2/{get_full_path(path)}/signatures/{signature.signed_manifest.digest}",  # noqa: E501
             "Content-Length": 0,
         }
         super().__init__(headers=headers, status=status)
@@ -484,9 +483,11 @@ class ContainerCatalogSerializer(ModelSerializer):
     Serializer for Distributions in the _catalog endpoint of the registry.
     """
 
+    full_path = CharField()
+
     class Meta:
         model = models.ContainerDistribution
-        fields = ["base_path"]
+        fields = ["full_path"]
 
 
 class ContainerCatalogPagination(BasePagination):
@@ -511,15 +512,15 @@ class ContainerCatalogPagination(BasePagination):
         self.url = request.build_absolute_uri()
 
         if last:
-            queryset = queryset.filter(base_path__gt=last)
-        return queryset.order_by("base_path")[: self.n]
+            queryset = queryset.filter(full_path__gt=last)
+        return queryset.order_by("full_path")[: self.n]
 
     def get_paginated_response(self, data):
         """
         Prepare the paginated container _catalog response.
         """
         headers = {}
-        repositories_names = [repo["base_path"] for repo in data]
+        repositories_names = [repo["full_path"] for repo in data]
         if self.n and len(repositories_names) == self.n:
             # There's a high chance we haven't gotten all entries here.
             parsed_url = list(urlparse(self.url))
@@ -537,14 +538,25 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
     Handles requests to the /v2/_catalog endpoint
     """
 
-    queryset = models.ContainerDistribution.objects.all().only("base_path")
+    queryset = models.ContainerDistribution.objects.all().only("base_path", "pulp_domain")
     serializer_class = ContainerCatalogSerializer
     pagination_class = ContainerCatalogPagination
 
     def get_queryset(self, *args, **kwargs):
         """Filter the queryset based on public repositories and assigned permissions."""
-        domain = get_domain()
-        queryset = super().get_queryset().filter(pulp_domain=domain)
+        queryset = super().get_queryset()
+        if settings.DOMAIN_ENABLED:
+            queryset = queryset.annotate(
+                full_path=Func(
+                    F("pulp_domain__name"),
+                    Value("/"),
+                    F("base_path"),
+                    function="CONCAT",
+                    output_field=TextField(),
+                )
+            )
+        else:
+            queryset = queryset.annotate(full_path=F("base_path"))
 
         distribution_permission = "container.pull_containerdistribution"
         namespace_permission = "container.namespace_pull_containerdistribution"
@@ -557,7 +569,7 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
             self.request.user, distribution_permission, queryset
         )
 
-        namespaces = models.ContainerNamespace.objects.filter(pulp_domain=domain)
+        namespaces = models.ContainerNamespace.objects.filter()
         repositories_by_namespace = get_objects_for_user(
             self.request.user, namespace_permission, namespaces
         )
@@ -881,12 +893,17 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
     def mount_blob(self, request, path, repository):
         """Mount a blob that is already present in another repository."""
         from_path = request.query_params["from"]
+        if settings.DOMAIN_ENABLED:
+            # Account for the domain in the from_path
+            domain_name, from_path = from_path.split("/", maxsplit=1)
+            if domain_name != get_domain().name:
+                raise InvalidRequest(message="Cross-domain blob mounting is not allowed.")
         try:
             distribution = models.ContainerDistribution.objects.get(
                 base_path=from_path, pulp_domain=get_domain()
             )
         except models.ContainerDistribution.DoesNotExist:
-            raise RepositoryNotFound(name=path)
+            raise RepositoryNotFound(name=from_path)
 
         try:
             version = distribution.repository_version or distribution.repository.latest_version()
@@ -1158,6 +1175,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                     and permission_checker.has_pull_through_permissions(distribution)
                 ):
                     remote = distribution.remote.cast()
+                    # Head request to check if the manifest exists on the remote
                     self.fetch_manifest(remote, pk)
                     return redirects.redirect_to_content_app("manifests", pk)
                 elif manifest:
