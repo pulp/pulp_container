@@ -4,6 +4,8 @@ import pytest
 
 
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
+from pulpcore.client.pulp_container.exceptions import ForbiddenException
+from pulpcore.client.pulp_container import SetLabel, UnsetLabel
 
 
 def test_rbac_repository_content(
@@ -182,3 +184,82 @@ def test_rbac_repository_content(
         container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
     with user_helpless, pytest.raises(container_bindings.ApiException):
         container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
+
+
+def test_rbac_label_content(
+    gen_user,
+    container_bindings,
+    container_remote_factory,
+    container_repository_factory,
+    container_repository_version_api,
+    container_sync,
+    pulp_settings,
+):
+
+    def _do_test(the_binding, the_content, rv):
+        # Set label
+        sl = SetLabel(key="key_1", value="value_1")
+        the_binding.set_label(the_content.pulp_href, sl)
+        the_content = the_binding.read(the_content.pulp_href)
+        labels = the_content.pulp_labels
+        assert "key_1" in labels
+
+        # Search for key_1
+        rslt = the_binding.list(pulp_label_select="key_1", repository_version=rv.pulp_href)
+        assert 1 == rslt.count
+
+        # Change an existing label
+        sl = SetLabel(key="key_1", value="XXX")
+        the_binding.set_label(the_content.pulp_href, sl)
+        the_content = the_binding.read(the_content.pulp_href)
+        labels = the_content.pulp_labels
+        assert labels["key_1"] == "XXX"
+
+        # Unset a label
+        sl = UnsetLabel(key="key_1")
+        the_binding.unset_label(the_content.pulp_href, sl)
+        content2 = the_binding.read(the_content.pulp_href)
+        assert "key_1" not in content2.pulp_labels
+
+    content_units = []
+    repo_owner = gen_user(
+        model_roles=[
+            "container.containernamespace_creator",
+            "container.containerremote_creator",
+            "container.containerrepository_creator",
+            "core.content_labeler",
+        ]
+    )
+    # Set up and sync a repository with the desired the_content-types
+    # Show that the_content-labeler can set/unset_label
+    with repo_owner:
+        repo = container_repository_factory()
+        remote = container_remote_factory()
+        version_href = container_sync(repo, remote).created_resources[0]
+        repo_version = container_repository_version_api.read(version_href)
+
+        # Test set/unset/search for each type-of-the_content
+        # We don't do this via pytest-parameterization so that we only sync the repo *once*.
+        content_bindings = [
+            container_bindings.ContentBlobsApi,
+            container_bindings.ContentManifestsApi,
+            container_bindings.ContentTagsApi,
+        ]
+        for a_binding in content_bindings:
+            # Pick first the_content-unit from list of those "present" for specified type
+            # in specified repository-version
+            a_content = a_binding.list(repository_version=repo_version.pulp_href).results[0]
+            content_units.append((a_binding, a_content))
+            _do_test(a_binding, a_content, repo_version)
+
+    # Show that a repository-viewer DOES NOT HAVE access to set/unset_label
+    viewer = gen_user(model_roles=["container.containerrepository_viewer"])
+    with viewer:
+        for binding, content in content_units:
+            with pytest.raises(ForbiddenException):
+                label = SetLabel(key="key_1", value="XXX")
+                binding.set_label(content.pulp_href, label)
+
+            with pytest.raises(ForbiddenException):
+                label = UnsetLabel(key="key_1")
+                binding.unset_label(content.pulp_href, label)

@@ -241,6 +241,14 @@ class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
             },
+            {
+                "action": ["set_label", "unset_label"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_domain_perms:core.manage_content_labels",
+                ],
+            },
         ],
         "queryset_scoping": {
             "function": "get_content_qs",
@@ -273,6 +281,14 @@ class ManifestViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
+            },
+            {
+                "action": ["set_label", "unset_label"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_domain_perms:core.manage_content_labels",
+                ],
             },
         ],
         "queryset_scoping": {
@@ -307,6 +323,14 @@ class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
                 "principal": "authenticated",
                 "effect": "allow",
             },
+            {
+                "action": ["set_label", "unset_label"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_domain_perms:core.manage_content_labels",
+                ],
+            },
         ],
         "queryset_scoping": {
             "function": "get_content_qs",
@@ -339,6 +363,14 @@ class ManifestSignatureViewSet(ContainerContentQuerySetMixin, ReadOnlyContentVie
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
+            },
+            {
+                "action": ["set_label", "unset_label"],
+                "principal": "authenticated",
+                "effect": "allow",
+                "condition": [
+                    "has_model_or_domain_perms:core.manage_content_labels",
+                ],
             },
         ],
         "queryset_scoping": {
