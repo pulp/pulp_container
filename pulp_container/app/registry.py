@@ -277,7 +277,7 @@ class Registry(Handler):
         try:
             if content_type == "manifests":
                 manifest = await Manifest.objects.prefetch_related("contentartifact_set").aget(
-                    digest=digest, _pulp_domain=domain
+                    digest=digest, _pulp_domain=domain  # did I remove the content__in?
                 )
                 headers = {
                     "Content-Type": manifest.media_type,

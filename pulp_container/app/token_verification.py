@@ -14,6 +14,7 @@ from rest_framework.authentication import (
 )
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+from pulp_container.app.utils import get_full_path
 
 Scope = namedtuple("Scope", "resource_type, name, action")
 User = get_user_model()
@@ -168,7 +169,7 @@ def get_scopes(request):
     path = request.resolver_match.kwargs.get("path", "")
     if path:
         action = "pull" if request.method in SAFE_METHODS else "push"
-        scopes.append(Scope("repository", path, action))
+        scopes.append(Scope("repository", get_full_path(path), action))
         if request.query_params.keys() == {"from", "mount"}:
             scopes.append(Scope("repository", request.query_params["from"], "pull"))
     elif request.path == "/v2/_catalog":

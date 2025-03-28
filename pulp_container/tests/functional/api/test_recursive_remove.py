@@ -429,13 +429,13 @@ class TestRecursiveRemove:
 
 
 def test_remove_image_push_repo(
-    container_bindings, local_registry, registry_client, add_to_cleanup, monitor_task
+    container_bindings, local_registry, registry_client, full_path, add_to_cleanup, monitor_task
 ):
     """Test the image removal within a push repository."""
     # the image tagged as 'manifest_a' consists of 3 blobs, 1 manifest, and 1 tag
     manifest_a_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(manifest_a_path)
-    local_registry.tag_and_push(manifest_a_path, "foo/bar:tag")
+    local_registry.tag_and_push(manifest_a_path, full_path("foo/bar:tag"))
 
     repo = container_bindings.RepositoriesContainerPushApi.list(name="foo/bar").results[0]
     distribution = container_bindings.DistributionsContainerApi.list(name="foo/bar").results[0]

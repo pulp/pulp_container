@@ -204,11 +204,11 @@ class TestPushRepositoryTagging:
     repository_name = "namespace/tags"
 
     @pytest.fixture(scope="class")
-    def setup(self, tagger_helper, container_bindings, registry_client, add_to_cleanup):
+    def setup(self, tagger_helper, container_bindings, registry_client, full_path, add_to_cleanup):
         """Define APIs to use and pull images needed later in tests."""
         cfg = container_bindings.client.configuration
         registry_name = urlparse(cfg.host).netloc
-        registry_repository_name = f"{registry_name}/{self.repository_name}"
+        registry_repository_name = f"{registry_name}/{full_path(self.repository_name)}"
         manifest_a = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
         tagged_registry_manifest_a = f"{registry_repository_name}:manifest_a"
         manifest_b = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
@@ -233,27 +233,27 @@ class TestPushRepositoryTagging:
         add_to_cleanup(container_bindings.DistributionsContainerApi, distro.pulp_href)
         return repository, tagger
 
-    def test_01_tag_first_image(self, local_registry, setup):
+    def test_01_tag_first_image(self, local_registry, setup, full_path):
         """Check if a tag was created and correctly pulled from a repository."""
         repository, tagger = setup
         manifest_a = tagger.get_manifest_by_tag("manifest_a")
         tagger.tag_image(manifest_a, "new_tag")
 
-        tagged_image = f"{self.repository_name}:new_tag"
+        tagged_image = full_path(f"{self.repository_name}:new_tag")
         local_registry.pull(tagged_image)
         local_registry._dispatch_command("rmi", tagged_image)
 
-    def test_02_tag_second_image_with_same_tag(self, local_registry, setup):
+    def test_02_tag_second_image_with_same_tag(self, local_registry, setup, full_path):
         """Check if the existing tag correctly references a new manifest."""
         repository, tagger = setup
-        tagged_image = f"{self.repository_name}:manifest_b"
+        tagged_image = full_path(f"{self.repository_name}:manifest_b")
         local_registry.pull(tagged_image)
         local_image_b = local_registry.inspect(tagged_image)
         local_registry._dispatch_command("rmi", tagged_image)
 
         manifest_b = tagger.get_manifest_by_tag("manifest_b")
         tagger.tag_image(manifest_b, "new_tag")
-        tagged_image = f"{self.repository_name}:new_tag"
+        tagged_image = full_path(f"{self.repository_name}:new_tag")
         local_registry.pull(tagged_image)
         local_image_b_tagged = local_registry.inspect(tagged_image)
 
@@ -261,11 +261,11 @@ class TestPushRepositoryTagging:
 
         local_registry._dispatch_command("rmi", tagged_image)
 
-    def test_03_remove_tag(self, local_registry, setup):
+    def test_03_remove_tag(self, local_registry, setup, full_path):
         """Check if the client cannot pull by the removed tag."""
         repository, tagger = setup
         tagger.untag_image("new_tag")
 
-        non_existing_tagged_image = f"{self.repository_name}:new_tag"
+        non_existing_tagged_image = full_path(f"{self.repository_name}:new_tag")
         with pytest.raises(subprocess.CalledProcessError):
             local_registry.pull(non_existing_tagged_image)

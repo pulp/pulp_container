@@ -32,6 +32,7 @@ from pulpcore.plugin.util import get_domain
 from pulp_file.app.models import FileContent
 from pulp_container.app import models, fields
 from pulp_container.constants import SIGNATURE_TYPE
+from pulp_container.app.utils import get_full_path
 
 
 VALID_SIGNATURE_NAME_REGEX = r"^sha256:[0-9a-f]{64}@[0-9a-f]{32}$"
@@ -228,7 +229,7 @@ class RegistryPathField(serializers.CharField):
         Converts a base_path into a registry path.
         """
         request = self.context["request"]
-        return f"{request.get_host()}/{value}"
+        return f"{request.get_host()}/{get_full_path(value)}"
 
 
 class ContainerNamespaceSerializer(ModelSerializer, GetOrCreateSerializerMixin):
@@ -379,6 +380,16 @@ class ContainerPullThroughRemoteSerializer(RemoteSerializer):
         model = models.ContainerPullThroughRemote
 
 
+class NamespaceRelatedField(RelatedField):
+    """
+    A related field to handle populating the domain on a ContainerNamespace.
+    """
+
+    def get_url(self, obj, view_name, request, *args, **kwargs):
+        obj = models.ContainerNamespace(pk=obj.pk, pulp_domain=get_domain())
+        return super().get_url(obj, view_name, request, *args, **kwargs)
+
+
 class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSerializerMixin):
     """
     A serializer for ContainerDistribution.
@@ -399,7 +410,7 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
         queryset=ContentRedirectContentGuard.objects.all(),
         allow_null=False,
     )
-    namespace = RelatedField(
+    namespace = NamespaceRelatedField(
         required=False,
         read_only=True,
         view_name="pulp_container/namespaces-detail",
@@ -973,5 +984,5 @@ class RepositorySignSerializer(ValidateFieldsMixin, serializers.Serializer):
                         )
                     }
                 )
-
+        data["future_base_path"] = get_full_path(data["future_base_path"])
         return data
