@@ -38,12 +38,6 @@ class CommonRedirects:
             )
         )
 
-    def issue_manifest_redirect(self, manifest):
-        """
-        Issue a redirect for the passed manifest.
-        """
-        return self.redirect_to_content_app("manifests", manifest.digest)
-
     def issue_tag_redirect(self, tag):
         """
         Issue a redirect for the passed tag.

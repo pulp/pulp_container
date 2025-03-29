@@ -1156,7 +1156,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         else:
             try:
                 manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
-                return redirects.issue_manifest_redirect(manifest)
+                return redirects.redirect_to_content_app("manifests", manifest.digest)
             except models.Manifest.DoesNotExist:
                 repository = repository.cast()
                 # the manifest might be a part of listed manifests currently being uploaded
@@ -1179,7 +1179,14 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                     self.fetch_manifest(remote, pk)
                     return redirects.redirect_to_content_app("manifests", pk)
                 elif manifest:
-                    return redirects.issue_manifest_redirect(manifest)
+                    # return redirects.redirect_to_content_app("manifests", manifest.digest)
+                    # headers = {
+                    #     "Content-Type": manifest.media_type,
+                    #     "Docker-Content-Digest": manifest.digest,
+                    #     "Docker-Distribution-API-Version": "registry/2.0",
+                    # }
+                    # return Response(manifest.data, headers=headers)
+                    return ManifestResponse(manifest, path, request, status=200)
                 else:
                     raise ManifestNotFound(reference=pk)
 
