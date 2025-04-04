@@ -17,6 +17,7 @@ from rest_framework.request import Request
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
+from pulpcore.plugin.models import Domain
 from pulpcore.plugin.util import get_domain
 from pulp_container.app.models import (
     ContainerDistribution,
@@ -232,16 +233,28 @@ class PermissionChecker:
         request.method = method
         request.user = self.user
         request._full_data = data
-        request.pulp_domain = get_domain()
+        request.pulp_domain = data.get("pulp_domain", get_domain())
         # Fake the corresponding view
         view = FakeViewWithSerializer(action, lambda: obj)
         return self.access_policy.has_permission(request, view)
+
+    def get_domain_from_path(self, path):
+        """
+        Get the domain from the path.
+        """
+        if settings.DOMAIN_ENABLED:
+            domain_name, path = path.split("/", maxsplit=1)
+            return path, Domain.objects.filter(name=domain_name).first()
+        return path, get_domain()
 
     def has_pull_permissions(self, path):
         """
         Check if the user has permissions to pull from the repository specified by the path.
         """
-        domain = get_domain()
+        path, domain = self.get_domain_from_path(path)
+        if not domain:
+            return False
+
         try:
             distribution = ContainerDistribution.objects.get(base_path=path, pulp_domain=domain)
         except ContainerDistribution.DoesNotExist:
@@ -280,7 +293,11 @@ class PermissionChecker:
         """
         Check if the user has permissions to push to the repository specified by the path.
         """
-        domain = get_domain()
+        path, domain = self.get_domain_from_path(path)
+        if not domain:
+            return False
+
+        print("Checking push permissions for path ", path, "and domain ", domain.name)
         try:
             distribution = ContainerDistribution.objects.get(base_path=path, pulp_domain=domain)
         except ContainerDistribution.DoesNotExist:

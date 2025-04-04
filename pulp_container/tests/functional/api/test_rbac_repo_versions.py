@@ -135,6 +135,7 @@ def test_rbac_push_repository_version(
     registry_client,
     local_registry,
     container_bindings,
+    full_path,
     pulp_settings,
 ):
     """Verify RBAC for a ContainerPushRepositoryVersion."""
@@ -162,7 +163,7 @@ def test_rbac_push_repository_version(
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
     registry_client.pull(image_path)
     repo_name = "test_push_repo/perms"
-    local_url = f"{repo_name}:1.0"
+    local_url = full_path(f"{repo_name}:1.0")
     with user_creator:
         local_registry.tag_and_push(image_path, local_url)
         repository = container_bindings.RepositoriesContainerPushApi.list(name=repo_name).results[0]
@@ -214,6 +215,7 @@ def test_cross_repository_blob_mount(
     local_registry,
     mount_blob,
     container_bindings,
+    full_path,
     gen_object_with_cleanup,
     pulp_settings,
     monitor_task,
@@ -224,7 +226,7 @@ def test_cross_repository_blob_mount(
 
     source_repo = str(uuid.uuid4())
     dest_repo = str(uuid.uuid4())
-    local_url = f"{source_repo}:manifest_a"
+    local_url = full_path(f"{source_repo}:manifest_a")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
     local_registry.tag_and_push(image_path, local_url)
@@ -249,7 +251,7 @@ def test_cross_repository_blob_mount(
         assert content_response.status_code == 201
         assert content_response.text == ""
 
-        blob_url = f"/v2/{dest_repo}/blobs/{blob.digest}"
+        blob_url = f"/v2/{full_path(dest_repo)}/blobs/{blob.digest}"
         response, _ = local_registry.get_response("GET", blob_url)
         assert response.status_code == 200
 
@@ -294,17 +296,21 @@ def test_cross_repository_blob_mount(
         object_roles=[("container.containernamespace_owner", tester_namespace.pulp_href)]
     )
     with tester_owner:
-        local_registry.tag_and_push(image_path, f"{tester_namespace.name}/test:manifest_a")
+        local_registry.tag_and_push(
+            image_path, full_path(f"{tester_namespace.name}/test:manifest_a")
+        )
         content_response, auth = mount_blob(blobs[0], source_repo, f"{dest_tester_namespace}/test")
         assert content_response.status_code == 401
 
 
 @pytest.fixture
-def mount_blob(local_registry, container_bindings, add_to_cleanup):
+def mount_blob(local_registry, container_bindings, full_path, add_to_cleanup):
     """A fixture function to mount blobs to new repositories that will be cleaned up."""
 
     def _mount_blob(blob, source, dest):
-        mount_path = f"/v2/{dest}/blobs/uploads/?from={source}&mount={blob.digest}"
+        mount_path = (
+            f"/v2/{full_path(dest)}/blobs/uploads/?from={full_path(source)}&mount={blob.digest}"
+        )
         response, auth = local_registry.get_response("POST", mount_path)
 
         if response.status_code == 201:

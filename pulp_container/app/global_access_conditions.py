@@ -123,6 +123,9 @@ def has_distribution_perms(request, view, action, permission):
     """
     if request.user.has_perm(permission):
         return True
+    if settings.DOMAIN_ENABLED:
+        if request.user.has_perm(permission, obj=request.pulp_domain):
+            return True
     if "repository_pk" in view.kwargs:
         repository = Repository.objects.get(pk=view.kwargs["repository_pk"])
     else:

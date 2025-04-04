@@ -10,6 +10,7 @@ import time
 
 from asgiref.sync import sync_to_async
 from jsonschema import Draft7Validator, validate, ValidationError
+from django.conf import settings
 from django.db import IntegrityError
 from functools import partial
 from rest_framework.exceptions import Throttled
@@ -37,6 +38,13 @@ TIMESTAMP_REGEX_COMPILED = re.compile(r"created ([0-9]+)")
 signature_validator = Draft7Validator(SIGNATURE_SCHEMA)
 
 log = logging.getLogger(__name__)
+
+
+def get_full_path(base_path, pulp_domain=None):
+    if settings.DOMAIN_ENABLED:
+        domain = pulp_domain or get_domain()
+        return f"{domain.name}/{base_path}"
+    return base_path
 
 
 def get_accepted_media_types(headers):

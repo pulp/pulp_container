@@ -12,6 +12,7 @@ def test_rbac_push_repository(
     registry_client,
     local_registry,
     container_bindings,
+    full_path,
     pulp_settings,
     monitor_task,
 ):
@@ -21,7 +22,7 @@ def test_rbac_push_repository(
 
     namespace_name = str(uuid.uuid4())
     repo_name = f"{namespace_name}/perms"
-    local_url = f"{repo_name}:1.0"
+    local_url = full_path(f"{repo_name}:1.0")
 
     user_creator = gen_user(
         model_roles=[
