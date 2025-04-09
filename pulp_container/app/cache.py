@@ -83,7 +83,7 @@ class RegistryApiCache(RegistryCache, SyncContentCache):
             response.accepted_media_type = "application/json"
             response.content_type = response.headers["Content-Type"]
             response.renderer_context = {}
-            response.render()
+            # response.render()
             entry["content"] = response.content.decode("utf-8")
             entry["type"] = "Response"
         elif isinstance(response, HttpResponse):
