@@ -1,1 +1,0 @@
-Removed backward compatibility support for manifests which store their data inside an artifact.
