@@ -8,6 +8,32 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.25.0 (2025-04-15) {: #2.25.0 }
+
+#### Features {: #2.25.0-feature }
+
+- Added full support for domains.
+  [#1534](https://github.com/pulp/pulp_container/issues/1534)
+- Added permissions for set/unset_label on RPM content-types.
+
+  The types that support this new call include:
+    * Tag
+    * Manifest
+    * Blob
+    * ManifestSignature
+  [#1954](https://github.com/pulp/pulp_container/issues/1954)
+
+#### Bugfixes {: #2.25.0-bugfix }
+
+- Fixed integer overflow error when pushing or syncing images greater than 2GB.
+  [#1926](https://github.com/pulp/pulp_container/issues/1926)
+
+#### Misc {: #2.25.0-misc }
+
+- [#1621](https://github.com/pulp/pulp_container/issues/1621)
+
+---
+
 ## 2.24.1 (2025-03-12) {: #2.24.1 }
 
 #### Bugfixes {: #2.24.1-bugfix }
