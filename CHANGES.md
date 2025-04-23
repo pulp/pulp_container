@@ -8,6 +8,12 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.24.2 (2025-04-23) {: #2.24.2 }
+
+No significant changes.
+
+---
+
 ## 2.24.1 (2025-03-12) {: #2.24.1 }
 
 #### Bugfixes {: #2.24.1-bugfix }
