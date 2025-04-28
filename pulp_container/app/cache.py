@@ -1,5 +1,13 @@
+import json
+import time
+
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Value
+
+from django.http import HttpResponseRedirect, HttpResponse, FileResponse as ApiFileResponse
+from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
 
 from pulpcore.plugin.cache import CacheKeys, AsyncContentCache, SyncContentCache
 from pulpcore.plugin.util import get_domain, cache_key
@@ -8,6 +16,7 @@ from pulp_container.app.models import ContainerDistribution, ContainerPullThroug
 from pulp_container.app.exceptions import RepositoryNotFound
 
 ACCEPT_HEADER_KEY = "accept_header"
+DEFAULT_EXPIRES_TTL = settings.CACHE_SETTINGS["EXPIRES_TTL"]
 QUERY_KEY = "query"
 
 
@@ -51,6 +60,42 @@ class RegistryApiCache(RegistryCache, SyncContentCache):
         }
         key = ":".join(all_keys[k] for k in self.keys)
         return key
+
+    def make_entry(self, key, base_key, handler, args, kwargs, expires=DEFAULT_EXPIRES_TTL):
+        """Gets the response for the request and try to turn it into a cacheable entry"""
+        response = handler(*args, **kwargs)
+        entry = {"headers": dict(response.headers), "status": response.status_code}
+        if expires is not None:
+            # Redis TTL is not sufficient: https://github.com/pulp/pulpcore/issues/4845
+            entry["expires"] = expires + time.time()
+        else:
+            # Settings allow you to set None to mean "does not expire". Persist.
+            entry["expires"] = None
+        response.headers["X-PULP-CACHE"] = "MISS"
+        if isinstance(response, HttpResponseRedirect):
+            entry["redirect_to"] = str(response.headers["Location"])
+            entry["type"] = "Redirect"
+        elif isinstance(response, ApiFileResponse):
+            entry["path"] = str(response.filename)
+            entry["type"] = "FileResponse"
+        elif isinstance(response, Response):
+            response.accepted_renderer = JSONRenderer()
+            response.accepted_media_type = "application/json"
+            response.content_type = response.headers["Content-Type"]
+            response.renderer_context = {}
+            # response.render()
+            entry["content"] = response.content.decode("utf-8")
+            entry["type"] = "Response"
+        elif isinstance(response, HttpResponse):
+            entry["content"] = response.content.decode("utf-8")
+            entry["type"] = "Response"
+        else:
+            # We don't cache StreamResponses or errors
+            return response
+
+        # TODO look into smaller format, maybe some compression on the text
+        self.set(key, json.dumps(entry), expires, base_key=base_key)
+        return response
 
 
 def find_base_path_cached(request, cached):
