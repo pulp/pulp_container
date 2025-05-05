@@ -31,23 +31,26 @@ def check_content(container_bindings, bindings_cfg):
         duplicated_content_units = sorted([manifest_by_tag, manifest_by_digest] * 2)
         for i, c in enumerate(duplicated_content_units):
             url = urljoin(dist_url, c)
-            check_cache(url, expect_metadata(i), headers, auth)
+            check_cache(url, expect_metadata(i), headers, auth, MEDIA_TYPE.MANIFEST_LIST)
 
         duplicated_content_units = [blob_by_digest] * 2
         for i, c in enumerate(duplicated_content_units):
             url = urljoin(dist_url, c)
-            check_cache(url, expect_metadata(i), headers, auth)
+            check_cache(url, expect_metadata(i), headers, auth, "application/octet-stream")
 
     return _check_content
 
 
-def check_cache(url, expected_metadata, headers, auth):
+def check_cache(url, expected_metadata, headers, auth, content_type):
     """A helper function to check if cache miss or hit occurred."""
     auth = get_auth_for_url(url, auth=auth)
 
     response = requests.get(url, auth=auth, headers=headers)
     response_metadata = fetch_response_metadata(response)
     assert expected_metadata == response_metadata, url
+    # Check that we return the correct content type for both cache hits and misses
+    if response.status_code == 200:
+        assert response.headers.get("Content-Type") == content_type, url
 
 
 def fetch_response_metadata(response):
