@@ -55,8 +55,24 @@ def test_pull_in_domain(
     container_remote_factory,
     container_sync,
     container_distribution_factory,
+    tmp_path,
 ):
     domain = cdomain_factory()
+    repo = container_repository_factory(pulp_domain=domain.name)
+    remote = container_remote_factory(pulp_domain=domain.name)
+    container_sync(repo, remote)
+    distribution = container_distribution_factory(
+        repository=repo.pulp_href, pulp_domain=domain.name
+    )
+
+    local_path = f"{domain.name}/{distribution.base_path}"
+    local_registry.pull(local_path)
+
+    # Test file storage domain at custom MEDIA_ROOT
+    domain = cdomain_factory(
+        storage_class="pulpcore.app.models.storage.FileSystem",
+        storage_settings={"MEDIA_ROOT": str(tmp_path)},
+    )
     repo = container_repository_factory(pulp_domain=domain.name)
     remote = container_remote_factory(pulp_domain=domain.name)
     container_sync(repo, remote)
