@@ -12,7 +12,6 @@ from aiohttp.client_exceptions import ClientResponseError, ClientConnectionError
 from aiohttp.web_exceptions import HTTPTooManyRequests
 from django_guid import set_guid
 from django_guid.utils import generate_guid
-from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
 from multidict import MultiDict
@@ -78,15 +77,16 @@ class Registry(Handler):
             The :class:`aiohttp.web.StreamedResponse` for the Artifact.
 
         """
+        domain = get_domain()
         full_headers = MultiDict()
 
         full_headers["Content-Type"] = headers["Content-Type"]
         full_headers["Docker-Content-Digest"] = headers["Docker-Content-Digest"]
         full_headers["Docker-Distribution-API-Version"] = "registry/2.0"
 
-        if settings.STORAGES["default"]["BACKEND"] == "pulpcore.app.models.storage.FileSystem":
+        if domain.storage_class == "pulpcore.app.models.storage.FileSystem":
             file = artifact.file
-            path = os.path.join(settings.MEDIA_ROOT, file.name)
+            path = os.path.join(domain.get_storage().location, file.name)
             if not os.path.exists(path):
                 raise Exception("Expected path '{}' is not found".format(path))
             return web.FileResponse(path, headers=full_headers)
