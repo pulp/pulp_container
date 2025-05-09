@@ -140,7 +140,7 @@ class Registry(Handler):
                     "Docker-Content-Digest": digest,
                     "Docker-Distribution-API-Version": "registry/2.0",
                 }
-                return web.Response(text=raw_text_manifest, headers=headers)
+                return web.Response(body=raw_text_manifest, headers=headers)
             else:
                 raise PathNotResolved(tag_name)
 
@@ -176,7 +176,7 @@ class Registry(Handler):
                         "Docker-Content-Digest": digest,
                         "Docker-Distribution-API-Version": "registry/2.0",
                     }
-                    return web.Response(text=raw_text_manifest, headers=headers)
+                    return web.Response(body=raw_text_manifest, headers=headers)
 
         accepted_media_types = get_accepted_media_types(request.headers)
 
@@ -200,7 +200,7 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            return web.Response(text=tag.tagged_manifest.data, headers=response_headers)
+            return web.Response(body=tag.tagged_manifest.data, headers=response_headers)
 
         # return what was found in case media_type is accepted header (docker, oci)
         if tag.tagged_manifest.media_type in accepted_media_types:
@@ -209,7 +209,7 @@ class Registry(Handler):
                 "Content-Type": return_media_type,
                 "Docker-Content-Digest": tag.tagged_manifest.digest,
             }
-            return web.Response(text=tag.tagged_manifest.data, headers=response_headers)
+            return web.Response(body=tag.tagged_manifest.data, headers=response_headers)
 
         # return 404 in case the client is requesting docker manifest v2 schema 1
         raise PathNotResolved(tag_name)
@@ -249,7 +249,7 @@ class Registry(Handler):
                     "Content-Type": manifest.media_type,
                     "Docker-Content-Digest": manifest.digest,
                 }
-                return web.Response(text=manifest.data, headers=headers)
+                return web.Response(body=manifest.data, headers=headers)
             elif content_type == "blobs":
                 ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
                     content__in=content, relative_path=digest
@@ -278,7 +278,7 @@ class Registry(Handler):
                         "Docker-Content-Digest": digest,
                         "Docker-Distribution-API-Version": "registry/2.0",
                     }
-                    return web.Response(text=raw_text_manifest, headers=headers)
+                    return web.Response(body=raw_text_manifest, headers=headers)
                 elif content_type == "blobs":
                     # there might be a case where the client has all the manifest data in place
                     # and tries to download only missing blobs; because of that, only the reference

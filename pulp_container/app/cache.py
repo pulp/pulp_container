@@ -37,6 +37,13 @@ class RegistryContentCache(RegistryCache, AsyncContentCache):
         key = ":".join(all_keys[k] for k in self.keys)
         return key
 
+    async def make_response(self, key, base_key):
+        """Fix the Content-Type header to remove the charset."""
+        response = await super().make_response(key, base_key)
+        if response is not None:
+            response.headers["Content-Type"] = response.headers["Content-Type"].split(";")[0]
+        return response
+
 
 class RegistryApiCache(RegistryCache, SyncContentCache):
     """A wrapper around the Redis content cache handler tailored for the registry API."""
