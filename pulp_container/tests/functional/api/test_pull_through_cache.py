@@ -1,4 +1,3 @@
-import time
 import subprocess
 import pytest
 
@@ -53,6 +52,8 @@ def pull_and_verify(
     registry_client,
     local_registry,
     full_path,
+    pulpcore_bindings,
+    monitor_task,
 ):
     def _pull_and_verify(images, pull_through_distribution):
         tags_to_verify = []
@@ -98,15 +99,14 @@ def pull_and_verify(
             check_manifest_arch_os_size(manifest)
 
             # 3. check if the repository version has changed
-            for _ in range(5):
-                repository = container_repository_api.list(name=path).results[0]
-                if f"{repository.pulp_href}versions/{version}/" == repository.latest_version_href:
-                    break
-
-                # there might be still the saving process running in the background
-                time.sleep(1)
-            else:
-                assert False, "The repository was not updated with the cached content."
+            repository = container_repository_api.list(name=path).results[0]
+            task = pulpcore_bindings.TasksApi.list(
+                reserved_resources=repository.prn,
+                name="pulp_container.app.tasks.download_image_data.download_image_data",
+            ).results[0]
+            monitor_task(task.pulp_href)
+            repository = container_repository_api.read(repository.pulp_href)
+            assert f"{repository.pulp_href}versions/{version}/" == repository.latest_version_href
 
             # 4. test if pulling the same content twice does not raise any error
             local_registry.pull(local_image_pull_path)
