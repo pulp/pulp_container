@@ -1,1 +1,0 @@
-Fixed the Registry API returning 'charset utf-8' in the Content-Type header.
