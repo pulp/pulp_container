@@ -8,6 +8,17 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.25.1 (2025-05-16) {: #2.25.1 }
+
+#### Bugfixes {: #2.25.1-bugfix }
+
+- Fixed the Registry API returning 'charset utf-8' in the Content-Type header.
+  [#1997](https://github.com/pulp/pulp_container/issues/1997)
+- Fixed a 500 error when using a file storage domain at a custom MEDIA_ROOT.
+  [#1998](https://github.com/pulp/pulp_container/issues/1998)
+
+---
+
 ## 2.25.0 (2025-04-15) {: #2.25.0 }
 
 #### Features {: #2.25.0-feature }
