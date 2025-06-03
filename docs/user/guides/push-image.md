@@ -7,7 +7,7 @@ example of pushing a tagged image.
 
 !!! note
 
-    Having disabled the token authentication, only users with staff privileges (i.e.,
+    Having disabled the token authentication, only users with superuser privileges (i.e.,
     administrators) are allowed to push content to the registry.
 
 The registry supports cross repository blob mounting. When uploading blobs that already exist in

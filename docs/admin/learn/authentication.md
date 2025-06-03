@@ -15,7 +15,7 @@ API request to Pulp. Container clients handle the authentication procedure autom
 
 All users are permitted to pull content from the Registry without any limitations because the concept
 of private repositories is not adopted once token authentication is disabled. But, only users with
-staff permissions are allowed to push content to the Registry.
+superuser permissions are allowed to push content to the Registry.
 
 ## Remote Webserver Authentication
 
@@ -24,7 +24,7 @@ credentials to a remote webserver which authenticates users. For authenticated u
 sets the header `settings.REMOTE_USER_ENVIRON_NAME` for every request and passes it to Pulp.
 
 Similarly to basic authentication, all users can pull content from the Registry without limitations
-and only staff is allowed to push new content to the Registry.
+and only superusers are allowed to push new content to the Registry.
 
 To set up the remote webserver authentication, update the Pulp settings in the following way:
 

@@ -11,7 +11,7 @@ REST API for container distributions. An existing distribution can be updated wi
 
 !!! note
 
-    Users logged in as administrators (staff) always bypass any authorization checks.
+    Users logged in as administrators (superusers) always bypass any authorization checks.
 
 ## Roles
 
