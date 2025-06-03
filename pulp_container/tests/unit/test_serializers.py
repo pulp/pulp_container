@@ -29,7 +29,7 @@ class TestContainerDistributionSerializer(TestCase):
         self.push_repository_href = (
             f"{V3_API_ROOT}repositories/container/container-push/{self.push_repository.pk}/"
         )
-        self.user = get_user_model().objects.create(username="user1", is_staff=False)
+        self.user = get_user_model().objects.create(username="user1")
         set_current_user(self.user)
 
     def tearDown(self):
