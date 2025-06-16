@@ -4,4 +4,3 @@ pytest-xdist
 pytest-timeout
 pytest-custom_exit_code
 trustme~=1.2.1
-pydantic!=2.11.6,!=2.11.7
