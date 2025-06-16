@@ -1,3 +1,4 @@
 # All test requirements
+pydantic!=2.11.6,!=2.11.7
 -r functest_requirements.txt
 -r unittest_requirements.txt
