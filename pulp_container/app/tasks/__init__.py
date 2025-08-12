@@ -1,4 +1,4 @@
-from .download_image_data import download_image_data  # noqa
+from .download_image_data import aadd_and_remove, download_image_data  # noqa
 from .builder import build_image_from_containerfile, build_image  # noqa
 from .recursive_add import recursive_add_content  # noqa
 from .recursive_remove import recursive_remove_content  # noqa

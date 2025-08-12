@@ -20,12 +20,11 @@ classifiers=[
   "Framework :: Django",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
   "jsonschema>=4.4,<4.25",
-  "pulpcore>=3.73.2,<3.85",
+  "pulpcore>=3.73.2,<3.100",
   "pyjwt[crypto]>=2.4,<2.11",
 ]
 

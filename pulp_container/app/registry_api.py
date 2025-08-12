@@ -28,7 +28,7 @@ from django.conf import settings
 
 from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
-from pulpcore.plugin.tasking import add_and_remove, dispatch
+from pulpcore.plugin.tasking import dispatch
 from pulpcore.plugin.util import get_objects_for_user, get_url, get_domain
 from pulpcore.plugin.exceptions import TimeoutException
 
@@ -74,6 +74,7 @@ from pulp_container.app.redirects import (
     S3StorageRedirects,
     AzureStorageRedirects,
 )
+from pulp_container.app.tasks import aadd_and_remove
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
     TokenAuthentication,
@@ -1137,7 +1138,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                     add_content_units = self.get_content_units_to_add(manifest, tag)
 
                     dispatch(
-                        add_and_remove,
+                        aadd_and_remove,
                         exclusive_resources=[repository],
                         kwargs={
                             "repository_pk": str(repository.pk),
@@ -1393,7 +1394,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             remove_content_units = [str(pk) for pk in tags_to_remove.values_list("pk")]
 
             immediate_task = dispatch(
-                add_and_remove,
+                aadd_and_remove,
                 exclusive_resources=[repository],
                 kwargs={
                     "repository_pk": str(repository.pk),
@@ -1563,7 +1564,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
             signature.touch()
 
         immediate_task = dispatch(
-            add_and_remove,
+            aadd_and_remove,
             exclusive_resources=[repository],
             kwargs={
                 "repository_pk": str(repository.pk),
