@@ -89,6 +89,9 @@ pulp_settings_s3:
     staticfiles:
       BACKEND: django.contrib.staticfiles.storage.StaticFilesStorage
   domain_enabled: true
+  enabled_plugins:
+  - pulp_file
+  - pulp_container
   flatpak_index: false
   token_auth_disabled: true
 pydocstyle: true
