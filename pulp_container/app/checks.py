@@ -7,7 +7,7 @@ def container_settings_check(app_configs, **kwargs):
     errors = []
 
     # pulp_container depends on pulp_file so if ENABLED_PLUGINS is used, it must be contained.
-    if ENABLED_PLUGINS := getattr(settings, "ENABLED_PLUGINS", None) is not None:
+    if (ENABLED_PLUGINS := getattr(settings, "ENABLED_PLUGINS", None)) is not None:
         if "pulp_file" not in ENABLED_PLUGINS:
             errors.append(
                 CheckError(
