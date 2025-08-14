@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(code=remove_tags_without_manifests),
+        migrations.RunPython(code=remove_tags_without_manifests, reverse_code=migrations.RunPython.noop, elidable=True),
         migrations.AlterField(
             model_name='tag',
             name='tagged_manifest',
