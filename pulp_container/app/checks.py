@@ -6,6 +6,17 @@ from django.core.checks import Error as CheckError, register
 def container_settings_check(app_configs, **kwargs):
     errors = []
 
+    # pulp_container depends on pulp_file so if ENABLED_PLUGINS is used, it must be contained.
+    if (ENABLED_PLUGINS := getattr(settings, "ENABLED_PLUGINS", None)) is not None:
+        if "pulp_file" not in ENABLED_PLUGINS:
+            errors.append(
+                CheckError(
+                    "ENABLED_PlUGINS has been configured without 'pulp_file',"
+                    " but pulp_container depends on it.",
+                    id="pulp_container.E002",
+                ),
+            )
+
     # Other checks only apply if token auth is enabled
     if str(getattr(settings, "TOKEN_AUTH_DISABLED", False)).lower() == "true":
         return errors
