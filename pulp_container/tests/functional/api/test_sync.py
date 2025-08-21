@@ -59,7 +59,7 @@ def test_basic_sync(
 
     latest_version_href = repository.latest_version_href
     media_type = MEDIA_TYPE.MANIFEST_V2
-    if has_pulp_plugin("core", min="3.70"):
+    if has_pulp_plugin("core", min="3.70", max="3.85"):
         media_type = quote(media_type)
 
     assert check_manifest_fields(
