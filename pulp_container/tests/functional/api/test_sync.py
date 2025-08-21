@@ -69,7 +69,7 @@ def test_sync_invalid_url(synced_container_repository_factory):
     with pytest.raises(PulpTaskError) as ctx:
         synced_container_repository_factory(url="http://i-am-an-invalid-url.com/invalid/")
 
-    assert "[Name or service not known]" in ctx.value.task.error["description"]
+    assert "Cannot connect to host i-am-an-invalid-url.co" in ctx.value.task.error["description"]
 
 
 @pytest.mark.parallel
