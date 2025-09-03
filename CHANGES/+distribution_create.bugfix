@@ -1,0 +1,1 @@
+Fixed a bug on distribution create that failed to serialize the full registry path in the task context.
