@@ -228,8 +228,11 @@ class RegistryPathField(serializers.CharField):
         """
         Converts a base_path into a registry path.
         """
-        request = self.context["request"]
-        return f"{request.get_host()}/{get_full_path(value)}"
+        request = self.context.get("request")
+        if request is not None:
+            return f"{request.get_host()}/{get_full_path(value)}"
+        else:
+            return get_full_path(value)
 
 
 class ContainerNamespaceSerializer(ModelSerializer, GetOrCreateSerializerMixin):
