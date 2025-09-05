@@ -8,6 +8,14 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.26.1 (2025-09-04) {: #2.26.1 }
+
+#### Bugfixes {: #2.26.1-bugfix }
+
+- Fixed a bug on distribution create that failed to serialize the full registry path in the task context.
+
+---
+
 ## 2.26.0 (2025-08-14) {: #2.26.0 }
 
 #### Features {: #2.26.0-feature }
