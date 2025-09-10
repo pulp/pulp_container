@@ -451,18 +451,30 @@ class ContainerRemoteViewSet(RemoteViewSet, RolesMixin):
         "queryset_scoping": {"function": "scope_queryset"},
     }
     LOCKED_ROLES = {
-        "container.containerremote_creator": [
-            "container.add_containerremote",
-        ],
-        "container.containerremote_owner": [
-            "container.view_containerremote",
-            "container.change_containerremote",
-            "container.delete_containerremote",
-            "container.manage_roles_containerremote",
-        ],
-        "container.containerremote_viewer": [
-            "container.view_containerremote",
-        ],
+        "container.containerremote_creator": {
+            "description": "Create new container remotes.",
+            "permissions": [
+                "container.add_containerremote",
+            ],
+        },
+        "container.containerremote_owner": {
+            "description": (
+                "Manage all aspects of container remotes including viewing, modifying, "
+                "deleting, and managing user roles."
+            ),
+            "permissions": [
+                "container.view_containerremote",
+                "container.change_containerremote",
+                "container.delete_containerremote",
+                "container.manage_roles_containerremote",
+            ],
+        },
+        "container.containerremote_viewer": {
+            "description": "View container remote configurations and details.",
+            "permissions": [
+                "container.view_containerremote",
+            ],
+        },
     }
 
 
@@ -531,18 +543,32 @@ class ContainerPullThroughRemoteViewSet(RemoteViewSet, RolesMixin):
         "queryset_scoping": {"function": "scope_queryset"},
     }
     LOCKED_ROLES = {
-        "container.containerpullthroughremote_creator": [
-            "container.add_containerpullthroughremote",
-        ],
-        "container.containerpullthroughremote_owner": [
-            "container.view_containerpullthroughremote",
-            "container.change_containerpullthroughremote",
-            "container.delete_containerpullthroughremote",
-            "container.manage_roles_containerpullthroughremote",
-        ],
-        "container.containerpullthroughremote_viewer": [
-            "container.view_containerpullthroughremote",
-        ],
+        "container.containerpullthroughremote_creator": {
+            "description": (
+                "Create new pull-through container remotes for caching external registries."
+            ),
+            "permissions": [
+                "container.add_containerpullthroughremote",
+            ],
+        },
+        "container.containerpullthroughremote_owner": {
+            "description": (
+                "Manage all aspects of pull-through container remotes including viewing, "
+                "modifying, deleting, and managing user roles."
+            ),
+            "permissions": [
+                "container.view_containerpullthroughremote",
+                "container.change_containerpullthroughremote",
+                "container.delete_containerpullthroughremote",
+                "container.manage_roles_containerpullthroughremote",
+            ],
+        },
+        "container.containerpullthroughremote_viewer": {
+            "description": "View pull-through container remote configurations and details.",
+            "permissions": [
+                "container.view_containerpullthroughremote",
+            ],
+        },
     }
 
 
@@ -751,27 +777,45 @@ class ContainerRepositoryViewSet(
         "queryset_scoping": {"function": "scope_queryset"},
     }
     LOCKED_ROLES = {
-        "container.containerrepository_creator": ["container.add_containerrepository"],
-        "container.containerrepository_owner": [
-            "container.view_containerrepository",
-            "container.change_containerrepository",
-            "container.delete_containerrepository",
-            "container.delete_containerrepository_versions",
-            "container.sync_containerrepository",
-            "container.modify_content_containerrepository",
-            "container.build_image_containerrepository",
-            "container.manage_roles_containerrepository",
-        ],
-        "container.containerrepository_content_manager": [
-            "container.view_containerrepository",
-            "container.delete_containerrepository_versions",
-            "container.sync_containerrepository",
-            "container.modify_content_containerrepository",
-            "container.build_image_containerrepository",
-        ],
-        "container.containerrepository_viewer": [
-            "container.view_containerrepository",
-        ],
+        "container.containerrepository_creator": {
+            "description": "Create new container repositories.",
+            "permissions": ["container.add_containerrepository"],
+        },
+        "container.containerrepository_owner": {
+            "description": (
+                "Manage all aspects of container repositories including viewing, modifying, "
+                "deleting, syncing, content management, image building, and user role management."
+            ),
+            "permissions": [
+                "container.view_containerrepository",
+                "container.change_containerrepository",
+                "container.delete_containerrepository",
+                "container.delete_containerrepository_versions",
+                "container.sync_containerrepository",
+                "container.modify_content_containerrepository",
+                "container.build_image_containerrepository",
+                "container.manage_roles_containerrepository",
+            ],
+        },
+        "container.containerrepository_content_manager": {
+            "description": (
+                "Manage container repository content including viewing, syncing, "
+                "modifying content, building images, and deleting repository versions."
+            ),
+            "permissions": [
+                "container.view_containerrepository",
+                "container.delete_containerrepository_versions",
+                "container.sync_containerrepository",
+                "container.modify_content_containerrepository",
+                "container.build_image_containerrepository",
+            ],
+        },
+        "container.containerrepository_viewer": {
+            "description": "View container repository details and configurations.",
+            "permissions": [
+                "container.view_containerrepository",
+            ],
+        },
     }
 
     # This decorator is necessary since a sync operation is asyncrounous and returns
@@ -1367,24 +1411,44 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
         },
     }
     LOCKED_ROLES = {
-        "container.containerdistribution_creator": ["container.add_containerdistribution"],
-        "container.containerdistribution_owner": [
-            "container.view_containerdistribution",
-            "container.pull_containerdistribution",
-            "container.push_containerdistribution",
-            "container.delete_containerdistribution",
-            "container.change_containerdistribution",
-            "container.manage_roles_containerdistribution",
-        ],
-        "container.containerdistribution_collaborator": [
-            "container.view_containerdistribution",
-            "container.pull_containerdistribution",
-            "container.push_containerdistribution",
-        ],
-        "container.containerdistribution_consumer": [
-            "container.view_containerdistribution",
-            "container.pull_containerdistribution",
-        ],
+        "container.containerdistribution_creator": {
+            "description": "Create new container distributions.",
+            "permissions": ["container.add_containerdistribution"],
+        },
+        "container.containerdistribution_owner": {
+            "description": (
+                "Manage all aspects of container distributions including viewing, pulling, "
+                "pushing, deleting, modifying configurations, and managing user roles."
+            ),
+            "permissions": [
+                "container.view_containerdistribution",
+                "container.pull_containerdistribution",
+                "container.push_containerdistribution",
+                "container.delete_containerdistribution",
+                "container.change_containerdistribution",
+                "container.manage_roles_containerdistribution",
+            ],
+        },
+        "container.containerdistribution_collaborator": {
+            "description": (
+                "Collaborate on container distributions with permissions to view, pull, "
+                "and push content."
+            ),
+            "permissions": [
+                "container.view_containerdistribution",
+                "container.pull_containerdistribution",
+                "container.push_containerdistribution",
+            ],
+        },
+        "container.containerdistribution_consumer": {
+            "description": (
+                "Consume container distributions with read-only access to view and pull content."
+            ),
+            "permissions": [
+                "container.view_containerdistribution",
+                "container.pull_containerdistribution",
+            ],
+        },
     }
 
     def get_dist_qs(self, qs, ns_perm, dist_perm):
@@ -1525,24 +1589,46 @@ class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
         ],
     }
     LOCKED_ROLES = {
-        "container.containerpullthroughdistribution_creator": [
-            "container.add_containerpullthroughdistribution"
-        ],
-        "container.containerpullthroughdistribution_owner": [
-            "container.view_containerpullthroughdistribution",
-            "container.delete_containerpullthroughdistribution",
-            "container.change_containerpullthroughdistribution",
-            "container.manage_roles_containerpullthroughdistribution",
-            "container.pull_new_containerdistribution",
-        ],
-        "container.containerpullthroughdistribution_collaborator": [
-            "container.view_containerpullthroughdistribution",
-            "container.pull_new_containerdistribution",
-        ],
-        "container.containerpullthroughdistribution_consumer": [
-            "container.view_containerpullthroughdistribution",
-            "container.pull_new_containerdistribution",
-        ],
+        "container.containerpullthroughdistribution_creator": {
+            "description": (
+                "Create new pull-through container distributions for caching external content."
+            ),
+            "permissions": ["container.add_containerpullthroughdistribution"],
+        },
+        "container.containerpullthroughdistribution_owner": {
+            "description": (
+                "Manage all aspects of pull-through container distributions including "
+                "viewing, deleting, modifying configurations, managing user roles, "
+                "and pulling new content."
+            ),
+            "permissions": [
+                "container.view_containerpullthroughdistribution",
+                "container.delete_containerpullthroughdistribution",
+                "container.change_containerpullthroughdistribution",
+                "container.manage_roles_containerpullthroughdistribution",
+                "container.pull_new_containerdistribution",
+            ],
+        },
+        "container.containerpullthroughdistribution_collaborator": {
+            "description": (
+                "Collaborate on pull-through container distributions with permissions "
+                "to view and pull new content."
+            ),
+            "permissions": [
+                "container.view_containerpullthroughdistribution",
+                "container.pull_new_containerdistribution",
+            ],
+        },
+        "container.containerpullthroughdistribution_consumer": {
+            "description": (
+                "Consume pull-through container distributions with read-only access "
+                "to view and pull new content."
+            ),
+            "permissions": [
+                "container.view_containerpullthroughdistribution",
+                "container.pull_new_containerdistribution",
+            ],
+        },
     }
 
 
@@ -1631,43 +1717,66 @@ class ContainerNamespaceViewSet(
     }
 
     LOCKED_ROLES = {
-        "container.containernamespace_creator": [
-            "container.add_containernamespace",
-        ],
-        "container.containernamespace_owner": [
-            "container.view_containernamespace",
-            "container.delete_containernamespace",
-            "container.namespace_add_containerdistribution",
-            "container.namespace_delete_containerdistribution",
-            "container.namespace_view_containerdistribution",
-            "container.namespace_pull_containerdistribution",
-            "container.namespace_push_containerdistribution",
-            "container.namespace_change_containerdistribution",
-            "container.namespace_view_containerpushrepository",
-            "container.namespace_modify_content_containerpushrepository",
-            "container.namespace_modify_content_containerrepository",
-            "container.namespace_change_containerpushrepository",
-            "container.manage_roles_containernamespace",
-        ],
-        "container.containernamespace_collaborator": [
-            "container.view_containernamespace",
-            "container.namespace_add_containerdistribution",
-            "container.namespace_delete_containerdistribution",
-            "container.namespace_view_containerdistribution",
-            "container.namespace_pull_containerdistribution",
-            "container.namespace_push_containerdistribution",
-            "container.namespace_change_containerdistribution",
-            "container.namespace_view_containerpushrepository",
-            "container.namespace_modify_content_containerpushrepository",
-            "container.namespace_modify_content_containerrepository",
-            "container.namespace_change_containerpushrepository",
-        ],
-        "container.containernamespace_consumer": [
-            "container.view_containernamespace",
-            "container.namespace_view_containerdistribution",
-            "container.namespace_pull_containerdistribution",
-            "container.namespace_view_containerpushrepository",
-        ],
+        "container.containernamespace_creator": {
+            "description": "Create new container namespaces.",
+            "permissions": [
+                "container.add_containernamespace",
+            ],
+        },
+        "container.containernamespace_owner": {
+            "description": (
+                "Manage all aspects of container namespaces including viewing, deleting, "
+                "managing distributions and repositories within the namespace, "
+                "modifying content, and managing user roles."
+            ),
+            "permissions": [
+                "container.view_containernamespace",
+                "container.delete_containernamespace",
+                "container.namespace_add_containerdistribution",
+                "container.namespace_delete_containerdistribution",
+                "container.namespace_view_containerdistribution",
+                "container.namespace_pull_containerdistribution",
+                "container.namespace_push_containerdistribution",
+                "container.namespace_change_containerdistribution",
+                "container.namespace_view_containerpushrepository",
+                "container.namespace_modify_content_containerpushrepository",
+                "container.namespace_modify_content_containerrepository",
+                "container.namespace_change_containerpushrepository",
+                "container.manage_roles_containernamespace",
+            ],
+        },
+        "container.containernamespace_collaborator": {
+            "description": (
+                "Collaborate on container namespaces with permissions to view, "
+                "manage distributions and repositories, modify content, "
+                "and perform push/pull operations."
+            ),
+            "permissions": [
+                "container.view_containernamespace",
+                "container.namespace_add_containerdistribution",
+                "container.namespace_delete_containerdistribution",
+                "container.namespace_view_containerdistribution",
+                "container.namespace_pull_containerdistribution",
+                "container.namespace_push_containerdistribution",
+                "container.namespace_change_containerdistribution",
+                "container.namespace_view_containerpushrepository",
+                "container.namespace_modify_content_containerpushrepository",
+                "container.namespace_modify_content_containerrepository",
+                "container.namespace_change_containerpushrepository",
+            ],
+        },
+        "container.containernamespace_consumer": {
+            "description": (
+                "Consume container namespaces with read-only access to view "
+                "namespace content, distributions, and repositories."
+            ),
+            "permissions": [
+                "container.view_containernamespace",
+                "container.namespace_view_containerdistribution",
+                "container.namespace_pull_containerdistribution",
+                "container.namespace_view_containerpushrepository",
+            ],
+        },
     }
 
     @extend_schema(
