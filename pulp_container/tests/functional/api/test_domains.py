@@ -1,7 +1,11 @@
 import pytest
 import uuid
 from subprocess import CalledProcessError
-from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
+from pulp_container.tests.functional.constants import (
+    REGISTRY_V2_REPO_PULP,
+    PULP_FIXTURE_1,
+    PULP_HELLO_WORLD_REPO,
+)
 
 
 @pytest.fixture
@@ -319,3 +323,63 @@ def test_cross_domain_pulp_apis(
             "future_base_path": "test",
         },
     )
+
+
+@pytest.mark.parallel
+def test_domain_content_replication(
+    cdomain_factory,
+    bindings_cfg,
+    pulp_settings,
+    pulpcore_bindings,
+    container_bindings,
+    container_sync,
+    container_repository_factory,
+    container_remote_factory,
+    container_distribution_factory,
+    monitor_task_group,
+    gen_object_with_cleanup,
+    add_to_cleanup,
+):
+    """Test replication feature through the usage of domains."""
+    # Set up source domain to replicate from
+    source_domain = cdomain_factory()
+    for name in [PULP_FIXTURE_1, PULP_HELLO_WORLD_REPO]:
+        repo = container_repository_factory(pulp_domain=source_domain.name)
+        remote = container_remote_factory(pulp_domain=source_domain.name, upstream_name=name)
+        container_sync(repo, remote)
+        container_distribution_factory(repository=repo.pulp_href, pulp_domain=source_domain.name)
+
+    # Create the replica domain
+    replica_domain = cdomain_factory()
+    upstream_pulp_body = {
+        "name": str(uuid.uuid4()),
+        "base_url": bindings_cfg.host,
+        "api_root": pulp_settings.API_ROOT,
+        "domain": source_domain.name,
+        "username": bindings_cfg.username,
+        "password": bindings_cfg.password,
+        "tls_validation": False,
+    }
+    upstream_pulp = gen_object_with_cleanup(
+        pulpcore_bindings.UpstreamPulpsApi, upstream_pulp_body, pulp_domain=replica_domain.name
+    )
+    # Run the replicate task and assert that all tasks successfully complete.
+    response = pulpcore_bindings.UpstreamPulpsApi.replicate(upstream_pulp.pulp_href)
+    monitor_task_group(response.task_group)
+
+    counts = {}
+    for api_client in (
+        container_bindings.ContentManifestsApi,
+        container_bindings.ContentBlobsApi,
+        container_bindings.ContentTagsApi,
+        container_bindings.RepositoriesContainerApi,
+        container_bindings.RemotesContainerApi,
+        container_bindings.DistributionsContainerApi,
+    ):
+        source_result = api_client.list(pulp_domain=source_domain.name)
+        replica_result = api_client.list(pulp_domain=replica_domain.name)
+        counts[api_client] = (source_result.count, replica_result.count)
+        for item in replica_result.results:
+            add_to_cleanup(api_client, item.pulp_href)
+
+    assert all(x[0] == x[1] for x in counts.values()), f"Replica had differing counts {counts}"
