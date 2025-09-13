@@ -38,7 +38,7 @@ class ContainerReplicator(Replicator):
         upstream_name = upstream_distribution["registry_path"].split("/", 1)[1]
         return {"upstream_name": upstream_name}
 
-    def distribution_data(self, repository, upstream_distribution):
+    def distribution_extra_fields(self, repository, upstream_distribution):
         """
         Return the fields that need to be updated/cleared on distributions for idempotence.
         """
