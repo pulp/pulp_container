@@ -8,6 +8,14 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.26.2 (2025-09-13) {: #2.26.2 }
+
+#### Bugfixes {: #2.26.2-bugfix }
+
+- Fixed a replicate issue failing to create the distributions when using pulpcore>=3.70
+
+---
+
 ## 2.26.1 (2025-09-04) {: #2.26.1 }
 
 #### Bugfixes {: #2.26.1-bugfix }
