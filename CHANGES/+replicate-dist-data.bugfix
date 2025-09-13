@@ -1,0 +1,1 @@
+Fixed a replicate issue failing to create the distributions when using pulpcore>=3.70
