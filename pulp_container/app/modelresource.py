@@ -1,6 +1,7 @@
 from import_export import fields, widgets
 from pulpcore.plugin.importexport import QueryModelResource, BaseContentResource
 from pulpcore.plugin.modelresources import RepositoryResource
+from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.models import (
     Blob,
@@ -11,6 +12,15 @@ from pulp_container.app.models import (
     ManifestSignature,
     Tag,
 )
+
+
+class ContainerContentResource(BaseContentResource):
+    """
+    Resource for import/export of container Content.
+    """
+
+    def dehydrate__pulp_domain(self, content):
+        return str(content._pulp_domain_id)
 
 
 class ContainerRepositoryResource(RepositoryResource):
@@ -60,7 +70,7 @@ class ContainerPushRepositoryResource(RepositoryResource):
         exclude = RepositoryResource.Meta.exclude + ("manifest_signing_service",)
 
 
-class BlobResource(BaseContentResource):
+class BlobResource(ContainerContentResource):
     """
     Resource for import/export of blob entities
     """
@@ -69,14 +79,16 @@ class BlobResource(BaseContentResource):
         """
         :return: Blobs specific to a specified repo-version.
         """
-        return Blob.objects.filter(pk__in=self.repo_version.content).order_by("content_ptr_id")
+        return Blob.objects.filter(
+            pk__in=self.repo_version.content, pulp_domain=get_domain()
+        ).order_by("content_ptr_id")
 
     class Meta:
         model = Blob
         import_id_fields = model.natural_key_fields()
 
 
-class ManifestResource(BaseContentResource):
+class ManifestResource(ContainerContentResource):
     """
     Resource for import/export of manifest entities
     """
@@ -96,7 +108,9 @@ class ManifestResource(BaseContentResource):
         """
         :return: Manifests specific to a specified repo-version.
         """
-        return Manifest.objects.filter(pk__in=self.repo_version.content).order_by("content_ptr_id")
+        return Manifest.objects.filter(
+            pk__in=self.repo_version.content, pulp_domain=get_domain()
+        ).order_by("content_ptr_id")
 
     class Meta:
         model = Manifest
@@ -132,7 +146,7 @@ class ManifestListManifestResource(QueryModelResource):
         model = ManifestListManifest
 
 
-class ManifestSignatureResource(BaseContentResource):
+class ManifestSignatureResource(ContainerContentResource):
     """
     A resource for import/export of manifest signatures.
     """
@@ -147,16 +161,16 @@ class ManifestSignatureResource(BaseContentResource):
         """
         Return signatures specific to a specified repo-version.
         """
-        return ManifestSignature.objects.filter(pk__in=self.repo_version.content).order_by(
-            "content_ptr_id"
-        )
+        return ManifestSignature.objects.filter(
+            pk__in=self.repo_version.content, pulp_domain=get_domain()
+        ).order_by("content_ptr_id")
 
     class Meta:
         model = ManifestSignature
         import_id_fields = model.natural_key_fields()
 
 
-class TagResource(BaseContentResource):
+class TagResource(ContainerContentResource):
     """
     Resource for import/export of tag entities
     """
@@ -171,7 +185,9 @@ class TagResource(BaseContentResource):
         """
         :return: Tags specific to a specified repo-version.
         """
-        return Tag.objects.filter(pk__in=self.repo_version.content).order_by("content_ptr_id")
+        return Tag.objects.filter(
+            pk__in=self.repo_version.content, pulp_domain=get_domain()
+        ).order_by("content_ptr_id")
 
     class Meta:
         model = Tag
