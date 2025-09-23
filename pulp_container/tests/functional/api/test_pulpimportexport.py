@@ -8,11 +8,7 @@ the case.
 import pytest
 import uuid
 
-from pulpcore.app import settings
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
-
-
-pytestmark = pytest.mark.skipif(settings.DOMAIN_ENABLED, reason="Domains do not support export.")
 
 
 def test_import_export_standard(
@@ -23,12 +19,17 @@ def test_import_export_standard(
     container_distribution_factory,
     container_sync,
     pulpcore_bindings,
+    full_path,
     gen_object_with_cleanup,
     has_pulp_plugin,
     monitor_task,
     monitor_task_group,
+    pulp_settings,
 ):
     """Test exporting and importing of a container repository."""
+    if pulp_settings.DOMAIN_ENABLED and not has_pulp_plugin("core", min="3.90.0"):
+        pytest.skip("Pulp Import/Export only supported under domains in core>=3.90")
+
     remote = container_remote_factory()
     repository = container_repository_factory()
     container_sync(repository, remote)
@@ -92,10 +93,10 @@ def test_import_export_standard(
             assert manifest.config_blob is not None
 
     distribution_path = str(uuid.uuid4())
-    container_distribution_factory(
+    distribution = container_distribution_factory(
         name=distribution_path, base_path=distribution_path, repository=import_repository.pulp_href
     )
-    local_registry.pull(f"{distribution_path}@{manifest.digest}")
+    local_registry.pull(f"{full_path(distribution)}@{manifest.digest}")
 
 
 def test_import_export_create_repositories(
@@ -104,20 +105,25 @@ def test_import_export_create_repositories(
     container_bindings,
     container_distribution_factory,
     pulpcore_bindings,
+    full_path,
     gen_object_with_cleanup,
     has_pulp_plugin,
     monitor_task,
     monitor_task_group,
+    pulp_settings,
 ):
     """Test importing of a push repository without creating an initial repository manually."""
     if registry_client.name != "podman":
         pytest.skip("This test requires podman to push pulled content", allow_module_level=True)
 
+    if pulp_settings.DOMAIN_ENABLED and not has_pulp_plugin("core", min="3.90.0"):
+        pytest.skip("Pulp Import/Export only supported under domains in core>=3.90")
+
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
 
     distribution_path = str(uuid.uuid4())
-    local_registry.tag_and_push(image_path, f"{distribution_path}:manifest_a")
+    local_registry.tag_and_push(image_path, f"{full_path(distribution_path)}:manifest_a")
 
     distribution = container_bindings.DistributionsContainerApi.list(
         name=distribution_path
@@ -178,8 +184,8 @@ def test_import_export_create_repositories(
         "base_path": distribution_path,
         "repository": repositories[0].pulp_href,
     }
-    container_distribution_factory(**distribution)
-    local_registry.pull(f"{distribution_path}:manifest_a")
+    distribution = container_distribution_factory(**distribution)
+    local_registry.pull(f"{full_path(distribution)}:manifest_a")
 
     monitor_task(container_bindings.RepositoriesContainerApi.delete(repositories[0].pulp_href).task)
     monitor_task(pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 0}).task)
