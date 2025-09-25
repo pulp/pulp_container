@@ -8,11 +8,7 @@ the case.
 import pytest
 import uuid
 
-from pulpcore.app import settings
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
-
-
-pytestmark = pytest.mark.skipif(settings.DOMAIN_ENABLED, reason="Domains do not support export.")
 
 
 def test_import_export_standard(
