@@ -1,0 +1,1 @@
+Modified the sync upload API to buffer the image layers in chunks, reducing memory usage.
