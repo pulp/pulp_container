@@ -82,6 +82,7 @@ from pulp_container.app.utils import (
 )
 from pulp_container.constants import (
     EMPTY_BLOB,
+    MEGABYTE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
     SIGNATURE_PAYLOAD_MAX_SIZE,
@@ -763,7 +764,8 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         with transaction.atomic():
             # 1 chunk, create artifact right away
             with NamedTemporaryFile("ab") as temp_file:
-                temp_file.write(chunk.read())
+                while subchunk := chunk.read(MEGABYTE):
+                    temp_file.write(subchunk)
                 temp_file.flush()
 
                 uploaded_file = PulpTemporaryUploadedFile.from_file(
