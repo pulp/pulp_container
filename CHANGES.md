@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.26.3 (2025-10-16) {: #2.26.3 }
+
+#### Bugfixes {: #2.26.3-bugfix }
+
+- Modified the sync upload API to buffer the image layers in chunks, reducing memory usage.
+  [#2081](https://github.com/pulp/pulp_container/issues/2081)
+
+---
+
 ## 2.26.2 (2025-09-13) {: #2.26.2 }
 
 #### Bugfixes {: #2.26.2-bugfix }
