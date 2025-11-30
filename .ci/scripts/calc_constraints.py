@@ -53,6 +53,9 @@ def to_upper_bound(req):
         if requirement.name == "pulpcore":
             # An exception to allow for pulpcore deprecation policy.
             return fetch_pulpcore_upper_bound(requirement)
+        # skip requirement with environment scopes. E.g 'foo==1.0.0;python_version>=3.9'
+        if requirement.marker:
+            return f"# ENVIRONMENT IS UNTRACKABLE: {req}"
         for spec in requirement.specifier:
             if spec.operator == "~=":
                 return f"# NO BETTER CONSTRAINT: {req}"
@@ -83,13 +86,15 @@ def to_lower_bound(req):
     else:
         for spec in requirement.specifier:
             if spec.operator == ">=":
+                min_version = spec.version
                 if requirement.name == "pulpcore":
                     # Currently an exception to allow for pulpcore bugfix releases.
                     # TODO Semver libraries should be allowed too.
                     operator = "~="
+                    if len(Version(min_version).release) != 3:
+                        raise RuntimeError("Pulpcore lower bound must be in the form '>=x.y.z'.")
                 else:
                     operator = "=="
-                min_version = spec.version
                 return f"{requirement.name}{operator}{min_version}"
         return f"# NO LOWER BOUND: {req}"
 
