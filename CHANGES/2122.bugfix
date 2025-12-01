@@ -1,0 +1,1 @@
+Fix an `AttributeError` issue that most commonly appears when running the `container-handle-image-data` management command.
