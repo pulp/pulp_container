@@ -26,7 +26,7 @@ def download_image_data(repository_pk, remote_pk, raw_text_manifest_data, tag_na
     log.info("Pulling cache: repository={r} remote={p}".format(r=repository.name, p=remote.name))
     first_stage = ContainerPullThroughFirstStage(remote, raw_text_manifest_data, tag_name)
     dv = ContainerDeclarativeVersion(first_stage, repository)
-    return dv.create()
+    dv.create()
 
 
 class ContainerPullThroughFirstStage(ContainerFirstStage):
