@@ -38,7 +38,15 @@ def synchronize(remote_pk, repository_pk, mirror, signed_only):
     log.info("Synchronizing: repository={r} remote={p}".format(r=repository.name, p=remote.name))
     first_stage = ContainerFirstStage(remote, signed_only)
     dv = ContainerDeclarativeVersion(first_stage, repository, mirror)
-    return dv.create()
+    rv = dv.create()
+    if rv:
+        try:
+            from pulpcore.plugin.serializers import RepositoryVersionSerializer
+
+            rv = RepositoryVersionSerializer(instance=rv, context={"request": None}).data
+        except ImportError:
+            pass
+    return rv
 
 
 class ContainerDeclarativeVersion(DeclarativeVersion):

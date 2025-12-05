@@ -5,15 +5,6 @@ import subprocess
 import tempfile
 from uuid import uuid4
 
-from pulp_container.app.models import (
-    Blob,
-    BlobManifest,
-    ContainerRepository,
-    Manifest,
-    Tag,
-)
-from pulp_container.constants import MEDIA_TYPE
-from pulp_container.app.utils import calculate_digest
 from pulpcore.plugin.models import (
     Artifact,
     ContentArtifact,
@@ -21,6 +12,16 @@ from pulpcore.plugin.models import (
     PulpTemporaryFile,
 )
 from pulpcore.plugin.util import get_domain
+
+from pulp_container.constants import MEDIA_TYPE
+from pulp_container.app.models import (
+    Blob,
+    BlobManifest,
+    ContainerRepository,
+    Manifest,
+    Tag,
+)
+from pulp_container.app.utils import calculate_digest
 
 
 def get_or_create_blob(layer_json, manifest, path):
@@ -192,6 +193,15 @@ def build_image(
         if isinstance(containerfile_artifact, PulpTemporaryFile):
             containerfile_artifact.delete()
 
+    if repository_version:
+        try:
+            from pulpcore.plugin.serializers import RepositoryVersionSerializer
+
+            repository_version = RepositoryVersionSerializer(
+                instance=repository_version, context={"request": None}
+            ).data
+        except ImportError:
+            pass
     return repository_version
 
 
