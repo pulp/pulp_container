@@ -228,12 +228,11 @@ class Manifest(Content):
         if self.json_manifest.get("architecture", None) or self.json_manifest.get("os", None):
             self.architecture = self.json_manifest.get("architecture", None)
             self.os = self.json_manifest.get("os", None)
-            return
-
-        config_artifact = self.config_blob._artifacts.get()
-        config_data, _ = get_content_data(config_artifact)
-        self.architecture = config_data.get("architecture", None)
-        self.os = config_data.get("os", None)
+        elif self.config_blob:
+            config_artifact = self.config_blob._artifacts.get()
+            config_data, _ = get_content_data(config_artifact)
+            self.architecture = config_data.get("architecture", None)
+            self.os = config_data.get("os", None)
 
     def init_compressed_image_size(self):
         # manifestv2 schema1 has only blobSum definition for each layer
