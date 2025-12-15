@@ -109,37 +109,6 @@ jobs:
         with:
           fetch-depth: 0
           path: "pulp_container"
-          ref: "2.16"
-
-      - name: "Run update"
-        working-directory: "pulp_container"
-        run: |
-          ../plugin_template/scripts/update_ci.sh --release
-
-      - name: "Create Pull Request for CI files"
-        uses: "peter-evans/create-pull-request@v6"
-        id: "create_pr_2_16"
-        with:
-          token: "${{ secrets.RELEASE_TOKEN }}"
-          path: "pulp_container"
-          committer: "pulpbot <pulp-infra@redhat.com>"
-          author: "pulpbot <pulp-infra@redhat.com>"
-          title: "Update CI files for branch 2.16"
-          branch: "update-ci/2.16"
-          base: "2.16"
-          delete-branch: true
-      - name: "Mark PR automerge"
-        working-directory: "pulp_container"
-        run: |
-          gh pr merge --rebase --auto "${{ steps.create_pr_2_16.outputs.pull-request-number }}"
-        if: "steps.create_pr_2_16.outputs.pull-request-number"
-        env:
-          GH_TOKEN: "${{ secrets.RELEASE_TOKEN }}"
-        continue-on-error: true
-      - uses: "actions/checkout@v4"
-        with:
-          fetch-depth: 0
-          path: "pulp_container"
           ref: "2.19"
 
       - name: "Run update"
