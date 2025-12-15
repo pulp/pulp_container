@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.26.5 (2025-12-15) {: #2.26.5 }
+
+#### Bugfixes {: #2.26.5-bugfix }
+
+- Fix an `AttributeError` issue that most commonly appears when running the `container-handle-image-data` management command.
+  [#2122](https://github.com/pulp/pulp_container/issues/2122)
+
+---
+
 ## 2.26.4 (2025-12-15) {: #2.26.4 }
 
 No significant changes.
