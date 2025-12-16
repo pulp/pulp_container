@@ -1,3 +1,4 @@
 jsonschema>=4.4,<4.24
 pulpcore>=3.49.0,<3.70
 pyjwt[crypto]>=2.4,<2.10
+pycares<4.9
