@@ -102,7 +102,7 @@ class ManifestResource(ContainerContentResource):
             return qs
 
         def render(self, value, obj=None, **kwargs):
-            return value.digest
+            return value.digest if value else ""
 
     class BlobsManyToManyWidget(widgets.ManyToManyWidget):
         model = Blob
@@ -151,7 +151,7 @@ class ManifestListManifestResource(QueryModelResource):
             return qs
 
         def render(self, value, obj=None, **kwargs):
-            return value.digest
+            return value.digest if value else ""
 
     manifest_list = fields.Field(
         column_name="manifest_list",
@@ -211,7 +211,7 @@ class TagResource(ContainerContentResource):
             return qs
 
         def render(self, value, obj=None, **kwargs):
-            return value.digest
+            return value.digest if value else ""
 
     tagged_manifest = fields.Field(
         column_name="tagged_manifest",

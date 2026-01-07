@@ -1,0 +1,1 @@
+Fixed import/export code to work under django-import-export-4.x.
