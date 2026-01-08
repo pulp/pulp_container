@@ -1,1 +1,0 @@
-Added a deployment check to produce a better error message when pulp_file missing from `ENABLED_PLUGINS`.

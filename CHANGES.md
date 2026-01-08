@@ -8,6 +8,31 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.0 (2026-01-08) {: #2.27.0 }
+
+#### Features {: #2.27.0-feature }
+
+- Bump pulpcore upperbound to <3.115.
+
+#### Bugfixes {: #2.27.0-bugfix }
+
+- Added a deployment check to produce a better error message when pulp_file missing from `ENABLED_PLUGINS`.
+  [#2044](https://github.com/pulp/pulp_container/issues/2044)
+- Modified the sync upload API to buffer the image layers in chunks, reducing memory usage.
+  [#2081](https://github.com/pulp/pulp_container/issues/2081)
+- Fix an `AttributeError` issue that most commonly appears when running the `container-handle-image-data` management command.
+  [#2122](https://github.com/pulp/pulp_container/issues/2122)
+- Allow sync and build tasks to properly return the created repository_version (depends on pulpcore to support task results).
+- Fixed a bug on distribution create that failed to serialize the full registry path in the task context.
+- Fixed a replicate issue failing to create the distributions when using pulpcore>=3.70
+- Fixed import/export code to work under django-import-export-4.x.
+
+#### Misc {: #2.27.0-misc }
+
+- 
+
+---
+
 ## 2.26.5 (2025-12-15) {: #2.26.5 }
 
 #### Bugfixes {: #2.26.5-bugfix }
