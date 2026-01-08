@@ -1,1 +1,0 @@
-Allow sync and build tasks to properly return the created repository_version (depends on pulpcore to support task results).
