@@ -1,2 +1,0 @@
-Added a migration with the `through_fields` for Manifest model, which was ignored by the pre-django-5 migration autotedectors.
-Reference [here](https://code.djangoproject.com/ticket/36061).
