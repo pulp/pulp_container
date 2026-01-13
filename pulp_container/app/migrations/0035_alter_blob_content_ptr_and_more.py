@@ -121,9 +121,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="manifest",
             name="listed_manifests",
-            field=models.ManyToManyField(
-                through="container.ManifestListManifest", to="container.manifest"
-            ),
+            field=models.ManyToManyField(through='container.ManifestListManifest', through_fields=('image_manifest', 'manifest_list'), to='container.manifest'),
         ),
         migrations.AlterField(
             model_name="manifestsignature",
