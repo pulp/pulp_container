@@ -107,7 +107,7 @@ if [ "$TEST" = "azure" ]; then
     image: mcr.microsoft.com/azure-storage/azurite\
     volumes:\
       - ./azurite:/etc/pulp\
-    command: "azurite-blob --blobHost 0.0.0.0"' vars/main.yaml
+    command: "azurite-blob --skipApiVersionCheck --blobHost 0.0.0.0"' vars/main.yaml
   sed -i -e '$a azure_test: true\
 pulp_scenario_settings: {"content_origin": null, "domain_enabled": true, "flatpak_index": true}\
 pulp_scenario_env: {}\
