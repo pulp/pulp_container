@@ -25,7 +25,7 @@ requires-python = ">=3.11"
 dependencies = [
   "jsonschema>=4.4,<4.27",
   "pulpcore>=3.73.2,<3.115",
-  "pyjwt[crypto]>=2.4,<2.11",
+  "pyjwt[crypto]>=2.4,<2.12",
 ]
 
 [project.urls]
