@@ -169,7 +169,8 @@ class ManifestListManifestResource(QueryModelResource):
         :return: Manifests specific to a specified repo-version.
         """
         return ManifestListManifest.objects.filter(
-            manifest_list__pk__in=self.repo_version.content
+            manifest_list__pk__in=self.repo_version.content,
+            image_manifest__pk__in=self.repo_version.content,
         ).order_by("id")
 
     class Meta:
