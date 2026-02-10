@@ -10,6 +10,7 @@ from logging import getLogger
 from django.db import models
 from django.conf import settings
 from django.contrib.postgres import fields
+from django.contrib.postgres.fields import HStoreField
 from django.shortcuts import redirect
 from django_lifecycle import hook, AFTER_CREATE, AFTER_DELETE, AFTER_UPDATE
 
@@ -438,10 +439,12 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
 
     Fields:
         name (models.TextField): The name of the namespace.
+        pulp_labels (HStoreField): Key-value pairs for labeling and organizing namespaces.
     """
 
     name = models.TextField(db_index=True)
     pulp_domain = models.ForeignKey("core.Domain", default=get_domain_pk, on_delete=models.PROTECT)
+    pulp_labels = HStoreField(default=dict)
 
     class Meta:
         unique_together = ("name", "pulp_domain")
