@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.24.4 (2026-02-11) {: #2.24.4 }
+
+#### Bugfixes {: #2.24.4-bugfix }
+
+- Fix "Manifest matching query does not exist" error on container repo import.
+  [#2041](https://github.com/pulp/pulp_container/issues/2041)
+
+---
+
 ## 2.24.3 (2025-12-16) {: #2.24.3 }
 
 #### Bugfixes {: #2.24.3-bugfix }
