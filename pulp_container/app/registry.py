@@ -12,7 +12,6 @@ from aiohttp.client_exceptions import ClientResponseError
 from aiohttp.web_exceptions import HTTPTooManyRequests
 from django_guid import set_guid
 from django_guid.utils import generate_guid
-from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
 from multidict import MultiDict
@@ -21,6 +20,7 @@ from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import RemoteArtifact, Content, ContentArtifact
 from pulpcore.plugin.content import ArtifactResponse
 from pulpcore.plugin.tasking import dispatch
+from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.cache import RegistryContentCache
 from pulp_container.app.models import ContainerDistribution, Tag, Blob, Manifest, BlobManifest
@@ -82,13 +82,14 @@ class Registry(Handler):
         full_headers["Docker-Content-Digest"] = headers["Docker-Content-Digest"]
         full_headers["Docker-Distribution-API-Version"] = "registry/2.0"
 
-        if settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem":
+        domain = get_domain()
+        if domain.storage_class == "pulpcore.app.models.storage.FileSystem":
             file = artifact.file
-            path = os.path.join(settings.MEDIA_ROOT, file.name)
+            path = os.path.join(domain.get_storage().location, file.name)
             if not os.path.exists(path):
                 raise Exception("Expected path '{}' is not found".format(path))
             return web.FileResponse(path, headers=full_headers)
-        elif not settings.REDIRECT_TO_OBJECT_STORAGE:
+        elif not domain.redirect_to_object_storage:
             return ArtifactResponse(artifact=artifact, headers=headers)
         else:
             raise NotImplementedError("Redirecting to this storage is not implemented.")
