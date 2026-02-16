@@ -30,13 +30,7 @@ from pulp_container.tests.functional.utils import (
 
 from pulp_container.constants import MEDIA_TYPE
 
-STANDARD_FILE_STORAGE_FRAMEWORKS = [
-    "django.core.files.storage.FileSystemStorage",
-    "pulpcore.app.models.storage.FileSystem",
-]
-
 cli_client = cli.Client(config.get_config())
-DEFAULT_FILE_STORAGE = utils.get_pulp_setting(cli_client, "DEFAULT_FILE_STORAGE")
 CACHE_ENABLED = utils.get_pulp_setting(cli_client, "CACHE_ENABLED")
 
 PULP_CONTENT_HOST_BASE_URL = config.get_config().get_base_url()
@@ -190,13 +184,10 @@ class ContentCacheTestCache(unittest.TestCase):
 
     def fetch_response_metadata(self, response):
         """Retrieve metadata from the passed response and normalize status code for redirects."""
-        if DEFAULT_FILE_STORAGE in STANDARD_FILE_STORAGE_FRAMEWORKS:
-            return response.status_code, response.headers.get("X-PULP-CACHE")
-        else:
-            if response.history:
-                response = response.history[0]
-                response.status_code = 200
-            return response.status_code, response.headers.get("X-PULP-CACHE")
+        if response.history:
+            response = response.history[0]
+            response.status_code = 200
+        return response.status_code, response.headers.get("X-PULP-CACHE")
 
 
 def cache_status_first_func(i):

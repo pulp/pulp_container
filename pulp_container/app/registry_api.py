@@ -18,7 +18,6 @@ from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.files.storage import default_storage as storage
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
 from django.db.models import F, Value
@@ -30,7 +29,7 @@ from django.conf import settings
 from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
-from pulpcore.plugin.util import get_objects_for_user, get_url
+from pulpcore.plugin.util import get_objects_for_user, get_url, get_domain
 from pulpcore.plugin.exceptions import TimeoutException
 
 from rest_framework.exceptions import (
@@ -596,7 +595,7 @@ class FlatpakIndexDynamicView(APIView):
                 except Artifact.DoesNotExist:
                     log.warning(f"Manifest {manifest.pk}'s config blob was not found.")
                 else:
-                    with storage.open(config_artifact.file.name) as file:
+                    with get_domain().get_storage().open(config_artifact.file.name) as file:
                         raw_data = file.read()
                     config_data = json.loads(raw_data)
                     config["labels"] = config_data.get("config", {}).get("Labels")
@@ -989,14 +988,15 @@ class RedirectsMixin:
         """
         super().__init__(*args, **kwargs)
 
+        domain = get_domain()
         if (
-            settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem"
-            or not settings.REDIRECT_TO_OBJECT_STORAGE
+            domain.storage_class == "pulpcore.app.models.storage.FileSystem"
+            or not domain.redirect_to_object_storage
         ):
             self.redirects_class = FileStorageRedirects
-        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.s3boto3.S3Boto3Storage":
+        elif domain.storage_class == "storages.backends.s3boto3.S3Boto3Storage":
             self.redirects_class = S3StorageRedirects
-        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.azure_storage.AzureStorage":
+        elif domain.storage_class == "storages.backends.azure_storage.AzureStorage":
             self.redirects_class = AzureStorageRedirects
         else:
             raise NotImplementedError()
@@ -1195,6 +1195,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """
         Responds with the actual manifest
         """
+        domain = get_domain()
+        storage = domain.get_storage()
         # iterate over all the layers and create
         chunk = request.META["wsgi.input"]
         artifact = self.receive_artifact(chunk)
