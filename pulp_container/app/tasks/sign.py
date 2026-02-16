@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db.models import Q
 
 from pulpcore.plugin.models import Repository
+from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.models import (
     ManifestSignature,
@@ -106,7 +107,7 @@ async def create_signature(manifest, reference, signing_service):
         if not manifest.data:
             # TODO: BACKWARD COMPATIBILITY - remove after fully migrating to artifactless manifest
             artifact = await manifest._artifacts.aget()
-            if settings.DEFAULT_FILE_STORAGE != "pulpcore.app.models.storage.FileSystem":
+            if get_domain().storage_class != "pulpcore.app.models.storage.FileSystem":
                 async with tempfile.NamedTemporaryFile(dir=".", mode="wb", delete=False) as tf:
                     await tf.write(await sync_to_async(artifact.file.read)())
                     await tf.flush()
