@@ -7,6 +7,7 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 
 from pulpcore.plugin.models import Repository
+from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.models import (
     ManifestSignature,
@@ -97,14 +98,14 @@ async def create_signature(manifest, reference, signing_service):
         pk of created ManifestSignature.
 
     """
+    domain = get_domain()
     async with semaphore:
         # download and write file for object storage
         artifact = await manifest._artifacts.aget()
-        if settings.DEFAULT_FILE_STORAGE != "pulpcore.app.models.storage.FileSystem":
+        if domain.storage_class != "pulpcore.app.models.storage.FileSystem":
             async with tempfile.NamedTemporaryFile(dir=".", mode="wb", delete=False) as tf:
                 await tf.write(await sync_to_async(artifact.file.read)())
                 await tf.flush()
-
             artifact.file.close()
             manifest_path = tf.name
         else:
