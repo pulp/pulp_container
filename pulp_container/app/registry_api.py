@@ -27,7 +27,7 @@ from django.conf import settings
 from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import add_and_remove, dispatch
-from pulpcore.plugin.util import get_objects_for_user, get_url
+from pulpcore.plugin.util import get_objects_for_user, get_url, get_domain
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
@@ -938,15 +938,15 @@ class RedirectsMixin:
         Determine a storage type and initialize the redirect class according to that.
         """
         super().__init__(*args, **kwargs)
-
+        domain = get_domain()
         if (
-            settings.DEFAULT_FILE_STORAGE == "pulpcore.app.models.storage.FileSystem"
-            or not settings.REDIRECT_TO_OBJECT_STORAGE
+            domain.storage_class == "pulpcore.app.models.storage.FileSystem"
+            or not domain.redirect_to_object_storage
         ):
             self.redirects_class = FileStorageRedirects
-        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.s3boto3.S3Boto3Storage":
+        elif domain.storage_class == "storages.backends.s3boto3.S3Boto3Storage":
             self.redirects_class = S3StorageRedirects
-        elif settings.DEFAULT_FILE_STORAGE == "storages.backends.azure_storage.AzureStorage":
+        elif domain.storage_class == "storages.backends.azure_storage.AzureStorage":
             self.redirects_class = AzureStorageRedirects
         else:
             raise NotImplementedError()
