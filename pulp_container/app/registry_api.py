@@ -17,7 +17,6 @@ from itertools import chain
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 from tempfile import NamedTemporaryFile
 
-from django.core.files.storage import default_storage as storage
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
 from django.db.models import F, Value
@@ -608,7 +607,8 @@ class FlatpakIndexDynamicView(APIView):
                     tag.name, tag.tagged_manifest, req_oss, req_architectures, manifests
                 )
             for manifest, tagged in manifests.items():
-                with storage.open(manifest.config_blob._artifacts.get().file.name) as file:
+                config_artifact = manifest.config_blob._artifacts.get()
+                with config_artifact.file.storage.open(config_artifact.file.name) as file:
                     raw_data = file.read()
                 config_data = json.loads(raw_data)
                 labels = config_data.get("config", {}).get("Labels")
@@ -1133,7 +1133,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         artifact = self.receive_artifact(chunk)
         manifest_digest = "sha256:{id}".format(id=artifact.sha256)
 
-        with storage.open(artifact.file.name) as artifact_file:
+        with artifact.file.storage.open(artifact.file.name) as artifact_file:
             raw_data = artifact_file.read()
 
         content_data = json.loads(raw_data)
