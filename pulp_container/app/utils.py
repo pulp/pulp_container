@@ -9,7 +9,6 @@ import time
 
 from asgiref.sync import sync_to_async
 from jsonschema import Draft7Validator, validate, ValidationError
-from django.core.files.storage import default_storage as storage
 from django.db import IntegrityError
 from rest_framework.exceptions import Throttled
 
@@ -305,7 +304,7 @@ async def save_artifact(artifact_attributes):
 
 
 def get_content_data(saved_artifact):
-    with storage.open(saved_artifact.file.name) as file:
+    with saved_artifact.file.storage.open(saved_artifact.file.name, mode="rb") as file:
         raw_data = file.read()
     content_data = json.loads(raw_data)
     return content_data, raw_data
