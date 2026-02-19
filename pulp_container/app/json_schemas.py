@@ -70,7 +70,6 @@ OCI_INDEX_SCHEMA = {
                         "required": ["architecture", "os"],
                     },
                 },
-                additional_required=["platform"],
             ),
         },
         "subject": get_descriptor_schema(),
