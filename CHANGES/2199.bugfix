@@ -1,0 +1,2 @@
+Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+as requested by the OCI spec.
