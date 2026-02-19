@@ -58,7 +58,6 @@ OCI_INDEX_SCHEMA = {
                         "required": ["architecture", "os"],
                     },
                 },
-                additional_required=["platform"],
             ),
         },
         "annotations": {"type": "object", "additionalProperties": True},
