@@ -652,7 +652,7 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             upload.size += length
             upload.save()
 
-        return UploadResponse(upload=upload, path=path, request=request, status=204)
+        return UploadResponse(upload=upload, path=path, request=request)
 
     def put(self, request, path, pk=None):
         """
