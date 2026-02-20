@@ -154,6 +154,12 @@ No significant changes.
 
 ---
 
+## 2.24.5 (2026-02-19) {: #2.24.5 }
+
+No significant changes.
+
+---
+
 ## 2.24.4 (2026-02-11) {: #2.24.4 }
 
 #### Bugfixes {: #2.24.4-bugfix }
@@ -440,6 +446,15 @@ No significant changes.
 ### Misc
 
 -   
+
+---
+
+## 2.19.6 (2026-02-19) {: #2.19.6 }
+
+#### Bugfixes {: #2.19.6-bugfix }
+
+- Modified the sync upload API to buffer the image layers in chunks, reducing memory usage.
+  [#2081](https://github.com/pulp/pulp_container/issues/2081)
 
 ---
 
