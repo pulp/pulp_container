@@ -967,24 +967,27 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         """
         Create a blob from uploaded chunks.
 
-        This request makes the upload complete. It can whether carry a zero-length
-        body or last chunk can be uploaded.
+        This request makes the upload complete. It can either carry a zero-length
+        body or contain the last chunk.
 
         """
         _, repository = self.get_dr_push(request, path)
 
         digest = request.query_params["digest"]
         chunk = request.META["wsgi.input"]
-        # last chunk (and the only one) from monolitic upload
-        # or last chunk from chunked upload
-        last_chunk = ContentFile(chunk.read())
         upload = get_object_or_404(models.Upload, pk=pk, repository=repository)
 
-        if artifact := upload.artifact:
+        if upload.size == 0:
+            # monolithic upload to be completed in PUT
+            artifact = self.create_single_chunk_artifact(chunk)
+        elif artifact := upload.artifact:
+            # chunked upload was completed in PATCH
             if artifact.sha256 != digest[len("sha256:") :]:
                 raise Exception("The digest did not match")
             artifact.touch()
         else:
+            # chunked upload to be completed in PUT
+            last_chunk = ContentFile(chunk.read())
             chunks = UploadChunk.objects.filter(upload=upload).order_by("offset")
             with NamedTemporaryFile("ab") as temp_file:
                 for chunk in chunks:
