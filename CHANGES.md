@@ -8,6 +8,18 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.26.7 (2026-02-24) {: #2.26.7 }
+
+#### Bugfixes {: #2.26.7-bugfix }
+
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
+
+---
+
 ## 2.26.6 (2026-02-11) {: #2.26.6 }
 
 #### Bugfixes {: #2.26.6-bugfix }
