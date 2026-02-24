@@ -1,1 +1,0 @@
-Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
