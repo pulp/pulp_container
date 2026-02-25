@@ -8,6 +8,18 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.2 (2026-02-24) {: #2.27.2 }
+
+#### Bugfixes {: #2.27.2-bugfix }
+
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
+
+---
+
 ## 2.27.1 (2026-02-11) {: #2.27.1 }
 
 #### Bugfixes {: #2.27.1-bugfix }
@@ -39,6 +51,18 @@
 #### Misc {: #2.27.0-misc }
 
 - 
+
+---
+
+## 2.26.7 (2026-02-24) {: #2.26.7 }
+
+#### Bugfixes {: #2.26.7-bugfix }
+
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
 
 ---
 
@@ -154,6 +178,18 @@ No significant changes.
 
 ---
 
+## 2.24.6 (2026-02-24) {: #2.24.6 }
+
+#### Bugfixes {: #2.24.6-bugfix }
+
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
+
+---
+
 ## 2.24.5 (2026-02-19) {: #2.24.5 }
 
 No significant changes.
@@ -224,6 +260,18 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.5 (2026-02-24) {: #2.22.5 }
+
+#### Bugfixes {: #2.22.5-bugfix }
+
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
 
 ---
 
@@ -365,6 +413,18 @@ No significant changes.
 
 ---
 
+## 2.20.6 (2026-02-24) {: #2.20.6 }
+
+#### Bugfixes {: #2.20.6-bugfix }
+
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
+
+---
+
 ## 2.20.5 (2025-01-07) {: #2.20.5 }
 
 #### Bugfixes {: #2.20.5-bugfix }
@@ -446,6 +506,18 @@ No significant changes.
 ### Misc
 
 -   
+
+---
+
+## 2.19.7 (2026-02-24) {: #2.19.7 }
+
+#### Bugfixes {: #2.19.7-bugfix }
+
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
 
 ---
 
