@@ -144,7 +144,7 @@ else
 fi
 pushd ../pulp-cli
 pip install -r test_requirements.txt
-pytest -v -m "pulp_container"
+pytest -v tests -m "pulp_container"
 popd
 
 if [ -f "$POST_SCRIPT" ]; then
