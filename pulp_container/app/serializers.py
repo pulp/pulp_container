@@ -26,6 +26,7 @@ from pulpcore.plugin.serializers import (
     RepositoryVersionRelatedField,
     SingleArtifactContentSerializer,
     ValidateFieldsMixin,
+    pulp_labels_validator,
 )
 from pulpcore.plugin.util import get_domain
 
@@ -241,9 +242,10 @@ class ContainerNamespaceSerializer(ModelSerializer, GetOrCreateSerializerMixin):
     """
 
     pulp_href = IdentityField(view_name="pulp_container/namespaces-detail")
+    pulp_labels = serializers.HStoreField(required=False, validators=[pulp_labels_validator])
 
     class Meta:
-        fields = ModelSerializer.Meta.fields + ("name",)
+        fields = ModelSerializer.Meta.fields + ("name", "pulp_labels")
         model = models.ContainerNamespace
 
 
