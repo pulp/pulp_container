@@ -119,6 +119,10 @@ async def create_signature(manifest, reference, signing_service):
             encoded_sig = base64.b64encode(data).decode()
             sig_digest = hashlib.sha256(data).hexdigest()
             sig_json = extract_data_from_signature(data, manifest.digest)
+            if sig_json is None:
+                raise RuntimeError(
+                    f"Failed to extract signature data for {manifest.digest}"
+                )
             manifest_digest = sig_json["critical"]["image"]["docker-manifest-digest"]
 
             signature = ManifestSignature(
