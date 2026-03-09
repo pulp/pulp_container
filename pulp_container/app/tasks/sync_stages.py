@@ -408,8 +408,10 @@ class ContainerFirstStage(Stage):
     def _create_signature_declarative_content(
         self, signature_raw, man_dc, name=None, signature_b64=None
     ):
-        signature_json = extract_data_from_signature(signature_raw, man_dc.content.digest)
-        if signature_json is None:
+        try:
+            signature_json = extract_data_from_signature(signature_raw, man_dc.content.digest)
+        except ValueError as exc:
+            log.warning("Error processing signature on sync: {}".format(str(exc)))
             return
 
         sig_digest = hashlib.sha256(signature_raw).hexdigest()

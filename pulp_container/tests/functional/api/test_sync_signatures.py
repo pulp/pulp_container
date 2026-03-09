@@ -159,17 +159,17 @@ def test_sync_image_with_pqc_signatures(
     ).results
     assert len(signatures) > 0
 
-    # Assert that signature using the "old" Red Hat signing release keys exist
+    # Assert that a signature using one of the "old" Red Hat signing release keys exist
     expected_key_ids = ["199E2F91FD431D51", "E60D446E63405576"]
     assert any(s.key_id in expected_key_ids for s in signatures), (
         f"No signature found with key_ids {expected_key_ids}; "
         f"found key_ids: {sorted({s.key_id for s in signatures})}"
     )
 
-    # First 8 bytes (16 hex chars) of the fingerprint the Red Hat PQC (ML-DSA-87) signing key
-    # which is FCD355B305707A62DA143AB6E422397E50FE8467A2A95343D246D6276AFEDF8F
+    # Assert that a signature using the Red Hat PQC (ML-DSA-87) signing key exists
+    # Fingerprint: FCD355B305707A62DA143AB6E422397E50FE8467A2A95343D246D6276AFEDF8F
+    # Key ID => first 8 bytes (16 hex chars)
     expected_key_id = "FCD355B305707A62"
-    pytest.xfail("pulp_container does not yet support PQC (ML-DSA-87) signatures")
     assert any(s.key_id == expected_key_id for s in signatures), (
         f"No signature found with key_id {expected_key_id!r}; "
         f"found key_ids: {sorted({s.key_id for s in signatures})}"
