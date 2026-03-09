@@ -1434,8 +1434,10 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
         except binascii.Error:
             raise ManifestSignatureInvalid(digest=pk)
 
-        signature_json = extract_data_from_signature(signature_raw, manifest.digest)
-        if signature_json is None:
+        try:
+            signature_json = extract_data_from_signature(signature_raw, manifest.digest)
+        except ValueError as exc:
+            log.warning("Error processing signature on upload: {}".format(exc))
             raise ManifestSignatureInvalid(digest=pk)
 
         sig_digest = hashlib.sha256(signature_raw).hexdigest()
