@@ -1,0 +1,1 @@
+Changed the use of raw `hashlib` to `pulp_hashlib` to prevent `UnsupportedDigestmodError` on FIPS-enabled systems.
