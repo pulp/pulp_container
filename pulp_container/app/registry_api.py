@@ -26,6 +26,7 @@ from django.shortcuts import get_object_or_404
 
 from django.conf import settings
 
+from pulpcore.plugin import pulp_hashlib
 from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
 from pulpcore.plugin.tasking import dispatch
@@ -1452,7 +1453,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             size = 0
             hashers = {}
             for algorithm in Artifact.DIGEST_FIELDS:
-                hashers[algorithm] = getattr(hashlib, algorithm)()
+                hashers[algorithm] = pulp_hashlib.new(algorithm)
             while True:
                 subchunk = chunk.read(2000000)
                 if not subchunk:
