@@ -109,6 +109,7 @@ supported_release_branches:
   - "2.22"
   - "2.24"
   - "2.26"
+  - "2.27"
 sync_ci: true
 test_azure: true
 test_cli: true
@@ -116,7 +117,6 @@ test_deprecations: true
 test_gcp: false
 test_lowerbounds: true
 test_performance: false
-test_reroute: true
 test_s3: true
 use_issue_template: true
 ...
