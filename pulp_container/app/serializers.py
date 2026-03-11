@@ -421,9 +421,6 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
         view_name="pulp_container/namespaces-detail",
         help_text=_("Namespace this distribution belongs to."),
     )
-    description = serializers.CharField(
-        help_text=_("An optional description."), required=False, allow_null=True
-    )
     repository_version = RepositoryVersionRelatedField(
         required=False, help_text=_("RepositoryVersion to be served"), allow_null=True
     )
@@ -487,7 +484,6 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
             "remote",
             "namespace",
             "private",
-            "description",
         )
 
 
@@ -521,9 +517,6 @@ class ContainerPullThroughDistributionSerializer(DistributionSerializer):
         queryset=models.ContainerDistribution.objects.all(),
         required=False,
     )
-    description = serializers.CharField(
-        help_text=_("An optional description."), required=False, allow_null=True
-    )
 
     def validate(self, data):
         validated_data = super().validate(data)
@@ -549,7 +542,6 @@ class ContainerPullThroughDistributionSerializer(DistributionSerializer):
             "distributions",
             "namespace",
             "private",
-            "description",
         )
 
 
