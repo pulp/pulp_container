@@ -26,6 +26,7 @@ dependencies = [
   "jsonschema>=4.4,<4.27",
   "pulpcore>=3.73.2,<3.115",
   "pyjwt[crypto]>=2.4,<2.12",
+  "pysequoia @ git+https://github.com/wiktor-k/pysequoia.git@main",
 ]
 
 [project.urls]

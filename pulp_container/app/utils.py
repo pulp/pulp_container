@@ -1,9 +1,6 @@
 import base64
 import hashlib
 import fnmatch
-import re
-import subprocess
-import gnupg
 import json
 import logging
 import time
@@ -14,6 +11,8 @@ from django.conf import settings
 from django.db import IntegrityError
 from functools import partial
 from rest_framework.exceptions import Throttled
+
+from pysequoia.packet import PacketPile, Tag
 
 from pulpcore.plugin.models import Artifact, Task
 from pulpcore.plugin.util import get_domain
@@ -31,9 +30,6 @@ from pulp_container.app.json_schemas import (
     DOCKER_MANIFEST_V1_SCHEMA,
     SIGNATURE_SCHEMA,
 )
-
-KEY_ID_REGEX_COMPILED = re.compile(r"keyid ([0-9A-F]+)")
-TIMESTAMP_REGEX_COMPILED = re.compile(r"created ([0-9]+)")
 
 signature_validator = Draft7Validator(SIGNATURE_SCHEMA)
 
@@ -98,16 +94,31 @@ def extract_data_from_signature(signature_raw, man_digest):
         dict: JSON representation of the document and available data about signature
 
     """
-    gpg = gnupg.GPG()
-    crypt_obj = gpg.decrypt(signature_raw, extra_args=["--skip-verify"])
-    if not crypt_obj.data:
-        log.info(
-            "It is not possible to read the signed document, GPG error: {}".format(crypt_obj.stderr)
-        )
+    try:
+        pile = PacketPile.from_bytes(signature_raw)
+    except Exception:
+        log.info("It is not possible to parse the signed document for {}".format(man_digest))
+        return
+
+    literal_data = None
+    signing_key_id = None
+    signature_timestamp = None
+
+    for packet in pile:
+        if packet.tag == Tag.Literal:
+            literal_data = bytes(packet.literal_data)
+        elif packet.tag == Tag.Signature:
+            if packet.issuer_key_id is not None:
+                signing_key_id = packet.issuer_key_id.upper()
+            if packet.signature_created is not None:
+                signature_timestamp = str(int(packet.signature_created.timestamp()))
+
+    if not literal_data:
+        log.info("It is not possible to read the signed document for {}".format(man_digest))
         return
 
     try:
-        sig_json = json.loads(crypt_obj.data)
+        sig_json = json.loads(literal_data)
     except Exception as exc:
         log.info(
             "Signed document cannot be parsed to create a signature for {}."
@@ -123,12 +134,8 @@ def extract_data_from_signature(signature_raw, man_digest):
         log.info("The signature for {} is not synced due to: {}".format(man_digest, errors))
         return
 
-    # decrypted and unverified signatures do not have prepopulated the key_id and timestamp
-    # fields; thus, it is necessary to use the debugging utilities of gpg to extract these
-    # fields since they are not encrypted and still readable without decrypting the signature first
-    packets = subprocess.check_output(["gpg", "--list-packets"], input=signature_raw).decode()
-    sig_json["signing_key_id"] = KEY_ID_REGEX_COMPILED.search(packets).group(1)
-    sig_json["signature_timestamp"] = TIMESTAMP_REGEX_COMPILED.search(packets).group(1)
+    sig_json["signing_key_id"] = signing_key_id
+    sig_json["signature_timestamp"] = signature_timestamp
 
     return sig_json
 
