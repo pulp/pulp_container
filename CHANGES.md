@@ -8,6 +8,17 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.22.6 (2026-03-18) {: #2.22.6 }
+
+#### Bugfixes {: #2.22.6-bugfix }
+
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
+
+---
+
 ## 2.22.5 (2026-02-24) {: #2.22.5 }
 
 #### Bugfixes {: #2.22.5-bugfix }
