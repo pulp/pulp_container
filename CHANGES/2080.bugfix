@@ -1,3 +1,0 @@
-Altered several id-fields and their related sequences.
-
-INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
