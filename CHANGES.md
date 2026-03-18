@@ -8,6 +8,18 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.3 (2026-03-18) {: #2.27.3 }
+
+#### Bugfixes {: #2.27.3-bugfix }
+
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
+- Fixed memory usage when pushing large images with monolithic upload.
+
+---
+
 ## 2.27.2 (2026-02-24) {: #2.27.2 }
 
 #### Bugfixes {: #2.27.2-bugfix }
