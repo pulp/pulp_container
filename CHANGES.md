@@ -7,6 +7,14 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.19.8 (2026-03-18) {: #2.19.8 }
+
+#### Bugfixes {: #2.19.8-bugfix }
+
+- Fixed memory usage when pushing large images with monolithic upload.
+
+---
+
 ## 2.19.7 (2026-02-24) {: #2.19.7 }
 
 #### Bugfixes {: #2.19.7-bugfix }
