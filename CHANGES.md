@@ -8,6 +8,18 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.3 (2026-03-18) {: #2.27.3 }
+
+#### Bugfixes {: #2.27.3-bugfix }
+
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
+- Fixed memory usage when pushing large images with monolithic upload.
+
+---
+
 ## 2.27.2 (2026-02-24) {: #2.27.2 }
 
 #### Bugfixes {: #2.27.2-bugfix }
@@ -51,6 +63,18 @@
 #### Misc {: #2.27.0-misc }
 
 - 
+
+---
+
+## 2.26.8 (2026-03-18) {: #2.26.8 }
+
+#### Bugfixes {: #2.26.8-bugfix }
+
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
+- Fixed memory usage when pushing large images with monolithic upload.
 
 ---
 
@@ -178,6 +202,17 @@ No significant changes.
 
 ---
 
+## 2.24.7 (2026-03-18) {: #2.24.7 }
+
+#### Bugfixes {: #2.24.7-bugfix }
+
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
+
+---
+
 ## 2.24.6 (2026-02-24) {: #2.24.6 }
 
 #### Bugfixes {: #2.24.6-bugfix }
@@ -260,6 +295,17 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.6 (2026-03-18) {: #2.22.6 }
+
+#### Bugfixes {: #2.22.6-bugfix }
+
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
 
 ---
 
@@ -413,6 +459,17 @@ No significant changes.
 
 ---
 
+## 2.20.7 (2026-03-18) {: #2.20.7 }
+
+#### Bugfixes {: #2.20.7-bugfix }
+
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
+
+---
+
 ## 2.20.6 (2026-02-24) {: #2.20.6 }
 
 #### Bugfixes {: #2.20.6-bugfix }
@@ -506,6 +563,14 @@ No significant changes.
 ### Misc
 
 -   
+
+---
+
+## 2.19.8 (2026-03-18) {: #2.19.8 }
+
+#### Bugfixes {: #2.19.8-bugfix }
+
+- Fixed memory usage when pushing large images with monolithic upload.
 
 ---
 
