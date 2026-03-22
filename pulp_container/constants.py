@@ -1,6 +1,5 @@
 from types import SimpleNamespace
 
-
 MEDIA_TYPE = SimpleNamespace(
     MANIFEST_V1="application/vnd.docker.distribution.manifest.v1+json",
     MANIFEST_V1_SIGNED="application/vnd.docker.distribution.manifest.v1+prettyjws",

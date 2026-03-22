@@ -34,7 +34,6 @@ from . import downloaders
 from pulp_container.app.utils import get_content_data
 from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
 
-
 logger = getLogger(__name__)
 
 
