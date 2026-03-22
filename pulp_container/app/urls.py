@@ -14,7 +14,6 @@ from pulp_container.app.registry_api import (
     VersionView,
 )
 
-
 router = SimpleRouter(trailing_slash=False)
 
 head_route = Route(
