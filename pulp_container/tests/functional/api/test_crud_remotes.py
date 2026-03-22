@@ -6,7 +6,6 @@ import uuid
 
 from pulp_container.tests.functional.conftest import gen_container_remote
 
-
 ON_DEMAND_DOWNLOAD_POLICIES = ("on_demand", "streamed")
 
 

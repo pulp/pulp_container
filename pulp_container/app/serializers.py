@@ -34,7 +34,6 @@ from pulp_container.app import models, fields
 from pulp_container.constants import SIGNATURE_TYPE
 from pulp_container.app.utils import get_full_path
 
-
 VALID_SIGNATURE_NAME_REGEX = r"^sha256:[0-9a-f]{64}@[0-9a-f]{32}$"
 VALID_TAG_REGEX = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
 VALID_BASE_PATH_REGEX_COMPILED = re.compile(r"^[a-z0-9]+(?:(?:[._]|__|[-]*)[a-z0-9])*$")
@@ -299,25 +298,21 @@ class ContainerRemoteSerializer(RemoteSerializer):
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_(
-            """
+        help_text=_("""
             A list of tags to include during sync.
             Wildcards *, ? are recognized.
             'include_tags' is evaluated before 'exclude_tags'.
-            """
-        ),
+            """),
     )
     exclude_tags = serializers.ListField(
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_(
-            """
+        help_text=_("""
             A list of tags to exclude during sync.
             Wildcards *, ? are recognized.
             'exclude_tags' is evaluated after 'include_tags'.
-            """
-        ),
+            """),
     )
 
     policy = serializers.ChoiceField(
@@ -357,25 +352,21 @@ class ContainerPullThroughRemoteSerializer(RemoteSerializer):
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_(
-            """
+        help_text=_("""
             A list of remotes to include during pull-through caching.
             Wildcards *, ? are recognized.
             'includes' is evaluated before 'excludes'.
-            """
-        ),
+            """),
     )
     excludes = serializers.ListField(
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_(
-            """
+        help_text=_("""
             A list of remotes to exclude during pull-through caching.
             Wildcards *, ? are recognized.
             'excludes' is evaluated after 'includes'.
-            """
-        ),
+            """),
     )
 
     class Meta:
