@@ -42,7 +42,6 @@ from pulp_container.constants import (
     SIGNATURE_TYPE,
 )
 
-
 logger = getLogger(__name__)
 
 
