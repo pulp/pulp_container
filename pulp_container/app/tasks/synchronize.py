@@ -13,7 +13,6 @@ from pulpcore.plugin.stages import (
 from .sync_stages import ContainerFirstStage, ContainerContentSaver
 from pulp_container.app.models import ContainerRemote, ContainerRepository
 
-
 log = logging.getLogger(__name__)
 
 
