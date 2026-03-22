@@ -44,7 +44,6 @@ from pulpcore.plugin.viewsets import (
 
 from pulp_container.app import models, serializers, tasks
 
-
 log = logging.getLogger(__name__)
 
 
