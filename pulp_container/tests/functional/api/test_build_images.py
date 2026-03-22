@@ -10,13 +10,11 @@ from pulp_container.constants import MANIFEST_TYPE
 def containerfile_name():
     """A fixture for a basic container file used for building images."""
     with NamedTemporaryFile() as containerfile:
-        containerfile.write(
-            b"""FROM quay.io/quay/busybox:latest
+        containerfile.write(b"""FROM quay.io/quay/busybox:latest
 # Copy a file using COPY statement. Use the relative path specified in the 'artifacts' parameter.
 COPY foo/bar/example.txt /tmp/inside-image.txt
 # Print the content of the file when the container starts
-CMD ["cat", "/tmp/inside-image.txt"]"""
-        )
+CMD ["cat", "/tmp/inside-image.txt"]""")
         containerfile.flush()
         yield containerfile.name
 
@@ -212,11 +210,9 @@ def test_without_build_context(
 
     def containerfile_without_context_files():
         with NamedTemporaryFile() as containerfile:
-            containerfile.write(
-                b"""FROM quay.io/quay/busybox:latest
+            containerfile.write(b"""FROM quay.io/quay/busybox:latest
 # Print the content of the file when the container starts
-CMD ["ls", "/"]"""
-            )
+CMD ["ls", "/"]""")
             containerfile.flush()
             yield containerfile.name
 
