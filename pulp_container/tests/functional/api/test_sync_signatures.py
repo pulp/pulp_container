@@ -9,6 +9,9 @@ IMAGE_MANIFEST_TAG = "7.9-511-source"
 MANIFEST_LIST_TAG = "7.9"
 SIGSTORE_URL = "https://access.redhat.com/webassets/docker/content/sigstore"
 
+UBI10_MICRO_REPOSITORY_NAME = "ubi10-micro"
+UBI10_MICRO_TAG = "latest"
+
 
 @pytest.fixture
 def synced_repository(
@@ -120,3 +123,66 @@ def test_sync_images_without_sigstore_requiring_signatures(container_bindings, s
         repository_version=synced_repository.latest_version_href
     ).results
     assert len(tags) == 0
+
+
+def test_sync_image_with_pqc_signatures(
+    delete_orphans_pre,
+    container_repo,
+    container_remote_factory,
+    container_bindings,
+    monitor_task,
+):
+    """Sync ubi10-micro:latest from registry.access.redhat.com with all signatures."""
+    data = gen_container_remote(
+        url=REDHAT_REGISTRY_V2,
+        upstream_name=UBI10_MICRO_REPOSITORY_NAME,
+        policy="on_demand",
+        include_tags=[UBI10_MICRO_TAG],
+        sigstore=SIGSTORE_URL,
+    )
+    remote = container_remote_factory(**data)
+
+    sync_data = {"remote": remote.pulp_href, "signed_only": False}
+    response = container_bindings.RepositoriesContainerApi.sync(container_repo.pulp_href, sync_data)
+    monitor_task(response.task)
+
+    repo = container_bindings.RepositoriesContainerApi.read(container_repo.pulp_href)
+
+    tags = container_bindings.ContentTagsApi.list(
+        repository_version=repo.latest_version_href
+    ).results
+    assert len(tags) == 1
+    assert tags[0].name == UBI10_MICRO_TAG
+
+    signatures = container_bindings.ContentSignaturesApi.list(
+        repository_version=repo.latest_version_href
+    ).results
+    assert len(signatures) > 0
+
+    # Assert that signature using the "old" Red Hat signing release keys exist
+    expected_key_ids = ["199E2F91FD431D51", "E60D446E63405576"]
+    assert any(s.key_id in expected_key_ids for s in signatures), (
+        f"No signature found with key_ids {expected_key_ids}; "
+        f"found key_ids: {sorted({s.key_id for s in signatures})}"
+    )
+
+    # First 8 bytes (16 hex chars) of the fingerprint the Red Hat PQC (ML-DSA-87) signing key
+    # which is FCD355B305707A62DA143AB6E422397E50FE8467A2A95343D246D6276AFEDF8F
+    expected_key_id = "FCD355B305707A62"
+    pytest.xfail("pulp_container does not yet support PQC (ML-DSA-87) signatures")
+    assert any(s.key_id == expected_key_id for s in signatures), (
+        f"No signature found with key_id {expected_key_id!r}; "
+        f"found key_ids: {sorted({s.key_id for s in signatures})}"
+    )
+
+    # ubi10-micro:latest is a manifest list; collect all listed manifests and verify
+    # that each has at least one signature
+    manifest_list = container_bindings.ContentManifestsApi.read(tags[0].tagged_manifest)
+    listed_manifests = [
+        container_bindings.ContentManifestsApi.read(lm_href)
+        for lm_href in manifest_list.listed_manifests
+    ]
+    for lm in listed_manifests:
+        lm_signatures = [s for s in signatures if s.signed_manifest == lm.pulp_href]
+        assert len(lm_signatures) > 0, f"No signatures found for manifest {lm.digest}"
+        assert all(s.name.startswith(lm.digest) for s in lm_signatures)
