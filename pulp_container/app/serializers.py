@@ -229,25 +229,21 @@ class ContainerRemoteSerializer(RemoteSerializer):
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_(
-            """
+        help_text=_("""
             A list of tags to include during sync.
             Wildcards *, ? are recognized.
             'include_tags' is evaluated before 'exclude_tags'.
-            """
-        ),
+            """),
     )
     exclude_tags = serializers.ListField(
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_(
-            """
+        help_text=_("""
             A list of tags to exclude during sync.
             Wildcards *, ? are recognized.
             'exclude_tags' is evaluated after 'include_tags'.
-            """
-        ),
+            """),
     )
 
     policy = serializers.ChoiceField(
