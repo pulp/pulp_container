@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.22.7 (2026-03-30) {: #2.22.7 }
+
+#### Bugfixes {: #2.22.7-bugfix }
+
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
+
+---
+
 ## 2.22.6 (2026-03-18) {: #2.22.6 }
 
 #### Bugfixes {: #2.22.6-bugfix }
