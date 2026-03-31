@@ -1,5 +1,4 @@
 from pulpcore.plugin.replica import Replicator
-from pulpcore.plugin.util import get_url
 
 from pulp_glue.container.context import (
     PulpContainerDistributionContext,
@@ -42,12 +41,11 @@ class ContainerReplicator(Replicator):
         """
         Return the fields that need to be updated/cleared on distributions for idempotence.
         """
-        return {
-            "repository": get_url(repository),
-            "base_path": upstream_distribution["base_path"],
-            "private": upstream_distribution["private"],
-            "description": upstream_distribution["description"],
-        }
+        fields = super().distribution_extra_fields(repository, upstream_distribution)
+        fields.pop("publication", None)
+        fields["private"] = upstream_distribution["private"]
+        fields["description"] = upstream_distribution["description"]
+        return fields
 
 
 REPLICATION_ORDER = [ContainerReplicator]
