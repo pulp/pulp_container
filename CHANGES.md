@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.4 (2026-03-30) {: #2.27.4 }
+
+#### Bugfixes {: #2.27.4-bugfix }
+
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
+
+---
+
 ## 2.27.3 (2026-03-18) {: #2.27.3 }
 
 #### Bugfixes {: #2.27.3-bugfix }
@@ -63,6 +72,15 @@
 #### Misc {: #2.27.0-misc }
 
 - 
+
+---
+
+## 2.26.9 (2026-03-30) {: #2.26.9 }
+
+#### Bugfixes {: #2.26.9-bugfix }
+
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
 
 ---
 
@@ -202,6 +220,15 @@ No significant changes.
 
 ---
 
+## 2.24.8 (2026-03-30) {: #2.24.8 }
+
+#### Bugfixes {: #2.24.8-bugfix }
+
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
+
+---
+
 ## 2.24.7 (2026-03-18) {: #2.24.7 }
 
 #### Bugfixes {: #2.24.7-bugfix }
@@ -295,6 +322,15 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.7 (2026-03-30) {: #2.22.7 }
+
+#### Bugfixes {: #2.22.7-bugfix }
+
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
 
 ---
 
@@ -459,6 +495,15 @@ No significant changes.
 
 ---
 
+## 2.20.8 (2026-03-30) {: #2.20.8 }
+
+#### Bugfixes {: #2.20.8-bugfix }
+
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
+
+---
+
 ## 2.20.7 (2026-03-18) {: #2.20.7 }
 
 #### Bugfixes {: #2.20.7-bugfix }
@@ -563,6 +608,15 @@ No significant changes.
 ### Misc
 
 -   
+
+---
+
+## 2.19.9 (2026-03-30) {: #2.19.9 }
+
+#### Bugfixes {: #2.19.9-bugfix }
+
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
 
 ---
 
