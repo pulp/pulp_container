@@ -8,6 +8,14 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.24.9 (2026-04-01) {: #2.24.9 }
+
+#### Bugfixes {: #2.24.9-bugfix }
+
+- Support "atomic" replications in pulpcore 3.107
+
+---
+
 ## 2.24.8 (2026-03-30) {: #2.24.8 }
 
 #### Bugfixes {: #2.24.8-bugfix }
