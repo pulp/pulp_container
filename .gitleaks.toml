@@ -1,5 +1,6 @@
 [allowlist]
-  description = "Our test install exports a test only MINIO ACCESS KEY"
+  description = "Allow specific test-keys."
   paths = [
     ".github/workflows/scripts/install.sh",
   ]
+regexes = ['''AKIAIT2Z5TDYPX3ARJBA''', '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw''', '''fqRvjWaPU5o0fCqQuUWbj9Fainj2pVZtBCiDiieS''', '''qR\+vjWPU50fCqQuUWbj9Fain/j2pV\+ZtBCiDiieS''']
