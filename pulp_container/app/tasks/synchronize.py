@@ -2,6 +2,7 @@ import logging
 
 from pulpcore.plugin.stages import (
     ArtifactDownloader,
+    ArtifactResourceBudget,
     ArtifactSaver,
     DeclarativeVersion,
     QueryExistingArtifacts,
@@ -68,11 +69,13 @@ class ContainerDeclarativeVersion(DeclarativeVersion):
             list: List of :class:`~pulpcore.plugin.stages.Stage` instances
 
         """
+        resource_budget = ArtifactResourceBudget.from_settings()
+
         pipeline = [
             self.first_stage,
             QueryExistingArtifacts(),
-            ArtifactDownloader(),
-            ArtifactSaver(),
+            ArtifactDownloader(resource_budget=resource_budget),
+            ArtifactSaver(resource_budget=resource_budget),
             QueryExistingContents(),
             ContainerContentSaver(),
             RemoteArtifactSaver(),
