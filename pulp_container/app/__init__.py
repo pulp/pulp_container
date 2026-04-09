@@ -6,7 +6,7 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
 
     name = "pulp_container.app"
     label = "container"
-    version = "2.19.10.dev"
+    version = "2.19.10"
     python_package_name = "pulp-container"
 
     def ready(self):
