@@ -1,4 +1,4 @@
 jsonschema>=4.4,<4.22
 pulpcore>=3.49.0,<3.55
-pyjwt[crypto]>=2.4,<2.9
+pyjwt[crypto]>=2.4,<2.13
 pysequoia==0.1.32
