@@ -8,6 +8,20 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.6 (2026-04-09) {: #2.27.6 }
+
+No significant changes.
+
+---
+
+## 2.27.5 (2026-04-01) {: #2.27.5 }
+
+#### Bugfixes {: #2.27.5-bugfix }
+
+- Support "atomic" replications in pulpcore 3.107
+
+---
+
 ## 2.27.4 (2026-03-30) {: #2.27.4 }
 
 #### Bugfixes {: #2.27.4-bugfix }
@@ -72,6 +86,20 @@
 #### Misc {: #2.27.0-misc }
 
 - 
+
+---
+
+## 2.26.11 (2026-04-09) {: #2.26.11 }
+
+No significant changes.
+
+---
+
+## 2.26.10 (2026-04-01) {: #2.26.10 }
+
+#### Bugfixes {: #2.26.10-bugfix }
+
+- Support "atomic" replications in pulpcore 3.107
 
 ---
 
@@ -217,6 +245,14 @@ No significant changes.
 #### Misc {: #2.25.0-misc }
 
 - [#1621](https://github.com/pulp/pulp_container/issues/1621)
+
+---
+
+## 2.24.9 (2026-04-01) {: #2.24.9 }
+
+#### Bugfixes {: #2.24.9-bugfix }
+
+- Support "atomic" replications in pulpcore 3.107
 
 ---
 
@@ -608,6 +644,12 @@ No significant changes.
 ### Misc
 
 -   
+
+---
+
+## 2.19.10 (2026-04-09) {: #2.19.10 }
+
+No significant changes.
 
 ---
 
