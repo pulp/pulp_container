@@ -40,6 +40,8 @@ from pulp_container.constants import (
 
 log = logging.getLogger(__name__)
 
+COSIGN_TAG_SUFFIXES = (".sig", ".att", ".sbom")
+
 
 class ContainerFirstStage(Stage):
     """
@@ -60,6 +62,9 @@ class ContainerFirstStage(Stage):
         self.manifest_list_dcs = []
         self.manifest_dcs = []
         self.signature_dcs = []
+        self._synced_digests = set()
+        self._full_tag_list = []
+        self._cosign_tags = []
 
     async def _download_manifest_data(self, manifest_url):
         downloader = self.remote.get_downloader(url=manifest_url)
@@ -92,11 +97,6 @@ class ContainerFirstStage(Stage):
         """
         ContainerFirstStage.
         """
-
-        to_download = []
-        BATCH_SIZE = 500
-
-        # it can be whether a separate sigstore location or registry with extended signatures API
         signature_source = await self.get_signature_source()
 
         async with ProgressReport(
@@ -104,11 +104,49 @@ class ContainerFirstStage(Stage):
         ) as pb:
             repo_name = self.remote.namespaced_upstream_name
             tag_list_url = "/v2/{name}/tags/list".format(name=repo_name)
-            tag_list = await self.get_paginated_tag_list(tag_list_url, repo_name)
-            tag_list = filter_resources(
-                tag_list, self.remote.include_tags, self.remote.exclude_tags
+            self._full_tag_list = await self.get_paginated_tag_list(tag_list_url, repo_name)
+            self._cosign_tags = filter_resources(
+                self._full_tag_list, ["sha256-*"], self.remote.exclude_tags
             )
+            if self.remote.include_tags or self.remote.exclude_tags:
+                # Split sync into two parts, first all non-cosign tags, then cosign tags
+                exclude_tags_and_cosign = (self.remote.exclude_tags or []) + ["sha256-*"]
+                tag_list = filter_resources(
+                    self._full_tag_list, self.remote.include_tags, exclude_tags_and_cosign
+                )
+            else:
+                tag_list = self._full_tag_list
             await pb.aincrement()
+
+        await self._process_tags(tag_list, signature_source)
+
+        if self.remote.include_tags or self.remote.exclude_tags:
+            # Process cosign companion tags after all non-cosign tags are synced
+            companion_tags = self._find_cosign_companion_tags()
+            if companion_tags:
+                log.info(
+                    "Syncing %d cosign companion tag(s) for filtered images",
+                    len(companion_tags),
+                )
+                await self._process_tags(
+                    companion_tags, signature_source, msg="Processing Cosign Companion Tags"
+                )
+
+    def _find_cosign_companion_tags(self):
+        """Find cosign companion tags for synced digests."""
+        companion_tags = []
+        for tag in self._cosign_tags:
+            # Convert sha256-<digest>[.sig|.att|.sbom] to sha256:<digest>
+            tag_without_suffix = tag.rsplit(".", 1)[0]
+            digest = tag_without_suffix.replace("-", ":", 1)
+            if digest in self._synced_digests:
+                companion_tags.append(tag)
+        return companion_tags
+
+    async def _process_tags(self, tag_list, signature_source, msg="Processing Tags"):
+        """Download and process a batch of tags, creating declarative content objects."""
+        BATCH_SIZE = 500
+        to_download = []
 
         for tag_name in tag_list:
             relative_url = "/v2/{name}/manifests/{tag}".format(
@@ -121,7 +159,7 @@ class ContainerFirstStage(Stage):
             )
 
         async with ProgressReport(
-            message="Processing Tags",
+            message=msg,
             code="sync.processing.tag",
             total=len(tag_list),
         ) as pb_parsed_tags:
@@ -135,25 +173,21 @@ class ContainerFirstStage(Stage):
 
                 digest = calculate_digest(raw_text_data)
                 tag_name = response.url.split("/")[-1]
+                media_type = determine_media_type(content_data, response)
 
-                # Look for cosign signatures
-                # cosign signature has a tag convention 'sha256-1234.sig'
                 if self.signed_only and not signature_source:
-                    if (
-                        not (tag_name.endswith(".sig") and tag_name.startswith("sha256-"))
-                        and f"sha256-{digest.removeprefix('sha256:')}.sig" not in tag_list
+                    if not (
+                        self._is_cosign_companion_tag(tag_name, media_type, content_data)
+                        or await self._has_cosign_signature(digest)
                     ):
-                        # skip this tag, there is no corresponding signature
                         log.info(
                             "The unsigned image {digest} can't be synced "
                             "due to a requirement to sync signed content "
                             "only.".format(digest=digest)
                         )
-                        # Count the skipped tagks as parsed too.
                         await pb_parsed_tags.aincrement()
                         continue
 
-                media_type = determine_media_type(content_data, response)
                 validate_manifest(content_data, media_type, digest)
 
                 tag_dc = DeclarativeContent(Tag(name=tag_name))
@@ -183,8 +217,6 @@ class ContainerFirstStage(Stage):
                                         tag=tag_name,
                                     )
                                 )
-                                # do not pass down the pipeline a manifest list with unsigned
-                                # manifests.
                                 break
                             self.signature_dcs.extend(man_sig_dcs)
                         list_dc.extra_data["listed_manifests"].append(listed_manifest)
@@ -192,14 +224,14 @@ class ContainerFirstStage(Stage):
                     else:
                         # Manifest indices can be signed too. It is not mandatory.
                         # If signature is available mirror it.
+                        self._synced_digests.add(digest)
                         if signature_source is not None:
                             list_sig_dcs = await self.create_signatures(list_dc, signature_source)
                             if list_sig_dcs:
                                 self.signature_dcs.extend(list_sig_dcs)
-                        # only pass the manifest list and tag down the pipeline if there were no
-                        # issues with signatures (no `break` in the `for` loop)
                         tag_dc.extra_data["tagged_manifest_dc"] = list_dc
                         for listed_manifest in list_dc.extra_data["listed_manifests"]:
+                            self._synced_digests.add(listed_manifest["manifest_dc"].content.digest)
                             await self.handle_blobs(
                                 listed_manifest["manifest_dc"], listed_manifest["content_data"]
                             )
@@ -215,9 +247,9 @@ class ContainerFirstStage(Stage):
                     if signature_source is not None:
                         man_sig_dcs = await self.create_signatures(man_dc, signature_source)
                         if self.signed_only and not man_sig_dcs:
-                            # do not pass down the pipeline unsigned manifests
                             continue
                         self.signature_dcs.extend(man_sig_dcs)
+                    self._synced_digests.add(digest)
                     tag_dc.extra_data["tagged_manifest_dc"] = man_dc
                     await self.handle_blobs(man_dc, content_data)
                     self.tag_dcs.append(tag_dc)
@@ -238,6 +270,36 @@ class ContainerFirstStage(Stage):
                     await self.resolve_flush()
 
         await self.resolve_flush()
+
+    async def _has_cosign_signature(self, digest):
+        """Check if a digest has a cosign signature."""
+        cosign_digest = digest.replace("sha256:", "sha256-")
+        if f"{cosign_digest}.sig" in self._cosign_tags:
+            return True
+        if cosign_digest in self._cosign_tags:
+            # Potential V3 cosign tag needs to be checked if it is a cosign companion tag
+            relative_url = f"/v2/{self.remote.namespaced_upstream_name}/manifests/{cosign_digest}"
+            tag_url = urljoin(self.remote.url, relative_url)
+            content_data, raw_text_data, response = await self._download_manifest_data(tag_url)
+            media_type = determine_media_type(content_data, response)
+            if self._is_cosign_companion_tag(cosign_digest, media_type, content_data):
+                return True
+        return False
+
+    def _is_cosign_companion_tag(self, tag_name, media_type, content_data):
+        """Check if a fetched tag is a cosign companion tag."""
+        if tag_name.startswith("sha256-"):
+            # V3 tags have format: sha256-<digest> with no suffixes
+            if len(tag_name) == 71:
+                # V3 tags are index lists with each entry having an artifactType
+                if media_type == MEDIA_TYPE.INDEX_OCI:
+                    if manifests := content_data.get("manifests", []):
+                        if all("artifactType" in entry for entry in manifests):
+                            return True
+            # V2 tags have format: sha256-<digest>.<suffix>
+            elif any(tag_name.endswith(s) for s in COSIGN_TAG_SUFFIXES):
+                return True
+        return False
 
     async def get_signature_source(self):
         """
