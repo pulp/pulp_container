@@ -27,6 +27,7 @@ def synced_repository(
         upstream_name=DEPRECATED_REPOSITORY_NAME,
         policy="on_demand",
         include_tags=[MANIFEST_LIST_TAG, IMAGE_MANIFEST_TAG],
+        exclude_tags=["sha256-*"],  # exclude cosign companion tags
     )
 
     if request.param["sigstore"]:
@@ -137,6 +138,7 @@ def test_sync_image_with_pqc_signatures(
         upstream_name=UBI10_MICRO_REPOSITORY_NAME,
         policy="on_demand",
         include_tags=[UBI10_MICRO_TAG],
+        exclude_tags=["sha256-*"],
         sigstore=SIGSTORE_URL,
     )
     remote = container_remote_factory(**data)
