@@ -1,0 +1,1 @@
+Fixed syncing of cosign signatures, attestations, and SBOMs (stored as companion tags) being silently skipped when `include_tags` was set on the remote.
