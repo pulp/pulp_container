@@ -8,11 +8,21 @@ from pulpcore.tests.functional.utils import PulpTaskError
 
 from pulp_container.constants import MANIFEST_TYPE, MEDIA_TYPE
 from pulp_container.tests.functional.constants import (
+    PULP_COSIGN_COMPANION_TAGS,
+    PULP_COSIGN_TAGS_MANIFEST_A_DIGEST,
+    PULP_COSIGN_TAGS_MANIFEST_B_DIGEST,
+    PULP_COSIGN_TAGS_MANIFEST_C_DIGEST,
     PULP_FIXTURE_1,
     PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
     PULP_LABELED_FIXTURE,
     REGISTRY_V2_FEED_URL,
 )
+
+
+def _cosign_registry_tag_name(image_digest: str) -> str:
+    """Cosign companion tags use ``sha256-<hex>`` instead of ``sha256:<hex>``."""
+    return image_digest.replace("sha256:", "sha256-", 1)
+
 
 # there is a manifest list and a listed manifest
 BOOTABLE_MANIFESTS_COUNT = 2
@@ -23,12 +33,12 @@ def synced_container_repository_factory(
     container_repository_factory, container_remote_factory, container_repository_api, container_sync
 ):
     def _synced_container_repository_factory(
-        url=REGISTRY_V2_FEED_URL, include_tags=None, exclude_tags=None
+        url=REGISTRY_V2_FEED_URL, include_tags=None, exclude_tags=None, upstream_name=PULP_FIXTURE_1
     ):
         """Sync a new repository with the included tags passed as an argument."""
         remote = container_remote_factory(
             url,
-            upstream_name=PULP_FIXTURE_1,
+            upstream_name=upstream_name,
             include_tags=include_tags,
             exclude_tags=exclude_tags,
         )
@@ -187,3 +197,81 @@ def test_sync_with_complex_filtering(
     tags = container_tag_api.list(repository_version=synced_repo.latest_version_href).results
 
     assert sorted(include_tags) == sorted(tag.name for tag in tags)
+
+
+@pytest.mark.parallel
+def test_sync_cosign_companion_tags(
+    synced_container_repository_factory, container_tag_api, container_manifest_api
+):
+    """Test syncing a repository with cosign companion tags."""
+    synced_repo = synced_container_repository_factory(upstream_name=PULP_COSIGN_COMPANION_TAGS)
+
+    tags = container_tag_api.list(repository_version=synced_repo.latest_version_href)
+    manifests = container_manifest_api.list(repository_version=synced_repo.latest_version_href)
+    assert tags.count == 9
+    cr = _cosign_registry_tag_name
+    expected_tag_names = {
+        "manifest_a",
+        "manifest_b",
+        "manifest_c",
+        "manifest_d",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.sig",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.att",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST)}.sig",
+        cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST),
+        cr(PULP_COSIGN_TAGS_MANIFEST_C_DIGEST),
+    }
+    assert {t.name for t in tags.results} == expected_tag_names
+    assert manifests.count == 13
+
+
+@pytest.mark.parallel
+def test_sync_cosign_companion_tags_with_filtering(
+    synced_container_repository_factory, container_tag_api, container_manifest_api
+):
+    """Test syncing a repository with cosign companion tags and filtering."""
+    synced_repo = synced_container_repository_factory(
+        upstream_name=PULP_COSIGN_COMPANION_TAGS, include_tags=["manifest_a"]
+    )
+
+    tags = container_tag_api.list(repository_version=synced_repo.latest_version_href)
+    manifests = container_manifest_api.list(repository_version=synced_repo.latest_version_href)
+    assert tags.count == 3
+    cr = _cosign_registry_tag_name
+    assert {t.name for t in tags.results} == {
+        "manifest_a",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.sig",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.att",
+    }
+    assert manifests.count == 3
+
+    synced_repo = synced_container_repository_factory(
+        upstream_name=PULP_COSIGN_COMPANION_TAGS, include_tags=["manifest_b"]
+    )
+
+    tags = container_tag_api.list(repository_version=synced_repo.latest_version_href)
+    manifests = container_manifest_api.list(repository_version=synced_repo.latest_version_href)
+    assert tags.count == 3
+    assert {t.name for t in tags.results} == {
+        "manifest_b",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST)}.sig",
+        cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST),
+    }
+    assert manifests.count == 5  # The V3 sig is a manifest list with 2 manifests
+
+    synced_repo = synced_container_repository_factory(
+        upstream_name=PULP_COSIGN_COMPANION_TAGS, exclude_tags=["manifest_a"]
+    )
+
+    tags = container_tag_api.list(repository_version=synced_repo.latest_version_href)
+    manifests = container_manifest_api.list(repository_version=synced_repo.latest_version_href)
+    assert tags.count == 6
+    assert {t.name for t in tags.results} == {
+        "manifest_b",
+        "manifest_c",
+        "manifest_d",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST)}.sig",
+        cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST),
+        cr(PULP_COSIGN_TAGS_MANIFEST_C_DIGEST),
+    }
+    assert manifests.count == 10
