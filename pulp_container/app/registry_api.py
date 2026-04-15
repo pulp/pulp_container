@@ -1554,6 +1554,7 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
             digest=f"sha256:{sig_digest}",
             type=SIGNATURE_TYPE.ATOMIC_SHORT,
             key_id=signature_json["signing_key_id"],
+            fingerprint=signature_json["signing_key_fingerprint"],
             timestamp=signature_json["signature_timestamp"],
             creator=signature_json["optional"].get("creator"),
             data=signature_dict["content"],
