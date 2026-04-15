@@ -32,7 +32,7 @@ def test_sign_manifest(
     monitor_task,
 ):
     """Test whether a user can sign a manifest by leveraging a signing service."""
-    _, _, keyid = signing_gpg_metadata
+    _, fingerprint, keyid = signing_gpg_metadata
     sign_data = {"manifest_signing_service": container_signing_service.pulp_href}
 
     response = container_push_repository_api.sign(distribution.repository, sign_data)
@@ -49,6 +49,7 @@ def test_sign_manifest(
 
     signature = signatures.results[0]
     assert signature.key_id == keyid
+    assert signature.fingerprint == fingerprint
     assert signature.type == SIGNATURE_TYPE.ATOMIC_SHORT
 
     manifest = container_manifest_api.read(tag.tagged_manifest)
