@@ -125,10 +125,13 @@ def extract_data_from_signature(signature_raw, man_digest):
         elif packet.tag == Tag.Signature:
             if packet.issuer_key_id is not None:
                 signing_key_id = packet.issuer_key_id.upper()
-            elif packet.issuer_fingerprint is not None:
+
+            if packet.issuer_fingerprint is not None:
                 signing_key_fingerprint = packet.issuer_fingerprint.upper()
-                signing_key_id = keyid_from_fingerprint(signing_key_fingerprint)
-            else:
+                if signing_key_id is None:
+                    signing_key_id = keyid_from_fingerprint(signing_key_fingerprint)
+
+            if signing_key_id is None and signing_key_fingerprint is None:
                 raise ValueError(
                     "Signature for manifest {} has no fingerprint or key_id".format(man_digest)
                 )

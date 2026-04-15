@@ -161,6 +161,8 @@ def test_sync_image_with_pqc_signatures(
     assert len(signatures) > 0
 
     # Assert that a signature using one of the "old" Red Hat signing release keys exist
+    # The legacy key signatures do not have key fingerprint packets, therefore checking for those
+    # fingerprints fail. The signatures created by the modern key below do have fingerprint packets.
     expected_key_ids = ["199E2F91FD431D51", "E60D446E63405576"]
     assert any(s.key_id in expected_key_ids for s in signatures), (
         f"No signature found with key_ids {expected_key_ids}; "
@@ -171,9 +173,14 @@ def test_sync_image_with_pqc_signatures(
     # Fingerprint: FCD355B305707A62DA143AB6E422397E50FE8467A2A95343D246D6276AFEDF8F
     # Key ID => first 8 bytes (16 hex chars)
     expected_key_id = "FCD355B305707A62"
+    expected_fingerprint = "FCD355B305707A62DA143AB6E422397E50FE8467A2A95343D246D6276AFEDF8F"
     assert any(s.key_id == expected_key_id for s in signatures), (
         f"No signature found with key_id {expected_key_id!r}; "
         f"found key_ids: {sorted({s.key_id for s in signatures})}"
+    )
+    assert any(s.fingerprint == expected_fingerprint for s in signatures), (
+        f"No signature found with fingerprint {expected_fingerprint!r}; "
+        f"found fingerprints: {[s.fingerprint for s in signatures]}"
     )
 
     # ubi10-micro:latest is a manifest list; collect all listed manifests and verify

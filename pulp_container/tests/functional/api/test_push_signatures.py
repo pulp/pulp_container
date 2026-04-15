@@ -63,6 +63,7 @@ def test_assert_signed_image(
     assert manifest.digest in signature.name
     assert signature.signed_manifest == manifest.pulp_href
     assert signature.key_id == keyid
+    assert signature.fingerprint == fingerprint
 
     path = f"/extensions/v2/{full_path(distribution)}/signatures/{manifest.digest}"
     response, _ = local_registry.get_response("GET", path)
@@ -77,6 +78,7 @@ def test_assert_signed_image(
         decrypted = gpg.decrypt(raw_s)
 
         assert decrypted.key_id == keyid
+        assert decrypted.fingerprint == fingerprint
         assert decrypted.status == "signature valid"
 
         json_s = json.loads(decrypted.data)
