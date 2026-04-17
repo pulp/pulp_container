@@ -1,8 +1,12 @@
 """Tests that verify that an image signature can be pushed to Pulp."""
 
 import base64
+import io
 import json
+
 import pytest
+
+from pulpcore.plugin.util import gpg_verify
 
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.constants import SIGNATURE_TYPE
@@ -49,6 +53,7 @@ def test_assert_signed_image(
 ):
     """Test whether an admin user can fetch a signature from the Pulp Registry."""
     gpg, fingerprint, keyid = signing_gpg_metadata
+    public_key = gpg.export_keys(keyid)
 
     repository = container_push_repository_api.read(distribution.repository)
     manifest = container_manifest_api.list(
@@ -73,12 +78,12 @@ def test_assert_signed_image(
     timestamps = []
     for s in signatures:
         raw_s = base64.b64decode(s["content"])
-        decrypted = gpg.decrypt(raw_s)
+        verified = gpg_verify(public_key, io.BytesIO(raw_s))
 
-        assert decrypted.key_id == keyid
-        assert decrypted.status == "signature valid"
+        assert verified.valid
+        assert verified.pubkey_fingerprint.upper() == fingerprint.upper()
 
-        json_s = json.loads(decrypted.data)
+        json_s = json.loads(verified.data)
 
         image_path = json_s["critical"]["identity"]["docker-reference"]
         assert image_path == f"{local_registry.name}/{full_path(distribution)}:manifest_a"
