@@ -1,5 +1,5 @@
 pytest<10
-python-gnupg
+pysequoia==0.1.32
 pytest-xdist
 pytest-timeout
 pytest-custom_exit_code
