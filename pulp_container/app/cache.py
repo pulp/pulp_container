@@ -97,14 +97,15 @@ def find_base_path_cached(request, cached):
 
 class FlatpakIndexStaticCache(SyncContentCache):
     def __init__(self, expires_ttl=None, auth=None):
-        updated_keys = (QUERY_KEY,)
+        updated_keys = (CacheKeys.host, QUERY_KEY)
         super().__init__(
             base_key="/index/static", expires_ttl=expires_ttl, keys=updated_keys, auth=auth
         )
 
     def make_key(self, request):
-        """Make a key composed of the request's query."""
+        """Make a key composed of the request's host and query."""
         all_keys = {
+            CacheKeys.host: request.get_host(),
             QUERY_KEY: request.query_params.urlencode(),
         }
         key = ":".join(all_keys[k] for k in self.keys)
