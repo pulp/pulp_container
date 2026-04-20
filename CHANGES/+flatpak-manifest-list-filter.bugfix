@@ -1,0 +1,1 @@
+Fixed OS and architecture filters being silently ignored when filtering manifest lists in the flatpak index.
