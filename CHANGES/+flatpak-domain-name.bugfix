@@ -1,0 +1,1 @@
+Fixed flatpak index response to include the domain prefix in image names when domains are enabled.
