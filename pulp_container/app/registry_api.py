@@ -708,7 +708,7 @@ class FlatpakIndexDynamicView(APIView):
                     continue
                 images.append(
                     {
-                        "Tags": tagged,
+                        "Tags": list(tagged),
                         "Digest": manifest.digest,
                         "MediaType": manifest.media_type,
                         "OS": os,
