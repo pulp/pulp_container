@@ -696,7 +696,7 @@ class ManifestSigningService(SigningService):
                 manifest_file.name, env_vars={"REFERENCE": "test", "SIG_PATH": sig_path}
             )
 
-            gpg_verify(self.public_key, signed["signature_path"])
+            gpg_verify(self.public_key, signed["signature_path"], detached_data=manifest_file.name)
 
 
 class ContainerRepository(
