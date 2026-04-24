@@ -1,7 +1,8 @@
 """Tests that container sync repositories have RBAC."""
 
-import pytest
 import uuid
+
+import pytest
 
 
 @pytest.mark.parallel
