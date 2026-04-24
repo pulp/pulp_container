@@ -1,21 +1,21 @@
 """Tests that verify that images served by Pulp can be pulled."""
 
-import pytest
 import hashlib
-import requests
 import subprocess
-
 from urllib.parse import urljoin
 
-from pulp_container.tests.functional.utils import (
-    get_blobsums_from_remote_registry,
-    get_auth_for_url,
-)
-from pulp_container.tests.functional.constants import (
-    REGISTRY_V2_REPO_HELLO_WORLD,
-    PULP_HELLO_WORLD_LINUX_TAG,
-)
+import pytest
+import requests
+
 from pulp_container.constants import EMPTY_BLOB, EMPTY_JSON, MEDIA_TYPE
+from pulp_container.tests.functional.constants import (
+    PULP_HELLO_WORLD_LINUX_TAG,
+    REGISTRY_V2_REPO_HELLO_WORLD,
+)
+from pulp_container.tests.functional.utils import (
+    get_auth_for_url,
+    get_blobsums_from_remote_registry,
+)
 
 
 class TestPullContent:

@@ -1,7 +1,8 @@
 """Tests that verify that RBAC for repository versions work properly."""
 
-import pytest
 import uuid
+
+import pytest
 
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
 
