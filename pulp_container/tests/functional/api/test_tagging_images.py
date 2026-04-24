@@ -1,8 +1,10 @@
 """Tests for tagging and untagging images."""
 
-import pytest
 import subprocess
 from urllib.parse import urlparse
+
+import pytest
+
 from pulp_container.tests.functional.constants import (
     PULP_FIXTURE_1,
     REGISTRY_V2_REPO_PULP,

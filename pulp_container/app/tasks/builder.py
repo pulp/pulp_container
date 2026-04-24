@@ -5,6 +5,14 @@ import subprocess
 import tempfile
 from uuid import uuid4
 
+from pulpcore.plugin.models import (
+    Artifact,
+    Content,
+    ContentArtifact,
+    PulpTemporaryFile,
+)
+from pulpcore.plugin.util import get_domain
+
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -12,15 +20,8 @@ from pulp_container.app.models import (
     Manifest,
     Tag,
 )
-from pulp_container.constants import MEDIA_TYPE
 from pulp_container.app.utils import calculate_digest
-from pulpcore.plugin.models import (
-    Artifact,
-    ContentArtifact,
-    Content,
-    PulpTemporaryFile,
-)
-from pulpcore.plugin.util import get_domain
+from pulp_container.constants import MEDIA_TYPE
 
 
 def get_or_create_blob(layer_json, manifest, path):
