@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-from pulpcore.app import settings
+from pulpcore.app import settings  # noqa: TID251
 
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
