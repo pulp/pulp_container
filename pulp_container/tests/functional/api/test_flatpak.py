@@ -1,7 +1,9 @@
 """Tests that verify Flatpak support"""
 
+import os
 import pytest
 import subprocess
+from urllib.parse import urlparse
 
 from pulp_container.tests.functional.constants import REGISTRY_V2
 
@@ -17,6 +19,45 @@ def run_flatpak_commands(host):
             "oci+" + host,
         ]
     )
+
+    # OSTree (used by flatpak) verifies TLS against the system CA store, not certifi.
+    # For CI environments using a self-signed cert, configure the remote to trust
+    # the Pulp CA directly rather than relying on system-wide CA trust, which would
+    # interfere with the Python bindings trust setup in script.sh.
+    if urlparse(host).scheme == "https":
+        flatpak_user_repo = os.path.expanduser("~/.local/share/flatpak/repo")
+        ca_cert = "/etc/pulp/certs/pulp_webserver.crt"
+        if os.path.exists(ca_cert):
+            subprocess.run(
+                [
+                    "ostree",
+                    "config",
+                    "--repo",
+                    flatpak_user_repo,
+                    "--group",
+                    'remote "pulptest"',
+                    "set",
+                    "tls-ca-path",
+                    ca_cert,
+                ],
+                check=False,
+            )
+        else:
+            subprocess.run(
+                [
+                    "ostree",
+                    "config",
+                    "--repo",
+                    flatpak_user_repo,
+                    "--group",
+                    'remote "pulptest"',
+                    "set",
+                    "tls-permissive",
+                    "true",
+                ],
+                check=False,
+            )
+
     # See <https://pagure.io/fedora-lorax-templates/c/cc1155372046baa58f9d2cc27a9e5473bf05a3fb>
     # "lorax-embed-flatpaks.tmpl: Run the flatpak-install under dbus-run-session" for the need for
     # dbus-run-session to avoid "error: Cannot autolaunch D-Bus without X11 $DISPLAY":
