@@ -9,7 +9,9 @@ from pulp_container.tests.functional.constants import REGISTRY_V2
 
 
 def run_flatpak_commands(host):
-    # Install flatpak:
+    # Remove any leftover remote from a previous failed run before starting.
+    subprocess.run(["flatpak", "--user", "remote-delete", "--force", "pulptest"], check=False)
+
     subprocess.check_call(
         [
             "flatpak",
@@ -27,72 +29,56 @@ def run_flatpak_commands(host):
     if urlparse(host).scheme == "https":
         flatpak_user_repo = os.path.expanduser("~/.local/share/flatpak/repo")
         ca_cert = "/etc/pulp/certs/pulp_webserver.crt"
-        if os.path.exists(ca_cert):
-            subprocess.run(
-                [
-                    "ostree",
-                    "config",
-                    "--repo",
-                    flatpak_user_repo,
-                    "--group",
-                    'remote "pulptest"',
-                    "set",
-                    "tls-ca-path",
-                    ca_cert,
-                ],
-                check=False,
+        tls_option = f"tls-ca-path={ca_cert}" if os.path.exists(ca_cert) else "tls-permissive=true"
+        config_path = os.path.join(flatpak_user_repo, "config")
+        try:
+            with open(config_path) as f:
+                content = f.read()
+            content = content.replace(
+                '[remote "pulptest"]',
+                f'[remote "pulptest"]\n{tls_option}',
             )
-        else:
-            subprocess.run(
-                [
-                    "ostree",
-                    "config",
-                    "--repo",
-                    flatpak_user_repo,
-                    "--group",
-                    'remote "pulptest"',
-                    "set",
-                    "tls-permissive",
-                    "true",
-                ],
-                check=False,
-            )
+            with open(config_path, "w") as f:
+                f.write(content)
+        except OSError:
+            pass
 
-    # See <https://pagure.io/fedora-lorax-templates/c/cc1155372046baa58f9d2cc27a9e5473bf05a3fb>
-    # "lorax-embed-flatpaks.tmpl: Run the flatpak-install under dbus-run-session" for the need for
-    # dbus-run-session to avoid "error: Cannot autolaunch D-Bus without X11 $DISPLAY":
-    subprocess.check_call(
-        [
-            "dbus-run-session",
-            "flatpak",
-            "--user",
-            "install",
-            "--noninteractive",
-            "pulptest",
-            "net.fishsoup.Hello",
-        ]
-    )
-
-    # Clean up flatpak:
-    subprocess.run(
-        [
-            "flatpak",
-            "--user",
-            "uninstall",
-            "--noninteractive",
-            "net.fishsoup.Hello",
-        ]
-    )
-    subprocess.run(
-        [
-            "flatpak",
-            "--user",
-            "uninstall",
-            "--noninteractive",
-            "net.fishsoup.BusyBoxPlatform",
-        ]
-    )
-    subprocess.run(["flatpak", "--user", "remote-delete", "pulptest"])
+    try:
+        # See <https://pagure.io/fedora-lorax-templates/c/cc1155372046baa58f9d2cc27a9e5473bf05a3fb>
+        # "lorax-embed-flatpaks.tmpl: Run the flatpak-install under dbus-run-session" for the need
+        # for dbus-run-session to avoid "error: Cannot autolaunch D-Bus without X11 $DISPLAY":
+        subprocess.check_call(
+            [
+                "dbus-run-session",
+                "flatpak",
+                "--user",
+                "install",
+                "--noninteractive",
+                "pulptest",
+                "net.fishsoup.Hello",
+            ]
+        )
+    finally:
+        # Clean up flatpak — runs even if install fails so the next test starts clean.
+        subprocess.run(
+            [
+                "flatpak",
+                "--user",
+                "uninstall",
+                "--noninteractive",
+                "net.fishsoup.Hello",
+            ]
+        )
+        subprocess.run(
+            [
+                "flatpak",
+                "--user",
+                "uninstall",
+                "--noninteractive",
+                "net.fishsoup.BusyBoxPlatform",
+            ]
+        )
+        subprocess.run(["flatpak", "--user", "remote-delete", "pulptest"])
 
 
 def test_flatpak_install(
