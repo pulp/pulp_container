@@ -36,6 +36,6 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
 
     def ready(self):
         super().ready()
-        from . import checks
+        from . import checks  # noqa: F401
 
         post_migrate.connect(PulpContainerPluginAppConfig.update_sequences, sender=self)

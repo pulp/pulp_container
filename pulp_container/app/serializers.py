@@ -574,10 +574,8 @@ class TagImageSerializer(TagOperationSerializer):
             raise serializers.ValidationError(
                 _(
                     "A manifest with the digest '{}' does not "
-                    "exist in the latest repository version '{}'".format(
-                        new_data["digest"], latest_version
-                    )
-                )
+                    "exist in the latest repository version '{}'"
+                ).format(new_data["digest"], latest_version)
             )
 
         new_data["manifest"] = manifest
@@ -602,10 +600,8 @@ class UnTagImageSerializer(TagOperationSerializer):
             models.Tag.objects.get(pk__in=latest_version.content.all(), name=new_data["tag"])
         except models.Tag.DoesNotExist:
             raise serializers.ValidationError(
-                _(
-                    "The tag '{}' does not exist in the latest repository version '{}'".format(
-                        new_data["tag"], latest_version
-                    )
+                _("The tag '{}' does not exist in the latest repository version '{}'").format(
+                    new_data["tag"], latest_version
                 )
             )
 
@@ -631,7 +627,7 @@ class RecursiveManageSerializer(ValidateFieldsMixin, serializers.Serializer):
         if content_units:
             if "*" in content_units and len(content_units) > 1:
                 raise serializers.ValidationError(
-                    _("'*' should be the only item present in the {}".format(content_units))
+                    _("'*' should be the only item present in the {}").format(content_units)
                 )
         return data
 
@@ -726,10 +722,8 @@ class RemoveImageSerializer(ValidateFieldsMixin, serializers.Serializer):
             raise serializers.ValidationError(
                 _(
                     "A manifest with the digest '{}' does not "
-                    "exist in the latest repository version '{}'".format(
-                        new_data["digest"], latest_version
-                    )
-                )
+                    "exist in the latest repository version '{}'"
+                ).format(new_data["digest"], latest_version)
             )
 
         new_data["manifest"] = manifest
@@ -769,10 +763,8 @@ class RemoveSignaturesSerializer(ValidateFieldsMixin, serializers.Serializer):
             raise serializers.ValidationError(
                 _(
                     "There are no signatures in the latest repository version '{}' "
-                    "produced with the specified key_id '{}'".format(
-                        latest_version, new_data["signed_with_key_id"]
-                    )
-                )
+                    "produced with the specified key_id '{}'"
+                ).format(latest_version, new_data["signed_with_key_id"])
             )
 
         new_data["sigs_pks"] = sigs_pks
