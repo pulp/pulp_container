@@ -15,8 +15,9 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
 
     def register_registry_types(self):
         # circular import avoidance
-        from pulp_container import constants
         from django.conf import settings
+
+        from pulp_container import constants
 
         for media_type, layer_types in settings.ADDITIONAL_OCI_ARTIFACT_TYPES.items():
             constants.register_well_known_types(media_type, layer_types)

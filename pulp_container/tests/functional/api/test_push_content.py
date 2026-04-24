@@ -1,27 +1,17 @@
 """Tests that verify that images can be pushed to Pulp."""
 
 import json
+import unittest
+from subprocess import CalledProcessError
+from urllib.parse import urljoin, urlparse
+
 import pytest
 import requests
-import unittest
-
-from subprocess import CalledProcessError
-from urllib.parse import urlparse, urljoin
-
 from pulp_smash import cli, config
 from pulp_smash.pulp3.bindings import (
+    PulpTestCase,
     delete_orphans,
     monitor_task,
-    PulpTestCase,
-)
-
-from pulp_container.constants import MEDIA_TYPE
-
-from pulp_container.tests.functional.api import rbac_base
-from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
-from pulp_container.tests.functional.utils import (
-    gen_container_client,
-    get_auth_for_url,
 )
 
 from pulpcore.client.pulp_container import (
@@ -29,6 +19,14 @@ from pulpcore.client.pulp_container import (
     ContentTagsApi,
     DistributionsContainerApi,
     RepositoriesContainerPushApi,
+)
+
+from pulp_container.constants import MEDIA_TYPE
+from pulp_container.tests.functional.api import rbac_base
+from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
+from pulp_container.tests.functional.utils import (
+    gen_container_client,
+    get_auth_for_url,
 )
 
 

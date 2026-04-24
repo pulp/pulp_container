@@ -1,34 +1,32 @@
 """Tests for fetching the list of all repositories."""
 
 import unittest
-
 from urllib.parse import urljoin
-import requests
 
+import requests
 from pulp_smash import api, config
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
 
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1
-
-from pulp_container.tests.functional.utils import (
-    del_user,
-    gen_container_remote,
-    gen_container_client,
-    gen_user,
-    BearerTokenAuth,
-    AuthenticationHeaderQueries,
-)
-
 from pulpcore.client.pulp_container import (
-    ContainerContainerRepository,
     ContainerContainerDistribution,
     ContainerContainerRemote,
+    ContainerContainerRepository,
     ContainerRepositorySyncURL,
     DistributionsContainerApi,
     PulpContainerNamespacesApi,
-    RepositoriesContainerApi,
     RemotesContainerApi,
+    RepositoriesContainerApi,
+)
+
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
+from pulp_container.tests.functional.utils import (
+    AuthenticationHeaderQueries,
+    BearerTokenAuth,
+    del_user,
+    gen_container_client,
+    gen_container_remote,
+    gen_user,
 )
 
 

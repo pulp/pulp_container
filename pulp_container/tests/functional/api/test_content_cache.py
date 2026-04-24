@@ -1,10 +1,10 @@
 """Tests related to the Redis content caching."""
 
 import os
-import requests
 import unittest
 from urllib.parse import urljoin
 
+import requests
 from pulp_smash import cli, config, utils
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulp_smash.pulp3.utils import gen_distribution, gen_repo
@@ -15,20 +15,18 @@ from pulpcore.client.pulp_container import (
     ContentManifestsApi,
     ContentTagsApi,
     DistributionsContainerApi,
-    RepositoriesContainerApi,
-    RemotesContainerApi,
     PatchedcontainerContainerDistribution,
+    RemotesContainerApi,
+    RepositoriesContainerApi,
     UnTagImage,
 )
 
+from pulp_container.constants import MEDIA_TYPE
 from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_container_remote,
     get_auth_for_url,
 )
-
-
-from pulp_container.constants import MEDIA_TYPE
 
 cli_client = cli.Client(config.get_config())
 CACHE_ENABLED = utils.get_pulp_setting(cli_client, "CACHE_ENABLED")

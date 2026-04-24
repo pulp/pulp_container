@@ -1,14 +1,14 @@
-import time
 import subprocess
-import pytest
-
+import time
 from uuid import uuid4
 
+import pytest
+
 from pulp_container.tests.functional.constants import (
+    PULP_FIXTURE_1,
+    PULP_HELLO_WORLD_REPO,
     REGISTRY_V2,
     REGISTRY_V2_FEED_URL,
-    PULP_HELLO_WORLD_REPO,
-    PULP_FIXTURE_1,
 )
 
 

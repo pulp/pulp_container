@@ -1,19 +1,11 @@
 """Tests that recursively add container content to repositories."""
 
 from pulp_smash.pulp3.bindings import (
+    PulpTestCase,
     delete_orphans,
     monitor_task,
-    PulpTestCase,
 )
 from pulp_smash.pulp3.utils import gen_repo
-
-from pulp_container.tests.functional.utils import (
-    gen_container_remote,
-    gen_container_client,
-)
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1
-
-from pulp_container.constants import MEDIA_TYPE
 
 from pulpcore.client.pulp_container import (
     ApiException,
@@ -25,6 +17,13 @@ from pulpcore.client.pulp_container import (
     RemotesContainerApi,
     RepositoriesContainerApi,
     RepositoriesContainerVersionsApi,
+)
+
+from pulp_container.constants import MEDIA_TYPE
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
+from pulp_container.tests.functional.utils import (
+    gen_container_client,
+    gen_container_remote,
 )
 
 

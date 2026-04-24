@@ -1,11 +1,12 @@
 from django.db.models import Q
+
 from pulpcore.plugin.models import Content, Repository
 
 from pulp_container.app.models import (
+    MEDIA_TYPE,
     Blob,
     Manifest,
     ManifestSignature,
-    MEDIA_TYPE,
     Tag,
 )
 

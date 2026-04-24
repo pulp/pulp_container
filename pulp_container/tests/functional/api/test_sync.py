@@ -1,11 +1,12 @@
 """Tests that sync container plugin repositories."""
 
 import pytest
+
 from pulpcore.tests.functional import PulpTaskError
 
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1, PULP_LABELED_FIXTURE
-
 from pulp_container.tests.functional.constants import (
+    PULP_FIXTURE_1,
+    PULP_LABELED_FIXTURE,
     REGISTRY_V2_FEED_URL,
 )
 

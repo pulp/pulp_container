@@ -1,7 +1,6 @@
 """Tests that verify that RBAC for push repository works properly."""
 
 import pytest
-
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 
