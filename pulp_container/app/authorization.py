@@ -2,22 +2,19 @@ import base64
 import hashlib
 import random
 import uuid
-
-import jwt
-
 from collections import defaultdict, namedtuple
 from datetime import datetime
 from functools import partial
 
+import jwt
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 from django.conf import settings
 from django.http import HttpRequest
 from rest_framework.request import Request
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-
-from pulp_container.app.models import ContainerDistribution, ContainerNamespace
 from pulp_container.app.access_policy import RegistryAccessPolicy
+from pulp_container.app.models import ContainerDistribution, ContainerNamespace
 
 TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
 

@@ -1,17 +1,16 @@
-from gettext import gettext as _
-
 import json
 import os
 import re
 import tempfile
 import time
+from gettext import gettext as _
 from logging import getLogger
 
-from django.db import models
 from django.conf import settings
 from django.contrib.postgres import fields
+from django.db import models
 from django.shortcuts import redirect
-from django_lifecycle import hook, AFTER_CREATE, AFTER_DELETE, AFTER_UPDATE
+from django_lifecycle import AFTER_CREATE, AFTER_DELETE, AFTER_UPDATE, hook
 
 from pulpcore.plugin.cache import SyncContentCache
 from pulpcore.plugin.download import DownloaderFactory
@@ -20,19 +19,21 @@ from pulpcore.plugin.models import (
     AutoAddObjPermsMixin,
     BaseModel,
     Content,
+    Distribution,
     Remote,
     Repository,
-    Distribution,
     SigningService,
+)
+from pulpcore.plugin.models import (
     Upload as CoreUpload,
 )
 from pulpcore.plugin.repo_version_utils import remove_duplicates, validate_repo_version
 from pulpcore.plugin.util import gpg_verify
 
-
-from . import downloaders
 from pulp_container.app.utils import get_content_data
 from pulp_container.constants import MEDIA_TYPE, SIGNATURE_TYPE
+
+from . import downloaders
 
 logger = getLogger(__name__)
 

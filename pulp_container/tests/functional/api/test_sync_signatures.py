@@ -1,5 +1,4 @@
 import pytest
-
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo
 
@@ -7,6 +6,7 @@ from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
     ContainerRepositorySyncURL,
 )
+
 from pulp_container.tests.functional.utils import gen_container_remote
 
 REDHAT_REGISTRY_V2 = "https://registry.access.redhat.com"

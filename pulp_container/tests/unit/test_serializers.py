@@ -1,11 +1,11 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from django.conf import settings
 
 from pulpcore.plugin.util import set_current_user
 
-from pulp_container.app.serializers import ContainerDistributionSerializer, TagOperationSerializer
 from pulp_container.app.models import ContainerPushRepository, ContainerRepository
+from pulp_container.app.serializers import ContainerDistributionSerializer, TagOperationSerializer
 
 V3_API_ROOT = settings.V3_API_ROOT
 

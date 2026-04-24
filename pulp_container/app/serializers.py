@@ -1,6 +1,6 @@
-from gettext import gettext as _
 import os
 import re
+from gettext import gettext as _
 
 from django.core.validators import URLValidator
 from rest_framework import serializers
@@ -15,8 +15,8 @@ from pulpcore.plugin.models import (
 from pulpcore.plugin.serializers import (
     ContentRedirectContentGuardSerializer,
     DetailRelatedField,
-    GetOrCreateSerializerMixin,
     DistributionSerializer,
+    GetOrCreateSerializerMixin,
     IdentityField,
     ModelSerializer,
     NestedRelatedField,
@@ -613,10 +613,7 @@ class CopySerializer(ValidateFieldsMixin, serializers.Serializer):
             new_data.update(data)
             return new_data
         raise serializers.ValidationError(
-            _(
-                "Either the 'repository' or 'repository_version' need to be specified "
-                "but not both."
-            )
+            _("Either the 'repository' or 'repository_version' need to be specified but not both.")
         )
 
 
@@ -772,14 +769,14 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
             data["containerfile_artifact"].touch()
         else:
             raise serializers.ValidationError(
-                _("'containerfile' or 'containerfile_artifact' must " "be specified.")
+                _("'containerfile' or 'containerfile_artifact' must be specified.")
             )
         artifacts = {}
         if "artifacts" in data:
             for url, relative_path in data["artifacts"].items():
                 if os.path.isabs(relative_path):
                     raise serializers.ValidationError(
-                        _("Relative path cannot start with '/'. " "{0}").format(relative_path)
+                        _("Relative path cannot start with '/'. {0}").format(relative_path)
                     )
                 artifactfield = RelatedField(
                     view_name="artifacts-detail",

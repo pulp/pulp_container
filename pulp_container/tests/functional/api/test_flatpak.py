@@ -1,8 +1,8 @@
 """Tests that verify Flatpak support"""
 
-import pytest
 import subprocess
 
+import pytest
 from django.conf import settings
 
 from pulp_container.tests.functional.constants import REGISTRY_V2

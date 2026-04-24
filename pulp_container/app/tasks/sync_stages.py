@@ -1,25 +1,17 @@
-import aiohttp
 import asyncio
 import base64
 import fnmatch
 import hashlib
 import json
 import logging
-
 from urllib.parse import urljoin, urlparse, urlunparse
 
+import aiohttp
 from asgiref.sync import sync_to_async
-from pulpcore.plugin.models import Artifact, ProgressReport, Remote
-from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage, ContentSaver
 
-from pulp_container.constants import (
-    MEDIA_TYPE,
-    SIGNATURE_API_EXTENSION_VERSION,
-    SIGNATURE_HEADER,
-    SIGNATURE_SOURCE,
-    SIGNATURE_TYPE,
-    V2_ACCEPT_HEADERS,
-)
+from pulpcore.plugin.models import Artifact, ProgressReport, Remote
+from pulpcore.plugin.stages import ContentSaver, DeclarativeArtifact, DeclarativeContent, Stage
+
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -29,13 +21,21 @@ from pulp_container.app.models import (
     Tag,
 )
 from pulp_container.app.utils import (
-    save_artifact,
-    extract_data_from_signature,
-    urlpath_sanitize,
-    determine_media_type,
-    validate_manifest,
     calculate_digest,
+    determine_media_type,
+    extract_data_from_signature,
     get_content_data,
+    save_artifact,
+    urlpath_sanitize,
+    validate_manifest,
+)
+from pulp_container.constants import (
+    MEDIA_TYPE,
+    SIGNATURE_API_EXTENSION_VERSION,
+    SIGNATURE_HEADER,
+    SIGNATURE_SOURCE,
+    SIGNATURE_TYPE,
+    V2_ACCEPT_HEADERS,
 )
 
 log = logging.getLogger(__name__)
@@ -579,8 +579,9 @@ class ContainerFirstStage(Stage):
                     break
                 except aiohttp.client_exceptions.ClientResponseError as exc:
                     log.info(
-                        "{} is not accessible, can't sync an image signature. "
-                        "Error: {} {}".format(signature_url, exc.status, exc.message)
+                        "{} is not accessible, can't sync an image signature. Error: {} {}".format(
+                            signature_url, exc.status, exc.message
+                        )
                     )
 
                 with open(signature_download_result.path, "rb") as f:
