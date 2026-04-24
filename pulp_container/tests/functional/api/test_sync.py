@@ -1,14 +1,16 @@
 """Tests that sync container plugin repositories."""
 
-import pytest
 from urllib.parse import quote
+
+import pytest
+
 from pulpcore.tests.functional.utils import PulpTaskError
 
-from pulp_container.constants import MEDIA_TYPE, MANIFEST_TYPE
+from pulp_container.constants import MANIFEST_TYPE, MEDIA_TYPE
 from pulp_container.tests.functional.constants import (
     PULP_FIXTURE_1,
-    PULP_LABELED_FIXTURE,
     PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
+    PULP_LABELED_FIXTURE,
     REGISTRY_V2_FEED_URL,
 )
 

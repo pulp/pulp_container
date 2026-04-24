@@ -1,14 +1,13 @@
 """Tests that verify that images can be pushed to Pulp."""
 
 import json
-import pytest
-import requests
-
 from subprocess import CalledProcessError
 from urllib.parse import urljoin
 
-from pulp_container.constants import MEDIA_TYPE, MANIFEST_TYPE
+import pytest
+import requests
 
+from pulp_container.constants import MANIFEST_TYPE, MEDIA_TYPE
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.tests.functional.utils import get_auth_for_url
 

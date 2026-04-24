@@ -1,7 +1,8 @@
+from urllib.parse import urljoin
+
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
-from urllib.parse import urljoin
 
 from pulp_container.app.exceptions import ManifestNotFound
 from pulp_container.app.utils import get_accepted_media_types

@@ -2,8 +2,8 @@
 
 import pytest
 
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 from pulp_container.constants import MEDIA_TYPE
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 
 
 class TestManifestCopy:

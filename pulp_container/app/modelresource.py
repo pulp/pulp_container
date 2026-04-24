@@ -1,12 +1,13 @@
 from import_export import fields, widgets
-from pulpcore.plugin.importexport import QueryModelResource, BaseContentResource
+
+from pulpcore.plugin.importexport import BaseContentResource, QueryModelResource
 from pulpcore.plugin.modelresources import RepositoryResource
 from pulpcore.plugin.util import get_domain, get_domain_pk
 
 from pulp_container.app.models import (
     Blob,
-    ContainerRepository,
     ContainerPushRepository,
+    ContainerRepository,
     Manifest,
     ManifestListManifest,
     ManifestSignature,
