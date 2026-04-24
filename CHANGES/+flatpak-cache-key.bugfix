@@ -1,0 +1,1 @@
+Fixed a cache key collision in the flatpak static index that could serve incorrect results across domains.

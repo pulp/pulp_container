@@ -2,13 +2,10 @@ SCENARIOS=("pulp" "performance" "azure" "gcp" "s3" "generate-bindings" "lowerbou
 if [[ " ${SCENARIOS[*]} " =~ " ${TEST} " ]]; then
   # Needed by pulp_container/tests/functional/api/test_flatpak.py:
   cmd_prefix dnf install -yq dbus-daemon flatpak
-fi
 
-# This allows flatpak to trust Pulp, but currently it breaks the trust for bindings
-# TODO: Figure out another command to fix this
-# add the copied certificates from install.sh to the container's trusted certificates list
-# if [[ "$TEST" = "azure" ]]; then
-#   cmd_prefix trust anchor /etc/pki/tls/cert.pem
-# else
-#   cmd_prefix trust anchor /etc/pulp/certs/pulp_webserver.crt
-# fi
+  # Add the Pulp CA cert to the system trust store inside the container so that
+  # flatpak/OSTree (which uses GLib/GIO) trusts the Pulp registry's TLS certificate.
+  # Using cp + update-ca-trust extract (the standard RHEL9 approach) rather than
+  # "trust anchor", which behaved unexpectedly when given the full CA bundle path.
+  cmd_prefix bash -c "cp /etc/pulp/certs/pulp_webserver.crt /etc/pki/ca-trust/source/anchors/ && update-ca-trust extract"
+fi

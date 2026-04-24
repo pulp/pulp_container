@@ -64,16 +64,21 @@ def test_flatpak_install(
     container_manifest_api,
     pulp_settings,
     bindings_cfg,
+    full_path,
 ):
     if not pulp_settings.FLATPAK_INDEX:
         pytest.skip("This test requires FLATPAK_INDEX to be enabled")
 
     image_path1 = f"{REGISTRY_V2}/pulp/oci-net.fishsoup.busyboxplatform:latest"
     registry_client.pull(image_path1)
-    local_registry.tag_and_push(image_path1, "pulptest/oci-net.fishsoup.busyboxplatform:latest")
+    local_registry.tag_and_push(
+        image_path1, full_path("pulptest/oci-net.fishsoup.busyboxplatform") + ":latest"
+    )
     image_path2 = f"{REGISTRY_V2}/pulp/oci-net.fishsoup.hello:latest"
     registry_client.pull(image_path2)
-    local_registry.tag_and_push(image_path2, "pulptest/oci-net.fishsoup.hello:latest")
+    local_registry.tag_and_push(
+        image_path2, full_path("pulptest/oci-net.fishsoup.hello") + ":latest"
+    )
     namespace = container_namespace_api.list(name="pulptest").results[0]
     add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
