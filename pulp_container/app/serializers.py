@@ -1,7 +1,8 @@
-from gettext import gettext as _
 import re
+from gettext import gettext as _
 
 from django.core.validators import URLValidator
+from pulp_file.app.models import FileContent
 from rest_framework import serializers
 
 from pulpcore.plugin.models import (
@@ -13,8 +14,8 @@ from pulpcore.plugin.models import (
 from pulpcore.plugin.serializers import (
     ContentRedirectContentGuardSerializer,
     DetailRelatedField,
-    GetOrCreateSerializerMixin,
     DistributionSerializer,
+    GetOrCreateSerializerMixin,
     IdentityField,
     ModelSerializer,
     NestedRelatedField,
@@ -29,8 +30,7 @@ from pulpcore.plugin.serializers import (
 )
 from pulpcore.plugin.util import get_domain
 
-from pulp_file.app.models import FileContent
-from pulp_container.app import models, fields
+from pulp_container.app import fields, models
 from pulp_container.constants import SIGNATURE_TYPE
 
 VALID_SIGNATURE_NAME_REGEX = r"^sha256:[0-9a-f]{64}@[0-9a-f]{32}$"
@@ -674,10 +674,7 @@ class CopySerializer(ValidateFieldsMixin, serializers.Serializer):
             new_data.update(data)
             return new_data
         raise serializers.ValidationError(
-            _(
-                "Either the 'repository' or 'repository_version' need to be specified "
-                "but not both."
-            )
+            _("Either the 'repository' or 'repository_version' need to be specified but not both.")
         )
 
 
@@ -839,7 +836,6 @@ class OCIBuildImageSerializer(ValidateFieldsMixin, serializers.Serializer):
         unnecessary database queries when checking permissions (DRF Access Policy).
         """
         if build_context := data.get("build_context", None):
-
             # check if the on_demand_artifacts exist
             for on_demand_artifact in build_context.on_demand_artifacts.iterator():
                 if not on_demand_artifact.content_artifact.artifact:

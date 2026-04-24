@@ -1,14 +1,14 @@
 """Tests for fetching the list of all repositories."""
 
-import pytest
-
 from urllib.parse import urljoin
+
+import pytest
 import requests
 
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import (
-    BearerTokenAuth,
     AuthenticationHeaderQueries,
+    BearerTokenAuth,
 )
 
 

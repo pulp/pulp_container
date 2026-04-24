@@ -1,10 +1,11 @@
-import pytest
 import subprocess
 
+import pytest
+
 from pulp_container.tests.functional.constants import (
-    REGISTRY_V2,
-    PULP_HELLO_WORLD_REPO,
     PULP_FIXTURE_1,
+    PULP_HELLO_WORLD_REPO,
+    REGISTRY_V2,
 )
 
 

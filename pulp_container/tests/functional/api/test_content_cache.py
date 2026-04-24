@@ -1,11 +1,12 @@
 """Tests related to the Redis content caching."""
 
-import pytest
-import requests
 from urllib.parse import urljoin
 
-from pulp_container.tests.functional.utils import get_auth_for_url
+import pytest
+import requests
+
 from pulp_container.constants import MEDIA_TYPE
+from pulp_container.tests.functional.utils import get_auth_for_url
 
 
 @pytest.fixture

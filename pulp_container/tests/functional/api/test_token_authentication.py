@@ -1,17 +1,17 @@
 """Tests for token authentication."""
 
-import pytest
-import aiohttp
 import asyncio
-
 from urllib.parse import urljoin
+
+import aiohttp
+import pytest
 import requests
 
+from pulp_container.constants import MEDIA_TYPE
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 from pulp_container.tests.functional.utils import (
     get_auth_for_url,
 )
-from pulp_container.constants import MEDIA_TYPE
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1
 
 
 class TestTokenAuthentication:

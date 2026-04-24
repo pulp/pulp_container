@@ -14,7 +14,6 @@ from pulp_container.app.models import (
     ManifestSigningService,
     Tag,
 )
-
 from pulp_container.app.utils import extract_data_from_signature
 from pulp_container.constants import (
     MANIFEST_MEDIA_TYPES,
