@@ -1,16 +1,54 @@
 """Tests that verify Flatpak support"""
 
 import os
+import tempfile
+
 import pytest
 import subprocess
-from urllib.parse import urlparse
 
 from pulp_container.tests.functional.constants import REGISTRY_V2
 
+PULP_CA_CERT = "/etc/pulp/certs/pulp_webserver.crt"
+SYSTEM_CA_BUNDLE = "/etc/pki/tls/cert.pem"
+
+
+def _build_flatpak_env():
+    """Build an env with SSL_CERT_FILE pointing to a CA bundle that includes the Pulp cert.
+
+    Flatpak uses GLib's OpenSSL TLS backend (on RHEL 9) which honours SSL_CERT_FILE.
+    This lets flatpak trust the self-signed Pulp cert without modifying the system
+    trust store (which would break the certifi-based Python bindings).
+    """
+    if not os.path.exists(PULP_CA_CERT):
+        return None
+
+    bundle = tempfile.NamedTemporaryFile(
+        mode="w", prefix="flatpak-ca-", suffix=".pem", delete=False
+    )
+    try:
+        if os.path.exists(SYSTEM_CA_BUNDLE):
+            with open(SYSTEM_CA_BUNDLE) as sys_ca:
+                bundle.write(sys_ca.read())
+            bundle.write("\n")
+        with open(PULP_CA_CERT) as pulp_ca:
+            bundle.write(pulp_ca.read())
+    finally:
+        bundle.close()
+
+    env = os.environ.copy()
+    env["SSL_CERT_FILE"] = bundle.name
+    return env
+
 
 def run_flatpak_commands(host):
+    env = _build_flatpak_env()
+
     # Remove any leftover remote from a previous failed run before starting.
-    subprocess.run(["flatpak", "--user", "remote-delete", "--force", "pulptest"], check=False)
+    subprocess.run(
+        ["flatpak", "--user", "remote-delete", "--force", "pulptest"],
+        check=False,
+        env=env,
+    )
 
     subprocess.check_call(
         [
@@ -19,29 +57,9 @@ def run_flatpak_commands(host):
             "remote-add",
             "pulptest",
             "oci+" + host,
-        ]
+        ],
+        env=env,
     )
-
-    # OSTree (used by flatpak) verifies TLS against the system CA store, not certifi.
-    # For CI environments using a self-signed cert, configure the remote to trust
-    # the Pulp CA directly rather than relying on system-wide CA trust, which would
-    # interfere with the Python bindings trust setup in script.sh.
-    if urlparse(host).scheme == "https":
-        flatpak_user_repo = os.path.expanduser("~/.local/share/flatpak/repo")
-        ca_cert = "/etc/pulp/certs/pulp_webserver.crt"
-        tls_option = f"tls-ca-path={ca_cert}" if os.path.exists(ca_cert) else "tls-permissive=true"
-        config_path = os.path.join(flatpak_user_repo, "config")
-        try:
-            with open(config_path) as f:
-                content = f.read()
-            content = content.replace(
-                '[remote "pulptest"]',
-                f'[remote "pulptest"]\n{tls_option}',
-            )
-            with open(config_path, "w") as f:
-                f.write(content)
-        except OSError:
-            pass
 
     try:
         # See <https://pagure.io/fedora-lorax-templates/c/cc1155372046baa58f9d2cc27a9e5473bf05a3fb>
@@ -56,7 +74,8 @@ def run_flatpak_commands(host):
                 "--noninteractive",
                 "pulptest",
                 "net.fishsoup.Hello",
-            ]
+            ],
+            env=env,
         )
     finally:
         # Clean up flatpak — runs even if install fails so the next test starts clean.
@@ -67,7 +86,7 @@ def run_flatpak_commands(host):
                 "uninstall",
                 "--noninteractive",
                 "net.fishsoup.Hello",
-            ]
+            ],
         )
         subprocess.run(
             [
@@ -76,9 +95,11 @@ def run_flatpak_commands(host):
                 "uninstall",
                 "--noninteractive",
                 "net.fishsoup.BusyBoxPlatform",
-            ]
+            ],
         )
         subprocess.run(["flatpak", "--user", "remote-delete", "pulptest"])
+        if env and "SSL_CERT_FILE" in env:
+            os.unlink(env["SSL_CERT_FILE"])
 
 
 def test_flatpak_install(
