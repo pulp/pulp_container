@@ -1,13 +1,12 @@
 import json
 
+from django.test import TestCase
 from jsonschema import Draft7Validator
 
-from django.test import TestCase
-
-from pulp_container.constants import MEDIA_TYPE
 from pulp_container.app.exceptions import ManifestInvalid
 from pulp_container.app.json_schemas import SIGNATURE_SCHEMA
 from pulp_container.app.utils import validate_manifest
+from pulp_container.constants import MEDIA_TYPE
 
 validator = Draft7Validator(SIGNATURE_SCHEMA)
 

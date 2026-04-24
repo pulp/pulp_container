@@ -1,8 +1,9 @@
-import pytest
-
 from tempfile import NamedTemporaryFile
 
+import pytest
+
 from pulpcore.tests.functional.utils import PulpTaskError
+
 from pulp_container.constants import MANIFEST_TYPE
 
 

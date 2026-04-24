@@ -1,6 +1,5 @@
 import pytest
 
-
 from pulp_container.tests.functional.conftest import gen_container_remote
 
 REDHAT_REGISTRY_V2 = "https://registry.access.redhat.com"

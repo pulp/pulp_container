@@ -1,34 +1,33 @@
 import base64
-import hashlib
 import fnmatch
+import hashlib
 import json
 import logging
 import time
+from functools import partial
 
 from asgiref.sync import sync_to_async
-from jsonschema import Draft7Validator, validate, ValidationError
 from django.conf import settings
 from django.db import IntegrityError
-from functools import partial
-from rest_framework.exceptions import Throttled
-
+from jsonschema import Draft7Validator, ValidationError, validate
 from pysequoia.packet import PacketPile, Tag
+from rest_framework.exceptions import Throttled
 
 from pulpcore.plugin.models import Artifact, Task
 from pulpcore.plugin.util import get_domain
 
+from pulp_container.app.exceptions import ManifestInvalid
+from pulp_container.app.json_schemas import (
+    DOCKER_MANIFEST_LIST_V2_SCHEMA,
+    DOCKER_MANIFEST_V1_SCHEMA,
+    DOCKER_MANIFEST_V2_SCHEMA,
+    OCI_INDEX_SCHEMA,
+    OCI_MANIFEST_SCHEMA,
+    SIGNATURE_SCHEMA,
+)
 from pulp_container.constants import (
     MANIFEST_MEDIA_TYPES,
     MEDIA_TYPE,
-)
-from pulp_container.app.exceptions import ManifestInvalid
-from pulp_container.app.json_schemas import (
-    OCI_INDEX_SCHEMA,
-    OCI_MANIFEST_SCHEMA,
-    DOCKER_MANIFEST_LIST_V2_SCHEMA,
-    DOCKER_MANIFEST_V2_SCHEMA,
-    DOCKER_MANIFEST_V1_SCHEMA,
-    SIGNATURE_SCHEMA,
 )
 
 signature_validator = Draft7Validator(SIGNATURE_SCHEMA)
@@ -150,7 +149,7 @@ def extract_data_from_signature(signature_raw, man_digest):
 
     errors = []
     for error in signature_validator.iter_errors(sig_json):
-        errors.append(f'{".".join(error.path)}: {error.message}')
+        errors.append(f"{'.'.join(error.path)}: {error.message}")
 
     if errors:
         raise ValueError("The signature for {} is not synced due to: {}".format(man_digest, errors))
@@ -255,7 +254,7 @@ def validate_manifest(content_data, media_type, digest):
     except ValidationError as error:
         # fail on the first encountered error
         raise ManifestInvalid(
-            reason=f'{".".join(map(str, error.path))}: {error.message}', digest=digest
+            reason=f"{'.'.join(map(str, error.path))}: {error.message}", digest=digest
         )
 
 

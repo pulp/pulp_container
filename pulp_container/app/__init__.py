@@ -1,6 +1,7 @@
-from pulpcore.plugin import PulpPluginAppConfig
 from django.db import connection
 from django.db.models.signals import post_migrate
+
+from pulpcore.plugin import PulpPluginAppConfig
 
 update_sequences_to_bigint = """
 ALTER TABLE container_blobmanifest ALTER COLUMN id TYPE bigint;

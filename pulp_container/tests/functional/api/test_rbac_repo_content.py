@@ -2,10 +2,10 @@
 
 import pytest
 
+from pulpcore.client.pulp_container import SetLabel, UnsetLabel
+from pulpcore.client.pulp_container.exceptions import ForbiddenException
 
 from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
-from pulpcore.client.pulp_container.exceptions import ForbiddenException
-from pulpcore.client.pulp_container import SetLabel, UnsetLabel
 
 
 def test_rbac_repository_content(
