@@ -1,23 +1,15 @@
 """Tests that recursively remove container content from repositories."""
 
 import unittest
-
 from urllib.parse import urlparse
 
 from pulp_smash import cli, config
 from pulp_smash.pulp3.bindings import (
+    PulpTestCase,
     delete_orphans,
     monitor_task,
-    PulpTestCase,
 )
 from pulp_smash.pulp3.utils import gen_repo
-
-from pulp_container.tests.functional.api import rbac_base
-from pulp_container.tests.functional.utils import (
-    gen_container_remote,
-    gen_container_client,
-)
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
 
 from pulpcore.client.pulp_container import (
     ApiException,
@@ -28,12 +20,19 @@ from pulpcore.client.pulp_container import (
     ContentTagsApi,
     DistributionsContainerApi,
     PulpContainerNamespacesApi,
-    RemoveImage,
     RemotesContainerApi,
+    RemoveImage,
     RepositoriesContainerApi,
     RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
     TagImage,
+)
+
+from pulp_container.tests.functional.api import rbac_base
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
+from pulp_container.tests.functional.utils import (
+    gen_container_client,
+    gen_container_remote,
 )
 
 

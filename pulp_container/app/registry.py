@@ -1,34 +1,31 @@
 import json
 import logging
 import os
-
-from asgiref.sync import sync_to_async
-
 from contextlib import suppress
 from urllib.parse import urljoin
 
 from aiohttp import web
 from aiohttp.client_exceptions import ClientResponseError
 from aiohttp.web_exceptions import HTTPTooManyRequests
-from django_guid import set_guid
-from django_guid.utils import generate_guid
+from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
+from django_guid import set_guid
+from django_guid.utils import generate_guid
 from multidict import MultiDict
 
-from pulpcore.plugin.content import Handler, PathNotResolved
-from pulpcore.plugin.models import RemoteArtifact, Content, ContentArtifact
-from pulpcore.plugin.content import ArtifactResponse
+from pulpcore.plugin.content import ArtifactResponse, Handler, PathNotResolved
+from pulpcore.plugin.models import Content, ContentArtifact, RemoteArtifact
 from pulpcore.plugin.tasking import dispatch
 from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.cache import RegistryContentCache
-from pulp_container.app.models import ContainerDistribution, Tag, Blob, Manifest, BlobManifest
+from pulp_container.app.models import Blob, BlobManifest, ContainerDistribution, Manifest, Tag
 from pulp_container.app.tasks import download_image_data
 from pulp_container.app.utils import (
     calculate_digest,
-    get_accepted_media_types,
     determine_media_type,
+    get_accepted_media_types,
     save_artifact,
 )
 from pulp_container.constants import BLOB_CONTENT_TYPE, EMPTY_BLOB, MEDIA_TYPE, V2_ACCEPT_HEADERS

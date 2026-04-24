@@ -1,12 +1,11 @@
-import pytest
-
 from tempfile import NamedTemporaryFile
 
+import pytest
+from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import (
     gen_distribution,
     gen_repo,
 )
-from pulp_smash.pulp3.bindings import monitor_task
 
 from pulpcore.client.pulp_container import (
     ContainerContainerDistribution,
