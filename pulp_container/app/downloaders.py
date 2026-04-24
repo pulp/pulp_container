@@ -1,12 +1,12 @@
-import aiohttp
 import asyncio
 import json
 import re
-
-from aiohttp.client_exceptions import ClientResponseError
 from collections import namedtuple
 from logging import getLogger
 from urllib import parse
+
+import aiohttp
+from aiohttp.client_exceptions import ClientResponseError
 
 from pulpcore.plugin.download import DownloaderFactory, HttpDownloader
 

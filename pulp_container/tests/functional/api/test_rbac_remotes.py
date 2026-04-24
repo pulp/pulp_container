@@ -1,8 +1,9 @@
 """Tests that container remotes have RBAC."""
 
-from random import choice
-import pytest
 import uuid
+from random import choice
+
+import pytest
 
 from pulp_container.tests.functional.conftest import gen_container_remote
 

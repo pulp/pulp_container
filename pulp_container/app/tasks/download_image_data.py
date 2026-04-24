@@ -10,8 +10,8 @@ from pulp_container.app.models import ContainerRemote, ContainerRepository, Tag
 from pulp_container.app.utils import determine_media_type_from_json
 from pulp_container.constants import MEDIA_TYPE
 
-from .synchronize import ContainerDeclarativeVersion
 from .sync_stages import ContainerFirstStage
+from .synchronize import ContainerDeclarativeVersion
 
 log = logging.getLogger(__name__)
 
