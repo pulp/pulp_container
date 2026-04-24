@@ -1,22 +1,11 @@
 """Tests for tagging and untagging images."""
 
 import unittest
-
 from urllib.parse import urlparse
 
 from pulp_smash import cli, config, exceptions
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulp_smash.pulp3.utils import gen_repo
-
-from pulp_container.tests.functional.utils import (
-    gen_container_remote,
-    gen_container_client,
-)
-from pulp_container.tests.functional.constants import (
-    CONTAINER_TAG_PATH,
-    PULP_FIXTURE_1,
-    REGISTRY_V2_REPO_PULP,
-)
 
 from pulpcore.client.pulp_container import (
     ApiException,
@@ -25,12 +14,22 @@ from pulpcore.client.pulp_container import (
     ContainerRepositorySyncURL,
     ContentManifestsApi,
     ContentTagsApi,
+    RemotesContainerApi,
     RepositoriesContainerApi,
     RepositoriesContainerPushApi,
     RepositoriesContainerVersionsApi,
-    RemotesContainerApi,
     TagImage,
     UnTagImage,
+)
+
+from pulp_container.tests.functional.constants import (
+    CONTAINER_TAG_PATH,
+    PULP_FIXTURE_1,
+    REGISTRY_V2_REPO_PULP,
+)
+from pulp_container.tests.functional.utils import (
+    gen_container_client,
+    gen_container_remote,
 )
 
 

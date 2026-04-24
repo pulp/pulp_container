@@ -7,32 +7,25 @@ Check `Plugin Writer's Guide`_ for more details.
 
 import base64
 import binascii
+import hashlib
 import json
 import logging
-import hashlib
 import re
+from itertools import chain
+from tempfile import NamedTemporaryFile
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
 from aiohttp.client_exceptions import ClientResponseError
-from itertools import chain
-from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
-from tempfile import NamedTemporaryFile
-
+from django.conf import settings
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
 from django.db.models import F, Value
 from django.shortcuts import get_object_or_404
-
-from django.conf import settings
-
-from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
-from pulpcore.plugin.files import PulpTemporaryUploadedFile
-from pulpcore.plugin.tasking import add_and_remove, dispatch
-from pulpcore.plugin.util import get_objects_for_user, get_url, get_domain
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
-    PermissionDenied,
     ParseError,
+    PermissionDenied,
     Throttled,
 )
 from rest_framework.generics import ListAPIView
@@ -42,36 +35,41 @@ from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
 from rest_framework.settings import api_settings
-from rest_framework.viewsets import ViewSet
-from rest_framework.views import APIView, exception_handler
 from rest_framework.status import HTTP_401_UNAUTHORIZED
+from rest_framework.views import APIView, exception_handler
+from rest_framework.viewsets import ViewSet
+
+from pulpcore.plugin.files import PulpTemporaryUploadedFile
+from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
+from pulpcore.plugin.tasking import add_and_remove, dispatch
+from pulpcore.plugin.util import get_domain, get_objects_for_user, get_url
 
 from pulp_container.app import models, serializers
 from pulp_container.app.authorization import AuthorizationService
 from pulp_container.app.cache import (
-    find_base_path_cached,
     FlatpakIndexStaticCache,
     RegistryApiCache,
+    find_base_path_cached,
 )
 from pulp_container.app.exceptions import (
-    InvalidRequest,
-    RepositoryNotFound,
-    RepositoryInvalid,
-    BlobNotFound,
     BlobInvalid,
-    ManifestNotFound,
+    BlobNotFound,
+    InvalidRequest,
     ManifestInvalid,
+    ManifestNotFound,
     ManifestSignatureInvalid,
+    RepositoryInvalid,
+    RepositoryNotFound,
 )
 from pulp_container.app.redirects import (
+    AzureStorageRedirects,
     FileStorageRedirects,
     S3StorageRedirects,
-    AzureStorageRedirects,
 )
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
-    TokenAuthentication,
     RegistryPermission,
+    TokenAuthentication,
     TokenPermission,
 )
 from pulp_container.app.utils import (
