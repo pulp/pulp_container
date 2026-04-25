@@ -186,6 +186,7 @@ class ManifestSignatureSerializer(NoArtifactContentSerializer):
     digest = serializers.CharField(help_text="sha256 digest of the signature blob")
     type = serializers.CharField(help_text="Container signature type, e.g. 'atomic'")
     key_id = serializers.CharField(help_text="Signing key ID")
+    fingerprint = serializers.CharField(help_text="Signing key fingerprint", allow_null=True)
     timestamp = serializers.IntegerField(help_text="Timestamp of a signature")
     creator = serializers.CharField(help_text="Signature creator")
     signed_manifest = DetailRelatedField(
@@ -201,6 +202,7 @@ class ManifestSignatureSerializer(NoArtifactContentSerializer):
             "digest",
             "type",
             "key_id",
+            "fingerprint",
             "timestamp",
             "creator",
             "signed_manifest",
