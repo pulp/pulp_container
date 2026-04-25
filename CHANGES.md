@@ -8,6 +8,12 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.7 (2026-04-24) {: #2.27.7 }
+
+No significant changes.
+
+---
+
 ## 2.27.6 (2026-04-09) {: #2.27.6 }
 
 No significant changes.
@@ -86,6 +92,12 @@ No significant changes.
 #### Misc {: #2.27.0-misc }
 
 - 
+
+---
+
+## 2.26.12 (2026-04-24) {: #2.26.12 }
+
+No significant changes.
 
 ---
 
@@ -248,6 +260,12 @@ No significant changes.
 
 ---
 
+## 2.24.10 (2026-04-24) {: #2.24.10 }
+
+No significant changes.
+
+---
+
 ## 2.24.9 (2026-04-01) {: #2.24.9 }
 
 #### Bugfixes {: #2.24.9-bugfix }
@@ -358,6 +376,12 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.8 (2026-04-24) {: #2.22.8 }
+
+No significant changes.
 
 ---
 
@@ -531,6 +555,12 @@ No significant changes.
 
 ---
 
+## 2.20.9 (2026-04-24) {: #2.20.9 }
+
+No significant changes.
+
+---
+
 ## 2.20.8 (2026-03-30) {: #2.20.8 }
 
 #### Bugfixes {: #2.20.8-bugfix }
@@ -644,6 +674,12 @@ No significant changes.
 ### Misc
 
 -   
+
+---
+
+## 2.19.11 (2026-04-24) {: #2.19.11 }
+
+No significant changes.
 
 ---
 
