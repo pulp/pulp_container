@@ -1,23 +1,20 @@
 """Tests that verify that RBAC for repository versions work properly."""
 
 import pytest
-
 from django.conf import settings
-
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_repo
-
-from pulpcore.client.pulp_container.exceptions import ApiException
-
-from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
-from pulp_container.tests.functional.utils import TOKEN_AUTH_DISABLED, gen_container_remote
 
 from pulpcore.client.pulp_container import (
     ContainerContainerRepository,
     ContainerRepositorySyncURL,
     TagImage,
 )
+from pulpcore.client.pulp_container.exceptions import ApiException
+
+from pulp_container.tests.functional.constants import PULP_FIXTURE_1, REGISTRY_V2_REPO_PULP
+from pulp_container.tests.functional.utils import TOKEN_AUTH_DISABLED, gen_container_remote
 
 
 def test_rbac_repository_version(

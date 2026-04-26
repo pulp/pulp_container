@@ -1,35 +1,34 @@
 """Tests for token authentication."""
 
-import aiohttp
 import asyncio
 import unittest
-
 from urllib.parse import urljoin, urlparse
+
+import aiohttp
 import requests
-
-from pulp_smash import api, config, cli
+from pulp_smash import api, cli, config
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
-from pulp_smash.pulp3.utils import gen_repo, gen_distribution
+from pulp_smash.pulp3.utils import gen_distribution, gen_repo
 
-from pulp_container.tests.functional.utils import (
-    gen_container_remote,
-    gen_container_client,
-    get_auth_for_url,
+from pulpcore.client.pulp_container import (
+    ContainerContainerDistribution,
+    ContainerContainerRemote,
+    ContainerContainerRepository,
+    ContainerRepositorySyncURL,
+    DistributionsContainerApi,
+    RemotesContainerApi,
+    RepositoriesContainerApi,
 )
+
+from pulp_container.constants import MEDIA_TYPE
 from pulp_container.tests.functional.constants import (
     CONTAINER_TAG_PATH,
     PULP_FIXTURE_1,
 )
-from pulp_container.constants import MEDIA_TYPE
-
-from pulpcore.client.pulp_container import (
-    ContainerContainerDistribution,
-    ContainerContainerRepository,
-    ContainerContainerRemote,
-    ContainerRepositorySyncURL,
-    DistributionsContainerApi,
-    RepositoriesContainerApi,
-    RemotesContainerApi,
+from pulp_container.tests.functional.utils import (
+    gen_container_client,
+    gen_container_remote,
+    get_auth_for_url,
 )
 
 

@@ -5,9 +5,9 @@ NOTE: assumes ALLOWED_EXPORT_PATHS setting contains "/tmp" - all tests will fail
 the case.
 """
 
-import pytest
 import uuid
 
+import pytest
 from pulp_smash.pulp3.bindings import (
     delete_orphans,
     monitor_task,
@@ -17,8 +17,8 @@ from pulp_smash.pulp3.utils import gen_repo
 
 from pulpcore.client.pulp_container import ContainerRepositorySyncURL
 
-from pulp_container.tests.functional.utils import gen_container_remote
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
+from pulp_container.tests.functional.utils import gen_container_remote
 
 
 def test_import_export_standard(

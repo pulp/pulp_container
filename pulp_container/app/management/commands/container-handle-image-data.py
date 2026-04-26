@@ -1,8 +1,6 @@
-from json.decoder import JSONDecodeError
-
-from gettext import gettext as _
-
 from contextlib import suppress
+from gettext import gettext as _
+from json.decoder import JSONDecodeError
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -12,9 +10,7 @@ from django.db.models import Q
 from pulpcore.plugin.cache import SyncContentCache
 
 from pulp_container.app.models import ContainerDistribution, Manifest
-
 from pulp_container.app.utils import get_content_data
-
 from pulp_container.constants import MEDIA_TYPE
 
 
