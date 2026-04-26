@@ -1,12 +1,12 @@
-import pytest
-
 from tempfile import NamedTemporaryFile
 
-from pulpcore.tests.functional.utils import PulpTaskError
-from pulp_smash.pulp3.utils import gen_distribution
+import pytest
 from pulp_smash.pulp3.bindings import monitor_task
+from pulp_smash.pulp3.utils import gen_distribution
 
 from pulpcore.client.pulp_container import ApiException, ContainerContainerDistribution
+from pulpcore.tests.functional.utils import PulpTaskError
+
 from pulp_container.constants import MANIFEST_TYPE
 
 

@@ -2,43 +2,42 @@
 
 import contextlib
 import hashlib
-import requests
 import unittest
 import uuid
-
 from urllib.parse import urljoin, urlparse
 
+import requests
 from pulp_smash import api, cli, config, exceptions
 from pulp_smash.pulp3.bindings import delete_orphans, monitor_task
 from pulp_smash.pulp3.utils import (
-    get_content,
     gen_distribution,
     gen_repo,
+    get_content,
 )
-
-from pulp_container.tests.functional.utils import (
-    core_client,
-    gen_container_client,
-    gen_container_remote,
-    get_blobsums_from_remote_registry,
-    get_auth_for_url,
-)
-from pulp_container.tests.functional.constants import (
-    CONTAINER_CONTENT_NAME,
-    REGISTRY_V2_REPO_HELLO_WORLD,
-    PULP_HELLO_WORLD_LINUX_TAG,
-)
-from pulp_container.constants import EMPTY_BLOB, EMPTY_JSON, MEDIA_TYPE
 
 from pulpcore.client.pulp_container import (
     ContainerContainerDistribution,
     ContainerContainerRepository,
     ContainerRepositorySyncURL,
     DistributionsContainerApi,
-    RepositoriesContainerApi,
     RemotesContainerApi,
+    RepositoriesContainerApi,
 )
 from pulpcore.client.pulpcore import ArtifactsApi
+
+from pulp_container.constants import EMPTY_BLOB, EMPTY_JSON, MEDIA_TYPE
+from pulp_container.tests.functional.constants import (
+    CONTAINER_CONTENT_NAME,
+    PULP_HELLO_WORLD_LINUX_TAG,
+    REGISTRY_V2_REPO_HELLO_WORLD,
+)
+from pulp_container.tests.functional.utils import (
+    core_client,
+    gen_container_client,
+    gen_container_remote,
+    get_auth_for_url,
+    get_blobsums_from_remote_registry,
+)
 
 
 class PullContentTestCase(unittest.TestCase):

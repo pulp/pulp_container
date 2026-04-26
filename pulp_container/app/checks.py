@@ -1,5 +1,6 @@
 from django.conf import settings
-from django.core.checks import Error as CheckError, register
+from django.core.checks import Error as CheckError
+from django.core.checks import register
 
 
 @register(deploy=True)

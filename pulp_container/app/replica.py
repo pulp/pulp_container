@@ -1,10 +1,10 @@
-from pulpcore.plugin.replica import Replicator
-from pulpcore.plugin.util import get_url
-
 from pulp_glue.container.context import (
     PulpContainerDistributionContext,
     PulpContainerRepositoryContext,
 )
+
+from pulpcore.plugin.replica import Replicator
+from pulpcore.plugin.util import get_url
 
 from pulp_container.app.models import ContainerDistribution, ContainerRemote, ContainerRepository
 from pulp_container.app.tasks import synchronize as container_synchronize
