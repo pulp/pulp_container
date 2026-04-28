@@ -7,6 +7,7 @@ import time
 from functools import partial
 
 from asgiref.sync import sync_to_async
+from django.conf import settings
 from django.db import IntegrityError
 from jsonschema import Draft7Validator, ValidationError, validate
 from pysequoia.packet import PacketPile, Tag
@@ -32,6 +33,13 @@ from pulp_container.constants import (
 signature_validator = Draft7Validator(SIGNATURE_SCHEMA)
 
 log = logging.getLogger(__name__)
+
+
+def get_full_path(base_path, pulp_domain=None):
+    if settings.DOMAIN_ENABLED:
+        domain = pulp_domain or get_domain()
+        return f"{domain.name}/{base_path}"
+    return base_path
 
 
 def get_accepted_media_types(headers):
