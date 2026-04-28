@@ -24,7 +24,7 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
 
     name = "pulp_container.app"
     label = "container"
-    version = "2.26.13"
+    version = "2.26.14.dev"
     python_package_name = "pulp-container"
     domain_compatible = True
 
