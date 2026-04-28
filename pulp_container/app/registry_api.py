@@ -81,6 +81,7 @@ from pulp_container.app.utils import (
     determine_media_type,
     extract_data_from_signature,
     filter_resource,
+    get_full_path,
     has_task_completed,
     validate_manifest,
 )

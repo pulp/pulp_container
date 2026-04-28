@@ -501,3 +501,16 @@ def check_manifest_arch_os_size():
         assert any(manifest.compressed_image_size > 0 for manifest in manifests)
 
     return _check_manifest_arch_os_size
+
+
+@pytest.fixture(scope="session")
+def full_path(pulp_settings):
+    def _full_path(base_path_or_distro, pulp_domain="default"):
+        if not isinstance(base_path_or_distro, str):
+            pulp_domain = base_path_or_distro.pulp_href[len(pulp_settings.API_ROOT) :].split("/")[0]
+            base_path_or_distro = base_path_or_distro.base_path
+        if pulp_settings.DOMAIN_ENABLED:
+            return f"{pulp_domain}/{base_path_or_distro}"
+        return base_path_or_distro
+
+    return _full_path
