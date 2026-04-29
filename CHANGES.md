@@ -8,6 +8,18 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.27.8 (2026-04-28) {: #2.27.8 }
+
+#### Bugfixes {: #2.27.8-bugfix }
+
+- Fixed OS and architecture filters being silently ignored when filtering manifest lists in the flatpak index.
+- Fixed a cache key collision in the flatpak static index that could serve incorrect results across domains.
+- Fixed a serialization issue with the FlatpakIndex cache.
+- Fixed flatpak index response to include the domain prefix in image names when domains are enabled.
+- Fixed the registry host in the flatpak index response when `CONTENT_ORIGIN=None`.
+
+---
+
 ## 2.27.7 (2026-04-24) {: #2.27.7 }
 
 No significant changes.
@@ -92,6 +104,18 @@ No significant changes.
 #### Misc {: #2.27.0-misc }
 
 - 
+
+---
+
+## 2.26.13 (2026-04-28) {: #2.26.13 }
+
+#### Bugfixes {: #2.26.13-bugfix }
+
+- Fixed OS and architecture filters being silently ignored when filtering manifest lists in the flatpak index.
+- Fixed a cache key collision in the flatpak static index that could serve incorrect results across domains.
+- Fixed a serialization issue with the FlatpakIndex cache.
+- Fixed flatpak index response to include the domain prefix in image names when domains are enabled.
+- Fixed the registry host in the flatpak index response when `CONTENT_ORIGIN=None`.
 
 ---
 
