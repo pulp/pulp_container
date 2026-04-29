@@ -81,7 +81,6 @@ from pulp_container.app.utils import (
     determine_media_type,
     extract_data_from_signature,
     filter_resource,
-    get_full_path,
     has_task_completed,
     validate_manifest,
 )
@@ -702,7 +701,7 @@ class FlatpakIndexDynamicView(APIView):
             if images:
                 results.append(
                     {
-                        "Name": get_full_path(distribution.base_path, distribution.pulp_domain),
+                        "Name": distribution.base_path,
                         "Images": images,
                     }
                 )
