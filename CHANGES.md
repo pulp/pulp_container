@@ -8,6 +8,17 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.24.11 (2026-04-29) {: #2.24.11 }
+
+#### Bugfixes {: #2.24.11-bugfix }
+
+- Fixed OS and architecture filters being silently ignored when filtering manifest lists in the flatpak index.
+- Fixed a cache key collision in the flatpak static index that could serve incorrect results across domains.
+- Fixed a serialization issue with the FlatpakIndex cache.
+- Fixed the registry host in the flatpak index response when `CONTENT_ORIGIN=None`.
+
+---
+
 ## 2.24.10 (2026-04-24) {: #2.24.10 }
 
 No significant changes.
