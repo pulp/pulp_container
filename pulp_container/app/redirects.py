@@ -4,9 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 
-from pulp_container.app.exceptions import ManifestNotFound
-from pulp_container.app.utils import get_accepted_media_types
-from pulp_container.constants import BLOB_CONTENT_TYPE, MEDIA_TYPE
+from pulp_container.constants import BLOB_CONTENT_TYPE
 
 
 class CommonRedirects:
@@ -38,25 +36,6 @@ class CommonRedirects:
                 f"/{self.path_prefix}/{self.path}/{content_type}/{content_id}",
             )
         )
-
-    def issue_manifest_redirect(self, manifest):
-        """
-        Issue a redirect for the passed manifest.
-        """
-        return self.redirect_to_content_app("manifests", manifest.digest)
-
-    def issue_tag_redirect(self, tag):
-        """
-        Issue a redirect for the passed tag.
-        """
-        manifest_media_type = tag.tagged_manifest.media_type
-        if (
-            manifest_media_type not in get_accepted_media_types(self.request.headers)
-            and manifest_media_type != MEDIA_TYPE.MANIFEST_V1
-        ):
-            raise ManifestNotFound(reference=tag.name)
-
-        return self.redirect_to_content_app("manifests", tag.name)
 
 
 class FileStorageRedirects(CommonRedirects):

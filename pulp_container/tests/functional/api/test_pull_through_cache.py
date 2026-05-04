@@ -1,5 +1,4 @@
 import subprocess
-import time
 from subprocess import CalledProcessError
 from uuid import uuid4
 
@@ -35,6 +34,8 @@ def add_pull_through_entities_to_cleanup(
         distribution = container_distribution_api.list(name=path).results[0]
         add_to_cleanup(container_distribution_api, distribution.pulp_href)
 
+        return repository, remote, distribution
+
     return _add_pull_through_entities_to_cleanup
 
 
@@ -52,6 +53,8 @@ def pull_and_verify(
     registry_client,
     local_registry,
     full_path,
+    pulpcore_bindings,
+    monitor_task,
 ):
     def _pull_and_verify(images, pull_through_distribution):
         tags_to_verify = []
@@ -68,6 +71,15 @@ def pull_and_verify(
             local_registry.pull(local_image_pull_path)
             local_image = local_registry.inspect(local_image_pull_path)
 
+            # when the client pulls the image, a repository, distribution, and remote is created in
+            # the background; therefore, scheduling the cleanup for these entities is necessary
+            repository, _, _ = add_pull_through_entities_to_cleanup(local_image_pull_path)
+
+            # Wait for background tasks to complete (creating and adding cached content to the repo)
+            tasks = pulpcore_bindings.TasksApi.list(reserved_resources=repository.prn)
+            for task in tasks.results:
+                monitor_task(task.pulp_href)
+
             # 1.1. check pulp manifest model fields
             assert check_manifest_fields(
                 manifest_filters={"digest": local_image[0]["Digest"]},
@@ -76,10 +88,6 @@ def pull_and_verify(
 
             path, tag = local_image_path.split(":")
             tags_to_verify.append(tag)
-
-            # when the client pulls the image, a repository, distribution, and remote is created in
-            # the background; therefore, scheduling the cleanup for these entities is necessary
-            add_pull_through_entities_to_cleanup(local_image_pull_path)
 
             pull_through_distribution = container_pull_through_distribution_api.list(
                 name=pull_through_distribution.name
@@ -97,15 +105,8 @@ def pull_and_verify(
             check_manifest_arch_os_size(manifest)
 
             # 3. check if the repository version has changed
-            for _ in range(5):
-                repository = container_repository_api.list(name=path).results[0]
-                if f"{repository.pulp_href}versions/{version}/" == repository.latest_version_href:
-                    break
-
-                # there might be still the saving process running in the background
-                time.sleep(1)
-            else:
-                assert False, "The repository was not updated with the cached content."
+            repository = container_repository_api.read(repository.pulp_href)
+            assert f"{repository.pulp_href}versions/{version}/" == repository.latest_version_href
 
             # 4. test if pulling the same content twice does not raise any error
             local_registry.pull(local_image_pull_path)

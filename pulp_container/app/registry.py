@@ -1,35 +1,18 @@
-import json
 import logging
 import os
-from contextlib import suppress
-from urllib.parse import urljoin
 
 from aiohttp import web
-from aiohttp.client_exceptions import ClientConnectionError, ClientResponseError
-from aiohttp.web_exceptions import HTTPTooManyRequests
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import IntegrityError
-from django_guid import set_guid
-from django_guid.utils import generate_guid
 from multidict import MultiDict
 
 from pulpcore.plugin.content import ArtifactResponse, Handler, PathNotResolved
-from pulpcore.plugin.exceptions import TimeoutException
-from pulpcore.plugin.models import Content, ContentArtifact, RemoteArtifact
-from pulpcore.plugin.tasking import dispatch
+from pulpcore.plugin.models import Content, ContentArtifact
 from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.cache import RegistryContentCache
-from pulp_container.app.models import Blob, BlobManifest, ContainerDistribution, Manifest, Tag
-from pulp_container.app.tasks import download_image_data
-from pulp_container.app.utils import (
-    calculate_digest,
-    determine_media_type,
-    get_accepted_media_types,
-    save_artifact,
-)
-from pulp_container.constants import BLOB_CONTENT_TYPE, EMPTY_BLOB, MEDIA_TYPE, V2_ACCEPT_HEADERS
+from pulp_container.app.models import ContainerDistribution
+from pulp_container.constants import BLOB_CONTENT_TYPE, EMPTY_BLOB
 
 log = logging.getLogger(__name__)
 
@@ -94,127 +77,6 @@ class Registry(Handler):
         base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
         auth=lambda req, cac, bk: Registry.auth_cached(req, cac, bk),
     )
-    async def get_tag(self, request):
-        """
-        Match the path and stream either Manifest or ManifestList.
-
-        Args:
-            request(:class:`~aiohttp.web.Request`): The request to prepare a response for.
-
-        Raises:
-            PathNotResolved: The path could not be matched to a published file.
-            PermissionError: When not permitted.
-
-        Returns:
-            :class:`aiohttp.web.StreamResponse` or :class:`aiohttp.web.FileResponse`: The response
-                streamed back to the client.
-
-        """
-
-        path = request.match_info["path"]
-        tag_name = request.match_info["tag_name"]
-        distribution = await sync_to_async(self._match_distribution)(path, add_trailing_slash=False)
-        await sync_to_async(self._permit)(request, distribution)
-        repository_version = await sync_to_async(distribution.get_repository_version)()
-        if not repository_version:
-            raise PathNotResolved(tag_name)
-
-        distribution = await distribution.acast()
-        try:
-            tag = await Tag.objects.select_related("tagged_manifest").aget(
-                pk__in=await sync_to_async(repository_version.get_content)(), name=tag_name
-            )
-        except ObjectDoesNotExist:
-            if distribution.remote_id and distribution.pull_through_distribution_id:
-                pull_downloader = await PullThroughDownloader.create(
-                    distribution, repository_version, path, tag_name
-                )
-                raw_text_manifest, digest, media_type = await pull_downloader.download_manifest(
-                    run_pipeline=True
-                )
-                headers = {
-                    "Content-Type": media_type,
-                    "Docker-Content-Digest": digest,
-                    "Docker-Distribution-API-Version": "registry/2.0",
-                }
-                return web.Response(body=raw_text_manifest, headers=headers)
-            else:
-                raise PathNotResolved(tag_name)
-
-        # check if the content is pulled via the pull-through caching distribution;
-        # if yes, update the respective manifest from the remote when its digest changed
-        if distribution.remote_id and distribution.pull_through_distribution_id:
-            remote = await distribution.remote.acast()
-            relative_url = "/v2/{name}/manifests/{tag}".format(
-                name=remote.namespaced_upstream_name, tag=tag_name
-            )
-            tag_url = urljoin(remote.url, relative_url)
-            downloader = remote.get_downloader(url=tag_url)
-            try:
-                response = await downloader.run(
-                    extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"}
-                )
-            except (ClientResponseError, ClientConnectionError, TimeoutException):
-                # the manifest is not available on the remote anymore
-                # but the old one is still stored in the database
-                pass
-            else:
-                digest = response.headers.get("docker-content-digest")
-                if tag.tagged_manifest.digest != digest:
-                    pull_downloader = await PullThroughDownloader.create(
-                        distribution, repository_version, path, tag_name
-                    )
-                    pull_downloader.downloader = downloader
-                    raw_text_manifest, digest, media_type = await pull_downloader.download_manifest(
-                        run_pipeline=True
-                    )
-                    headers = {
-                        "Content-Type": media_type,
-                        "Docker-Content-Digest": digest,
-                        "Docker-Distribution-API-Version": "registry/2.0",
-                    }
-                    return web.Response(body=raw_text_manifest, headers=headers)
-
-        accepted_media_types = get_accepted_media_types(request.headers)
-
-        # we do not convert OCI to docker
-        oci_mediatypes = [MEDIA_TYPE.MANIFEST_OCI, MEDIA_TYPE.INDEX_OCI]
-        if (
-            tag.tagged_manifest.media_type in oci_mediatypes
-            and tag.tagged_manifest.media_type not in accepted_media_types
-        ):
-            log.warn(
-                "OCI format found, but the client only accepts {accepted_media_types}.".format(
-                    accepted_media_types=accepted_media_types
-                )
-            )
-            raise PathNotResolved(tag_name)
-
-        # return schema1 (even in case only oci is requested)
-        if tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V1:
-            return_media_type = MEDIA_TYPE.MANIFEST_V1_SIGNED
-            response_headers = {
-                "Content-Type": return_media_type,
-                "Docker-Content-Digest": tag.tagged_manifest.digest,
-            }
-            return web.Response(body=tag.tagged_manifest.data, headers=response_headers)
-
-        # return what was found in case media_type is accepted header (docker, oci)
-        if tag.tagged_manifest.media_type in accepted_media_types:
-            return_media_type = tag.tagged_manifest.media_type
-            response_headers = {
-                "Content-Type": return_media_type,
-                "Docker-Content-Digest": tag.tagged_manifest.digest,
-            }
-            return web.Response(body=tag.tagged_manifest.data, headers=response_headers)
-
-        # return 404 in case the client is requesting docker manifest v2 schema 1
-        raise PathNotResolved(tag_name)
-
-    @RegistryContentCache(
-        base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
-        auth=lambda req, cac, bk: Registry.auth_cached(req, cac, bk),
-    )
     async def get_by_digest(self, request):
         """
         Return a response to the "GET" action.
@@ -231,65 +93,20 @@ class Registry(Handler):
 
         repository = await repository_version.repository.acast()
         pending_blobs = repository.pending_blobs.values_list("pk")
-        pending_manifests = repository.pending_manifests.values_list("pk")
-        pending_content = pending_blobs.union(pending_manifests)
-        content = repository_version.content | Content.objects.filter(pk__in=pending_content)
-        # "/pulp/container/{path:.+}/{content:(blobs|manifests)}/sha256:{digest:.+}"
-        content_type = request.match_info["content"]
-        domain = get_domain()
+        content = repository_version.content | Content.objects.filter(pk__in=pending_blobs)
         try:
-            if content_type == "manifests":
-                manifest = await Manifest.objects.prefetch_related("contentartifact_set").aget(
-                    digest=digest,
-                    _pulp_domain=domain,  # did I remove the content__in?
-                )
-                headers = {
-                    "Content-Type": manifest.media_type,
-                    "Docker-Content-Digest": manifest.digest,
-                }
-                return web.Response(body=manifest.data, headers=headers)
-            elif content_type == "blobs":
-                ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
-                    content__in=content, relative_path=digest
-                )
-                ca_content = await sync_to_async(ca.content.cast)()
-                media_type = BLOB_CONTENT_TYPE
-                headers = {
-                    "Content-Type": media_type,
-                    "Docker-Content-Digest": ca_content.digest,
-                }
+            ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
+                content__in=content, relative_path=digest
+            )
+            ca_content = await ca.content.acast()
+            media_type = BLOB_CONTENT_TYPE
+            headers = {
+                "Content-Type": media_type,
+                "Docker-Content-Digest": ca_content.digest,
+            }
         except ObjectDoesNotExist:
-            distribution = await distribution.acast()
-            if distribution.remote_id and distribution.pull_through_distribution_id:
-                pull_downloader = await PullThroughDownloader.create(
-                    distribution, repository_version, path, digest
-                )
-
-                if content_type == "manifests":
-                    (
-                        raw_text_manifest,
-                        digest,
-                        media_type,
-                    ) = await pull_downloader.download_manifest()
-                    headers = {
-                        "Content-Type": media_type,
-                        "Docker-Content-Digest": digest,
-                        "Docker-Distribution-API-Version": "registry/2.0",
-                    }
-                    return web.Response(body=raw_text_manifest, headers=headers)
-                elif content_type == "blobs":
-                    # there might be a case where the client has all the manifest data in place
-                    # and tries to download only missing blobs; because of that, only the reference
-                    # to a remote blob is returned (i.e., RemoteArtifact)
-                    blob = await pull_downloader.init_remote_blob()
-                    ca = await blob.contentartifact_set.afirst()
-                    return await self._stream_content_artifact(request, web.StreamResponse(), ca)
-                else:
-                    raise RuntimeError("Only blobs or manifests are supported by the parser.")
-            else:
-                raise PathNotResolved(path)
+            raise PathNotResolved(path)
         else:
-            # else branch can be reached only for blob
             artifact = ca.artifact
             if artifact:
                 return await Registry._dispatch(artifact, headers)
@@ -311,188 +128,3 @@ class Registry(Handler):
             "Docker-Distribution-API-Version": "registry/2.0",
         }
         return web.Response(body=body, headers=response_headers)
-
-
-class PullThroughDownloader:
-    def __init__(self, distribution, remote, repository, repository_version, path, identifier):
-        self.distribution = distribution
-        self.remote = remote
-        self.repository = repository
-        self.repository_version = repository_version
-        self.path = path
-        self.identifier = identifier
-        self.downloader = None
-
-    @classmethod
-    async def create(cls, distribution, repository_version, path, identifier):
-        remote = await distribution.remote.acast()
-        repository = await repository_version.repository.acast()
-        return cls(distribution, remote, repository, repository_version, path, identifier)
-
-    async def init_remote_blob(self):
-        return await self.save_blob(self.identifier, None)
-
-    async def download_manifest(self, run_pipeline=False):
-        response = await self.run_manifest_downloader()
-
-        with open(response.path, mode="r") as f:
-            raw_text_data = f.read()
-
-        if run_pipeline:
-            await self.run_pipeline(raw_text_data)
-
-        try:
-            manifest_data = json.loads(raw_text_data)
-        except json.decoder.JSONDecodeError:
-            raise PathNotResolved(self.identifier)
-        media_type = determine_media_type(manifest_data, response)
-        if media_type in (MEDIA_TYPE.MANIFEST_V1_SIGNED, MEDIA_TYPE.MANIFEST_V1):
-            digest = calculate_digest(raw_text_data)
-        else:
-            digest = f"sha256:{response.artifact_attributes['sha256']}"
-
-        if media_type not in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
-            # add the manifest and blobs to the repository to be able to stream it
-            # in the next round when a client approaches the registry
-            await self.init_pending_content(digest, manifest_data, media_type, raw_text_data)
-
-        return raw_text_data, digest, media_type
-
-    async def run_manifest_downloader(self):
-        if self.downloader is None:
-            relative_url = "/v2/{name}/manifests/{identifier}".format(
-                name=self.remote.namespaced_upstream_name, identifier=self.identifier
-            )
-            url = urljoin(self.remote.url, relative_url)
-            self.downloader = self.remote.get_downloader(url=url)
-
-        try:
-            response = await self.downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS})
-        except ClientResponseError as response_error:
-            if response_error.status == 429:
-                # the client could request the manifest outside the docker hub pull limit;
-                # it is necessary to pass this information back to the client
-                raise HTTPTooManyRequests()
-            else:
-                # TODO: do not mask out relevant errors, like HTTP 502
-                raise PathNotResolved(self.path)
-
-        return response
-
-    async def run_pipeline(self, raw_text_manifest_data):
-        set_guid(generate_guid())
-        await sync_to_async(dispatch)(
-            download_image_data,
-            exclusive_resources=[self.repository_version.repository],
-            kwargs={
-                "repository_pk": self.repository_version.repository.pk,
-                "remote_pk": self.remote.pk,
-                "raw_text_manifest_data": raw_text_manifest_data,
-                "tag_name": self.identifier,
-            },
-        )
-
-    async def init_pending_content(self, digest, manifest_data, media_type, raw_text_data):
-        domain = get_domain()
-        if config := manifest_data.get("config", None):
-            config_digest = config["digest"]
-            config_blob = await self.save_config_blob(config_digest)
-            await sync_to_async(self.repository.pending_blobs.add)(config_blob)
-        else:
-            config_blob = None
-
-        manifest = Manifest(
-            digest=digest,
-            schema_version=(
-                2 if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI) else 1
-            ),
-            media_type=media_type,
-            config_blob=config_blob,
-            data=raw_text_data,
-            _pulp_domain=domain,  # For clarity
-        )
-        await sync_to_async(manifest.init_architecture_and_os)()
-
-        # skip if media_type of schema1
-        if media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
-            await sync_to_async(manifest.init_metadata)(manifest_data=manifest_data)
-        await sync_to_async(manifest.init_compressed_image_size)()
-
-        try:
-            await manifest.asave()
-        except IntegrityError:
-            manifest = await Manifest.objects.aget(digest=manifest.digest, _pulp_domain=domain)
-            await sync_to_async(manifest.touch)()
-        await sync_to_async(self.repository.pending_manifests.add)(manifest)
-
-        for layer in manifest_data.get("layers") or manifest_data.get("fsLayers"):
-            layer_digest = layer.get("digest") or layer.get("blobSum")
-            blob = await self.save_blob(layer_digest, manifest)
-            await sync_to_async(self.repository.pending_blobs.add)(blob)
-
-    async def save_blob(self, digest, manifest):
-        domain = get_domain()
-        blob = Blob(digest=digest, _pulp_domain=domain)
-        try:
-            await blob.asave()
-        except IntegrityError:
-            blob = await Blob.objects.aget(digest=digest, _pulp_domain=domain)
-            await sync_to_async(blob.touch)()
-
-        bm_rel = BlobManifest(manifest=manifest, manifest_blob=blob)
-        with suppress(IntegrityError):
-            await bm_rel.asave()
-
-        ca = ContentArtifact(
-            content=blob,
-            artifact=None,
-            relative_path=digest,
-        )
-        with suppress(IntegrityError):
-            await ca.asave()
-
-        relative_url = "/v2/{name}/blobs/{digest}".format(
-            name=self.remote.namespaced_upstream_name, digest=digest
-        )
-        blob_url = urljoin(self.remote.url, relative_url)
-        ra = RemoteArtifact(
-            url=blob_url,
-            sha256=digest[len("sha256:") :],
-            content_artifact=ca,
-            remote=self.remote,
-            pulp_domain=domain,
-        )
-        with suppress(IntegrityError):
-            await ra.asave()
-
-        return blob
-
-    async def save_config_blob(self, config_digest):
-        domain = get_domain()
-        blob_relative_url = "/v2/{name}/blobs/{digest}".format(
-            name=self.remote.namespaced_upstream_name, digest=config_digest
-        )
-        blob_url = urljoin(self.remote.url, blob_relative_url)
-        downloader = self.remote.get_downloader(url=blob_url)
-        response = await downloader.run()
-
-        response.artifact_attributes["file"] = response.path
-        response.artifact_attributes["pulp_domain"] = domain
-        saved_artifact = await save_artifact(response.artifact_attributes)
-
-        config_blob = Blob(digest=config_digest, _pulp_domain=domain)
-        try:
-            await config_blob.asave()
-        except IntegrityError:
-            config_blob = await Blob.objects.aget(digest=config_digest, _pulp_domain=domain)
-            await sync_to_async(config_blob.touch)()
-
-        content_artifact = ContentArtifact(
-            content=config_blob,
-            artifact=saved_artifact,
-            relative_path=config_digest,
-        )
-        with suppress(IntegrityError):
-            await content_artifact.asave()
-
-        return config_blob
