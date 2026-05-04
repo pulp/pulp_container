@@ -20,7 +20,7 @@ async def aadd_and_remove(*args, **kwargs):
     return await sync_to_async(add_and_remove)(*args, **kwargs)
 
 
-def download_image_data(repository_pk, remote_pk, raw_text_manifest_data, tag_name):
+def download_image_data(repository_pk, remote_pk, raw_text_manifest_data, tag_name=None):
     repository = ContainerRepository.objects.get(pk=repository_pk)
     remote = ContainerRemote.objects.get(pk=remote_pk)
     log.info("Pulling cache: repository={r} remote={p}".format(r=repository.name, p=remote.name))
@@ -32,7 +32,7 @@ def download_image_data(repository_pk, remote_pk, raw_text_manifest_data, tag_na
 class ContainerPullThroughFirstStage(ContainerFirstStage):
     """The stage that prepares the pipeline for downloading a single tag and its related data."""
 
-    def __init__(self, remote, raw_text_manifest_data, tag_name):
+    def __init__(self, remote, raw_text_manifest_data, tag_name=None):
         """Initialize the stage with the artifact defined in content-app."""
         super().__init__(remote, signed_only=False)
         self.tag_name = tag_name
@@ -44,8 +44,9 @@ class ContainerPullThroughFirstStage(ContainerFirstStage):
         This method is a tinified method based on ``ContainerFirstStage.run`` with syncing just
         a single tag.
         """
-        tag_dc = DeclarativeContent(Tag(name=self.tag_name))
-        self.tag_dcs.append(tag_dc)
+        if self.tag_name:
+            tag_dc = DeclarativeContent(Tag(name=self.tag_name))
+            self.tag_dcs.append(tag_dc)
 
         content_data = json.loads(self.raw_text_manifest_data)
 
@@ -58,7 +59,8 @@ class ContainerPullThroughFirstStage(ContainerFirstStage):
                 listed_manifest = await self.create_listed_manifest(manifest_data)
                 list_dc.extra_data["listed_manifests"].append(listed_manifest)
             else:
-                tag_dc.extra_data["tagged_manifest_dc"] = list_dc
+                if self.tag_name:
+                    tag_dc.extra_data["tagged_manifest_dc"] = list_dc
                 for listed_manifest in list_dc.extra_data["listed_manifests"]:
                     await self.handle_blobs(
                         listed_manifest["manifest_dc"], listed_manifest["content_data"]
@@ -68,7 +70,8 @@ class ContainerPullThroughFirstStage(ContainerFirstStage):
         else:
             # Simple tagged manifest
             man_dc = self.create_manifest(content_data, self.raw_text_manifest_data, media_type)
-            tag_dc.extra_data["tagged_manifest_dc"] = man_dc
+            if self.tag_name:
+                tag_dc.extra_data["tagged_manifest_dc"] = man_dc
             await self.handle_blobs(man_dc, content_data)
             self.manifest_dcs.append(man_dc)
 

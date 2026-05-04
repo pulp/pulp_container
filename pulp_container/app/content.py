@@ -12,9 +12,8 @@ PREFIX = "/pulp/container/{pulp_domain}/" if settings.DOMAIN_ENABLED else "/pulp
 app.add_routes(
     [
         web.get(
-            PREFIX + r"{path:.+}/{content:(blobs|manifests)}/sha256:{digest:.+}",
+            PREFIX + r"{path:.+}/blobs/sha256:{digest:.+}",
             registry.get_by_digest,
         )
     ]
 )
-app.add_routes([web.get(PREFIX + r"{path:.+}/manifests/{tag_name}", registry.get_tag)])
