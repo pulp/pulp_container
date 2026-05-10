@@ -1,18 +1,43 @@
 """Utilities for tests for the container plugin."""
 
-import pytest
-import requests
-
-from requests.auth import AuthBase
 from functools import partial
-from unittest import SkipTest
 from tempfile import NamedTemporaryFile
+from unittest import SkipTest
 from uuid import uuid4
 
+import pytest
+import requests
 from pulp_smash import cli, config, selectors, utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import (
     get_content,
+)
+from requests.auth import AuthBase
+
+from pulpcore.client.pulp_container import (
+    ApiClient as ContainerApiClient,
+)
+from pulpcore.client.pulp_container import (
+    ContainerRepositorySyncURL,
+    ContentBlobsApi,
+    ContentManifestsApi,
+    ContentTagsApi,
+    DistributionsContainerApi,
+    PulpContainerNamespacesApi,
+    RemotesContainerApi,
+    RepositoriesContainerApi,
+    RepositoriesContainerPushApi,
+    RepositoriesContainerVersionsApi,
+)
+from pulpcore.client.pulpcore import (
+    ApiClient as CoreApiClient,
+)
+from pulpcore.client.pulpcore import (
+    ArtifactsApi,
+    GroupsApi,
+    GroupsUsersApi,
+    UsersApi,
+    UsersRolesApi,
 )
 
 from pulp_container.tests.functional.constants import (
@@ -20,28 +45,6 @@ from pulp_container.tests.functional.constants import (
     CONTAINER_IMAGE_URL,
     PULP_HELLO_WORLD_REPO,
     REGISTRY_V2_FEED_URL,
-)
-
-from pulpcore.client.pulpcore import (
-    ApiClient as CoreApiClient,
-    ArtifactsApi,
-    GroupsApi,
-    GroupsUsersApi,
-    UsersApi,
-    UsersRolesApi,
-)
-from pulpcore.client.pulp_container import (
-    ApiClient as ContainerApiClient,
-    ContainerRepositorySyncURL,
-    ContentBlobsApi,
-    ContentManifestsApi,
-    ContentTagsApi,
-    RemotesContainerApi,
-    DistributionsContainerApi,
-    PulpContainerNamespacesApi,
-    RepositoriesContainerApi,
-    RepositoriesContainerPushApi,
-    RepositoriesContainerVersionsApi,
 )
 
 cfg = config.get_config()

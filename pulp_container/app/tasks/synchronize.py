@@ -4,14 +4,15 @@ from pulpcore.plugin.stages import (
     ArtifactDownloader,
     ArtifactSaver,
     DeclarativeVersion,
-    RemoteArtifactSaver,
-    ResolveContentFutures,
     QueryExistingArtifacts,
     QueryExistingContents,
+    RemoteArtifactSaver,
+    ResolveContentFutures,
 )
 
-from .sync_stages import ContainerFirstStage, ContainerContentSaver
 from pulp_container.app.models import ContainerRemote, ContainerRepository
+
+from .sync_stages import ContainerContentSaver, ContainerFirstStage
 
 log = logging.getLogger(__name__)
 
