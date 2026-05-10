@@ -1,20 +1,20 @@
 """Tests that CRUD container remotes."""
 
-from random import choice
 import unittest
+from random import choice
 
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.constants import ON_DEMAND_DOWNLOAD_POLICIES
+
+from pulpcore.client.pulp_container import RemotesContainerApi
+from pulpcore.client.pulp_container.exceptions import ApiException
 
 from pulp_container.tests.functional.utils import (
     gen_container_client,
     gen_container_remote,
     skip_if,
 )
-
-from pulpcore.client.pulp_container import RemotesContainerApi
-from pulpcore.client.pulp_container.exceptions import ApiException
 
 
 class CRUDRemotesTestCase(unittest.TestCase):
