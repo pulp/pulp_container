@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.26.14 (2026-05-14) {: #2.26.14 }
+
+#### Bugfixes {: #2.26.14-bugfix }
+
+- Fixed syncing of cosign signatures, attestations, and SBOMs (stored as companion tags) being silently skipped when `include_tags` was set on the remote.
+  [#2096](https://github.com/pulp/pulp_container/issues/2096)
+
+---
+
 ## 2.26.13 (2026-04-28) {: #2.26.13 }
 
 #### Bugfixes {: #2.26.13-bugfix }
