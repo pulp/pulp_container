@@ -230,9 +230,14 @@ class ContainerRegistryApiMixin:
     def authentication_classes(self):
         """
         List of authentication classes to check for this view.
+
+        When token auth is disabled, includes both RegistryAuthentication (Basic auth)
+        and any authentication classes configured in DEFAULT_AUTHENTICATION_CLASSES.
+        This allows deployments to use custom authentication backends (e.g. remote
+        header-based auth) alongside standard Basic auth for container registry operations.
         """
         if settings.get("TOKEN_AUTH_DISABLED", False):
-            return [RegistryAuthentication]
+            return [RegistryAuthentication, *api_settings.DEFAULT_AUTHENTICATION_CLASSES]
         return [TokenAuthentication]
 
     @property
