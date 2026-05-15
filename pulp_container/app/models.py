@@ -483,17 +483,22 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
         upstream_name (models.TextField): The name of the image at the remote.
         include_foreign_layers (models.BooleanField): Foreign layers in the remote
             are included. They are not included by default.
-        include_tags (fields.ArrayField): List of tags to include during sync.
-        exclude_tags (fields.ArrayField): List of tags to exclude during sync.
+        includes (fields.ArrayField): List of tags (with optional wildcards) and/or
+            digests (sha256:<hex>) to sync.
+        excludes (fields.ArrayField): List of tag patterns to exclude from sync.
         sigstore (models.TextField): The URL to a sigstore where signatures of container images
             should be synced from.
     """
 
     upstream_name = models.TextField(db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
+    includes = fields.ArrayField(models.TextField(null=True), null=True)
+    excludes = fields.ArrayField(models.TextField(null=True), null=True)
+    sigstore = models.TextField(null=True)
+
+    # Deprecated: kept for ZDT upgrades
     include_tags = fields.ArrayField(models.TextField(null=True), null=True)
     exclude_tags = fields.ArrayField(models.TextField(null=True), null=True)
-    sigstore = models.TextField(null=True)
 
     TYPE = "container"
 

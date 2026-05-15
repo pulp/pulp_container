@@ -13,6 +13,7 @@ from pulp_container.tests.functional.constants import (
     PULP_COSIGN_TAGS_MANIFEST_B_DIGEST,
     PULP_COSIGN_TAGS_MANIFEST_C_DIGEST,
     PULP_FIXTURE_1,
+    PULP_FIXTURE_1_MANIFEST_A_DIGEST,
     PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
     PULP_LABELED_FIXTURE,
     REGISTRY_V2_FEED_URL,
@@ -275,3 +276,129 @@ def test_sync_cosign_companion_tags_with_filtering(
         cr(PULP_COSIGN_TAGS_MANIFEST_C_DIGEST),
     }
     assert manifests.count == 10
+
+
+@pytest.mark.parallel
+def test_sync_by_digest_includes(
+    container_repository_factory,
+    container_remote_factory,
+    container_repository_api,
+    container_sync,
+    container_tag_api,
+    container_manifest_api,
+):
+    """Test that a digest entry in 'includes' syncs a manifest directly without a tag."""
+    remote = container_remote_factory(
+        upstream_name=PULP_FIXTURE_1,
+        includes=[PULP_FIXTURE_1_MANIFEST_A_DIGEST],
+    )
+    repository = container_repository_factory()
+    container_sync(repository, remote)
+    repo_version = container_repository_api.read(repository.pulp_href).latest_version_href
+
+    tags = container_tag_api.list(repository_version=repo_version)
+    manifests = container_manifest_api.list(repository_version=repo_version)
+
+    # No tags — digest entries in includes sync manifests without tag association
+    assert tags.count == 0
+    assert manifests.count == 1
+    assert manifests.results[0].digest == PULP_FIXTURE_1_MANIFEST_A_DIGEST
+
+
+@pytest.mark.parallel
+def test_sync_digest_includes_pulls_cosign_companions(
+    container_repository_factory,
+    container_remote_factory,
+    container_repository_api,
+    container_sync,
+    container_tag_api,
+    container_manifest_api,
+):
+    """Test that digest entries in 'includes' also pull in cosign companion tags.
+
+    pulp/cosign-tags and pulp/test-fixture-1 share the same manifest_a/b/c/d digests.
+    manifest_a has two cosign companions (.sig v2, .att v2).
+    manifest_b has two cosign companions (.sig v2, sha256-<digest> v3 index with 2 sub-manifests).
+    """
+    cr = _cosign_registry_tag_name
+
+    # --- manifest_a: two v2 cosign companions ---
+    remote_a = container_remote_factory(
+        upstream_name=PULP_COSIGN_COMPANION_TAGS,
+        includes=[PULP_COSIGN_TAGS_MANIFEST_A_DIGEST],
+    )
+    repo_a = container_repository_factory()
+    container_sync(repo_a, remote_a)
+    ver_a = container_repository_api.read(repo_a.pulp_href).latest_version_href
+
+    tags_a = container_tag_api.list(repository_version=ver_a)
+    manifests_a = container_manifest_api.list(repository_version=ver_a)
+
+    # The primary manifest has no tag; companions get tags as usual
+    assert tags_a.count == 2
+    assert {t.name for t in tags_a.results} == {
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.sig",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.att",
+    }
+    # manifest_a itself + .sig manifest + .att manifest
+    assert manifests_a.count == 3
+
+    # --- manifest_b: one v2 + one v3 (manifest list) cosign companion ---
+    remote_b = container_remote_factory(
+        upstream_name=PULP_COSIGN_COMPANION_TAGS,
+        includes=[PULP_COSIGN_TAGS_MANIFEST_B_DIGEST],
+    )
+    repo_b = container_repository_factory()
+    container_sync(repo_b, remote_b)
+    ver_b = container_repository_api.read(repo_b.pulp_href).latest_version_href
+
+    tags_b = container_tag_api.list(repository_version=ver_b)
+    manifests_b = container_manifest_api.list(repository_version=ver_b)
+
+    assert tags_b.count == 2
+    assert {t.name for t in tags_b.results} == {
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST)}.sig",
+        cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST),
+    }
+    # manifest_b + .sig manifest + v3 manifest list + 2 v3 sub-manifests
+    assert manifests_b.count == 5
+
+
+@pytest.mark.parallel
+def test_sync_mixed_tags_and_digests_in_includes(
+    container_repository_factory,
+    container_remote_factory,
+    container_repository_api,
+    container_sync,
+    container_tag_api,
+    container_manifest_api,
+):
+    """Test that 'includes' can mix tag patterns and digests in a single sync."""
+    cr = _cosign_registry_tag_name
+
+    # Include manifest_b by tag name and manifest_a by digest.
+    # From pulp/cosign-tags: manifest_b has a .sig companion and a V3 companion.
+    # manifest_a has a .sig and .att companion.
+    remote = container_remote_factory(
+        upstream_name=PULP_COSIGN_COMPANION_TAGS,
+        includes=["manifest_b", PULP_COSIGN_TAGS_MANIFEST_A_DIGEST],
+    )
+    repository = container_repository_factory()
+    container_sync(repository, remote)
+    ver = container_repository_api.read(repository.pulp_href).latest_version_href
+
+    tags = container_tag_api.list(repository_version=ver)
+    manifests = container_manifest_api.list(repository_version=ver)
+
+    # manifest_b gets a tag (synced by tag name); manifest_a does not (synced by digest).
+    # Cosign companions for both are pulled in as tagged content.
+    assert {t.name for t in tags.results} == {
+        "manifest_b",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST)}.sig",
+        cr(PULP_COSIGN_TAGS_MANIFEST_B_DIGEST),
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.sig",
+        f"{cr(PULP_COSIGN_TAGS_MANIFEST_A_DIGEST)}.att",
+    }
+    # manifest_a + manifest_b + b's .sig + b's V3 list + 2 V3 sub-manifests
+    #   + a's .sig + a's .att  = 8
+    assert manifests.count == 8
