@@ -296,26 +296,57 @@ class ContainerRemoteSerializer(RemoteSerializer):
     upstream_name = serializers.CharField(
         required=True, allow_blank=False, help_text=_("Name of the upstream repository")
     )
+    includes = serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        allow_null=True,
+        required=False,
+        help_text=_(
+            "A list of tags (wildcards *, ? are recognized) and/or digests "
+            "(format: 'sha256:<hex>') to include during sync. "
+            "'includes' is evaluated before 'excludes'."
+        ),
+    )
+    excludes = serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        allow_null=True,
+        required=False,
+        help_text=_(
+            "A list of tag patterns to exclude during sync. "
+            "Wildcards *, ? are recognized. "
+            "'excludes' is evaluated after 'includes'."
+        ),
+    )
+
+    # ---------------------------------------------------------------------------
+    # Deprecated write-only fields kept for backwards compatibility.
+    # They are merged into `includes` / `excludes` during validation.
+    # ---------------------------------------------------------------------------
     include_tags = serializers.ListField(
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_("""
-            A list of tags to include during sync.
-            Wildcards *, ? are recognized.
-            'include_tags' is evaluated before 'exclude_tags'.
-            """),
+        write_only=True,
+        help_text=_("Deprecated. Use 'includes' instead."),
     )
     exclude_tags = serializers.ListField(
         child=serializers.CharField(max_length=255),
         allow_null=True,
         required=False,
-        help_text=_("""
-            A list of tags to exclude during sync.
-            Wildcards *, ? are recognized.
-            'exclude_tags' is evaluated after 'include_tags'.
-            """),
+        write_only=True,
+        help_text=_("Deprecated. Use 'excludes' instead."),
     )
+
+    def validate(self, data):
+        include_tags = data.pop("include_tags", None)
+        exclude_tags = data.pop("exclude_tags", None)
+
+        if include_tags:
+            data["includes"] = list(data.get("includes") or []) + list(include_tags)
+
+        if exclude_tags:
+            data["excludes"] = list(data.get("excludes") or []) + list(exclude_tags)
+
+        return data
 
     policy = serializers.ChoiceField(
         help_text="""
@@ -337,6 +368,8 @@ class ContainerRemoteSerializer(RemoteSerializer):
     class Meta:
         fields = RemoteSerializer.Meta.fields + (
             "upstream_name",
+            "includes",
+            "excludes",
             "include_tags",
             "exclude_tags",
             "sigstore",
