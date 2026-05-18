@@ -128,6 +128,7 @@ async def create_signature(manifest, reference, signing_service):
                 digest=f"sha256:{sig_digest}",
                 type=SIGNATURE_TYPE.ATOMIC_SHORT,
                 key_id=sig_json["signing_key_id"],
+                fingerprint=sig_json["signing_key_fingerprint"],
                 timestamp=sig_json["signature_timestamp"],
                 creator=sig_json["optional"].get("creator"),
                 data=encoded_sig,

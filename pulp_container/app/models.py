@@ -399,7 +399,8 @@ class ManifestSignature(Content):
         digest (models.TextField): A signature sha256 digest prepended with its algorithm `sha256:`.
         type (models.TextField): A signature type as specified in signature metadata. Currently
                                  it's only "atomic container signature".
-        key_id (models.TextField): A key id identified by gpg (last 8 bytes of the fingerprint).
+        key_id (models.TextField): A PGP key id (last 8 bytes of the fingerprint).
+        fingerprint (models.TextField): A PGP key fingerprint
         timestamp (models.PositiveIntegerField): A signature timestamp identified by gpg.
         creator (models.TextField): A signature creator.
         data (models.TextField): A signature, base64 encoded.
@@ -417,6 +418,7 @@ class ManifestSignature(Content):
     digest = models.TextField()
     type = models.TextField(choices=SIGNATURE_CHOICES)
     key_id = models.TextField(db_index=True)
+    fingerprint = models.TextField(null=True, db_index=True)
     timestamp = models.PositiveIntegerField()
     creator = models.TextField(blank=True)
     data = models.TextField()
