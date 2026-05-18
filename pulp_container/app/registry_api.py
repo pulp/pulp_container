@@ -24,6 +24,7 @@ from django.db.models import F, Func, TextField, Value
 from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import (
+    APIException,
     AuthenticationFailed,
     NotAuthenticated,
     ParseError,
@@ -44,7 +45,7 @@ from rest_framework.viewsets import ViewSet
 from pulpcore.plugin import pulp_hashlib
 from pulpcore.plugin.exceptions import TimeoutException
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
-from pulpcore.plugin.models import Artifact, ContentArtifact, UploadChunk
+from pulpcore.plugin.models import Artifact, ContentArtifact, RemoteArtifact, UploadChunk
 from pulpcore.plugin.tasking import dispatch
 from pulpcore.plugin.util import get_domain, get_objects_for_user, get_url
 
@@ -72,7 +73,7 @@ from pulp_container.app.redirects import (
     FileStorageRedirects,
     S3StorageRedirects,
 )
-from pulp_container.app.tasks import aadd_and_remove
+from pulp_container.app.tasks import aadd_and_remove, download_image_data
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
     RegistryPermission,
@@ -80,9 +81,11 @@ from pulp_container.app.token_verification import (
     TokenPermission,
 )
 from pulp_container.app.utils import (
+    calculate_digest,
     determine_media_type,
     extract_data_from_signature,
     filter_resource,
+    get_accepted_media_types,
     get_full_path,
     has_task_completed,
     validate_manifest,
@@ -90,6 +93,7 @@ from pulp_container.app.utils import (
 from pulp_container.constants import (
     EMPTY_BLOB,
     MANIFEST_TYPE,
+    MEDIA_TYPE,
     MEGABYTE,
     SIGNATURE_API_EXTENSION_VERSION,
     SIGNATURE_HEADER,
@@ -126,6 +130,48 @@ class ContentRenderer(BaseRenderer):
         return data
 
 
+class ManifestResponse(Response):
+    """
+    An HTTP response class for returning Manifets.
+    """
+
+    def __init__(self, data, media_type, digest):
+        """
+        Args:
+            data (bytes): The manifest data.
+            media_type (str): The manifest media type.
+            digest (str): The manifest digest.
+        """
+        headers = {
+            "Docker-Content-Digest": digest,
+        }
+        super().__init__(data=data, content_type=media_type, headers=headers)
+
+    @classmethod
+    def from_manifest(cls, manifest):
+        """Create a ManifestResponse from a Manifest model."""
+        return cls(manifest.data, manifest.media_type, manifest.digest)
+
+    @classmethod
+    def from_tag(cls, tag, request=None):
+        """Create a ManifestResponse from a Tag model."""
+        manifest = tag.tagged_manifest
+        manifest_media_type = manifest.media_type
+        if request:
+            accepted_media_types = get_accepted_media_types(request.headers)
+            if (
+                manifest_media_type not in accepted_media_types
+                and manifest_media_type != MEDIA_TYPE.MANIFEST_V1
+            ):
+                raise ManifestNotFound(reference=tag.name)
+
+        # Schema v1 manifests are always returned with the signed content type
+        if manifest_media_type == MEDIA_TYPE.MANIFEST_V1:
+            manifest_media_type = MEDIA_TYPE.MANIFEST_V1_SIGNED
+
+        return cls(manifest.data, manifest_media_type, manifest.digest)
+
+
 class UploadResponse(Response):
     """
     An HTTP response class for requests for Uploads.
@@ -155,27 +201,24 @@ class UploadResponse(Response):
         super().__init__(headers=headers, status=status)
 
 
-class ManifestResponse(Response):
+class ManifestUploadResponse(Response):
     """
-    An HTTP response class for returning Manifets.
+    An HTTP response class for returning Manifests upon successful upload.
     """
 
-    def __init__(self, manifest, path, request, status=200):
+    def __init__(self, manifest, path):
         """
         Args:
             manifest (pulp_container.app.models.Manifest): A Manifest model used to generate the
                 response.
             path (str): The base_path of the ContainerDistribution (Container repository name)
-            request (rest_framework.request.Request): Request object not used by this
-                implementation of Response.
-            status (int): Status code to send with the response.
         """
         headers = {
             "Docker-Content-Digest": manifest.digest,
             "Location": f"/v2/{get_full_path(path)}/manifests/{manifest.digest}",
             "Content-Length": 0,
         }
-        super().__init__(headers=headers, status=status, content_type=manifest.media_type)
+        super().__init__(headers=headers, status=201, content_type=manifest.media_type)
 
 
 class ManifestSignatureResponse(Response):
@@ -311,7 +354,7 @@ class ContainerRegistryApiMixin:
             repository = repository_version.repository
         else:
             raise RepositoryNotFound(name=path)
-        return distribution, repository, repository_version
+        return distribution, repository.cast(), repository_version
 
     def get_pull_through_drv(self, path):
         domain = get_domain()
@@ -1074,20 +1117,69 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         """Handles safe requests for Blobs."""
         distribution, repository, repository_version = self.get_drv_pull(path)
         redirects = self.redirects_class(distribution, path, request)
+        permission_checker = PermissionChecker(request.user)
 
-        try:
-            blob = models.Blob.objects.get(digest=pk, pk__in=repository_version.content)
-        except models.Blob.DoesNotExist:
-            if pk == EMPTY_BLOB:
-                return redirects.redirect_to_content_app("blobs", pk)
-            repository = repository.cast()
-            try:
-                blob = repository.pending_blobs.get(digest=pk)
-                blob.touch()
-            except models.Blob.DoesNotExist:
-                raise BlobNotFound(digest=pk)
+        if pk == EMPTY_BLOB:
+            return redirects.redirect_to_content_app("blobs", pk)
 
+        blob = models.Blob.objects.filter(digest=pk, pk__in=repository_version.content).first()
+        if not blob:
+            blob = repository.pending_blobs.filter(digest=pk).first()
+            if not blob:
+                if (
+                    distribution.remote
+                    and distribution.pull_through_distribution
+                    and permission_checker.has_pull_through_permissions(distribution)
+                ):
+                    remote = distribution.remote.cast()
+                    blob_url = self.fetch_blob(remote, pk)
+                    blob = self.create_on_demand_blob(pk, remote, blob_url)
+                    repository.pending_blobs.add(blob)
+                else:
+                    raise BlobNotFound(digest=pk)
+            blob.touch()
         return redirects.issue_blob_redirect(blob)
+
+    def create_on_demand_blob(self, digest, remote, blob_url):
+        domain = get_domain()
+        blob, _ = models.Blob.objects.get_or_create(digest=digest, _pulp_domain=domain)
+        ca, _ = ContentArtifact.objects.get_or_create(
+            content=blob,
+            relative_path=blob.digest,
+            defaults={"artifact": None},
+        )
+        RemoteArtifact.objects.get_or_create(
+            content_artifact=ca,
+            remote=remote,
+            pulp_domain=domain,
+            defaults={"url": blob_url, "sha256": digest[len("sha256:") :]},
+        )
+        return blob
+
+    def fetch_blob(self, remote, pk):
+        relative_url = "/v2/{name}/blobs/{pk}".format(name=remote.namespaced_upstream_name, pk=pk)
+        blob_url = urljoin(remote.url, relative_url)
+        downloader = remote.get_downloader(url=blob_url)
+        try:
+            response = downloader.fetch(
+                extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"}
+            )
+        except ClientResponseError as response_error:
+            if response_error.status == 429:
+                # the client could request the blob outside the docker hub pull limit;
+                # it is necessary to pass this information back to the client
+                raise Throttled()
+            elif response_error.status == 404:
+                raise BlobNotFound(digest=pk)
+            else:
+                raise BadGateway(detail=response_error.message)
+        except (ClientConnectionError, TimeoutException):
+            # The remote server is not available at the moment
+            raise GatewayTimeout()
+        else:
+            if response.headers.get("docker-content-digest") != pk:
+                raise BlobNotFound(digest=pk)
+        return blob_url
 
 
 class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
@@ -1117,39 +1209,80 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         Responds to safe requests about manifests by reference
         """
         distribution, repository, repository_version = self.get_drv_pull(path)
-        redirects = self.redirects_class(distribution, path, request)
         domain = get_domain()
+        permission_checker = PermissionChecker(request.user)
 
         if pk[:7] != "sha256:":
-            try:
-                tag = models.Tag.objects.get(name=pk, pk__in=repository_version.content)
-            except models.Tag.DoesNotExist:
-                distribution = distribution.cast()
-                permission_checker = PermissionChecker(request.user)
-                if (
-                    distribution.remote
-                    and distribution.pull_through_distribution
-                    and permission_checker.has_pull_through_permissions(distribution)
-                ):
-                    remote = distribution.remote.cast()
-                    # issue a head request first to ensure that the content exists on the remote
-                    # source; we want to prevent immediate "not found" error responses from
-                    # content-app: 302 (api-app) -> 404 (content-app)
-                    manifest = self.fetch_manifest(remote, pk)
-                    if manifest is None:
-                        return redirects.redirect_to_content_app("manifests", pk)
-
-                    tag = models.Tag(name=pk, tagged_manifest=manifest, _pulp_domain=domain)
-                    try:
-                        tag.save()
-                    except IntegrityError:
-                        tag = models.Tag.objects.get(
-                            name=tag.name, tagged_manifest=manifest, _pulp_domain=domain
+            tag = models.Tag.objects.filter(name=pk, pk__in=repository_version.content).first()
+            if (
+                distribution.remote
+                and distribution.pull_through_distribution
+                and permission_checker.has_pull_through_permissions(distribution)
+            ):
+                # check if the tag is on the upstream remote and if it has been updated
+                remote = distribution.remote.cast()
+                try:
+                    local_manifest, response = self.fetch_manifest(remote, pk)
+                except APIException as e:
+                    if not tag:
+                        raise e
+                else:
+                    if local_manifest is None:
+                        fake_manifest = self.fake_init_manifest(response, pk)
+                        tag = models.Tag(
+                            name=pk, tagged_manifest=fake_manifest, _pulp_domain=domain
                         )
-                        tag.touch()
+                        dispatch(
+                            download_image_data,
+                            exclusive_resources=[repository],
+                            kwargs={
+                                "repository_pk": repository.pk,
+                                "remote_pk": remote.pk,
+                                "raw_text_manifest_data": fake_manifest.data,
+                                "tag_name": pk,
+                            },
+                        )
+                    else:
+                        if tag is None or tag.tagged_manifest.digest != local_manifest.digest:
+                            tag, created = models.Tag.objects.get_or_create(
+                                name=pk, tagged_manifest=local_manifest, _pulp_domain=domain
+                            )
+                            if not created:
+                                tag.touch()
 
-                    add_content_units = self.get_content_units_to_add(manifest, tag)
-
+                            add_content_units = self.get_content_units_to_add(local_manifest, tag)
+                            dispatch(
+                                aadd_and_remove,
+                                exclusive_resources=[repository],
+                                kwargs={
+                                    "repository_pk": str(repository.pk),
+                                    "add_content_units": add_content_units,
+                                    "remove_content_units": [],
+                                },
+                                immediate=True,
+                                deferred=True,
+                            )
+            if tag:
+                return ManifestResponse.from_tag(tag, request)
+        else:
+            manifest = models.Manifest.objects.filter(
+                digest=pk, pk__in=repository_version.content
+            ).first()
+            if not manifest and (
+                manifest := repository.pending_manifests.filter(digest=pk).first()
+            ):
+                manifest.touch()
+            if (
+                not manifest
+                and distribution.remote
+                and distribution.pull_through_distribution
+                and permission_checker.has_pull_through_permissions(distribution)
+            ):
+                remote = distribution.remote.cast()
+                # This raises a ManifestNotFound if digest is not on the upstream
+                manifest, response = self.fetch_manifest(remote, pk)
+                if manifest:
+                    add_content_units = self.get_content_units_to_add(manifest)
                     dispatch(
                         aadd_and_remove,
                         exclusive_resources=[repository],
@@ -1161,44 +1294,26 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                         immediate=True,
                         deferred=True,
                     )
-
-                    return redirects.redirect_to_content_app("manifests", tag.name)
                 else:
-                    raise ManifestNotFound(reference=pk)
+                    manifest = self.fake_init_manifest(response, pk)
+                    dispatch(
+                        download_image_data,
+                        exclusive_resources=[repository],
+                        kwargs={
+                            "repository_pk": repository.pk,
+                            "remote_pk": remote.pk,
+                            "raw_text_manifest_data": manifest.data,
+                        },
+                    )
+            if manifest:
+                return ManifestResponse.from_manifest(manifest)
+        # Fallthrough catchall, no manifest or tag found
+        raise ManifestNotFound(reference=pk)
 
-            return redirects.issue_tag_redirect(tag)
-        else:
-            try:
-                manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
-                return redirects.issue_manifest_redirect(manifest)
-            except models.Manifest.DoesNotExist:
-                repository = repository.cast()
-                # the manifest might be a part of listed manifests currently being uploaded
-                # or saved during the pull-through caching
-                try:
-                    manifest = repository.pending_manifests.get(digest=pk)
-                    manifest.touch()
-                except models.Manifest.DoesNotExist:
-                    manifest = None
-
-                distribution = distribution.cast()
-                permission_checker = PermissionChecker(request.user)
-                if (
-                    distribution.remote
-                    and distribution.pull_through_distribution
-                    and permission_checker.has_pull_through_permissions(distribution)
-                ):
-                    remote = distribution.remote.cast()
-                    # Head request to check if the manifest exists on the remote
-                    self.fetch_manifest(remote, pk)
-                    return redirects.redirect_to_content_app("manifests", pk)
-                elif manifest:
-                    return redirects.issue_manifest_redirect(manifest)
-                else:
-                    raise ManifestNotFound(reference=pk)
-
-    def get_content_units_to_add(self, manifest, tag):
-        add_content_units = [str(tag.pk), str(manifest.pk)]
+    def get_content_units_to_add(self, manifest, tag=None):
+        add_content_units = [str(manifest.pk)]
+        if tag:
+            add_content_units.append(str(tag.pk))
         if manifest.media_type in (
             models.MEDIA_TYPE.MANIFEST_LIST,
             models.MEDIA_TYPE.INDEX_OCI,
@@ -1217,6 +1332,24 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             add_content_units.extend(manifest.blobs.values_list("pk", flat=True))
         return add_content_units
 
+    def fake_init_manifest(self, response, pk):
+        with open(response.path, mode="r") as f:
+            raw_text_data = f.read()
+
+        try:
+            manifest_data = json.loads(raw_text_data)
+        except json.decoder.JSONDecodeError:
+            raise ManifestInvalid(digest=pk)
+        media_type = determine_media_type(manifest_data, response)
+        if media_type in (MEDIA_TYPE.MANIFEST_V1_SIGNED, MEDIA_TYPE.MANIFEST_V1):
+            digest = calculate_digest(raw_text_data)
+        else:
+            digest = f"sha256:{response.artifact_attributes['sha256']}"
+
+        return models.Manifest(
+            digest=digest, media_type=media_type, data=raw_text_data, _pulp_domain=get_domain()
+        )
+
     def fetch_manifest(self, remote, pk):
         relative_url = "/v2/{name}/manifests/{pk}".format(
             name=remote.namespaced_upstream_name, pk=pk
@@ -1224,9 +1357,7 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         tag_url = urljoin(remote.url, relative_url)
         downloader = remote.get_downloader(url=tag_url)
         try:
-            response = downloader.fetch(
-                extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"}
-            )
+            response = downloader.fetch(extra_data={"headers": V2_ACCEPT_HEADERS})
         except ClientResponseError as response_error:
             if response_error.status == 429:
                 # the client could request the manifest outside the docker hub pull limit;
@@ -1241,7 +1372,9 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             raise GatewayTimeout()
         else:
             digest = response.headers.get("docker-content-digest")
-            return models.Manifest.objects.filter(digest=digest, pulp_domain=get_domain()).first()
+            return models.Manifest.objects.filter(
+                digest=digest, pulp_domain=get_domain()
+            ).first(), response
 
     def put(self, request, path, pk=None):
         """
@@ -1419,18 +1552,18 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             )
 
             if immediate_task.state == "completed":
-                return ManifestResponse(manifest, path, request, status=201)
+                return ManifestUploadResponse(manifest, path)
             elif immediate_task.state == "canceled":
                 raise Throttled()
             elif immediate_task.state in ["waiting", "running"]:
                 if has_task_completed(immediate_task, wait_in_seconds=2):
-                    return ManifestResponse(manifest, path, request, status=201)
+                    return ManifestUploadResponse(manifest, path)
             else:
                 raise Exception(str(immediate_task.error))
         else:
             # the client pushed a listed manifest
             repository.pending_manifests.add(manifest)
-            return ManifestResponse(manifest, path, request, status=201)
+            return ManifestUploadResponse(manifest, path)
 
     def _init_manifest(self, manifest_digest, media_type, raw_text_data, config_blob=None):
         return models.Manifest(
@@ -1493,24 +1626,43 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
 
     def get(self, request, path, pk):
         """Return a signature identified by its sha256 checksum."""
-        _, _, repository_version = self.get_drv_pull(path)
-        domain = get_domain()
-        try:
-            manifest = models.Manifest.objects.get(digest=pk, pk__in=repository_version.content)
-        except models.Manifest.DoesNotExist:
-            try:
-                # the manifest was initialized as a pending content unit
-                # or has not been assigned to any repository yet
-                manifest = models.Manifest.objects.get(digest=pk, _pulp_domain=domain)
-                manifest.touch()
-            except models.Manifest.DoesNotExist:
-                raise ManifestNotFound(reference=pk)
-
-        signatures = models.ManifestSignature.objects.filter(
-            signed_manifest=manifest, pk__in=repository_version.content
+        distro, repo, repo_ver = self.get_drv_pull(path)
+        manifest = (
+            models.Manifest.objects.filter(digest=pk, pk__in=repo_ver.content).first()
+            or repo.pending_manifests.filter(digest=pk).first()
         )
 
-        return Response(self.get_response_data(signatures))
+        if manifest:
+            signatures = models.ManifestSignature.objects.filter(
+                signed_manifest=manifest, pk__in=repo_ver.content
+            )
+
+            return Response(self.get_response_data(signatures))
+        elif distro.remote and distro.pull_through_distribution:
+            remote = distro.remote.cast()
+            ping_url = urljoin(remote.url, "/v2/")
+            ping_downloader = remote.get_downloader(url=ping_url)
+            response_headers = {}
+            try:
+                ping_response = ping_downloader.fetch(
+                    extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "get"}
+                )
+                response_headers = ping_response.headers
+            except ClientResponseError as e:
+                if e.status >= 500:
+                    return Response(self.get_response_data([]))
+                response_headers = dict(e.headers)
+            except (ClientConnectionError, TimeoutException):
+                return Response(self.get_response_data([]))
+
+            if response_headers.get(SIGNATURE_HEADER) != "1":
+                return Response(self.get_response_data([]))
+
+            sig_rel_url = f"/extensions/v2/{remote.namespaced_upstream_name}/signatures/{pk}"
+            sig_url = urljoin(remote.url, sig_rel_url)
+            return Response(status=302, headers={"Location": sig_url})
+
+        raise ManifestNotFound(reference=pk)
 
     @staticmethod
     def get_response_data(signatures):
