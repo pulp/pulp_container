@@ -250,7 +250,7 @@ class ContainerNamespaceSerializer(ModelSerializer, GetOrCreateSerializerMixin):
         model = models.ContainerNamespace
 
 
-class ContainerRepositorySerializer(RepositorySerializer):
+class ContainerRepositorySerializer(RepositorySerializer, GetOrCreateSerializerMixin):
     """
     Serializer for Container Repositories.
     """

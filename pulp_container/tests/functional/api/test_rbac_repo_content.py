@@ -48,27 +48,27 @@ def test_rbac_repository_content(
     user_reader3 = gen_user(model_roles=["container.containerdistribution_consumer"])
     user_helpless = gen_user()
 
-    # create a first push repo with user_creator
+    # create a first pushed container repo with user_creator
     image_path1 = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path1)
     repo_name1 = "testcontent1/perms"
     local_url1 = full_path(f"{repo_name1}:1.0")
     with user_creator:
         local_registry.tag_and_push(image_path1, local_url1)
-        push_repository1 = container_bindings.RepositoriesContainerPushApi.list(
+        push_repository1 = container_bindings.RepositoriesContainerApi.list(
             name=repo_name1
         ).results[0]
     distribution1 = container_bindings.DistributionsContainerApi.list(name=repo_name1).results[0]
     add_to_cleanup(container_bindings.PulpContainerNamespacesApi, distribution1.namespace)
 
-    # create a second push repo with user_creator2
+    # create a second pushed container repo with user_creator2
     image_path2 = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
     registry_client.pull(image_path2)
     repo_name2 = "testcontent2/perms"
     local_url2 = full_path(f"{repo_name2}:1.0")
     with user_creator2:
         local_registry.tag_and_push(image_path2, local_url2)
-        push_repository2 = container_bindings.RepositoriesContainerPushApi.list(
+        push_repository2 = container_bindings.RepositoriesContainerApi.list(
             name=repo_name2
         ).results[0]
     distribution2 = container_bindings.DistributionsContainerApi.list(name=repo_name2).results[0]
@@ -85,10 +85,10 @@ def test_rbac_repository_content(
         monitor_task(sync_response.task)
 
     # Test that users can list content if they have enough permissions.
-    push_repository1_rv = container_bindings.RepositoriesContainerPushApi.read(
+    push_repository1_rv = container_bindings.RepositoriesContainerApi.read(
         push_repository1.pulp_href
     ).latest_version_href
-    push_repository2_rv = container_bindings.RepositoriesContainerPushApi.read(
+    push_repository2_rv = container_bindings.RepositoriesContainerApi.read(
         push_repository2.pulp_href
     ).latest_version_href
     repository_rv = container_bindings.RepositoriesContainerApi.read(

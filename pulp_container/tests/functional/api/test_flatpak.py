@@ -61,7 +61,7 @@ def test_flatpak_install(
     registry_client,
     local_registry,
     container_namespace_api,
-    container_push_repository_api,
+    container_repository_api,
     container_tag_api,
     container_manifest_api,
     pulp_settings,
@@ -84,7 +84,7 @@ def test_flatpak_install(
     namespace = container_namespace_api.list(name="pulptest").results[0]
     add_to_cleanup(container_namespace_api, namespace.pulp_href)
 
-    repo = container_push_repository_api.list(name="pulptest/oci-net.fishsoup.hello").results[0]
+    repo = container_repository_api.list(name="pulptest/oci-net.fishsoup.hello").results[0]
     tag = container_tag_api.list(repository_version=repo.latest_version_href).results[0]
     manifest = container_manifest_api.read(tag.tagged_manifest)
 

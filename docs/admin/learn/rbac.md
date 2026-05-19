@@ -349,8 +349,15 @@ repository is public, then anyone can `pull` from the repository.
 Distributions are Pulp resources that represent URLs where repositories can be consumed.
 Permissions for accessing specific container repositories are described in terms of permissions
 to access Container Distributions. Each time a new repository is pushed using `podman` or `docker`,
-a Container Distribution is created. There is also a Container Push Repository created. Both of
-these resources can be accessed using Pulp's API.
+a Container Distribution and a Container Repository are created. Both resources can be accessed
+using Pulp's API. Registry-pushed repositories inherit distribution and namespace permissions for
+read and content-modifying API actions.
+
+!!! note
+
+    Older versions of pulp-container created Container Push Repositories on docker pushes. Legacy
+    pushes still remain available under `/pulp/api/v3/repositories/container/container-push/`, but
+    will be migrated to Container Repositories in a future release.
 
 The creation of a new distribution creates three user groups that can access the distribution:
 Owners, Collaborators, and Consumers. The user that creates the distribution is automatically added to
@@ -369,17 +376,10 @@ object permissions for the Distribution:
 "container.change_containerdistribution"
 ```
 
-The Owners group also has the following permissions for the Container Push Repository associated
-with the Distribution:
-
-```
-"container.view_containerpushrepository"
-"container.modify_content_containerpushrepository"
-```
-
-The owners of a Container Distribution have the ability to update and delete the repository
-associated with the Distribution. They can also add/remove users from the groups associated with
-the distribution.
+Distribution roles grant access to the linked Container Repository through the distribution and
+namespace permission checks described above. Distribution owners can update and delete the
+repository associated with the distribution. They can also add/remove users from the roles
+associated with the distribution.
 
 #### Distribution Collaborators
 
@@ -390,14 +390,6 @@ following object permissions for the Distribution:
 "container.view_containerdistribution"
 "container.pull_containerdistribution"
 "container.push_containerdistribution"
-```
-
-The Collaborators group also has the following permissions for the Container Push Repository associated
-with the Distribution:
-
-```
-"container.view_containerpushrepository"
-"container.modify_content_containerpushrepository"
 ```
 
 Users in the Collaborator group can do everything that the owners can, with the exception for deleting
@@ -413,14 +405,7 @@ object permissions for the distribution:
 "container.pull_containerdistribution"
 ```
 
-The Consumers group also has the following permissions for the Container Push Repository associated
-with the Distribution:
-
-```
-"container.view_containerpushrepository"
-```
-
-Users in the Consumers group can the `pull` the repository. Users should only need to be added to
+Users in the Consumers group can `pull` the repository. Users should only need to be added to
 this group if the Distribution has been configured with `private=True`. If the Distribution is
 public, then anyone can `pull` from the repository associated with the Distribution.
 
@@ -484,8 +469,10 @@ permission on the Distribution:
 ```
 
 Users that wish to be able to access the repository associated with the distribution with Pulp's
-API need the following object level permission on the Container Push Repository:
+API need one of the following:
 
 ```
-"container.view_containerpushrepository"
+"container.view_containerrepository" (object-level repository role), or
+"container.view_containerdistribution" (distribution consumer role or above), or
+"container.namespace_view_containerdistribution" (namespace consumer role or above)
 ```

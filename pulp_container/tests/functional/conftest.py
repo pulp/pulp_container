@@ -418,6 +418,33 @@ def container_repo(container_repository_factory):
     return container_repository_factory()
 
 
+@pytest.fixture
+def container_push_repository_factory(container_bindings):
+    """Create a ContainerPushRepository directly in the database.
+
+    Push repositories have no create API; this fixture exists to test legacy
+    repositories created before pushes defaulted to ContainerRepository.
+    """
+
+    def _container_push_repository_factory(**body):
+        name = body.get("name", str(uuid4()))
+        pulp_domain = body.get("pulp_domain", "default")
+        script = (
+            "from pulp_container.app.models import ContainerPushRepository; "
+            "from pulpcore.plugin.models import Domain; "
+            f"domain = Domain.objects.get(name='{pulp_domain}'); "
+            f"repo, _ = ContainerPushRepository.objects.get_or_create("
+            f"name='{name}', pulp_domain=domain); "
+        )
+        subprocess.check_output(("pulpcore-manager", "shell", "-c", script))
+        kwargs = {"name": name}
+        if "pulp_domain" in body:
+            kwargs["pulp_domain"] = pulp_domain
+        return container_bindings.RepositoriesContainerPushApi.list(**kwargs).results[0]
+
+    return _container_push_repository_factory
+
+
 @pytest.fixture(scope="class")
 def container_remote_factory(container_bindings, gen_object_with_cleanup):
     def _container_remote_factory(url=REGISTRY_V2_FEED_URL, **body):

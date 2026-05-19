@@ -41,7 +41,7 @@ def distribution(
 
 def test_assert_signed_image(
     local_registry,
-    container_push_repository_api,
+    container_repository_api,
     container_manifest_api,
     container_signature_api,
     signing_gpg_metadata,
@@ -51,7 +51,7 @@ def test_assert_signed_image(
     """Test whether an admin user can fetch a signature from the Pulp Registry."""
     gpg, fingerprint, keyid = signing_gpg_metadata
 
-    repository = container_push_repository_api.read(distribution.repository)
+    repository = container_repository_api.read(distribution.repository)
     manifest = container_manifest_api.list(
         repository_version=repository.latest_version_href
     ).results[0]

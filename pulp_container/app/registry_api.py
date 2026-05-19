@@ -45,7 +45,13 @@ from rest_framework.viewsets import ViewSet
 from pulpcore.plugin import pulp_hashlib
 from pulpcore.plugin.exceptions import TimeoutException
 from pulpcore.plugin.files import PulpTemporaryUploadedFile
-from pulpcore.plugin.models import Artifact, ContentArtifact, RemoteArtifact, UploadChunk
+from pulpcore.plugin.models import (
+    Artifact,
+    ContentArtifact,
+    RemoteArtifact,
+    Repository,
+    UploadChunk,
+)
 from pulpcore.plugin.tasking import dispatch
 from pulpcore.plugin.util import get_domain, get_objects_for_user, get_url
 
@@ -436,11 +442,9 @@ class ContainerRegistryApiMixin:
             repository = distribution.repository
             if repository:
                 repository = repository.cast()
-                if not repository.PUSH_ENABLED:
-                    raise RepositoryInvalid(name=path, message="Repository is read-only.")
             elif create:
                 with transaction.atomic():
-                    repository = serializers.ContainerPushRepositorySerializer.get_or_create(
+                    repository = serializers.ContainerRepositorySerializer.get_or_create(
                         {"name": path, "pulp_domain": domain}
                     )
                     distribution.repository = repository
@@ -451,11 +455,22 @@ class ContainerRegistryApiMixin:
 
     def create_dr(self, path, request):
         domain = get_domain()
+        repository_types = [
+            models.ContainerRepository.get_pulp_type(),
+            models.ContainerPushRepository.get_pulp_type(),
+        ]
         with transaction.atomic():
             try:
-                repository = serializers.ContainerPushRepositorySerializer.get_or_create(
-                    {"name": path, "pulp_domain": domain}
-                )
+                # Handle new default of ContainerRepository and fallback old ContainerPushRepository
+                repository = Repository.objects.filter(name=path, pulp_domain=domain).first()
+                if repository:
+                    if repository.pulp_type not in repository_types:
+                        raise RepositoryInvalid(name=path, message="Repository is read-only.")
+                    repository = repository.cast()
+                else:
+                    repository = serializers.ContainerRepositorySerializer.get_or_create(
+                        {"name": path, "pulp_domain": domain}
+                    )
                 distribution = serializers.ContainerDistributionSerializer.get_or_create(
                     {"base_path": path, "name": path, "pulp_domain": domain},
                     {"repository": get_url(repository)},
@@ -464,9 +479,10 @@ class ContainerRegistryApiMixin:
                 raise RepositoryInvalid(name=path, message="Repository is read-only.")
 
             if distribution.repository:
-                dist_repository = distribution.repository.cast()
-                if not dist_repository.PUSH_ENABLED or repository != dist_repository:
-                    raise RepositoryInvalid(name=path, message="Repository is read-only.")
+                if repository.pk != distribution.repository.pk:
+                    raise RepositoryInvalid(
+                        name=path, message="Repository is not available for push."
+                    )
             else:
                 distribution.repository = repository
                 distribution.save()
