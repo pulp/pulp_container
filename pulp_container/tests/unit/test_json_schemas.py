@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from django.test import TestCase
 from jsonschema import Draft7Validator
@@ -195,5 +196,33 @@ class TestOCISchema(TestCase):
         manifest = json.loads(manifest)
         try:
             validate_manifest(manifest, MEDIA_TYPE.MANIFEST_OCI, "")
+        except ManifestInvalid:
+            self.fail()
+
+
+class TestDockerManifestListSchema(TestCase):
+    """A test case for validating Docker manifest list JSON schema."""
+
+    def test_ryuk_manifest_list_with_oci_entries(self):
+        """
+        Validate a real Docker manifest list that references OCI image manifests.
+
+        testcontainers/ryuk:0.13.0 on Docker Hub publishes a Docker manifest list
+        containing both Docker v2 and OCI image manifest entries.
+        """
+        fixture_path = Path(__file__).parent / "fixtures" / "ryuk_0.13.0_manifest_list.json"
+        manifest = json.loads(fixture_path.read_text())
+        entry_media_types = {entry["mediaType"] for entry in manifest["manifests"]}
+
+        self.assertEqual(manifest["mediaType"], MEDIA_TYPE.MANIFEST_LIST)
+        self.assertIn(MEDIA_TYPE.MANIFEST_V2, entry_media_types)
+        self.assertIn(MEDIA_TYPE.MANIFEST_OCI, entry_media_types)
+
+        try:
+            validate_manifest(
+                manifest,
+                MEDIA_TYPE.MANIFEST_LIST,
+                "sha256:31b31269d06603366cbfd0284708dcd2e281e8a4188e53fce3d3304439d0df3d",
+            )
         except ManifestInvalid:
             self.fail()
