@@ -1,1 +1,0 @@
-Fixed the registry host in the flatpak index response when `CONTENT_ORIGIN=None`.
