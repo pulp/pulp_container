@@ -124,6 +124,7 @@ DOCKER_MANIFEST_LIST_V2_SCHEMA = {
                         "enum": [
                             MEDIA_TYPE.MANIFEST_V2,
                             MEDIA_TYPE.MANIFEST_V1,
+                            MEDIA_TYPE.MANIFEST_OCI,
                         ],
                     },
                     "size": {"type": "number"},
