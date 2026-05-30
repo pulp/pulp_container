@@ -8,6 +8,57 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.28.0 (2026-05-29) {: #2.28.0 }
+
+#### Features {: #2.28.0-feature }
+
+- Added support for syncing manifests by digest through new `includes` field on the remote.
+  [#1909](https://github.com/pulp/pulp_container/issues/1909)
+- Manifest data is now served directly from the registry API instead of issuing a redirect to the content app.
+  [#1974](https://github.com/pulp/pulp_container/issues/1974)
+- Added pulp_labels field to ContainerNamespace for labeling and organizing namespaces
+  [#2139](https://github.com/pulp/pulp_container/issues/2139)
+- Add a signature fingerprint to the ManifestSignature model for improved forwards compatibility with OpenPGP v6
+  [#2261](https://github.com/pulp/pulp_container/issues/2261)
+- When token auth is disabled, container registry API views now include
+  DEFAULT_AUTHENTICATION_CLASSES alongside RegistryAuthentication, allowing
+  deployments to use custom authentication backends.
+  [#2362](https://github.com/pulp/pulp_container/issues/2362)
+
+#### Bugfixes {: #2.28.0-bugfix }
+
+- Fix "Manifest matching query does not exist" error on container repo import.
+  [#2041](https://github.com/pulp/pulp_container/issues/2041)
+- Altered several id-fields and their related sequences.
+
+  INTEGER AutoField sequences can "run out" on large/old instances, update to BIGINT.
+  [#2080](https://github.com/pulp/pulp_container/issues/2080)
+- Fixed syncing of cosign signatures, attestations, and SBOMs (stored as companion tags) being silently skipped when `include_tags` was set on the remote.
+  [#2096](https://github.com/pulp/pulp_container/issues/2096)
+- Fixed the status code on successful ``PATCH`` on blob partial updates to be ``202``
+  as requested by the OCI spec.
+  [#2199](https://github.com/pulp/pulp_container/issues/2199)
+- Made ``plaform`` optional for ``manifests`` in the JSON schema for ``vnd.oci.image.index.v1+json``.
+  [#2200](https://github.com/pulp/pulp_container/issues/2200)
+- Don't blow up on encountering PQC signatures.
+  [#2237](https://github.com/pulp/pulp_container/issues/2237)
+- Changed the use of raw `hashlib` to `pulp_hashlib` to prevent `UnsupportedDigestmodError` on FIPS-enabled systems.
+  [#2256](https://github.com/pulp/pulp_container/issues/2256)
+- Fixed OS and architecture filters being silently ignored when filtering manifest lists in the flatpak index.
+- Fixed a cache key collision in the flatpak static index that could serve incorrect results across domains.
+- Fixed a serialization issue with the FlatpakIndex cache.
+- Fixed flatpak index response to include the domain prefix in image names when domains are enabled.
+- Fixed memory usage when pushing large images with monolithic upload.
+- Fixed the registry host in the flatpak index response when `CONTENT_ORIGIN=None`.
+- Support "atomic" replications in pulpcore 3.107
+- Take advantage of pulpcore's `ResourceBudget` feature which enables the sync pipeline to keep disk usage down without an excessive performance hit.
+
+#### Deprecations and Removals {: #2.28.0-removal }
+
+- Renamed `include_tags` and `exclude_tags` to `includes` and `excludes` on the remote.
+
+---
+
 ## 2.27.9 (2026-05-14) {: #2.27.9 }
 
 #### Bugfixes {: #2.27.9-bugfix }
