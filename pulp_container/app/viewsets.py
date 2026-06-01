@@ -169,26 +169,26 @@ class ContainerContentQuerySetMixin:
                     ):
                         repo_pks.append(repo.pk)
                 elif isinstance(repo, models.ContainerRepository):
-                    if request.user.has_perm(mirror_perm) or request.user.has_perm(
-                        mirror_perm, repo
+                    registry_pushed = (
+                        repo.remote_id is None and repo.distributions.exists()
+                    )
+                    if not registry_pushed and (
+                        request.user.has_perm(mirror_perm)
+                        or request.user.has_perm(mirror_perm, repo)
                     ):
                         repo_pks.append(repo.pk)
-                    elif (
-                        repo.remote_id is None
-                        and repo.distributions.exists()
-                        and (
-                            request.user.has_perm(push_perm)
-                            or any(
-                                request.user.has_perm(push_perm, dist.cast())
-                                or (
-                                    dist.cast().namespace
-                                    and request.user.has_perm(
-                                        "container.namespace_view_containerdistribution",
-                                        dist.cast().namespace,
-                                    )
+                    elif registry_pushed and (
+                        request.user.has_perm(push_perm)
+                        or any(
+                            request.user.has_perm(push_perm, dist.cast())
+                            or (
+                                dist.cast().namespace
+                                and request.user.has_perm(
+                                    "container.namespace_view_containerdistribution",
+                                    dist.cast().namespace,
                                 )
-                                for dist in repo.distributions.all()
                             )
+                            for dist in repo.distributions.all()
                         )
                     ):
                         repo_pks.append(repo.pk)
@@ -223,10 +223,15 @@ class ContainerContentQuerySetMixin:
                 )
             ).only("pk")
             domain = get_domain()
+            registry_pushed_repos = models.ContainerRepository.objects.filter(
+                pulp_domain=domain, remote_id__isnull=True
+            ).filter(distributions__isnull=False)
             allowed_mirror_repos = get_objects_for_user(
                 self.request.user,
                 mirror_perm,
-                models.ContainerRepository.objects.filter(pulp_domain=domain),
+                models.ContainerRepository.objects.filter(pulp_domain=domain).exclude(
+                    pk__in=registry_pushed_repos
+                ),
             ).only("pk")
             allowed_distributed_container_repos = models.ContainerRepository.objects.filter(
                 distributions__in=get_objects_for_user(

@@ -132,14 +132,14 @@ def test_rbac_repository_content(
         assert container_bindings.ContentTagsApi.list(repository_version=repository_rv).count == 9
 
     with user_reader2:
-        assert container_bindings.ContentTagsApi.list().count == 11
+        assert container_bindings.ContentTagsApi.list().count == 9
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository1_rv).count
-            == 1
+            == 0
         )
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository2_rv).count
-            == 1
+            == 0
         )
         assert container_bindings.ContentTagsApi.list(repository_version=repository_rv).count == 9
 
