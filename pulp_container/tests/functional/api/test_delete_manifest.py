@@ -130,5 +130,5 @@ def test_delete_manifest_without_login(
     delete_path = f"/v2/{full_path(repo_name)}/manifests/{digest}"
     url = urljoin(bindings_cfg.host, delete_path)
     with anonymous_user:
-        response = requests.delete(url)
+        response = requests.delete(url, trust_env=False)
     assert response.status_code == 401
