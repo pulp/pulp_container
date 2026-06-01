@@ -618,14 +618,15 @@ def test_blob_upload_status(local_registry, container_bindings, full_path, add_t
     upload_uuid = response.headers["Docker-Upload-UUID"]
     location = response.headers["Location"]
 
-    response, _ = local_registry.get_response("GET", location, auth=auth)
+    status_url = urljoin(container_bindings.client.configuration.host, location)
+    response = requests.get(status_url, auth=auth)
     response.raise_for_status()
     assert response.status_code == 204
     assert response.headers["Docker-Upload-UUID"] == upload_uuid
     assert response.headers["Range"] == "0-0"
     assert response.headers["Content-Length"] == "0"
 
-    response, _ = local_registry.get_response("HEAD", location, auth=auth)
+    response = requests.head(status_url, auth=auth)
     response.raise_for_status()
     assert response.status_code == 204
     assert response.headers["Docker-Upload-UUID"] == upload_uuid
