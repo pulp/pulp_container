@@ -1339,7 +1339,10 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         _, repository = self.get_dr_push(request, path)
         latest_version = repository.latest_version()
 
+        tags = models.Tag.objects.filter(tagged_manifest__digest=pk, pk__in=latest_version.content)
         manifest = models.Manifest.objects.filter(digest=pk, pk__in=latest_version.content).first()
+        if not manifest and tags.exists():
+            manifest = tags.first().tagged_manifest
         if not manifest:
             pending_manifest = repository.pending_manifests.filter(digest=pk).first()
             if pending_manifest:
