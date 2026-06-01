@@ -1,7 +1,5 @@
 """Tests for deleting blobs via the Docker v2 API."""
 
-import pytest
-
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
 
