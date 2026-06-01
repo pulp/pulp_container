@@ -1,10 +1,8 @@
 """Tests for deleting manifests via the Docker v2 API."""
 
 import time
-from urllib.parse import urljoin
 
 import pytest
-import requests
 
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
@@ -104,14 +102,13 @@ def test_delete_manifest_not_found(
 
 def test_delete_manifest_without_login(
     add_to_cleanup,
-    anonymous_user,
-    bindings_cfg,
+    gen_user,
     container_bindings,
     full_path,
     local_registry,
     registry_client,
 ):
-    """Delete requires authentication."""
+    """Delete requires push permissions on the namespace."""
     repo_name = "delete/unauth"
     local_url = full_path(f"{repo_name}:manifest_a")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
@@ -128,7 +125,7 @@ def test_delete_manifest_without_login(
     digest = container_bindings.ContentManifestsApi.read(manifest_href).digest
 
     delete_path = f"/v2/{full_path(repo_name)}/manifests/{digest}"
-    url = urljoin(bindings_cfg.host, delete_path)
-    with anonymous_user:
-        response = requests.delete(url, trust_env=False)
+    user_helpless = gen_user()
+    with user_helpless:
+        response, _ = local_registry.get_response("DELETE", delete_path)
     assert response.status_code == 401
