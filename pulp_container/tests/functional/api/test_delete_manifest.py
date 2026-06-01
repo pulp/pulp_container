@@ -1,6 +1,6 @@
 """Tests for deleting manifests via the Docker v2 API."""
 
-import subprocess
+import time
 
 import pytest
 
@@ -24,15 +24,22 @@ def test_delete_manifest_by_digest(
     namespace = container_bindings.PulpContainerNamespacesApi.list(name="delete").results[0]
     add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
-    local_image = local_registry.inspect(f"{local_registry.name}/{local_url}")
-    digest = local_image[0]["Digest"]
+    head_path = f"/v2/{full_path(repo_name)}/manifests/manifest_a"
+    response, _ = local_registry.get_response("HEAD", head_path)
+    assert response.status_code == 200
+    digest = response.headers["Docker-Content-Digest"]
 
     delete_path = f"/v2/{full_path(repo_name)}/manifests/{digest}"
     response, _ = local_registry.get_response("DELETE", delete_path)
     assert response.status_code == 202
 
-    with pytest.raises(subprocess.CalledProcessError):
-        local_registry.pull(f"{local_registry.name}/{full_path(repo_name)}:manifest_a")
+    for _ in range(60):
+        response, _ = local_registry.get_response("HEAD", head_path)
+        if response.status_code == 404:
+            break
+        time.sleep(1)
+    else:
+        pytest.fail("Manifest was not removed from the repository")
 
 
 def test_delete_manifest_by_tag_rejected(
