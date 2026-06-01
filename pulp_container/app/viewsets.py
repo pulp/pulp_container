@@ -169,9 +169,7 @@ class ContainerContentQuerySetMixin:
                     ):
                         repo_pks.append(repo.pk)
                 elif isinstance(repo, models.ContainerRepository):
-                    registry_pushed = (
-                        repo.remote_id is None and repo.distributions.exists()
-                    )
+                    registry_pushed = repo.remote_id is None and repo.distributions.exists()
                     if not registry_pushed and (
                         request.user.has_perm(mirror_perm)
                         or request.user.has_perm(mirror_perm, repo)
