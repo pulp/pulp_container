@@ -440,7 +440,11 @@ def container_push_repository_factory(container_bindings):
         kwargs = {"name": name}
         if "pulp_domain" in body:
             kwargs["pulp_domain"] = pulp_domain
-        return container_bindings.RepositoriesContainerPushApi.list(**kwargs).results[0]
+        # Orphan legacy push repos have no distribution until the first registry push.
+        listed = container_bindings.RepositoriesContainerPushApi.list(**kwargs)
+        if listed.results:
+            return listed.results[0]
+        return None
 
     return _container_push_repository_factory
 

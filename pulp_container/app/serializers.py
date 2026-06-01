@@ -984,7 +984,12 @@ class RepositorySignSerializer(ValidateFieldsMixin, serializers.Serializer):
                 }
             )
 
-        if repository.PUSH_ENABLED:
+        registry_push = repository.PUSH_ENABLED or (
+            isinstance(repository, models.ContainerRepository)
+            and not repository.remote
+            and repository.distributions.exists()
+        )
+        if registry_push:
             if "future_base_path" in data:
                 raise serializers.ValidationError(
                     {

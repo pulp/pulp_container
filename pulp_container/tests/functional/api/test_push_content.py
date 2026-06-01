@@ -404,6 +404,7 @@ def test_push_matching_username(
 
 
 def test_push_to_existing_regular_repository(
+    add_to_cleanup,
     container_repository_factory,
     local_registry,
     registry_client,
@@ -421,6 +422,11 @@ def test_push_to_existing_regular_repository(
     repository = container_bindings.RepositoriesContainerApi.read(repository.pulp_href)
     tags = container_bindings.ContentTagsApi.list(repository_version=repository.latest_version_href)
     assert tags.count == 1
+
+    distribution = container_bindings.DistributionsContainerApi.list(name="foo").results[0]
+    add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
+    namespace = container_bindings.PulpContainerNamespacesApi.read(distribution.namespace)
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
 
 def test_push_to_existing_push_repository(
