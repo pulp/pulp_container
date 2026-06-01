@@ -1226,6 +1226,34 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 raise BlobNotFound(digest=pk)
         return blob_url
 
+    def destroy(self, request, path, pk=None):
+        """
+        Delete a blob identified by digest.
+        """
+        if not pk.startswith("sha256:"):
+            raise InvalidRequest(message="A blob can only be deleted by digest.")
+
+        _, repository = self.get_dr_push(request, path)
+        latest_version = repository.latest_version()
+
+        if blob := models.Blob.objects.filter(digest=pk, pk__in=latest_version.content).first():
+            dispatch(
+                aadd_and_remove,
+                exclusive_resources=[repository],
+                kwargs={
+                    "repository_pk": str(repository.pk),
+                    "add_content_units": [],
+                    "remove_content_units": [str(blob.pk)],
+                },
+                immediate=True,
+                deferred=True,
+            )
+        elif pending_blob := repository.pending_blobs.filter(digest=pk).first():
+            repository.pending_blobs.remove(pending_blob)
+        else:
+            raise BlobNotFound(digest=pk)
+        return Response(status=202)
+
 
 class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
     """
