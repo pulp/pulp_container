@@ -73,7 +73,7 @@ from pulp_container.app.redirects import (
     FileStorageRedirects,
     S3StorageRedirects,
 )
-from pulp_container.app.tasks import aadd_and_remove, download_image_data
+from pulp_container.app.tasks import aadd_and_remove, download_image_data, recursive_remove_content
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
     RegistryPermission,
@@ -1184,6 +1184,34 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             if response.headers.get("docker-content-digest") != pk:
                 raise BlobNotFound(digest=pk)
         return blob_url
+
+    def destroy(self, request, path, pk=None):
+        """
+        Delete a blob identified by digest.
+        """
+        if not pk.startswith("sha256:"):
+            raise InvalidRequest(message="A blob can only be deleted by digest.")
+
+        _, repository = self.get_dr_push(request, path)
+        latest_version = repository.latest_version()
+
+        blob = models.Blob.objects.filter(digest=pk, pk__in=latest_version.content).first()
+        if not blob:
+            pending_blob = repository.pending_blobs.filter(digest=pk).first()
+            if pending_blob:
+                repository.pending_blobs.remove(pending_blob)
+                return Response(status=202)
+            raise BlobNotFound(digest=pk)
+
+        dispatch(
+            recursive_remove_content,
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "content_units": [str(blob.pk)],
+            },
+        )
+        return Response(status=202)
 
 
 class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
