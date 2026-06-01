@@ -173,7 +173,7 @@ class ContainerContentQuerySetMixin:
                         mirror_perm, repo
                     ):
                         repo_pks.append(repo.pk)
-                    elif any(
+                    elif request.user.has_perm(push_perm) or any(
                         request.user.has_perm(push_perm, dist.cast())
                         or (
                             dist.cast().namespace
