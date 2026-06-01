@@ -173,18 +173,22 @@ class ContainerContentQuerySetMixin:
                         mirror_perm, repo
                     ):
                         repo_pks.append(repo.pk)
-                    elif not repo.remote and (
-                        request.user.has_perm(push_perm)
-                        or any(
-                            request.user.has_perm(push_perm, dist.cast())
-                            or (
-                                dist.cast().namespace
-                                and request.user.has_perm(
-                                    "container.namespace_view_containerdistribution",
-                                    dist.cast().namespace,
+                    elif (
+                        repo.remote_id is None
+                        and repo.distributions.exists()
+                        and (
+                            request.user.has_perm(push_perm)
+                            or any(
+                                request.user.has_perm(push_perm, dist.cast())
+                                or (
+                                    dist.cast().namespace
+                                    and request.user.has_perm(
+                                        "container.namespace_view_containerdistribution",
+                                        dist.cast().namespace,
+                                    )
                                 )
+                                for dist in repo.distributions.all()
                             )
-                            for dist in repo.distributions.all()
                         )
                     ):
                         repo_pks.append(repo.pk)
