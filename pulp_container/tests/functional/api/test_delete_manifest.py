@@ -6,16 +6,24 @@ from urllib.parse import urljoin
 import pytest
 import requests
 
-from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
+from pulp_container.tests.functional.constants import (
+    PULP_FIXTURE_1_MANIFEST_A_DIGEST,
+    REGISTRY_V2_REPO_PULP,
+)
 
 
-def _wait_for_manifest_head(local_registry, head_path, expected_status, timeout=60):
+def _wait_for_tag(container_bindings, repository_href, tag_name, present, timeout=60):
     for _ in range(timeout):
-        response, _ = local_registry.get_response("HEAD", head_path)
-        if response.status_code == expected_status:
-            return response
+        repository = container_bindings.RepositoriesContainerPushApi.read(repository_href)
+        tags = container_bindings.ContentTagsApi.list(
+            name=tag_name, repository_version=repository.latest_version_href
+        )
+        if bool(tags.results) == present:
+            return
         time.sleep(1)
-    pytest.fail(f"Manifest HEAD did not return {expected_status}")
+    if present:
+        pytest.fail(f"Tag '{tag_name}' was not available in the repository")
+    pytest.fail(f"Tag '{tag_name}' was not removed from the repository")
 
 
 def test_delete_manifest_by_digest(
@@ -35,15 +43,14 @@ def test_delete_manifest_by_digest(
     namespace = container_bindings.PulpContainerNamespacesApi.list(name="delete").results[0]
     add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
-    head_path = f"/v2/{full_path(repo_name)}/manifests/manifest_a"
-    response = _wait_for_manifest_head(local_registry, head_path, 200)
-    digest = response.headers["Docker-Content-Digest"]
+    repository = container_bindings.RepositoriesContainerPushApi.list(name=repo_name).results[0]
+    _wait_for_tag(container_bindings, repository.pulp_href, "manifest_a", present=True)
 
-    delete_path = f"/v2/{full_path(repo_name)}/manifests/{digest}"
+    delete_path = f"/v2/{full_path(repo_name)}/manifests/{PULP_FIXTURE_1_MANIFEST_A_DIGEST}"
     response, _ = local_registry.get_response("DELETE", delete_path)
     assert response.status_code == 202
 
-    _wait_for_manifest_head(local_registry, head_path, 404)
+    _wait_for_tag(container_bindings, repository.pulp_href, "manifest_a", present=False)
 
 
 def test_delete_manifest_by_tag_rejected(
