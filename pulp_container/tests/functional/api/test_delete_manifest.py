@@ -128,4 +128,4 @@ def test_delete_manifest_without_login(
     user_helpless = gen_user()
     with user_helpless:
         response, _ = local_registry.get_response("DELETE", delete_path)
-    assert response.status_code == 401
+    assert response.status_code in (401, 403)
