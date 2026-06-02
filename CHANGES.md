@@ -163,7 +163,6 @@ No significant changes.
 
 #### Misc {: #2.27.0-misc }
 
-- 
 
 ---
 
@@ -300,6 +299,8 @@ No significant changes.
 
 ## 2.26.0 (2025-08-14) {: #2.26.0 }
 
+**WARNING:** If your installation pre-dates pulp_container 2.20, make sure that you run `pulpcore-manager container-handle-image-data` before upgrading to (or past) this release. If your installation began after pulp_container 2.20, or if you have already run this command at some point, this is not necessary.
+
 #### Features {: #2.26.0-feature }
 
 - Bump pulpcore upperbound to <3.100. pulp_container is now a Python >=3.11 project.
@@ -336,6 +337,8 @@ No significant changes.
 ---
 
 ## 2.25.0 (2025-04-15) {: #2.25.0 }
+
+**WARNING:** If your installation pre-dates pulp_container 2.20, make sure that you run `pulpcore-manager container-handle-image-data` before upgrading to (or past) this release. If your installation began after pulp_container 2.20, or if you have already run this command at some point, this is not necessary.
 
 #### Features {: #2.25.0-feature }
 
@@ -757,6 +760,8 @@ No significant changes.
 
 ## 2.20.0 (2024-05-06) {: #2.20.0 }
 
+**NOTICE:** If you are upgrading from a previous version of pulp_container, make sure that you run `pulpcore-manager container-handle-image-data` at some point before or shortly after upgrading. This is required in order to complete the transition away from storing Manifest data as artifacts. This must be done to avoid the potential for issues with later releases of pulp_container.
+
 ### Features
 
 -   Updated the Manifest model to no longer rely on artifacts, storing all manifest data internally
@@ -785,7 +790,7 @@ No significant changes.
 
 ### Misc
 
--   
+-
 
 ---
 
