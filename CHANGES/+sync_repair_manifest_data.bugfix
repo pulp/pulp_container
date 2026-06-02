@@ -1,0 +1,1 @@
+Add transparent repair code during Manifest sync to redownload the raw data in case it was lost during an upgrade.
