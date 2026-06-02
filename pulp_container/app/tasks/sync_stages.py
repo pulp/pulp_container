@@ -87,7 +87,15 @@ class ContainerFirstStage(Stage):
             digest=digest, pulp_domain=get_domain()
         ).afirst():
             raw_text_data = manifest.data
-            content_data = json.loads(raw_text_data)
+            if raw_text_data is None:
+                # This situation allegedly happens on some upgrade paths.
+                # A migration should mark the field not Null eventually. At that point this
+                # workaround can be removed.
+                content_data, raw_text_data, _ = await self._download_manifest_data(response.url)
+                manifest.data = raw_text_data
+                await manifest.asave()
+            else:
+                content_data = json.loads(raw_text_data)
         else:
             content_data, raw_text_data, response = await self._download_manifest_data(response.url)
 
@@ -502,6 +510,8 @@ class ContainerFirstStage(Stage):
 
         """
         digest = manifest_data["digest"]
+        # in oci-index spec, platform is an optional field
+        platform = manifest_data.get("platform", None)
         relative_url = "/v2/{name}/manifests/{digest}".format(
             name=self.remote.namespaced_upstream_name, digest=digest
         )
@@ -510,15 +520,30 @@ class ContainerFirstStage(Stage):
         if manifest := await Manifest.objects.filter(
             digest=digest, pulp_domain=get_domain()
         ).afirst():
-            content_data = json.loads(manifest.data)
-
-        content_data, manifest = await self._download_and_instantiate_manifest(manifest_url, digest)
-
-        # in oci-index spec, platform is an optional field
-        platform = manifest_data.get("platform", None)
-        if platform:
-            manifest.os = platform["os"]
-            manifest.architecture = platform["architecture"]
+            raw_text_data = manifest.data
+            if raw_text_data is None:
+                # This situation allegedly happens on some upgrade paths.
+                # A migration should mark the field not Null eventually. At that point this
+                # workaround can be removed.
+                content_data, raw_text_data, response = await self._download_manifest_data(
+                    manifest_url
+                )
+                media_type = determine_media_type(content_data, response)
+                validate_manifest(content_data, media_type, digest)
+                manifest.data = raw_text_data
+                if platform:
+                    manifest.os = platform["os"]
+                    manifest.architecture = platform["architecture"]
+                await manifest.asave()
+            else:
+                content_data = json.loads(raw_text_data)
+        else:
+            content_data, manifest = await self._download_and_instantiate_manifest(
+                manifest_url, digest
+            )
+            if platform:
+                manifest.os = platform["os"]
+                manifest.architecture = platform["architecture"]
         man_dc = DeclarativeContent(content=manifest)
         return {"manifest_dc": man_dc, "platform": platform, "content_data": content_data}
 
