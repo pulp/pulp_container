@@ -10,6 +10,8 @@ from aiohttp.client_exceptions import ClientResponseError
 
 from pulpcore.plugin.download import DownloaderFactory, HttpDownloader
 
+from pulp_container.constants import V2_ACCEPT_HEADERS
+
 log = getLogger(__name__)
 
 HeadResult = namedtuple(
@@ -51,7 +53,11 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             handle_401(bool): If true, catch 401, request a new token and retry.
 
         """
-        headers = {}
+        # manifests are header sensitive, blobs do not care
+        # these accept headers are going to be sent with every request to ensure downloader
+        # can download manifests, namely in the repair core task
+        # FIXME this can be rolledback after https://github.com/pulp/pulp_container/issues/1288
+        headers = V2_ACCEPT_HEADERS
         repo_name = None
         if extra_data is not None:
             headers = extra_data.get("headers", headers)
