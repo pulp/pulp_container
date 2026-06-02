@@ -1,4 +1,4 @@
-from contextlib import suppress
+from collections import defaultdict
 from gettext import gettext as _
 from json.decoder import JSONDecodeError
 
@@ -8,6 +8,7 @@ from django.core.management import BaseCommand
 from django.db.models import Q
 
 from pulpcore.plugin.cache import SyncContentCache
+from pulpcore.plugin.util import get_url
 
 from pulp_container.app.models import ContainerDistribution, Manifest
 from pulp_container.app.utils import get_content_data
@@ -34,6 +35,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         manifests_updated_count = 0
+        self._broken_manifests = []
 
         manifests_v1 = Manifest.objects.filter(
             Q(media_type=MEDIA_TYPE.MANIFEST_V1),
@@ -68,6 +70,23 @@ class Command(BaseCommand):
             self.style.SUCCESS("Successfully updated %d manifests." % manifests_updated_count)
         )
 
+        if self._broken_manifests:
+            self.stdout.write(
+                self.style.WARNING("Found %d broken manifests." % len(self._broken_manifests))
+            )
+            broken_by_repo = defaultdict(list)
+            for manifest in self._broken_manifests:
+                repos = manifest.repositories.all()
+                if repos:
+                    for repo in repos:
+                        broken_by_repo[get_url(repo)].append(get_url(manifest))
+                else:
+                    broken_by_repo["orphaned"].append(get_url(manifest))
+            for repo_url, manifests in broken_by_repo.items():
+                self.stdout.write(self.style.WARNING("  %s" % repo_url))
+                for manifest_url in manifests:
+                    self.stdout.write(self.style.WARNING("    %s" % manifest_url))
+
         if settings.CACHE_ENABLED and manifests_updated_count != 0:
             base_paths = ContainerDistribution.objects.values_list("base_path", flat=True)
             if base_paths:
@@ -91,11 +110,13 @@ class Command(BaseCommand):
         ]
 
         for manifest in manifests_qs.iterator():
-            # suppress non-existing/already migrated artifacts and corrupted JSON files
-            with suppress(ObjectDoesNotExist, JSONDecodeError):
+            try:
                 needs_update = self.init_manifest(manifest)
-                if needs_update:
-                    manifests_to_update.append(manifest)
+            except (ObjectDoesNotExist, JSONDecodeError):
+                self._broken_manifests.append(manifest)
+                continue
+            if needs_update:
+                manifests_to_update.append(manifest)
 
             if len(manifests_to_update) > 1000:
                 manifests_qs.model.objects.bulk_update(
