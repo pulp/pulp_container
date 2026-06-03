@@ -167,6 +167,14 @@ No significant changes.
 
 ---
 
+## 2.26.15 (2026-06-02) {: #2.26.15 }
+
+#### Bugfixes {: #2.26.15-bugfix }
+
+- Readded backwards compatibility for manifests that haven't been migrated to new data field. Sync will try to update them to the new format and repair manifests that are missing their artifact, but it is recommended that you run the `pulpcore-manager container-handle-image-data` command to fix all manifests at once. The command has been updated to report broken manifests by repository. Broken manifests in pushed repositories need to be deleted and re-pushed.
+
+---
+
 ## 2.26.14 (2026-05-14) {: #2.26.14 }
 
 #### Bugfixes {: #2.26.14-bugfix }
