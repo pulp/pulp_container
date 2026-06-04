@@ -41,9 +41,5 @@ class Migration(migrations.Migration):
             name='os',
             field=models.TextField(blank=True, default=''),
         ),
-        migrations.RunPython(
-            print_warning_for_updating_manifest_fields,
-            reverse_code=migrations.RunPython.noop,
-            elidable=True,
-        ),
+        # Will update the os, architecture, and compressed_image_size in migration 45
     ]
