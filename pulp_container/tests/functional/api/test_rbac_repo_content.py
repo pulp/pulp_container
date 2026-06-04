@@ -1,7 +1,7 @@
 """Tests that verify that RBAC for content works properly."""
 
 import pytest
-
+import uuid
 from pulpcore.client.pulp_container import SetLabel, UnsetLabel
 from pulpcore.client.pulp_container.exceptions import ForbiddenException
 
@@ -38,20 +38,14 @@ def test_rbac_repository_content(
             "container.containerremote_creator",
         ]
     )
-    user_reader = gen_user(
-        model_roles=[
-            "container.containerrepository_viewer",
-            "container.containerdistribution_consumer",
-        ]
-    )
-    user_reader2 = gen_user(model_roles=["container.containerrepository_viewer"])
-    user_reader3 = gen_user(model_roles=["container.containerdistribution_consumer"])
+    user_reader = gen_user(model_roles=["container.containerrepository_viewer"])
+    user_reader2 = gen_user(model_roles=["container.containerdistribution_consumer"])
     user_helpless = gen_user()
 
     # create a first pushed container repo with user_creator
     image_path1 = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path1)
-    repo_name1 = "testcontent1/perms"
+    repo_name1 = f"{uuid.uuid4()}/perms"
     local_url1 = full_path(f"{repo_name1}:1.0")
     with user_creator:
         local_registry.tag_and_push(image_path1, local_url1)
@@ -64,7 +58,7 @@ def test_rbac_repository_content(
     # create a second pushed container repo with user_creator2
     image_path2 = f"{REGISTRY_V2_REPO_PULP}:manifest_b"
     registry_client.pull(image_path2)
-    repo_name2 = "testcontent2/perms"
+    repo_name2 = f"{uuid.uuid4()}/perms"
     local_url2 = full_path(f"{repo_name2}:1.0")
     with user_creator2:
         local_registry.tag_and_push(image_path2, local_url2)
@@ -73,7 +67,12 @@ def test_rbac_repository_content(
         ).results[0]
     distribution2 = container_bindings.DistributionsContainerApi.list(name=repo_name2).results[0]
     add_to_cleanup(container_bindings.PulpContainerNamespacesApi, distribution2.namespace)
-
+    # update the distribution to make it private
+    with user_creator2:
+        task = container_bindings.DistributionsContainerApi.partial_update(
+            distribution2.pulp_href, {"private": True}
+        )
+        monitor_task(task.task)
     # sync a repo with user_creator
     with user_creator:
         remote = container_remote_factory(upstream_name=PULP_FIXTURE_1)
@@ -95,7 +94,9 @@ def test_rbac_repository_content(
         repository.pulp_href
     ).latest_version_href
 
+    # Any repo with a distribution that is not private is public and can be viewed by anyone
     with user_creator:
+        # Their push repo (public) and their synced repo (1 + 9)
         assert container_bindings.ContentTagsApi.list().count == 10
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository1_rv).count
@@ -108,10 +109,11 @@ def test_rbac_repository_content(
         assert container_bindings.ContentTagsApi.list(repository_version=repository_rv).count == 9
 
     with user_creator2:
-        assert container_bindings.ContentTagsApi.list().count == 1
+        # Their push repo (private) and the public push repo of user 1 (1 + 1)
+        assert container_bindings.ContentTagsApi.list().count == 2
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository1_rv).count
-            == 0
+            == 1
         )
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository2_rv).count
@@ -120,6 +122,7 @@ def test_rbac_repository_content(
         assert container_bindings.ContentTagsApi.list(repository_version=repository_rv).count == 0
 
     with user_reader:
+        # Model level repo permission allows viewing any repo content (1 + 1 + 9)
         assert container_bindings.ContentTagsApi.list().count == 11
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository1_rv).count
@@ -132,18 +135,7 @@ def test_rbac_repository_content(
         assert container_bindings.ContentTagsApi.list(repository_version=repository_rv).count == 9
 
     with user_reader2:
-        assert container_bindings.ContentTagsApi.list().count == 9
-        assert (
-            container_bindings.ContentTagsApi.list(repository_version=push_repository1_rv).count
-            == 0
-        )
-        assert (
-            container_bindings.ContentTagsApi.list(repository_version=push_repository2_rv).count
-            == 0
-        )
-        assert container_bindings.ContentTagsApi.list(repository_version=repository_rv).count == 9
-
-    with user_reader3:
+        # Model level distro permission allows viewing any distro content (1 + 1)
         assert container_bindings.ContentTagsApi.list().count == 2
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository1_rv).count
@@ -156,10 +148,11 @@ def test_rbac_repository_content(
         assert container_bindings.ContentTagsApi.list(repository_version=repository_rv).count == 0
 
     with user_helpless:
-        assert container_bindings.ContentTagsApi.list().count == 0
+        # No permissions so only public repos are visible (1)
+        assert container_bindings.ContentTagsApi.list().count == 1
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository1_rv).count
-            == 0
+            == 1
         )
         assert (
             container_bindings.ContentTagsApi.list(repository_version=push_repository2_rv).count
@@ -170,18 +163,16 @@ def test_rbac_repository_content(
     # Test that users can read specific content if they have enough permissions.
 
     pushed_tag = container_bindings.ContentTagsApi.list(
-        repository_version_added=push_repository1.latest_version_href
+        repository_version_added=push_repository2_rv
     ).results[0]
     container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
-    with user_creator:
+    with user_creator, pytest.raises(container_bindings.ApiException):
         container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
-    with user_creator2, pytest.raises(container_bindings.ApiException):
+    with user_creator2:
         container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
     with user_reader:
         container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
-    with user_reader2, pytest.raises(container_bindings.ApiException):
-        container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
-    with user_reader3:
+    with user_reader2:
         container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
     with user_helpless, pytest.raises(container_bindings.ApiException):
         container_bindings.ContentTagsApi.read(pushed_tag.pulp_href)
