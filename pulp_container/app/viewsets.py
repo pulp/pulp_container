@@ -7,13 +7,12 @@ Check `Plugin Writer's Guide`_ for more details.
 
 import logging
 
-from django.db.models import Q
 from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 from rest_framework.decorators import action
 
-from pulpcore.plugin.models import Content, PulpTemporaryFile, RepositoryVersion
+from pulpcore.plugin.models import Content, PulpTemporaryFile
 from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
 from pulpcore.plugin.tasking import dispatch, general_multi_delete
 from pulpcore.plugin.util import (
@@ -180,7 +179,7 @@ def repository_deleted_with_distribution(distribution):
 
 def get_viewable_repositories(user, ns_perm, dist_perm, repo_perm=None, domain=None):
     """
-    For a given user and namespace, distribution and repository permissions, return a set of 
+    For a given user and namespace, distribution and repository permissions, return a set of
     repository pks that the user can view.
     """
     domain = domain or get_domain()
@@ -211,7 +210,12 @@ def get_viewable_repositories(user, ns_perm, dist_perm, repo_perm=None, domain=N
     else:
         # PushContainerRepository case
         direct_repository_pks = set()
-    return set(ns_repository_pks) | set(dist_repository_pks) | set(public_repository_pks) | set(direct_repository_pks)
+    return (
+        set(ns_repository_pks)
+        | set(dist_repository_pks)
+        | set(public_repository_pks)
+        | set(direct_repository_pks)
+    )
 
 
 class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
@@ -809,7 +813,9 @@ class ContainerRepositoryViewSet(
         """
         domain = get_domain()
         qs = models.ContainerRepository.objects.filter(pulp_domain=domain)
-        return qs.filter(pk__in=get_viewable_repositories(self.request.user, ns_perm, dist_perm, repo_perm))
+        return qs.filter(
+            pk__in=get_viewable_repositories(self.request.user, ns_perm, dist_perm, repo_perm)
+        )
 
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.

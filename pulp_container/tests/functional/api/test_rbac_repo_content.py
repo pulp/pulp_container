@@ -1,7 +1,9 @@
 """Tests that verify that RBAC for content works properly."""
 
-import pytest
 import uuid
+
+import pytest
+
 from pulpcore.client.pulp_container import SetLabel, UnsetLabel
 from pulpcore.client.pulp_container.exceptions import ForbiddenException
 
