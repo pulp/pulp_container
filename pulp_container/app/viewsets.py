@@ -147,11 +147,10 @@ class ContainerContentQuerySetMixin:
             allowed to see based on the repo permissions.
 
         """
-        has_model_ns_perm = self.request.user.has_perm(ns_perm)
-        has_model_dist_perm = self.request.user.has_perm(dist_perm)
-        has_model_repo_perm = self.request.user.has_perm(repo_perm)
         # this will show also orphaned content
-        if has_model_ns_perm or (has_model_dist_perm and has_model_repo_perm):
+        if self.request.user.has_perm(ns_perm) or (
+            self.request.user.has_perm(dist_perm) and self.request.user.has_perm(repo_perm)
+        ):
             return qs
 
         repository_pks = get_viewable_repositories(self.request.user, ns_perm, dist_perm, repo_perm)
@@ -164,7 +163,7 @@ def repository_deleted_with_distribution(distribution):
     Return (repository, serializer_name) when a distribution delete should also delete its repo.
 
     Push repositories are always removed with their distribution. Container repositories created
-    during a registry push (no remote, single distribution) follow the same lifecycle.
+    during a registry push (single distribution) follow the same lifecycle.
     """
     if not distribution.repository:
         return None
@@ -811,11 +810,8 @@ class ContainerRepositoryViewSet(
         Mirrors push repository scoping so registry-pushed repositories remain visible to
         distribution and namespace role holders.
         """
-        domain = get_domain()
-        qs = models.ContainerRepository.objects.filter(pulp_domain=domain)
-        return qs.filter(
-            pk__in=get_viewable_repositories(self.request.user, ns_perm, dist_perm, repo_perm)
-        )
+        viewable_repos = get_viewable_repositories(self.request.user, ns_perm, dist_perm, repo_perm)
+        return qs.filter(pk__in=viewable_repos)
 
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.
@@ -1221,8 +1217,6 @@ class ContainerPushRepositoryViewSet(
         Returns a queryset by filtering by namespace permission to view distributions and
         distribution level permissions.
         """
-        domain = get_domain()
-        qs = models.ContainerPushRepository.objects.filter(pulp_domain=domain)
         return qs.filter(pk__in=get_viewable_repositories(self.request.user, ns_perm, dist_perm))
 
 

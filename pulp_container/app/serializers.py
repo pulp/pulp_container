@@ -984,17 +984,13 @@ class RepositorySignSerializer(ValidateFieldsMixin, serializers.Serializer):
                 }
             )
 
-        registry_push = repository.PUSH_ENABLED or (
-            isinstance(repository, models.ContainerRepository)
-            and not repository.remote
-            and repository.distributions.exists()
-        )
-        if registry_push:
+        distro_count = repository.distributions.count()
+        if distro_count == 1:
             if "future_base_path" in data:
                 raise serializers.ValidationError(
                     {
                         "future_base_path": _(
-                            "This field cannot be set since this is a push repo type."
+                            "This field cannot be set since this repo has a single distribution."
                         )
                     }
                 )
@@ -1004,7 +1000,7 @@ class RepositorySignSerializer(ValidateFieldsMixin, serializers.Serializer):
                 raise serializers.ValidationError(
                     {
                         "future_base_path": _(
-                            "This field is required since this is a sync repo type."
+                            "This field is required since this repo has zero or multiple distributions."
                         )
                     }
                 )
