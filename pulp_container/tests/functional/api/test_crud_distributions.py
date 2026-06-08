@@ -2,23 +2,22 @@
 
 import json
 import unittest
-
 from itertools import permutations
 
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.utils import gen_distribution
 
-from pulp_container.tests.functional.utils import (
-    skip_if,
-    gen_container_client,
-)
-
 from pulpcore.client.pulp_container import (
     ApiException,
     ContainerContainerDistribution,
     DistributionsContainerApi,
     PulpContainerNamespacesApi,
+)
+
+from pulp_container.tests.functional.utils import (
+    gen_container_client,
+    skip_if,
 )
 
 

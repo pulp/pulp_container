@@ -1,17 +1,16 @@
 """Tests that container remotes have RBAC."""
 
 from random import choice
+
 import pytest
-
 from django.conf import settings
-
 from pulp_smash import utils
 from pulp_smash.pulp3.bindings import monitor_task
 from pulp_smash.pulp3.constants import ON_DEMAND_DOWNLOAD_POLICIES
 
-from pulp_container.tests.functional.utils import gen_container_remote
-
 from pulpcore.client.pulp_container.exceptions import ApiException
+
+from pulp_container.tests.functional.utils import gen_container_remote
 
 
 @pytest.mark.parallel

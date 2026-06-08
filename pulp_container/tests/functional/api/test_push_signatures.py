@@ -2,10 +2,11 @@
 
 import base64
 import json
+
 import pytest
 
-from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 from pulp_container.constants import SIGNATURE_TYPE
+from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
 
 @pytest.fixture

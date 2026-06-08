@@ -1,6 +1,7 @@
 from aiohttp import web
 
 from pulpcore.plugin.content import app
+
 from pulp_container.app.registry import Registry
 
 registry = Registry()
