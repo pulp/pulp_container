@@ -1,5 +1,4 @@
 import json
-
 from gettext import gettext as _
 
 from django.conf import settings
@@ -7,9 +6,8 @@ from django.core.management import BaseCommand
 
 from pulpcore.plugin.cache import SyncContentCache
 
-from pulp_container.app.models import Manifest, ContainerDistribution
+from pulp_container.app.models import ContainerDistribution, Manifest
 from pulp_container.app.utils import determine_media_type_from_json
-
 from pulp_container.constants import MEDIA_TYPE
 
 
