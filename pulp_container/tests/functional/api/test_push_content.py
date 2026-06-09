@@ -605,3 +605,31 @@ class TestPushManifestList:
         assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
         assert manifest_list.schema_version == 2
         assert manifest_list.listed_manifests == []
+
+
+def test_blob_upload_status(local_registry, container_bindings, full_path, add_to_cleanup):
+    """Test GET blob upload status returns current upload progress."""
+    repo_name = "test/upload_status"
+    upload_path = f"/v2/{full_path(repo_name)}/blobs/uploads/"
+
+    response, auth = local_registry.get_response("POST", upload_path)
+    response.raise_for_status()
+    assert response.status_code == 202
+    upload_uuid = response.headers["Docker-Upload-UUID"]
+    location = response.headers["Location"]
+
+    status_url = urljoin(container_bindings.client.configuration.host, location)
+    response = requests.get(status_url, auth=auth)
+    response.raise_for_status()
+    assert response.status_code == 204
+    assert response.headers["Docker-Upload-UUID"] == upload_uuid
+    assert response.headers["Range"] == "0-0"
+    assert response.headers["Content-Length"] == "0"
+
+    response = requests.head(status_url, auth=auth)
+    response.raise_for_status()
+    assert response.status_code == 204
+    assert response.headers["Docker-Upload-UUID"] == upload_uuid
+
+    namespace = container_bindings.PulpContainerNamespacesApi.list(name="test").results[0]
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
