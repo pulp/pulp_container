@@ -90,6 +90,24 @@ class BlobInvalid(ParseError):
         )
 
 
+class BlobUploadUnknown(NotFound):
+    """Exception to render a 404 with the code 'BLOB_UPLOAD_UNKNOWN'"""
+
+    def __init__(self, uuid):
+        """Initialize the exception with the upload uuid."""
+        super().__init__(
+            detail={
+                "errors": [
+                    {
+                        "code": "BLOB_UPLOAD_UNKNOWN",
+                        "message": "blob upload unknown to registry",
+                        "detail": {"uuid": uuid},
+                    }
+                ]
+            }
+        )
+
+
 class ManifestNotFound(NotFound):
     """Exception to render a 404 with the code 'MANIFEST_UNKNOWN'"""
 

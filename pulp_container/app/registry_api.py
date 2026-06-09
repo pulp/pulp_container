@@ -60,6 +60,7 @@ from pulp_container.app.exceptions import (
     BadGateway,
     BlobInvalid,
     BlobNotFound,
+    BlobUploadUnknown,
     GatewayTimeout,
     InvalidRequest,
     ManifestInvalid,
@@ -1013,6 +1014,18 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
             upload.save()
 
         return UploadResponse(upload=upload, path=path, request=request)
+
+    def destroy(self, request, path, pk=None):
+        """
+        Cancel an outstanding blob upload.
+        """
+        _, repository = self.get_dr_push(request, path)
+        try:
+            upload = models.Upload.objects.get(repository=repository, pk=pk)
+        except models.Upload.DoesNotExist:
+            raise BlobUploadUnknown(uuid=pk)
+        upload.delete()
+        return Response(status=204)
 
     def put(self, request, path, pk=None):
         """
