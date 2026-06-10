@@ -841,7 +841,6 @@ class ContainerPullThroughDistribution(Distribution, AutoAddObjPermsMixin):
             "Defaults to unrestricted pull access."
         ),
     )
-    description = models.TextField(null=True)
 
     class Meta:
         default_related_name = "%(app_label)s_%(model_name)s"
@@ -885,7 +884,6 @@ class ContainerDistribution(Distribution, AutoAddObjPermsMixin):
             "Defaults to unrestricted pull access."
         ),
     )
-    description = models.TextField(null=True)
 
     pull_through_distribution = models.ForeignKey(
         ContainerPullThroughDistribution,
