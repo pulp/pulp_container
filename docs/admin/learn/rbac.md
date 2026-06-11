@@ -355,13 +355,67 @@ There are two action statements for `pull`, only one of them needs to be true fo
 
 #### `docker/podman push`
 
-When pushing an image to Pulp there are three different scenarios a user can find themselves in which determines the permissions that are checked for during the push.
+When pushing `namespace/image:tag`, Pulp checks whether the distribution and namespace already exist. The permission check depends on what is already in Pulp.
 
-- Scenario 1: Pushing a new image and a new namespace
-- Scenario 2: Pushing a new image inside an existing namespace
-- Scenario 3: Pushing a new tag/manifest for an existing image
+##### Push to a new namespace
 
-Let's start with Scenario 3 which requires the least amount of permissions and only checks the `push` action on the Container Distribution access policy.
+If the namespace does not exist, Pulp checks the `create` action on the Namespace access policy. The user needs `container.add_containernamespace`, or the namespace name must match their username. On success, they are granted the Namespace *Owner* role for the new namespace, which in turn grants them permission to create the distribution for the new image.
+
+=== "Show `create` Action Statement"
+
+    ```bash
+    pulp access-policy show --viewset-name "pulp_container/namespaces" \
+      | jq '.statements[] | select(.action[] == "create")'
+    ```
+
+=== "Output"
+
+    ```json
+    {
+      "action": [
+        "create"
+      ],
+      "effect": "allow",
+      "condition": "has_model_or_domain_perms:container.add_containernamespace",
+      "principal": "authenticated"
+    }
+    {
+      "action": [
+        "create"
+      ],
+      "effect": "allow",
+      "condition": "namespace_is_username",
+      "principal": "authenticated"
+    }
+    ```
+
+##### Push a new image to an existing namespace
+
+If the namespace exists but distribution `namespace/image` does not, Pulp checks the `create_distribution` action on the Namespace access policy. The user needs `container.namespace_add_containerdistribution`, which is part of the Namespace *Owner* and *Collaborator* roles.
+
+=== "Show `create_distribution` Action Statement"
+
+    ```bash
+    pulp access-policy show --viewset-name "pulp_container/namespaces" \
+      | jq '.statements[] | select(.action[] == "create_distribution")'
+    ```
+
+=== "Output"
+
+    ```json
+    {
+      "action": [
+        "create_distribution"
+      ],
+      "effect": "allow",
+      "condition": "has_model_or_domain_or_obj_perms:container.namespace_add_containerdistribution",
+      "principal": "authenticated"
+    }
+    ```
+
+##### Push to an existing image
+
+If distribution `namespace/image` already exists, Pulp checks the `push` action on the Container Distribution access policy. The user needs `container.push_containerdistribution` on the namespace or distribution, which is part of the Namespace and Distribution *Owner* and *Collaborator* roles.
 
 === "Show `push` Action Statements"
 
@@ -397,64 +451,10 @@ Let's start with Scenario 3 which requires the least amount of permissions and o
     }
     ```
 
-The first statement checks that the request isn't a first push, our Scenario 3. Both of the two action statements for `push` check to see if the user has the `container.push_containerdistribution` permission on the namespace or distribution. This permission can be found in both the Distribution's and Namespace's *Owner* and *Collaborator* roles.
+For an existing distribution, Pulp evaluates the first `push` statement, which requires that the distribution object exists (`obj_exists`) and that the user has `container.push_containerdistribution` on the namespace or distribution.
 
 !!! note
-    Each condition inside a statement's `condition` list is AND together.
-
-For Scenario 2 Pulp will check the `create_distribution` action on the Namespace access policy.
-
-=== "Show `create_distribution` Action Statement"
-
-    ```bash
-    pulp access-policy show --viewset-name "pulp_container/namespaces"   | jq '.statements[] | select(.action[] == "create_distribution")'
-    ```
-
-=== "Output"
-
-    ```json
-    {
-      "action": [
-        "create_distribution"
-      ],
-      "effect": "allow",
-      "condition": "has_model_or_domain_or_obj_perms:container.namespace_add_containerdistribution",
-      "principal": "authenticated"
-    }
-    ```
-
-In order to create a new distribution inside the existing namespace, the user needs the `container.namespace_add_containerdistribution` permission. This permission is a part of the Namespace *Owner* and *Collobarator* roles.
-
-And for Scenario 1 Pulp checks the `create` action on the Namespace access policy.
-
-=== "Show `create` Action Statement"
-
-    ```bash
-    pulp access-policy show --viewset-name "pulp_container/namespaces"   | jq '.statements[] | select(.action[] == "create")'
-    ```
-
-=== "Output"
-
-    ```json
-    {
-      "action": [
-        "create"
-      ],
-      "effect": "allow",
-      "condition": "has_model_or_domain_perms:container.add_containernamespace",
-      "principal": "authenticated"
-    }
-    {
-      "action": [
-        "create"
-      ],
-      "effect": "allow",
-      "condition": "namespace_is_username",
-      "principal": "authenticated"
-    }
-    ```
-
-If the user has permission to create the namespace, then they will be granted the Namespace Owner role for the new namespace, which in turn will grant them the permission to create the distribution for the new image.
+    Each condition inside a statement's `condition` list is ANDed together. If no statement evaluates to true then the request is denied. Admins always bypass any checks.
 
 #### `skopeo list-tags`
 
