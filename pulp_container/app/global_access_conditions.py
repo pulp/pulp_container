@@ -28,9 +28,10 @@ def has_namespace_obj_perms(request, view, action, permission):
     if type(obj) is models.ContainerDistribution:
         namespace = obj.namespace
         return request.user.has_perm(permission, namespace)
-    elif type(obj) is models.ContainerPushRepository:
+    elif type(obj) is models.ContainerPushRepository or type(obj) is models.ContainerRepository:
         for dist in obj.distributions.all():
-            if request.user.has_perm(permission, dist.cast().namespace):
+            namespace = dist.cast().namespace
+            if namespace and request.user.has_perm(permission, namespace):
                 return True
     elif type(obj) is models.ContainerPullThroughDistribution:
         namespace = obj.namespace

@@ -295,7 +295,6 @@ class PermissionChecker:
         if not domain:
             return False
 
-        print("Checking push permissions for path ", path, "and domain ", domain.name)
         try:
             distribution = ContainerDistribution.objects.get(base_path=path, pulp_domain=domain)
         except ContainerDistribution.DoesNotExist:

@@ -458,6 +458,7 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
             ("namespace_push_containerdistribution", "Push to any distribution in a namespace"),
             ("namespace_change_containerdistribution", "Change any distribution in a namespace"),
             ("namespace_view_containerpushrepository", "View any push repository in a namespace"),
+            ("namespace_view_containerrepository", "View any repository in a namespace"),
             (
                 "namespace_modify_content_containerpushrepository",
                 "Modify content in any push repository in a namespace",
@@ -470,6 +471,7 @@ class ContainerNamespace(BaseModel, AutoAddObjPermsMixin):
                 "namespace_change_containerpushrepository",
                 "Update any existing push repository in a namespace",
             ),
+            ("namespace_change_containerrepository", "Change any repository in a namespace"),
             (
                 "manage_roles_containernamespace",
                 "Can manage role assignments on container namespace",

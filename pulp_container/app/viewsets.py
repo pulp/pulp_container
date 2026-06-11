@@ -7,13 +7,12 @@ Check `Plugin Writer's Guide`_ for more details.
 
 import logging
 
-from django.db.models import Q
 from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 from rest_framework.decorators import action
 
-from pulpcore.plugin.models import Content, PulpTemporaryFile, RepositoryVersion
+from pulpcore.plugin.models import Content, PulpTemporaryFile
 from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
 from pulpcore.plugin.tasking import dispatch, general_multi_delete
 from pulpcore.plugin.util import (
@@ -137,45 +136,7 @@ class ContainerContentQuerySetMixin:
     A mixin that provides container content models with querying utilities.
     """
 
-    def _repo_query_params(self, request, view, push_perm, mirror_perm):
-        """
-        Checks if the requests' query_params contain repository_version.
-
-        This is used in the quryset scoping for content.
-
-        Args:
-            request (rest_framework.request.Request): The request being made.
-            view (subclass rest_framework.viewsets.GenericViewSet): The view being checked for
-                authorization.
-            action (str): The action being performed, e.g. "destroy".
-                be checked.
-
-        Returns:
-            List of repositories pk that the current user can view
-
-        """
-        repo_pks = []
-        for key, param in request.query_params.items():
-            if "repository_version" in key:
-                rv = NamedModelViewSet.get_resource(param, RepositoryVersion)
-                repo = rv.repository.cast()
-                if isinstance(repo, models.ContainerPushRepository):
-                    if request.user.has_perm(push_perm) or any(
-                        request.user.has_perm(push_perm, dist.cast())
-                        or request.user.has_perm(
-                            "container.namespace_view_containerdistribution", dist.cast().namespace
-                        )
-                        for dist in repo.distributions.all()
-                    ):
-                        repo_pks.append(repo.pk)
-                elif isinstance(repo, models.ContainerRepository):
-                    if request.user.has_perm(mirror_perm) or request.user.has_perm(
-                        mirror_perm, repo
-                    ):
-                        repo_pks.append(repo.pk)
-        return repo_pks
-
-    def get_content_qs(self, qs, push_perm, mirror_perm):
+    def get_content_qs(self, qs, ns_perm, dist_perm, repo_perm):
         """
         Gets a QuerySet based on the current request.
 
@@ -186,33 +147,74 @@ class ContainerContentQuerySetMixin:
             allowed to see based on the repo permissions.
 
         """
-        has_model_push_repo = self.request.user.has_perm(push_perm)
-        has_model_repo = self.request.user.has_perm(mirror_perm)
         # this will show also orphaned content
-        if has_model_push_repo and has_model_repo:
+        if self.request.user.has_perm(ns_perm) or (
+            self.request.user.has_perm(dist_perm) and self.request.user.has_perm(repo_perm)
+        ):
             return qs
-        query_params = self.request.query_params
-        if query_params and "repository_version" in query_params:
-            repo_pks = self._repo_query_params(self.request, self, push_perm, mirror_perm)
-            content_qs = qs.model.objects.filter(repositories__in=repo_pks)
-        else:
-            allowed_push_repos = models.ContainerPushRepository.objects.filter(
-                distributions__in=get_objects_for_user(
-                    self.request.user,
-                    push_perm,
-                    models.ContainerDistribution.objects.filter(pulp_domain=get_domain()),
-                )
-            ).only("pk")
-            allowed_mirror_repos = get_objects_for_user(
-                self.request.user,
-                mirror_perm,
-                models.ContainerRepository.objects.filter(pulp_domain=get_domain()),
-            ).only("pk")
-            content_qs = qs.model.objects.filter(
-                Q(repositories__in=allowed_push_repos) | Q(repositories__in=allowed_mirror_repos)
-            )
 
-        return content_qs
+        repository_pks = get_viewable_repositories(self.request.user, ns_perm, dist_perm, repo_perm)
+
+        return qs.filter(repositories__in=repository_pks)
+
+
+def repository_deleted_with_distribution(distribution):
+    """
+    Return (repository, serializer_name) when a distribution delete should also delete its repo.
+
+    Push repositories are always removed with their distribution. Container repositories created
+    during a registry push (single distribution) follow the same lifecycle.
+    """
+    if not distribution.repository:
+        return None
+    repository = distribution.repository.cast()
+    if repository.PUSH_ENABLED:
+        return repository, "ContainerPushRepositorySerializer"
+    if isinstance(repository, models.ContainerRepository):
+        if repository.distributions.count() <= 1:
+            return repository, "ContainerRepositorySerializer"
+    return None
+
+
+def get_viewable_repositories(user, ns_perm, dist_perm, repo_perm=None, domain=None):
+    """
+    For a given user and namespace, distribution and repository permissions, return a set of
+    repository pks that the user can view.
+    """
+    domain = domain or get_domain()
+    namespaces = get_objects_for_user(
+        user,
+        ns_perm,
+        models.ContainerNamespace.objects.filter(pulp_domain=domain),
+    )
+    ns_repository_pks = models.ContainerDistribution.objects.filter(
+        namespace__in=namespaces,
+        pulp_domain=domain,
+    ).values_list("repository")
+    dist_repository_pks = get_objects_for_user(
+        user,
+        dist_perm,
+        models.ContainerDistribution.objects.filter(pulp_domain=domain),
+    ).values_list("repository")
+    public_repository_pks = models.ContainerDistribution.objects.filter(
+        private=False,
+        pulp_domain=domain,
+    ).values_list("repository")
+    if repo_perm:
+        direct_repository_pks = get_objects_for_user(
+            user,
+            repo_perm,
+            models.ContainerRepository.objects.filter(pulp_domain=domain),
+        ).values_list("pk")
+    else:
+        # PushContainerRepository case
+        direct_repository_pks = set()
+    return (
+        set(ns_repository_pks)
+        | set(dist_repository_pks)
+        | set(public_repository_pks)
+        | set(direct_repository_pks)
+    )
 
 
 class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
@@ -249,8 +251,9 @@ class TagViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
         "queryset_scoping": {
             "function": "get_content_qs",
             "parameters": {
-                "push_perm": "container.view_containerdistribution",
-                "mirror_perm": "container.view_containerrepository",
+                "ns_perm": "container.view_containernamespace",
+                "dist_perm": "container.view_containerdistribution",
+                "repo_perm": "container.view_containerrepository",
             },
         },
     }
@@ -290,8 +293,9 @@ class ManifestViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
         "queryset_scoping": {
             "function": "get_content_qs",
             "parameters": {
-                "push_perm": "container.view_containerdistribution",
-                "mirror_perm": "container.view_containerrepository",
+                "ns_perm": "container.view_containernamespace",
+                "dist_perm": "container.view_containerdistribution",
+                "repo_perm": "container.view_containerrepository",
             },
         },
     }
@@ -331,8 +335,9 @@ class BlobViewSet(ContainerContentQuerySetMixin, ReadOnlyContentViewSet):
         "queryset_scoping": {
             "function": "get_content_qs",
             "parameters": {
-                "push_perm": "container.view_containerdistribution",
-                "mirror_perm": "container.view_containerrepository",
+                "ns_perm": "container.view_containernamespace",
+                "dist_perm": "container.view_containerdistribution",
+                "repo_perm": "container.view_containerrepository",
             },
         },
     }
@@ -372,8 +377,9 @@ class ManifestSignatureViewSet(ContainerContentQuerySetMixin, ReadOnlyContentVie
         "queryset_scoping": {
             "function": "get_content_qs",
             "parameters": {
-                "push_perm": "container.view_containerdistribution",
-                "mirror_perm": "container.view_containerrepository",
+                "ns_perm": "container.view_containernamespace",
+                "dist_perm": "container.view_containerdistribution",
+                "repo_perm": "container.view_containerrepository",
             },
         },
     }
@@ -657,6 +663,9 @@ class ContainerRepositoryViewSet(
 ):
     """
     ViewSet for container repo.
+
+    Repositories linked to a registry distribution inherit the distribution's access policy
+    for read and content-modifying actions, matching legacy push repository behavior.
     """
 
     endpoint_name = "container"
@@ -680,7 +689,11 @@ class ContainerRepositoryViewSet(
                 "action": ["retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_model_or_domain_or_obj_perms:container.view_containerrepository",
+                "condition_expression": [
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository or "
+                    "has_namespace_obj_perms:container.namespace_view_containerrepository or "
+                    "has_distribution_perms:container.view_containerdistribution",
+                ],
             },
             {
                 "action": ["destroy"],
@@ -695,9 +708,16 @@ class ContainerRepositoryViewSet(
                 "action": ["update", "partial_update", "set_label", "unset_label"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": [
-                    "has_model_or_domain_or_obj_perms:container.change_containerrepository",
-                    "has_model_or_domain_or_obj_perms:container.view_containerrepository",
+                "condition_expression": [
+                    "("
+                    "has_model_or_domain_or_obj_perms:container.change_containerrepository or "
+                    "has_namespace_obj_perms:container.namespace_change_containerrepository or "
+                    "has_distribution_perms:container.change_containerdistribution"
+                    ") and ("
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository or "
+                    "has_namespace_obj_perms:container.namespace_view_containerrepository or "
+                    "has_distribution_perms:container.view_containerdistribution"
+                    ")",
                 ],
             },
             {
@@ -714,9 +734,15 @@ class ContainerRepositoryViewSet(
                 "action": ["add", "remove", "tag", "untag", "copy_tags", "copy_manifests", "sign"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": [
-                    "has_model_or_domain_or_obj_perms:container.modify_content_containerrepository",
-                    "has_model_or_domain_or_obj_perms:container.view_containerrepository",
+                "condition_expression": [
+                    "("
+                    "has_model_or_domain_or_obj_perms:container.modify_content_containerrepository or "
+                    "has_namespace_obj_perms:container.namespace_modify_content_containerrepository"
+                    ") and ("
+                    "has_model_or_domain_or_obj_perms:container.view_containerrepository or "
+                    "has_namespace_obj_perms:container.namespace_view_containerdistribution or "
+                    "has_distribution_perms:container.view_containerdistribution"
+                    ")",
                 ],
             },
             {
@@ -744,7 +770,14 @@ class ContainerRepositoryViewSet(
                 "parameters": {"roles": "container.containerrepository_owner"},
             },
         ],
-        "queryset_scoping": {"function": "scope_queryset"},
+        "queryset_scoping": {
+            "function": "get_container_repos_qs",
+            "parameters": {
+                "ns_perm": "container.view_containernamespace",
+                "dist_perm": "container.view_containerdistribution",
+                "repo_perm": "container.view_containerrepository",
+            },
+        },
     }
     LOCKED_ROLES = {
         "container.containerrepository_creator": ["container.add_containerrepository"],
@@ -769,6 +802,16 @@ class ContainerRepositoryViewSet(
             "container.view_containerrepository",
         ],
     }
+
+    def get_container_repos_qs(self, qs, ns_perm, dist_perm, repo_perm):
+        """
+        Scope repositories by direct permissions and linked distribution permissions.
+
+        Mirrors push repository scoping so registry-pushed repositories remain visible to
+        distribution and namespace role holders.
+        """
+        viewable_repos = get_viewable_repositories(self.request.user, ns_perm, dist_perm, repo_perm)
+        return qs.filter(pk__in=viewable_repos)
 
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.
@@ -1012,7 +1055,11 @@ class ContainerRepositoryVersionViewSet(RepositoryVersionViewSet):
                 "action": ["list", "retrieve"],
                 "principal": "authenticated",
                 "effect": "allow",
-                "condition": "has_repository_model_or_domain_or_obj_perms:container.view_containerrepository",  # noqa
+                "condition_expression": [
+                    "has_repository_model_or_domain_or_obj_perms:container.view_containerrepository or "  # noqa
+                    "has_namespace_obj_perms:container.namespace_view_containerrepository or "
+                    "has_distribution_perms:container.view_containerdistribution",
+                ],
             },
             {
                 "action": ["destroy"],
@@ -1170,31 +1217,7 @@ class ContainerPushRepositoryViewSet(
         Returns a queryset by filtering by namespace permission to view distributions and
         distribution level permissions.
         """
-        domain = get_domain()
-        qs = models.ContainerPushRepository.objects.filter(pulp_domain=domain)
-        namespaces = get_objects_for_user(
-            self.request.user,
-            ns_perm,
-            models.ContainerNamespace.objects.filter(pulp_domain=domain),
-        )
-        ns_repository_pks = models.ContainerDistribution.objects.filter(
-            namespace__in=namespaces,
-            pulp_domain=domain,
-        ).values_list("repository")
-        dist_repository_pks = get_objects_for_user(
-            self.request.user,
-            dist_perm,
-            models.ContainerDistribution.objects.filter(pulp_domain=domain),
-        ).values_list("repository")
-        public_repository_pks = models.ContainerDistribution.objects.filter(
-            private=False,
-            pulp_domain=domain,
-        ).values_list("repository")
-        return qs.filter(
-            Q(pk__in=ns_repository_pks)
-            | Q(pk__in=dist_repository_pks)
-            | Q(pk__in=public_repository_pks)
-        )
+        return qs.filter(pk__in=get_viewable_repositories(self.request.user, ns_perm, dist_perm))
 
 
 class ContainerPushRepositoryVersionViewSet(
@@ -1415,18 +1438,19 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
     )
     def destroy(self, request, pk, **kwargs):
         """
-        Delete a distribution. If a push repository is associated to it, delete it as well.
+        Delete a distribution. If a push repository or push-created container repository is
+        associated to it, delete it as well.
         """
         distribution = self.get_object()
         reservations = [distribution]
         instance_ids = [
             (str(distribution.pk), "container", "ContainerDistributionSerializer"),
         ]
-        if distribution.repository and distribution.repository.cast().PUSH_ENABLED:
-            reservations.append(distribution.repository)
-            instance_ids.append(
-                (str(distribution.repository.pk), "container", "ContainerPushRepositorySerializer"),
-            )
+        repo_delete = repository_deleted_with_distribution(distribution)
+        if repo_delete:
+            repository, serializer_name = repo_delete
+            reservations.append(repository)
+            instance_ids.append((str(repository.pk), "container", serializer_name))
 
         async_result = dispatch(
             general_multi_delete, exclusive_resources=reservations, args=(instance_ids,)
@@ -1640,9 +1664,11 @@ class ContainerNamespaceViewSet(
             "container.namespace_push_containerdistribution",
             "container.namespace_change_containerdistribution",
             "container.namespace_view_containerpushrepository",
+            "container.namespace_view_containerrepository",
             "container.namespace_modify_content_containerpushrepository",
             "container.namespace_modify_content_containerrepository",
             "container.namespace_change_containerpushrepository",
+            "container.namespace_change_containerrepository",
             "container.manage_roles_containernamespace",
         ],
         "container.containernamespace_collaborator": [
@@ -1654,15 +1680,18 @@ class ContainerNamespaceViewSet(
             "container.namespace_push_containerdistribution",
             "container.namespace_change_containerdistribution",
             "container.namespace_view_containerpushrepository",
+            "container.namespace_view_containerrepository",
             "container.namespace_modify_content_containerpushrepository",
             "container.namespace_modify_content_containerrepository",
             "container.namespace_change_containerpushrepository",
+            "container.namespace_change_containerrepository",
         ],
         "container.containernamespace_consumer": [
             "container.view_containernamespace",
             "container.namespace_view_containerdistribution",
             "container.namespace_pull_containerdistribution",
             "container.namespace_view_containerpushrepository",
+            "container.namespace_view_containerrepository",
         ],
     }
 
@@ -1673,7 +1702,8 @@ class ContainerNamespaceViewSet(
     def destroy(self, request, pk, **kwargs):
         """
         Delete a Namespace with all distributions.
-        If a push repository is associated to any of its distributions, delete it as well.
+        If a push repository or push-created container repository is associated to any of its
+        distributions, delete it as well.
         """
         namespace = self.get_object()
         reservations = []
@@ -1684,14 +1714,12 @@ class ContainerNamespaceViewSet(
             instance_ids.append(
                 (str(distribution.pk), "container", "ContainerDistributionSerializer"),
             )
-            if distribution.repository and distribution.repository.cast().PUSH_ENABLED:
-                reservations.append(distribution.repository)
+            repo_delete = repository_deleted_with_distribution(distribution)
+            if repo_delete:
+                repository, serializer_name = repo_delete
+                reservations.append(repository)
                 instance_ids.append(
-                    (
-                        str(distribution.repository.pk),
-                        "container",
-                        "ContainerPushRepositorySerializer",
-                    ),
+                    (str(repository.pk), "container", serializer_name),
                 )
 
         reservations.append(namespace)

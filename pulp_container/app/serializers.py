@@ -250,7 +250,7 @@ class ContainerNamespaceSerializer(ModelSerializer, GetOrCreateSerializerMixin):
         model = models.ContainerNamespace
 
 
-class ContainerRepositorySerializer(RepositorySerializer):
+class ContainerRepositorySerializer(RepositorySerializer, GetOrCreateSerializerMixin):
     """
     Serializer for Container Repositories.
     """
@@ -984,12 +984,13 @@ class RepositorySignSerializer(ValidateFieldsMixin, serializers.Serializer):
                 }
             )
 
-        if repository.PUSH_ENABLED:
+        distro_count = repository.distributions.count()
+        if distro_count == 1:
             if "future_base_path" in data:
                 raise serializers.ValidationError(
                     {
                         "future_base_path": _(
-                            "This field cannot be set since this is a push repo type."
+                            "This field cannot be set since this repo has a single distribution."
                         )
                     }
                 )
@@ -999,7 +1000,7 @@ class RepositorySignSerializer(ValidateFieldsMixin, serializers.Serializer):
                 raise serializers.ValidationError(
                     {
                         "future_base_path": _(
-                            "This field is required since this is a sync repo type."
+                            "This field is required since this repo has zero or multiple distributions."
                         )
                     }
                 )

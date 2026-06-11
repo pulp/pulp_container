@@ -130,7 +130,7 @@ def test_rbac_repository_version(
         monitor_task(response.task)
 
 
-def test_rbac_push_repository_version(
+def test_rbac_push_created_repository_version(
     add_to_cleanup,
     gen_user,
     registry_client,
@@ -139,7 +139,75 @@ def test_rbac_push_repository_version(
     full_path,
     pulp_settings,
 ):
-    """Verify RBAC for a ContainerPushRepositoryVersion."""
+    """Verify RBAC for a ContainerRepositoryVersion created by a registry push."""
+    if pulp_settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
+    try:
+        namespace = container_bindings.PulpContainerNamespacesApi.list(
+            name="test_push_created_repo"
+        ).results[0]
+        container_bindings.PulpContainerNamespacesApi.delete(namespace.pulp_href)
+    except IndexError:
+        pass
+
+    user_creator = gen_user(
+        model_roles=[
+            "container.containernamespace_creator",
+        ]
+    )
+    user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
+    user_helpless = gen_user()
+
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
+    registry_client.pull(image_path)
+    repo_name = "test_push_created_repo/perms"
+    local_url = full_path(f"{repo_name}:1.0")
+    with user_creator:
+        local_registry.tag_and_push(image_path, local_url)
+        repository = container_bindings.RepositoriesContainerApi.list(name=repo_name).results[0]
+
+    add_to_cleanup(
+        container_bindings.PulpContainerNamespacesApi,
+        container_bindings.PulpContainerNamespacesApi.list(name="test_push_created_repo")
+        .results[0]
+        .pulp_href,
+    )
+
+    assert container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href).count == 2
+    with user_creator:
+        assert (
+            container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href).count
+            == 2
+        )
+    with user_reader:
+        assert (
+            container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href).count
+            == 2
+        )
+    with user_helpless, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerVersionsApi.list(repository.pulp_href)
+
+    container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
+    with user_creator:
+        container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
+    with user_reader:
+        container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
+    with user_helpless, pytest.raises(container_bindings.ApiException):
+        container_bindings.RepositoriesContainerVersionsApi.read(repository.latest_version_href)
+
+
+def test_rbac_push_repository_version(
+    add_to_cleanup,
+    container_push_repository_factory,
+    gen_user,
+    registry_client,
+    local_registry,
+    container_bindings,
+    full_path,
+    pulp_settings,
+):
+    """Verify RBAC for a legacy ContainerPushRepositoryVersion."""
     if pulp_settings.TOKEN_AUTH_DISABLED:
         pytest.skip("RBAC cannot be tested when token authentication is disabled")
 
@@ -160,10 +228,10 @@ def test_rbac_push_repository_version(
     user_reader = gen_user(model_roles=["container.containerdistribution_consumer"])
     user_helpless = gen_user()
 
-    # create a push repo
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_d"
     registry_client.pull(image_path)
     repo_name = "test_push_repo/perms"
+    container_push_repository_factory(name=repo_name)
     local_url = full_path(f"{repo_name}:1.0")
     with user_creator:
         local_registry.tag_and_push(image_path, local_url)
@@ -231,7 +299,7 @@ def test_cross_repository_blob_mount(
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     registry_client.pull(image_path)
     local_registry.tag_and_push(image_path, local_url)
-    repository = container_bindings.RepositoriesContainerPushApi.list(name=source_repo).results[0]
+    repository = container_bindings.RepositoriesContainerApi.list(name=source_repo).results[0]
     blobs = container_bindings.ContentBlobsApi.list(
         repository_version=repository.latest_version_href
     ).results

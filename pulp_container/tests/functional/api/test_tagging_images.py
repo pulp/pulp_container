@@ -201,7 +201,7 @@ class TestRepositoryTagging:
 
 
 class TestPushRepositoryTagging:
-    """A test case for a container push repository."""
+    """A test case for a container repository created by pushing to the registry."""
 
     repository_name = "namespace/tags"
 
@@ -225,7 +225,7 @@ class TestPushRepositoryTagging:
         registry_client.push(tagged_registry_manifest_b)
         registry_client.logout(registry_name)
 
-        repository = container_bindings.RepositoriesContainerPushApi.list(
+        repository = container_bindings.RepositoriesContainerApi.list(
             name=self.repository_name
         ).results[0]
         tagger = tagger_helper(repository)

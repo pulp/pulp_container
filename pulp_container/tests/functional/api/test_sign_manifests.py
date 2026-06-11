@@ -10,7 +10,7 @@ MANIFEST_TAG = "manifest_a"
 def distribution(
     registry_client, local_registry, container_distribution_api, full_path, add_to_cleanup
 ):
-    """The fixture for a distribution that references a repository of the push type."""
+    """The fixture for a distribution created by pushing an image to the registry."""
     image_path = f"{REGISTRY_V2_REPO_PULP}:{MANIFEST_TAG}"
     registry_client.pull(image_path)
     local_registry.tag_and_push(image_path, full_path(f"test-1:{MANIFEST_TAG}"))
@@ -25,7 +25,7 @@ def test_sign_manifest(
     signing_gpg_metadata,
     distribution,
     container_signing_service,
-    container_push_repository_api,
+    container_repository_api,
     container_signature_api,
     container_tag_api,
     container_manifest_api,
@@ -35,7 +35,7 @@ def test_sign_manifest(
     _, fingerprint, keyid = signing_gpg_metadata
     sign_data = {"manifest_signing_service": container_signing_service.pulp_href}
 
-    response = container_push_repository_api.sign(distribution.repository, sign_data)
+    response = container_repository_api.sign(distribution.repository, sign_data)
     created_resources = monitor_task(response.task).created_resources
 
     tags = container_tag_api.list(repository_version=created_resources[0])

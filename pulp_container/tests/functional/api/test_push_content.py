@@ -122,20 +122,20 @@ def test_push_with_dist_perms(
             },
         )
 
-    assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+    assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_creator:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_dist_collaborator:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_dist_consumer:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_namespace_collaborator:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_reader:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_helpless:
         # "{repo_name}" turns out to be a public repository
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
 
 
 def test_push_with_view_perms(
@@ -404,23 +404,58 @@ def test_push_matching_username(
 
 
 def test_push_to_existing_regular_repository(
+    add_to_cleanup,
     container_repository_factory,
     local_registry,
     registry_client,
+    container_bindings,
     full_path,
 ):
-    """
-    Test the push to an existing non-push repository.
-
-    It should fail to create a new push repository.
-    """
-    container_repository_factory(name="foo")
+    """Test that push succeeds when a container repository already exists."""
+    repository = container_repository_factory(name="foo")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     local_url = full_path("foo:1.0")
 
     registry_client.pull(image_path)
-    with pytest.raises(CalledProcessError):
-        local_registry.tag_and_push(image_path, local_url)
+    local_registry.tag_and_push(image_path, local_url)
+
+    repository = container_bindings.RepositoriesContainerApi.read(repository.pulp_href)
+    tags = container_bindings.ContentTagsApi.list(repository_version=repository.latest_version_href)
+    assert tags.count == 1
+
+    distribution = container_bindings.DistributionsContainerApi.list(name="foo").results[0]
+    add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
+    namespace = container_bindings.PulpContainerNamespacesApi.read(distribution.namespace)
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
+
+
+def test_push_to_existing_push_repository(
+    add_to_cleanup,
+    container_push_repository_factory,
+    local_registry,
+    registry_client,
+    container_bindings,
+    full_path,
+):
+    """Test that push still works when a legacy ContainerPushRepository already exists."""
+    repo_name = "legacy/push"
+    container_push_repository_factory(name=repo_name)
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    local_url = full_path(f"{repo_name}:1.0")
+
+    registry_client.pull(image_path)
+    local_registry.tag_and_push(image_path, local_url)
+
+    assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+    assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 0
+
+    repository = container_bindings.RepositoriesContainerPushApi.list(name=repo_name).results[0]
+    tags = container_bindings.ContentTagsApi.list(repository_version=repository.latest_version_href)
+    assert tags.count == 1
+
+    distribution = container_bindings.DistributionsContainerApi.list(name=repo_name).results[0]
+    namespace = container_bindings.PulpContainerNamespacesApi.read(distribution.namespace)
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
 
 class TestPushManifestList:
@@ -492,7 +527,7 @@ class TestPushManifestList:
         distribution = container_bindings.DistributionsContainerApi.list(name="foo_v2s2").results[0]
         add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+        repo_version = container_bindings.RepositoriesContainerApi.read(
             distribution.repository
         ).latest_version_href
 
@@ -544,7 +579,7 @@ class TestPushManifestList:
         distribution = container_bindings.DistributionsContainerApi.list(name="foo_oci").results[0]
         add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+        repo_version = container_bindings.RepositoriesContainerApi.read(
             distribution.repository
         ).latest_version_href
 
@@ -592,7 +627,7 @@ class TestPushManifestList:
         ]
         add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+        repo_version = container_bindings.RepositoriesContainerApi.read(
             distribution.repository
         ).latest_version_href
         latest_tag = container_bindings.ContentTagsApi.list(

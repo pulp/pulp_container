@@ -179,7 +179,7 @@ def test_cross_domain_blob_mount(
 
     local_repo = f"{domain1.name}/{source_repo}"
     local_registry.tag_and_push(image_path, local_repo)
-    repository = container_bindings.RepositoriesContainerPushApi.list(
+    repository = container_bindings.RepositoriesContainerApi.list(
         name=source_repo, pulp_domain=domain1.name
     ).results[0]
     blobs = container_bindings.ContentBlobsApi.list(
