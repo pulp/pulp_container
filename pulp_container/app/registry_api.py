@@ -79,7 +79,7 @@ from pulp_container.app.redirects import (
     FileStorageRedirects,
     S3StorageRedirects,
 )
-from pulp_container.app.tasks import aadd_and_remove, download_image_data
+from pulp_container.app.tasks import aadd_and_remove, download_image_data, recursive_remove_content
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
     RegistryPermission,
@@ -1344,6 +1344,36 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 return ManifestResponse.from_manifest(manifest)
         # Fallthrough catchall, no manifest or tag found
         raise ManifestNotFound(reference=pk)
+
+    def destroy(self, request, path, pk=None):
+        """
+        Delete a manifest identified by digest.
+        """
+        if not pk.startswith("sha256:"):
+            raise InvalidRequest(message="A manifest can only be deleted by digest.")
+
+        _, repository = self.get_dr_push(request, path)
+        latest_version = repository.latest_version()
+
+        manifest = models.Manifest.objects.filter(digest=pk, pk__in=latest_version.content).first()
+        if not manifest:
+            manifest = repository.pending_manifests.filter(digest=pk).first()
+            if not manifest:
+                raise ManifestNotFound(reference=pk)
+            repository.pending_manifests.remove(manifest)
+
+        tags = models.Tag.objects.filter(tagged_manifest=manifest, pk__in=latest_version.content)
+        content_units = [str(manifest.pk)] + [str(tag.pk) for tag in tags]
+
+        dispatch(
+            recursive_remove_content,
+            exclusive_resources=[repository],
+            kwargs={
+                "repository_pk": str(repository.pk),
+                "content_units": content_units,
+            },
+        )
+        return Response(status=202)
 
     def get_content_units_to_add(self, manifest, tag=None):
         add_content_units = [str(manifest.pk)]
