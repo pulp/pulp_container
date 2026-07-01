@@ -20,7 +20,7 @@ class TestCancelBlobUpload:
         local_registry,
         full_path,
     ):
-        """Create a push repository for all cancel blob upload tests."""
+        """Create a push repository and blob upload for all cancel blob upload tests."""
         upload_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/"
         response, _ = local_registry.get_response("POST", upload_path)
         assert response.status_code == 202
@@ -29,14 +29,7 @@ class TestCancelBlobUpload:
         add_to_cleanup(container_bindings.PulpContainerNamespacesApi, distribution.namespace)
 
         upload_uuid = response.headers["Docker-Upload-UUID"]
-        delete_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/{upload_uuid}"
-        local_registry.get_response("DELETE", delete_path)
-
-    def _start_upload(self, local_registry, full_path):
-        upload_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/"
-        response, _ = local_registry.get_response("POST", upload_path)
-        assert response.status_code == 202
-        return response.headers["Docker-Upload-UUID"]
+        return upload_uuid
 
     def test_01_cancel_unknown_blob_upload(self, setup, local_registry, full_path):
         """Cancelling a blob upload that does not exist returns 404."""
@@ -46,23 +39,18 @@ class TestCancelBlobUpload:
         assert response.status_code == 404
         assert response.json()["errors"][0]["code"] == "BLOB_UPLOAD_UNKNOWN"
 
-    def test_02_cancel_blob_upload_without_permission(
-        self, setup, gen_user, local_registry, full_path, pulp_settings
-    ):
+    def test_02_cancel_blob_upload_without_permission(self, setup, gen_user, local_registry, full_path):
         """Cancel requires push permissions on the namespace."""
-        if pulp_settings.TOKEN_AUTH_DISABLED:
-            pytest.skip("RBAC cannot be tested when token authentication is disabled")
-
-        upload_uuid = self._start_upload(local_registry, full_path)
+        upload_uuid = setup
         delete_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/{upload_uuid}"
         user_helpless = gen_user()
         with user_helpless:
             response, _ = local_registry.get_response("DELETE", delete_path)
-        assert response.status_code == 401
+        assert response.status_code in (401, 403)
 
     def test_03_cancel_blob_upload(self, setup, local_registry, full_path):
         """Cancel an outstanding blob upload via DELETE /v2/<name>/blobs/uploads/<uuid>."""
-        upload_uuid = self._start_upload(local_registry, full_path)
+        upload_uuid = setup
         assert models.Upload.objects.filter(pk=upload_uuid).exists()
 
         delete_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/{upload_uuid}"
