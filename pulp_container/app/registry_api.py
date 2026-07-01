@@ -1030,6 +1030,18 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
 
         return UploadResponse(upload=upload, path=path, request=request)
 
+    def get(self, request, path, pk=None):
+        """
+        Retrieve the status of an upload.
+        """
+        _, repository = self.get_dr_push(request, path)
+        upload = get_object_or_404(models.Upload, repository=repository, pk=pk)
+        return UploadResponse(upload=upload, path=path, request=request, status=204)
+
+    def head(self, request, path, pk=None):
+        """Respond to HEAD requests about blob uploads."""
+        return self.get(request, path, pk=pk)
+
     def put(self, request, path, pk=None):
         """
         Create a blob from uploaded chunks.
