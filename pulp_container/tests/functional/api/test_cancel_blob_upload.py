@@ -4,8 +4,6 @@ import uuid
 
 import pytest
 
-from pulp_container.app import models
-
 
 class TestCancelBlobUpload:
     """Tests for DELETE /v2/<name>/blobs/uploads/<uuid>."""
@@ -51,10 +49,15 @@ class TestCancelBlobUpload:
     def test_03_cancel_blob_upload(self, setup, local_registry, full_path):
         """Cancel an outstanding blob upload via DELETE /v2/<name>/blobs/uploads/<uuid>."""
         upload_uuid = setup
-        assert models.Upload.objects.filter(pk=upload_uuid).exists()
+        upload_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/{upload_uuid}"
 
-        delete_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/{upload_uuid}"
-        response, _ = local_registry.get_response("DELETE", delete_path)
+        response, _ = local_registry.get_response("GET", upload_path)
+        assert response.status_code == 204
+        assert response.headers["Docker-Upload-UUID"] == upload_uuid
+
+        response, _ = local_registry.get_response("DELETE", upload_path)
         assert response.status_code == 204
         assert response.content == b""
-        assert not models.Upload.objects.filter(pk=upload_uuid).exists()
+
+        response, _ = local_registry.get_response("GET", upload_path)
+        assert response.status_code == 404
