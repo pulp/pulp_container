@@ -1,6 +1,7 @@
 """Tests that verify that images can be pushed to Pulp."""
 
 import json
+import uuid
 from subprocess import CalledProcessError
 from urllib.parse import urljoin
 
@@ -640,3 +641,32 @@ class TestPushManifestList:
         assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
         assert manifest_list.schema_version == 2
         assert manifest_list.listed_manifests == []
+
+
+def test_blob_upload_status(local_registry, container_bindings, full_path, add_to_cleanup):
+    """Test GET blob upload status returns current upload progress."""
+    namespace_name = str(uuid.uuid4())
+    repo_name = f"{namespace_name}/upload_status"
+    upload_path = f"/v2/{full_path(repo_name)}/blobs/uploads/"
+
+    response, auth = local_registry.get_response("POST", upload_path)
+    response.raise_for_status()
+    assert response.status_code == 202
+    upload_uuid = response.headers["Docker-Upload-UUID"]
+    location = response.headers["Location"]
+
+    namespace = container_bindings.PulpContainerNamespacesApi.list(name=namespace_name).results[0]
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
+
+    status_url = urljoin(container_bindings.client.configuration.host, location)
+    response = requests.get(status_url, auth=auth)
+    response.raise_for_status()
+    assert response.status_code == 204
+    assert response.headers["Docker-Upload-UUID"] == upload_uuid
+    assert response.headers["Range"] == "0-0"
+    assert response.headers["Content-Length"] == "0"
+
+    response = requests.head(status_url, auth=auth)
+    response.raise_for_status()
+    assert response.status_code == 204
+    assert response.headers["Docker-Upload-UUID"] == upload_uuid
