@@ -10,7 +10,7 @@ class TestCancelBlobUpload:
 
     repo_name = "cancel/upload"
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def setup(
         self,
         add_to_cleanup,
@@ -18,7 +18,7 @@ class TestCancelBlobUpload:
         local_registry,
         full_path,
     ):
-        """Create a push repository and blob upload for all cancel blob upload tests."""
+        """Create a push repository and blob upload for cancel blob upload tests."""
         upload_path = f"/v2/{full_path(self.repo_name)}/blobs/uploads/"
         response, _ = local_registry.get_response("POST", upload_path)
         assert response.status_code == 202
