@@ -60,6 +60,9 @@ def pull_and_verify(
     monitor_task,
 ):
     def _pull_and_verify(images, pull_through_distribution):
+        if pull_through_distribution.private and settings.TOKEN_AUTH_DISABLED:
+            pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
         tags_to_verify = []
         pull_through_path = pull_through_distribution.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL]
         for version, image_path in enumerate(images, start=1):
@@ -67,12 +70,14 @@ def pull_and_verify(
             local_image_path = f"{pull_through_path}/{image_path}"
             local_image_pull_path = full_path(local_image_path)  # Handle if domain is enabled
 
-            # 0. test if an anonymous user cannot pull new content through the pull-through cache
-            with anonymous_user, pytest.raises(CalledProcessError):
+            # 1. Pull new content anonymously from public caches; private caches require auth.
+            if pull_through_distribution.private:
+                with anonymous_user, pytest.raises(CalledProcessError):
+                    local_registry.pull(local_image_pull_path)
                 local_registry.pull(local_image_pull_path)
-
-            # 1. pull remote content through the pull-through distribution
-            local_registry.pull(local_image_pull_path)
+            else:
+                with anonymous_user:
+                    local_registry.pull(local_image_pull_path)
             local_image = local_registry.inspect(local_image_pull_path)
 
             # when the client pulls the image, a repository, distribution, and remote is created in
@@ -119,9 +124,13 @@ def pull_and_verify(
             tags = container_tag_api.list(repository_version=repository.latest_version_href).results
             assert sorted(tags_to_verify) == sorted([tag.name for tag in tags])
 
-            # 6. test if the anonymous user can pull existing content via the pull-through cache
-            with anonymous_user:
-                local_registry.pull(local_image_pull_path)
+            # 6. Cached content must retain the distribution's access restrictions.
+            if pull_through_distribution.private:
+                with anonymous_user, pytest.raises(CalledProcessError):
+                    local_registry.pull(local_image_pull_path)
+            else:
+                with anonymous_user:
+                    local_registry.pull(local_image_pull_path)
 
     return _pull_and_verify
 
@@ -134,14 +143,18 @@ def test_pull_through_distribution_uses_internal_base_path(pull_through_distribu
     assert distribution.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL] != distribution.name
 
 
-def test_manifest_list_pull(delete_orphans_pre, pull_through_distribution, pull_and_verify):
+@pytest.mark.parametrize("private", [False, True])
+def test_manifest_list_pull(
+    delete_orphans_pre, pull_through_distribution, pull_and_verify, private
+):
     images = [f"{PULP_HELLO_WORLD_REPO}:latest", f"{PULP_HELLO_WORLD_REPO}:linux"]
-    pull_and_verify(images, pull_through_distribution())
+    pull_and_verify(images, pull_through_distribution(private=private))
 
 
-def test_manifest_pull(delete_orphans_pre, pull_through_distribution, pull_and_verify):
+@pytest.mark.parametrize("private", [False, True])
+def test_manifest_pull(delete_orphans_pre, pull_through_distribution, pull_and_verify, private):
     images = [f"{PULP_FIXTURE_1}:manifest_a", f"{PULP_FIXTURE_1}:manifest_b"]
-    pull_and_verify(images, pull_through_distribution())
+    pull_and_verify(images, pull_through_distribution(private=private))
 
 
 def test_pull_by_digest(
@@ -153,34 +166,47 @@ def test_pull_by_digest(
     full_path,
     gen_user,
 ):
+    if settings.TOKEN_AUTH_DISABLED:
+        pytest.skip("RBAC cannot be tested when token authentication is disabled")
+
     # THIS TEST FAILS WHEN THE CONTENT IS ALREADY PRESENT IN PULP!!
     image1 = f"{PULP_HELLO_WORLD_REPO}@{PULP_HELLO_WORLD_LINUX_AMD64_DIGEST}"
     image2 = f"{PULP_FIXTURE_1}@{PULP_FIXTURE_1_MANIFEST_A_DIGEST}"
     distribution1 = pull_through_distribution()
-    distribution2 = pull_through_distribution()
+    distribution2 = pull_through_distribution(private=True)
     path1 = distribution1.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL]
     path2 = distribution2.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL]
     local_image_path1 = f"{full_path(path1)}/{image1}"
     local_image_path2 = f"{full_path(path2)}/{image2}"
 
-    with anonymous_user, pytest.raises(CalledProcessError):
+    with anonymous_user:
         local_registry.pull(local_image_path1)
-
-    local_registry.pull(local_image_path1)
 
     add_pull_through_entities_to_cleanup(local_image_path1.split("@")[0])
 
     with anonymous_user:
         local_registry.pull(local_image_path1)
 
-    with gen_user():
-        local_registry.pull(local_image_path1)
-
-    with gen_user(), pytest.raises(CalledProcessError):
+    consumer = gen_user(
+        object_roles=[
+            ("container.containerpullthroughdistribution_consumer", distribution2.pulp_href)
+        ]
+    )
+    unprivileged_user = gen_user()
+    with anonymous_user, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path2)
+    with unprivileged_user, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path2)
+    with consumer:
         local_registry.pull(local_image_path2)
 
-    with gen_user(model_roles=["container.containernamespace_collaborator"]):
-        local_registry.pull(local_image_path1)
+    add_pull_through_entities_to_cleanup(local_image_path2.split("@")[0])
+
+    with anonymous_user, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path2)
+    with unprivileged_user, pytest.raises(CalledProcessError):
+        local_registry.pull(local_image_path2)
+    with consumer:
         local_registry.pull(local_image_path2)
 
 
