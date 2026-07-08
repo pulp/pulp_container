@@ -371,7 +371,11 @@ class ContainerRegistryApiMixin:
             .order_by("-base_path")
             .first()
         )
-        if not pull_through_cache_distribution or not self.request.user.is_authenticated:
+        # allow anonymous pull-through access for public distributions
+        if not pull_through_cache_distribution:
+            raise RepositoryNotFound(name=path)
+        # user must be authenticated when pull-through is private
+        if pull_through_cache_distribution.private and not self.request.user.is_authenticated:
             raise RepositoryNotFound(name=path)
 
         upstream_name = path.split(pull_through_cache_distribution.base_path, maxsplit=1)[1].strip(
