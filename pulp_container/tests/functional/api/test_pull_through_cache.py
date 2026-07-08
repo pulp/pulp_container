@@ -67,8 +67,8 @@ def pull_and_verify(
             local_image_path = f"{pull_through_path}/{image_path}"
             local_image_pull_path = full_path(local_image_path)  # Handle if domain is enabled
 
-            # 0. test if an anonymous user cannot pull new content through the pull-through cache
-            with anonymous_user, pytest.raises(CalledProcessError):
+            # 0. an anonymous user can pull new content through a public pull-through cache
+            with anonymous_user:
                 local_registry.pull(local_image_pull_path)
 
             # 1. pull remote content through the pull-through distribution
@@ -163,7 +163,7 @@ def test_pull_by_digest(
     local_image_path1 = f"{full_path(path1)}/{image1}"
     local_image_path2 = f"{full_path(path2)}/{image2}"
 
-    with anonymous_user, pytest.raises(CalledProcessError):
+    with anonymous_user:
         local_registry.pull(local_image_path1)
 
     local_registry.pull(local_image_path1)
@@ -176,8 +176,10 @@ def test_pull_by_digest(
     with gen_user():
         local_registry.pull(local_image_path1)
 
-    with gen_user(), pytest.raises(CalledProcessError):
+    with gen_user():
         local_registry.pull(local_image_path2)
+
+    add_pull_through_entities_to_cleanup(local_image_path2.split("@")[0])
 
     with gen_user(model_roles=["container.containernamespace_collaborator"]):
         local_registry.pull(local_image_path1)

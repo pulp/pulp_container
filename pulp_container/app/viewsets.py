@@ -1398,6 +1398,12 @@ class ContainerDistributionViewSet(DistributionViewSet, RolesMixin):
             },
             {
                 "action": ["pull_new_content"],
+                "principal": "*",
+                "effect": "allow",
+                "condition_expression": "not is_private",
+            },
+            {
+                "action": ["pull_new_content"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition": [
@@ -1561,6 +1567,12 @@ class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
                 "condition": [
                     "has_model_or_domain_or_obj_perms:container.manage_roles_containerpullthroughdistribution"  # noqa
                 ],
+            },
+            {
+                "action": ["pull_new_distribution"],
+                "principal": "*",
+                "effect": "allow",
+                "condition_expression": "not is_private",
             },
             {
                 "action": ["pull_new_distribution"],
