@@ -290,6 +290,21 @@ class ContainerPushRepositorySerializer(RepositorySerializer, GetOrCreateSeriali
         model = models.ContainerPushRepository
 
 
+class MigratePushRepositorySerializer(ValidateFieldsMixin, serializers.Serializer):
+    """
+    Serializer for migrating a push repository to a container repository.
+    """
+
+    copy_versions = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text=_(
+            "If True, copy the full repository version history. "
+            "If False, only the latest repository version content is copied."
+        ),
+    )
+
+
 class ContainerRemoteSerializer(RemoteSerializer):
     """
     A Serializer for ContainerRemote.
