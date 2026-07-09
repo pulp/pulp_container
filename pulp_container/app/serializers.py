@@ -299,7 +299,8 @@ class MigratePushRepositorySerializer(ValidateFieldsMixin, serializers.Serialize
         required=False,
         default=False,
         help_text=_(
-            "If True, copy the full repository version history. "
+            "If True, replay the full repository version history into the new repository. "
+            "Version numbers and timestamps are newly created. "
             "If False, only the latest repository version content is copied."
         ),
     )

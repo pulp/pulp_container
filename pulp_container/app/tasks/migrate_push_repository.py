@@ -20,8 +20,9 @@ def migrate_push_repository(push_repository_pk, copy_versions=False):
 
     Args:
         push_repository_pk (str): The primary key for the push repository to migrate.
-        copy_versions (bool): If True, copy the full repository version history. If False,
-            only copy content from the latest repository version.
+        copy_versions (bool): If True, replay the full repository version history into the
+            new repository (new version numbers/timestamps). If False, only copy content
+            from the latest repository version.
     """
     push_repository = ContainerPushRepository.objects.get(pk=push_repository_pk)
 
