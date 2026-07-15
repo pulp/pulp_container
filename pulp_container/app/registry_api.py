@@ -11,7 +11,6 @@ import hashlib
 import json
 import logging
 import re
-from itertools import chain
 from tempfile import NamedTemporaryFile
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
@@ -52,7 +51,7 @@ from pulpcore.plugin.models import (
     Repository,
     UploadChunk,
 )
-from pulpcore.plugin.tasking import dispatch
+from pulpcore.plugin.tasking import aadd_and_remove, dispatch
 from pulpcore.plugin.util import get_domain, get_objects_for_user, get_url
 
 from pulp_container.app import models, serializers
@@ -80,7 +79,7 @@ from pulp_container.app.redirects import (
     FileStorageRedirects,
     S3StorageRedirects,
 )
-from pulp_container.app.tasks import aadd_and_remove, download_image_data, recursive_remove_content
+from pulp_container.app.tasks import download_image_data, recursive_remove_content
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
     RegistryPermission,
@@ -93,6 +92,7 @@ from pulp_container.app.utils import (
     extract_data_from_signature,
     filter_resource,
     get_accepted_media_types,
+    get_content_units_to_add,
     get_full_path,
     has_task_completed,
     validate_manifest,
@@ -1401,26 +1401,8 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         return Response(status=202)
 
     def get_content_units_to_add(self, manifest, tag=None):
-        add_content_units = [str(manifest.pk)]
-        if tag:
-            add_content_units.append(str(tag.pk))
-        if manifest.media_type in (
-            models.MEDIA_TYPE.MANIFEST_LIST,
-            models.MEDIA_TYPE.INDEX_OCI,
-        ):
-            for listed_manifest in manifest.listed_manifests.all():
-                add_content_units.append(listed_manifest.pk)
-                add_content_units.append(listed_manifest.config_blob_id)
-                add_content_units.extend(listed_manifest.blobs.values_list("pk", flat=True))
-        elif manifest.media_type in (
-            models.MEDIA_TYPE.MANIFEST_V2,
-            models.MEDIA_TYPE.MANIFEST_OCI,
-        ):
-            add_content_units.append(manifest.config_blob_id)
-            add_content_units.extend(manifest.blobs.values_list("pk", flat=True))
-        else:
-            add_content_units.extend(manifest.blobs.values_list("pk", flat=True))
-        return add_content_units
+        """Collect content PKs to add for a manifest (and optional tag)."""
+        return get_content_units_to_add(manifest, tag)
 
     def fake_init_manifest(self, response, pk):
         """
@@ -1630,14 +1612,18 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 tag.touch()
 
             add_content_units = [str(tag.pk), str(manifest.pk)] + [
-                str(content.pk)
-                for content in chain(found_blobs, found_config_blobs, found_manifests)
+                str(pk)
+                for pk in found_blobs.values_list("pk", flat=True)
+                .union(found_config_blobs.values_list("pk", flat=True))
+                .union(found_manifests.values_list("pk", flat=True))
             ]
 
+            # Filter by tag name (string), not the Tag instance — Django would
+            # coerce the instance via __str__ and never match existing tags.
             tags_to_remove = models.Tag.objects.filter(
-                pk__in=repository.latest_version().content.all(), name=tag
+                pk__in=repository.latest_version().content.all(), name=tag.name
             ).exclude(tagged_manifest=manifest)
-            remove_content_units = [str(pk) for pk in tags_to_remove.values_list("pk")]
+            remove_content_units = [str(pk) for pk in tags_to_remove.values_list("pk", flat=True)]
 
             immediate_task = dispatch(
                 aadd_and_remove,
