@@ -1,3 +1,4 @@
+SECRET_KEY = "{{ django_secret }}"
 CONTENT_ORIGIN = "{{ pulp_scheme }}://pulp:{{ 443 if pulp_scheme == 'https' else 80 }}"
 ANSIBLE_API_HOSTNAME = "{{ pulp_scheme }}://pulp:{{ 443 if pulp_scheme == 'https' else 80 }}"
 ANSIBLE_CONTENT_HOSTNAME = "{{ pulp_scheme }}://pulp:{{ 443 if pulp_scheme == 'https' else 80 }}/pulp/content"
@@ -9,10 +10,6 @@ CACHE_ENABLED = True
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 ANALYTICS = False
-
-{% if api_root is defined %}
-API_ROOT = {{ api_root | repr }}
-{% endif %}
 
 {% if pulp_settings %}
 {% for key, value in pulp_settings.items() %}

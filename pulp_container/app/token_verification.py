@@ -1,19 +1,17 @@
-import jwt
 import logging
-
 from collections import namedtuple
 
+import jwt
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
-
+from django.contrib.auth.models import AnonymousUser
 from rest_framework.authentication import (
     BaseAuthentication,
     BasicAuthentication,
     RemoteUserAuthentication,
 )
 from rest_framework.exceptions import AuthenticationFailed, NotAuthenticated
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 Scope = namedtuple("Scope", "resource_type, name, action")
 User = get_user_model()

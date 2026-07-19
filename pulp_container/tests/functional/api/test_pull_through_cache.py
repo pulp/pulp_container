@@ -1,19 +1,18 @@
-import time
 import subprocess
-import pytest
-
-from django.conf import settings
-
+import time
 from subprocess import CalledProcessError
 from uuid import uuid4
 
+import pytest
+from django.conf import settings
+
 from pulp_container.constants import MANIFEST_TYPE
 from pulp_container.tests.functional.constants import (
-    REGISTRY_V2,
-    PULP_HELLO_WORLD_REPO,
-    PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
     PULP_FIXTURE_1,
     PULP_FIXTURE_1_MANIFEST_A_DIGEST,
+    PULP_HELLO_WORLD_LINUX_AMD64_DIGEST,
+    PULP_HELLO_WORLD_REPO,
+    REGISTRY_V2,
 )
 
 
