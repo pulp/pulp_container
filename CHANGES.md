@@ -8,6 +8,14 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.22.9 (2026-07-21) {: #2.22.9 }
+
+#### Bugfixes {: #2.22.9-bugfix }
+
+- Added OCI manifest as an allowed media type in the Docker manifest list schema.
+
+---
+
 ## 2.22.8 (2026-04-24) {: #2.22.8 }
 
 No significant changes.
