@@ -1,12 +1,13 @@
-include LICENSE
 include pulp_container/app/webserver_snippets/*
-include pyproject.toml
+include pulp_container/tests/unit/fixtures/*
+include LICENSE
 include CHANGES.md
 include COMMITMENT
 include COPYRIGHT
+include pyproject.toml
 include functest_requirements.txt
 include test_requirements.txt
 include unittest_requirements.txt
 exclude CONTRIBUTING.md
 exclude releasing.md
-include pulp_container/tests/unit/fixtures/*
+exclude Makefile
