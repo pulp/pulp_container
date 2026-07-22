@@ -381,6 +381,14 @@ No significant changes.
 
 ---
 
+## 2.24.12 (2026-07-21) {: #2.24.12 }
+
+#### Bugfixes {: #2.24.12-bugfix }
+
+- Added OCI manifest as an allowed media type in the Docker manifest list schema.
+
+---
+
 ## 2.24.11 (2026-04-29) {: #2.24.11 }
 
 #### Bugfixes {: #2.24.11-bugfix }
@@ -508,6 +516,14 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.9 (2026-07-21) {: #2.22.9 }
+
+#### Bugfixes {: #2.22.9-bugfix }
+
+- Added OCI manifest as an allowed media type in the Docker manifest list schema.
 
 ---
 
@@ -684,6 +700,14 @@ No significant changes.
 #### Misc {: #2.21.0-misc }
 
 - [#1607](https://github.com/pulp/pulp_container/issues/1607), [#1681](https://github.com/pulp/pulp_container/issues/1681)
+
+---
+
+## 2.20.10 (2026-07-21) {: #2.20.10 }
+
+#### Bugfixes {: #2.20.10-bugfix }
+
+- Added OCI manifest as an allowed media type in the Docker manifest list schema.
 
 ---
 
