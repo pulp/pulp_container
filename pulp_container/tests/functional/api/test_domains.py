@@ -1,17 +1,22 @@
 import uuid
+from contextlib import suppress
 from subprocess import CalledProcessError
+from urllib.parse import urljoin
 
 import pytest
+import requests
 
+from pulp_container.constants import MEDIA_TYPE
 from pulp_container.tests.functional.constants import (
     PULP_FIXTURE_1,
     PULP_HELLO_WORLD_REPO,
     REGISTRY_V2_REPO_PULP,
 )
+from pulp_container.tests.functional.utils import get_auth_for_url
 
 
 @pytest.fixture
-def cdomain_factory(domain_factory, pulpcore_bindings):
+def cdomain_factory(domain_factory, pulpcore_bindings, container_bindings, monitor_task):
     domains = []
 
     def _domain_factory(*args, **kwargs):
@@ -22,9 +27,18 @@ def cdomain_factory(domain_factory, pulpcore_bindings):
     yield _domain_factory
 
     for domain in domains:
+        namespaces = container_bindings.PulpContainerNamespacesApi.list(
+            pulp_domain=domain.name
+        ).results
+        for namespace in namespaces:
+            with suppress(Exception):
+                response = container_bindings.PulpContainerNamespacesApi.delete(namespace.pulp_href)
+                monitor_task(response.task)
+
         guards = pulpcore_bindings.ContentguardsContentRedirectApi.list(pulp_domain=domain.name)
         for guard in guards.results:
-            pulpcore_bindings.ContentguardsContentRedirectApi.delete(guard.pulp_href)
+            with suppress(Exception):
+                pulpcore_bindings.ContentguardsContentRedirectApi.delete(guard.pulp_href)
 
 
 def test_push_in_domain(
@@ -88,6 +102,59 @@ def test_pull_in_domain(
 
     local_path = f"{domain.name}/{distribution.base_path}"
     local_registry.pull(local_path)
+
+
+@pytest.mark.parallel
+def test_domain_on_demand_manifest_fetch_by_tag_and_digest(
+    cdomain_factory,
+    container_repository_factory,
+    container_remote_factory,
+    container_sync,
+    container_distribution_factory,
+    container_bindings,
+    bindings_cfg,
+    pulp_settings,
+):
+    """Tag- and digest-based manifest fetches must both succeed for on-demand repos in a domain."""
+    if not pulp_settings.DOMAIN_ENABLED:
+        pytest.skip("This test requires domains to be enabled.")
+
+    domain = cdomain_factory()
+    repo = container_repository_factory(pulp_domain=domain.name)
+    remote = container_remote_factory(
+        pulp_domain=domain.name,
+        upstream_name=PULP_FIXTURE_1,
+        policy="on_demand",
+    )
+    container_sync(repo, remote)
+    repo = container_bindings.RepositoriesContainerApi.read(repo.pulp_href)
+    distribution = container_distribution_factory(
+        repository=repo.pulp_href, pulp_domain=domain.name
+    )
+
+    manifest_list_tag = None
+    for tag in container_bindings.ContentTagsApi.list(
+        repository_version=repo.latest_version_href, pulp_domain=domain.name
+    ).results:
+        manifest = container_bindings.ContentManifestsApi.read(tag.tagged_manifest)
+        if manifest.media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
+            manifest_list_tag = tag
+            break
+    assert manifest_list_tag is not None, "Expected a synced manifest list tag in the fixture repo."
+
+    manifest = container_bindings.ContentManifestsApi.read(manifest_list_tag.tagged_manifest)
+    accept = f"{MEDIA_TYPE.MANIFEST_LIST};q=0.8, {MEDIA_TYPE.MANIFEST_V2};q=0.9"
+    base_path = f"/v2/{domain.name}/{distribution.base_path}"
+
+    tag_url = urljoin(bindings_cfg.host, f"{base_path}/manifests/{manifest_list_tag.name}")
+    digest_url = urljoin(bindings_cfg.host, f"{base_path}/manifests/{manifest.digest}")
+    auth = get_auth_for_url(tag_url)
+
+    tag_response = requests.get(tag_url, auth=auth, headers={"Accept": accept})
+    assert tag_response.status_code == 200, tag_response.text
+
+    digest_response = requests.get(digest_url, auth=auth, headers={"Accept": accept})
+    assert digest_response.status_code == 200, digest_response.text
 
 
 def test_domain_permissions(

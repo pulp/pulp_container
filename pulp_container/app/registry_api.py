@@ -95,6 +95,7 @@ from pulp_container.app.utils import (
     get_accepted_media_types,
     get_full_path,
     has_task_completed,
+    is_media_type_accepted,
     validate_manifest,
 )
 from pulp_container.constants import (
@@ -166,11 +167,11 @@ class ManifestResponse(Response):
         manifest_media_type = manifest.media_type
         if request:
             accepted_media_types = get_accepted_media_types(request.headers)
-            if (
-                manifest_media_type not in accepted_media_types
-                and manifest_media_type != MEDIA_TYPE.MANIFEST_V1
+            if accepted_media_types and not is_media_type_accepted(
+                accepted_media_types, manifest_media_type
             ):
-                raise ManifestNotFound(reference=tag.name)
+                if manifest_media_type != MEDIA_TYPE.MANIFEST_V1:
+                    raise ManifestNotFound(reference=tag.name)
 
         # Schema v1 manifests are always returned with the signed content type
         if manifest_media_type == MEDIA_TYPE.MANIFEST_V1:
