@@ -24,7 +24,7 @@ from pulp_container.app.models import (
     ContainerPullThroughDistribution,
 )
 
-TOKEN_EXPIRATION_TIME = settings.get("TOKEN_EXPIRATION_TIME", 300)
+TOKEN_EXPIRATION_TIME = getattr(settings, "TOKEN_EXPIRATION_TIME", 300)
 
 FakeView = namedtuple("FakeView", "action, get_object, get_serializer")
 
