@@ -1,0 +1,1 @@
+Fixed tag-based manifest fetches returning 404 when the client Accept header included q-values or when the manifest media type did not exactly match the parsed header value.

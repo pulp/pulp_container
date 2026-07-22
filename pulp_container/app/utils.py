@@ -42,6 +42,12 @@ def get_full_path(base_path, pulp_domain=None):
     return base_path
 
 
+def _parse_accept_entry(value):
+    """Return the media type from an Accept header entry, without parameters such as q-values."""
+    media_type = value.strip().split(";", maxsplit=1)[0].strip()
+    return media_type or None
+
+
 def get_accepted_media_types(headers):
     """
     Returns a list of media types from the Accept headers.
@@ -56,10 +62,23 @@ def get_accepted_media_types(headers):
     """
     accepted_media_types = []
     for header, values in headers.items():
-        if header == "Accept":
-            values = [v.strip() for v in values.split(",")]
-            accepted_media_types.extend(values)
+        if header.lower() == "accept":
+            for value in values.split(","):
+                if media_type := _parse_accept_entry(value):
+                    accepted_media_types.append(media_type)
     return accepted_media_types
+
+
+def is_media_type_accepted(accepted_media_types, media_type):
+    """
+    Return whether a manifest media type satisfies an Accept header.
+
+    Supports exact media type matches and the ``*/*`` wildcard used by some clients.
+    """
+    for accepted in accepted_media_types:
+        if accepted in ("*/*", media_type):
+            return True
+    return False
 
 
 def urlpath_sanitize(*args):
