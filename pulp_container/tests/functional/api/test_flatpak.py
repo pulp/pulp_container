@@ -1,7 +1,8 @@
 """Tests that verify Flatpak support"""
 
-import pytest
 import subprocess
+
+import pytest
 
 from pulp_container.tests.functional.constants import REGISTRY_V2
 

@@ -1,5 +1,4 @@
 import pytest
-
 from pulp_smash.pulp3.bindings import monitor_task
 
 from pulpcore.client.pulp_container import RepositorySign

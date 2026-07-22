@@ -42,6 +42,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: "Install uv"
+        uses: "astral-sh/setup-uv@v7"
+        with:
+          enable-cache: true
+
       - name: "Download plugin package"
         uses: "actions/download-artifact@v8"
         with:
@@ -134,7 +139,7 @@ jobs:
         if: always()
         run: |
           echo "Need to debug? Please check: https://github.com/marketplace/actions/debugging-with-tmate"
-          http --timeout 30 --check-status --pretty format --print hb "https://pulp${PULP_API_ROOT}api/v3/status/" || true
+          pulp status || true
           docker images || true
           docker ps -a || true
           docker logs pulp || true
