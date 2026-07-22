@@ -1,8 +1,8 @@
 from pulp_container.app.models import (
+    MEDIA_TYPE,
     Blob,
     ContainerRepository,
     Manifest,
-    MEDIA_TYPE,
     Tag,
 )
 
