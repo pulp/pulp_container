@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.28.1 (2026-07-22) {: #2.28.1 }
+
+#### Bugfixes {: #2.28.1-bugfix }
+
+- Add transparent repair code during Manifest sync to redownload the raw data in case it was lost during an upgrade.
+- Added OCI manifest as an allowed media type in the Docker manifest list schema.
+
+---
+
 ## 2.28.0 (2026-05-29) {: #2.28.0 }
 
 #### Features {: #2.28.0-feature }
