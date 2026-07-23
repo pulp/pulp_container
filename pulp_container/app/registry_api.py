@@ -542,9 +542,9 @@ class FlatpakIndexDynamicView(APIView):
         elif manifest.media_type in (models.MEDIA_TYPE.MANIFEST_LIST, models.MEDIA_TYPE.INDEX_OCI):
             mlms = manifest.listed_manifests.through.objects.filter(image_manifest__pk=manifest.pk)
             if oss:
-                mlms.filter(os__in=oss)
+                mlms = mlms.filter(os__in=oss)
             if architectures:
-                mlms.filter(architecture__in=architectures)
+                mlms = mlms.filter(architecture__in=architectures)
             for mlm in mlms:
                 self.recurse_through_manifest_lists(
                     tag, mlm.manifest_list, oss, architectures, manifests
@@ -627,7 +627,7 @@ class FlatpakIndexDynamicView(APIView):
                     continue
                 images.append(
                     {
-                        "Tags": tagged,
+                        "Tags": list(tagged),
                         "Digest": manifest.digest,
                         "MediaType": manifest.media_type,
                         "OS": os,
