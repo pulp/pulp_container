@@ -63,8 +63,8 @@ def pull_and_verify(
             local_image_path = f"{pull_through_distribution.base_path}/{image_path}"
             local_image_pull_path = full_path(local_image_path)  # Handle if domain is enabled
 
-            # 0. test if an anonymous user cannot pull new content through the pull-through cache
-            with anonymous_user, pytest.raises(CalledProcessError):
+            # 0. test if an anonymous user can pull new content through the pull-through cache for public distributions
+            with anonymous_user:
                 local_registry.pull(local_image_pull_path)
 
             # 1. pull remote content through the pull-through distribution
