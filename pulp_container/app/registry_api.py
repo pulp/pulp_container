@@ -1478,14 +1478,43 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         Fetch a manifest from the upstream remote.
         Returns the local manifest, if it exists in Pulp, and the full response from upstream.
         Raises response errors if manifest is not found or the download fails.
+
+        A HEAD request is issued first to check the manifest's digest against what is already
+        stored in Pulp. Per Docker Hub's pull-rate accounting, a HEAD ("version check") does not
+        count as a pull, unlike a GET. If the manifest is already stored locally, the HEAD
+        response is returned as-is and the counted GET is skipped entirely.
         """
         relative_url = "/v2/{name}/manifests/{pk}".format(
             name=remote.namespaced_upstream_name, pk=pk
         )
         tag_url = urljoin(remote.url, relative_url)
+
+        head_response = self._fetch_manifest_response(remote, tag_url, pk, http_method="head")
+        digest = head_response.headers.get("docker-content-digest")
+        if digest:
+            manifest = models.Manifest.objects.filter(
+                digest=digest, pulp_domain=get_domain()
+            ).first()
+            if manifest is not None:
+                return manifest, head_response
+
+        # The manifest is not stored locally yet, or the upstream did not report a digest on the
+        # HEAD response; fall back to a full GET, identical to the previous behavior.
+        response = self._fetch_manifest_response(remote, tag_url, pk, http_method="get")
+        digest = response.headers.get("docker-content-digest")
+        return models.Manifest.objects.filter(
+            digest=digest, pulp_domain=get_domain()
+        ).first(), response
+
+    def _fetch_manifest_response(self, remote, tag_url, pk, http_method):
+        """
+        Issue a HEAD or GET request for a manifest and map response errors consistently.
+        """
         downloader = remote.get_downloader(url=tag_url)
         try:
-            response = downloader.fetch(extra_data={"headers": V2_ACCEPT_HEADERS})
+            return downloader.fetch(
+                extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": http_method}
+            )
         except ClientResponseError as response_error:
             if response_error.status == 429:
                 # the client could request the manifest outside the docker hub pull limit;
@@ -1498,11 +1527,6 @@ class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         except (ClientConnectionError, TimeoutException):
             # The remote server is not available at the moment
             raise GatewayTimeout()
-        else:
-            digest = response.headers.get("docker-content-digest")
-            return models.Manifest.objects.filter(
-                digest=digest, pulp_domain=get_domain()
-            ).first(), response
 
     def put(self, request, path, pk=None):
         """
