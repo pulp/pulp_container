@@ -528,6 +528,15 @@ No significant changes.
 
 ---
 
+## 2.22.10 (2026-07-23) {: #2.22.10 }
+
+#### Bugfixes {: #2.22.10-bugfix }
+
+- Fixed OS and architecture filters being silently ignored when filtering manifest lists in the flatpak index.
+- Fixed a serialization issue with the FlatpakIndex cache.
+
+---
+
 ## 2.22.9 (2026-07-21) {: #2.22.9 }
 
 #### Bugfixes {: #2.22.9-bugfix }
