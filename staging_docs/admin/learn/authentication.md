@@ -118,9 +118,9 @@ Below is provided an example of the settings file:
 
 ```python
 TOKEN_SERVER = "http://localhost:24817/token/"
-TOKEN_SIGNATURE_ALGORITHM = 'ES256'
-PUBLIC_KEY_PATH = '/tmp/public_key.pem'
-PRIVATE_KEY_PATH = '/tmp/private_key.pem'
+TOKEN_SIGNATURE_ALGORITHM = "ES256"
+PUBLIC_KEY_PATH = "/tmp/public_key.pem"
+PRIVATE_KEY_PATH = "/tmp/private_key.pem"
 ```
 
 Restart Pulp services in order to reload the updated settings. Pulp will fetch a domain for the token
