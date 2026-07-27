@@ -7,6 +7,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.19.13 (2026-07-27) {: #2.19.13 }
+
+#### Bugfixes {: #2.19.13-bugfix }
+
+- Fixed OS and architecture filters being silently ignored when filtering manifest lists in the flatpak index.
+- Fixed a serialization issue with the FlatpakIndex cache.
+
+---
+
 ## 2.19.12 (2026-06-08) {: #2.19.12 }
 
 No significant changes.
