@@ -76,7 +76,7 @@ def test_content_cache(
     monitor_task,
 ):
     """A test case that verifies the functionality of the Redis caching machinery."""
-    if not pulp_settings.get("CACHE_ENABLED"):
+    if not getattr(pulp_settings, "CACHE_ENABLED", False):
         pytest.skip("The caching machinery was not enabled")
 
     repo = container_repository_factory()
