@@ -5,6 +5,10 @@ import uuid
 from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
 
 
+def _pk_from_href(href):
+    return href.rstrip("/").split("/")[-1]
+
+
 def _setup_push_repository(
     add_to_cleanup,
     container_push_repository_factory,
@@ -42,7 +46,7 @@ def test_migrate_push_repository(
     full_path,
     monitor_task,
 ):
-    """A push repository can be migrated to a container repository and still accept pushes."""
+    """A push repository can be migrated in place and still accept pushes."""
     namespace_name = str(uuid.uuid4())
     repo_name = f"{namespace_name}/migrate"
 
@@ -55,21 +59,29 @@ def test_migrate_push_repository(
         full_path,
         repo_name,
     )
-    tags_before = container_bindings.ContentTagsApi.list(
-        repository_version=push_repository.latest_version_href
-    )
+    push_pk = _pk_from_href(push_repository.pulp_href)
+    latest_version_before = push_repository.latest_version_href
+    tags_before = container_bindings.ContentTagsApi.list(repository_version=latest_version_before)
     assert tags_before.count == 1
 
     migrate_response = container_bindings.RepositoriesContainerPushApi.migrate(
-        push_repository.pulp_href, {"copy_versions": False}
+        push_repository.pulp_href
     )
     task = monitor_task(migrate_response.task)
     container_repository = container_bindings.RepositoriesContainerApi.read(
         task.result["pulp_href"]
     )
     assert container_repository.name == repo_name
+    assert _pk_from_href(container_repository.pulp_href) == push_pk
     assert container_repository.pulp_href in task.created_resources
     assert container_repository.prn == task.result["prn"]
+    assert "container-push" not in container_repository.pulp_href
+    assert "/container/" in container_repository.pulp_href
+
+    # Same version object/number; href path updates with the repository type.
+    assert _pk_from_href(container_repository.latest_version_href) == _pk_from_href(
+        latest_version_before
+    )
     tags_after = container_bindings.ContentTagsApi.list(
         repository_version=container_repository.latest_version_href
     )
@@ -97,7 +109,7 @@ def test_migrate_push_repository(
     local_registry.pull(local_url)
 
 
-def test_migrate_push_repository_copy_versions(
+def test_migrate_push_repository_preserves_versions(
     add_to_cleanup,
     container_push_repository_factory,
     registry_client,
@@ -106,7 +118,7 @@ def test_migrate_push_repository_copy_versions(
     full_path,
     monitor_task,
 ):
-    """Migrating with copy_versions=True preserves repository version history content."""
+    """Migrating in place preserves repository version history identity and content."""
     namespace_name = str(uuid.uuid4())
     repo_name = f"{namespace_name}/migrate-versions"
 
@@ -128,6 +140,7 @@ def test_migrate_push_repository_copy_versions(
     push_repository = container_bindings.RepositoriesContainerPushApi.read(
         push_repository.pulp_href
     )
+    push_pk = _pk_from_href(push_repository.pulp_href)
     push_versions = container_bindings.RepositoriesContainerPushVersionsApi.list(
         push_repository.pulp_href
     )
@@ -142,12 +155,13 @@ def test_migrate_push_repository_copy_versions(
         version_tag_counts.append((version.number, tags.count, {t.name for t in tags.results}))
 
     migrate_response = container_bindings.RepositoriesContainerPushApi.migrate(
-        push_repository.pulp_href, {"copy_versions": True}
+        push_repository.pulp_href
     )
     task = monitor_task(migrate_response.task)
     container_repository = container_bindings.RepositoriesContainerApi.read(
         task.result["pulp_href"]
     )
+    assert _pk_from_href(container_repository.pulp_href) == push_pk
 
     container_versions = container_bindings.RepositoriesContainerVersionsApi.list(
         container_repository.pulp_href
@@ -158,7 +172,10 @@ def test_migrate_push_repository_copy_versions(
     )
     assert len(migrated_versions) == len(version_tag_counts)
 
-    for (_, expected_count, expected_names), migrated in zip(version_tag_counts, migrated_versions):
+    for (expected_number, expected_count, expected_names), migrated in zip(
+        version_tag_counts, migrated_versions
+    ):
+        assert migrated.number == expected_number
         tags = container_bindings.ContentTagsApi.list(repository_version=migrated.pulp_href)
         assert tags.count == expected_count
         assert {t.name for t in tags.results} == expected_names

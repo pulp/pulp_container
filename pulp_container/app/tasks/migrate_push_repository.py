@@ -1,70 +1,130 @@
-from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
+from django.db import connection, transaction
 
 from pulpcore.plugin.models import CreatedResource
+from pulpcore.plugin.models.role import GroupRole, UserRole
 
-from pulp_container.app.models import (
-    ContainerDistribution,
-    ContainerPushRepository,
-    ContainerRepository,
-)
+from pulp_container.app.models import ContainerPushRepository, ContainerRepository
 from pulp_container.app.serializers import ContainerRepositorySerializer
 
 
-def migrate_push_repository(push_repository_pk, copy_versions=False):
+def migrate_push_repository(push_repository_pk):
     """
-    Convert a ContainerPushRepository into a ContainerRepository.
+    Convert a ContainerPushRepository into a ContainerRepository in place.
 
-    Creates a new container repository with the same name and metadata, copies
-    content from the push repository, reassociates any distributions, and deletes
-    the original push repository.
+    Swaps the multi-table-inheritance child row and updates `pulp_type` on the
+    parent repository so the primary key is preserved. Repository versions,
+    distributions, and other FKs to `core.Repository` remain valid.
 
     Args:
         push_repository_pk (str): The primary key for the push repository to migrate.
-        copy_versions (bool): If True, replay the full repository version history into the
-            new repository (new version numbers/timestamps). If False, only copy content
-            from the latest repository version.
     """
-    push_repository = ContainerPushRepository.objects.get(pk=push_repository_pk)
-
-    original_name = push_repository.name
-    temp_name = f"{original_name}__migrating__{push_repository.pk}"
-
     with transaction.atomic():
-        push_repository.name = temp_name
-        push_repository.save(update_fields=["name"])
+        with connection.cursor() as cursor:
+            # First statement in the transaction: protect related reads/writes
+            # (pending M2Ms, role GFKs) that are not covered by row locks alone.
+            cursor.execute("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 
-        container_repository = ContainerRepository(
-            name=original_name,
-            pulp_domain=push_repository.pulp_domain,
-            pulp_labels=push_repository.pulp_labels,
-            description=push_repository.description,
-            retain_repo_versions=push_repository.retain_repo_versions,
-            retain_checkpoints=push_repository.retain_checkpoints,
-            user_hidden=push_repository.user_hidden,
-            manifest_signing_service=push_repository.manifest_signing_service,
+        # FOR UPDATE on the MTI join locks both the push child row and the parent
+        # core_repository row for the duration of this transaction.
+        push_repository = ContainerPushRepository.objects.select_for_update().get(
+            pk=push_repository_pk
         )
-        container_repository.save()
+        # Sanity check only: pulp_type should still be container-push
+        if push_repository.pulp_type != ContainerPushRepository.get_pulp_type():
+            raise RuntimeError(
+                f"Repository {push_repository_pk} has pulp_type "
+                f"{push_repository.pulp_type!r}, expected a push repository."
+            )
+        if ContainerRepository.objects.filter(pk=push_repository_pk).exists():
+            raise RuntimeError(
+                f"Container repository child row already exists for {push_repository_pk}."
+            )
 
-        container_repository.pending_blobs.set(push_repository.pending_blobs.all())
-        container_repository.pending_manifests.set(push_repository.pending_manifests.all())
+        signing_service_id = push_repository.manifest_signing_service_id
+        push_ct = ContentType.objects.get_for_model(ContainerPushRepository)
+        container_ct = ContentType.objects.get_for_model(ContainerRepository)
 
-        if copy_versions:
-            for push_version in push_repository.versions.complete().order_by("number"):
-                if push_version.number == 0 and not push_version.content.exists():
-                    continue
-                with container_repository.new_version() as new_version:
-                    new_version.set_content(push_version.content.all())
-        else:
-            latest_version = push_repository.latest_version()
-            if latest_version:
-                with container_repository.new_version() as new_version:
-                    new_version.set_content(latest_version.content.all())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE core_repository
+                SET pulp_type = %s
+                WHERE pulp_id = %s AND pulp_type = %s
+                """,
+                [
+                    ContainerRepository.get_pulp_type(),
+                    push_repository_pk,
+                    ContainerPushRepository.get_pulp_type(),
+                ],
+            )
+            if cursor.rowcount != 1:
+                raise RuntimeError(
+                    f"Failed to update pulp_type for repository {push_repository_pk}."
+                )
 
-        ContainerDistribution.objects.filter(repository=push_repository).update(
-            repository=container_repository
+            cursor.execute(
+                """
+                INSERT INTO container_containerrepository
+                    (repository_ptr_id, manifest_signing_service_id)
+                VALUES (%s, %s)
+                """,
+                [push_repository_pk, signing_service_id],
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO container_containerrepository_pending_blobs
+                    (containerrepository_id, blob_id)
+                SELECT containerpushrepository_id, blob_id
+                FROM container_containerpushrepository_pending_blobs
+                WHERE containerpushrepository_id = %s
+                """,
+                [push_repository_pk],
+            )
+            cursor.execute(
+                """
+                INSERT INTO container_containerrepository_pending_manifests
+                    (containerrepository_id, manifest_id)
+                SELECT containerpushrepository_id, manifest_id
+                FROM container_containerpushrepository_pending_manifests
+                WHERE containerpushrepository_id = %s
+                """,
+                [push_repository_pk],
+            )
+
+            # Pending M2M FKs are ON DELETE NO ACTION at the DB level (not CASCADE),
+            # so remove them explicitly before deleting the push child.
+            cursor.execute(
+                """
+                DELETE FROM container_containerpushrepository_pending_blobs
+                WHERE containerpushrepository_id = %s
+                """,
+                [push_repository_pk],
+            )
+            cursor.execute(
+                """
+                DELETE FROM container_containerpushrepository_pending_manifests
+                WHERE containerpushrepository_id = %s
+                """,
+                [push_repository_pk],
+            )
+            cursor.execute(
+                """
+                DELETE FROM container_containerpushrepository
+                WHERE repository_ptr_id = %s
+                """,
+                [push_repository_pk],
+            )
+
+        UserRole.objects.filter(content_type=push_ct, object_id=str(push_repository_pk)).update(
+            content_type=container_ct
+        )
+        GroupRole.objects.filter(content_type=push_ct, object_id=str(push_repository_pk)).update(
+            content_type=container_ct
         )
 
-        push_repository.delete()
+        container_repository = ContainerRepository.objects.get(pk=push_repository_pk)
 
     CreatedResource(content_object=container_repository).save()
 

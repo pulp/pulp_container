@@ -58,27 +58,23 @@ X-Frame-Options: SAMEORIGIN
 ## Migrating legacy push repositories
 
 Legacy push repositories can be converted to regular container repositories with the `migrate`
-action. Migration preserves the repository name, metadata, content, and distribution association,
-so registry paths and tags stay the same. The new repository is returned in the task result.
+action. Migration changes the repository type in place: the repository primary key, name,
+metadata, content, version history, and distribution association are preserved. Registry paths
+and tags stay the same. The repository href path changes from `container-push` to `container`;
+the converted repository is returned in the task result.
 
 ```bash
-http POST $BASE_ADDR/pulp/api/v3/repositories/container/container-push/$PUSH_REPO_PK/migrate/ \
-  copy_versions:=false
+http POST $BASE_ADDR/pulp/api/v3/repositories/container/container-push/$PUSH_REPO_PK/migrate/
 ```
 
-By default (`copy_versions=false`), only the latest repository version content is copied. Set
-`copy_versions=true` to replay the full version history into the new repository. Version numbers
-and timestamps on the new repository are created during migration; they are not a literal clone of
-the original versions. The registry API does not expose repository version timestamps.
-
-After migration, the push repository is deleted and the distribution points at the new container
-repository. You can continue to push and pull through the same registry path, and you gain standard
-repository operations such as sync and version management.
+After migration, the repository is listed under container repositories instead of push
+repositories. You can continue to push and pull through the same registry path, and you gain
+standard repository operations such as sync and version management.
 
 !!! warning
 
-    Do not push or upload content to a repository while it is being migrated. In-flight blob uploads
-    tied to the push repository can fail when the repository is deleted at the end of migration.
+    Do not push or upload content to a repository while it is being migrated. In-flight blob
+    uploads tied to the push repository can fail when the repository type changes.
 
 !!! warning
 

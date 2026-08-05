@@ -1157,7 +1157,8 @@ class ContainerPushRepositoryViewSet(
     @extend_schema(
         description=(
             "Trigger an asynchronous task to convert this push repository into a "
-            "container repository."
+            "container repository in place. The repository primary key and version "
+            "history are preserved; only the repository type changes."
         ),
         summary="Migrate push repository to container repository",
         request=serializers.MigratePushRepositorySerializer,
@@ -1168,7 +1169,7 @@ class ContainerPushRepositoryViewSet(
     )
     def migrate(self, request, pk):
         """
-        Create a task which converts a push repository into a container repository.
+        Create a task which converts a push repository into a container repository in place.
         """
         repository = self.get_object()
 
@@ -1183,10 +1184,7 @@ class ContainerPushRepositoryViewSet(
         result = dispatch(
             tasks.migrate_push_repository,
             exclusive_resources=exclusive_resources,
-            kwargs={
-                "push_repository_pk": str(repository.pk),
-                "copy_versions": serializer.validated_data["copy_versions"],
-            },
+            kwargs={"push_repository_pk": str(repository.pk)},
         )
         return OperationPostponedResponse(result, request)
 
