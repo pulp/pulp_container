@@ -13,6 +13,7 @@ from pulpcore.plugin.models import (
 )
 from pulpcore.plugin.util import get_domain
 
+from pulp_container.app.exceptions import TaskResourceNotFound
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -138,9 +139,21 @@ def build_image(
         raise RuntimeError("Neither a name nor temporary file for the Containerfile was specified.")
 
     if containerfile_tempfile_pk:
-        containerfile_artifact = PulpTemporaryFile.objects.get(pk=containerfile_tempfile_pk)
+        try:
+            containerfile_artifact = PulpTemporaryFile.objects.get(pk=containerfile_tempfile_pk)
+        except PulpTemporaryFile.DoesNotExist:
+            raise TaskResourceNotFound(
+                f"PulpTemporaryFile matching pk={containerfile_tempfile_pk} does not exist. "
+                "It may have been deleted after this task was dispatched."
+            ) from None
 
-    repository = ContainerRepository.objects.get(pk=repository_pk)
+    try:
+        repository = ContainerRepository.objects.get(pk=repository_pk)
+    except ContainerRepository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ContainerRepository matching pk={repository_pk} does not exist. It may "
+            "have been deleted after this task was dispatched."
+        ) from None
     name = str(uuid4())
     with tempfile.TemporaryDirectory(dir=".") as working_directory:
         working_directory = os.path.abspath(working_directory)
@@ -229,15 +242,33 @@ def build_image_from_containerfile(
         image and tag.
 
     """
-    containerfile = Artifact.objects.get(pk=containerfile_pk)
-    repository = ContainerRepository.objects.get(pk=repository_pk)
+    try:
+        containerfile = Artifact.objects.get(pk=containerfile_pk)
+    except Artifact.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"Artifact matching pk={containerfile_pk} does not exist. It may have been "
+            "deleted after this task was dispatched."
+        ) from None
+    try:
+        repository = ContainerRepository.objects.get(pk=repository_pk)
+    except ContainerRepository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ContainerRepository matching pk={repository_pk} does not exist. It may "
+            "have been deleted after this task was dispatched."
+        ) from None
     name = str(uuid4())
     with tempfile.TemporaryDirectory(dir=".") as working_directory:
         working_directory = os.path.abspath(working_directory)
         context_path = os.path.join(working_directory, "context")
         os.makedirs(context_path, exist_ok=True)
         for key, val in artifacts.items():
-            artifact = Artifact.objects.get(pk=key)
+            try:
+                artifact = Artifact.objects.get(pk=key)
+            except Artifact.DoesNotExist:
+                raise TaskResourceNotFound(
+                    f"Artifact matching pk={key} does not exist. It may have been "
+                    "deleted after this task was dispatched."
+                ) from None
             dest_path = os.path.join(context_path, val)
             dirs = os.path.split(dest_path)[0]
             if dirs:

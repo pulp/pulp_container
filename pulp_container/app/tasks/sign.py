@@ -8,6 +8,7 @@ from django.db.models import Q
 
 from pulpcore.plugin.models import Repository
 
+from pulp_container.app.exceptions import TaskResourceNotFound
 from pulp_container.app.models import (
     ManifestSignature,
     ManifestSigningService,
@@ -41,7 +42,13 @@ def sign(repository_pk, signing_service_pk, reference, tags_list=None):
                           should be signed.
 
     """
-    repository = Repository.objects.get(pk=repository_pk).cast()
+    try:
+        repository = Repository.objects.get(pk=repository_pk).cast()
+    except Repository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"Repository matching pk={repository_pk} does not exist. It may have been "
+            "deleted after this task was dispatched."
+        ) from None
     latest_version = repository.latest_version()
     if tags_list:
         latest_repo_content_tags = latest_version.content.filter(
@@ -55,7 +62,13 @@ def sign(repository_pk, signing_service_pk, reference, tags_list=None):
         .select_related("tagged_manifest")
         .exclude(Q(name__endswith=".sig") | Q(name__endswith=".att") | Q(name__endswith=".sbom"))
     )
-    signing_service = ManifestSigningService.objects.get(pk=signing_service_pk)
+    try:
+        signing_service = ManifestSigningService.objects.get(pk=signing_service_pk)
+    except ManifestSigningService.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ManifestSigningService matching pk={signing_service_pk} does not exist. "
+            "It may have been deleted after this task was dispatched."
+        ) from None
 
     async def sign_manifests():
         added_signatures = []

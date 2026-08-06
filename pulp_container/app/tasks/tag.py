@@ -1,6 +1,7 @@
 from pulpcore.plugin.models import CreatedResource, Repository
 from pulpcore.plugin.util import get_domain
 
+from pulp_container.app.exceptions import TaskResourceNotFound
 from pulp_container.app.models import Manifest, Tag
 
 
@@ -14,9 +15,21 @@ def tag_image(manifest_pk, tag, repository_pk):
     a new repository version when a manifest contains a digest which is not equal to the
     digest passed with POST request.
     """
-    manifest = Manifest.objects.get(pk=manifest_pk)
+    try:
+        manifest = Manifest.objects.get(pk=manifest_pk)
+    except Manifest.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"Manifest matching pk={manifest_pk} does not exist. It may have been "
+            "deleted after this task was dispatched."
+        ) from None
 
-    repository = Repository.objects.get(pk=repository_pk).cast()
+    try:
+        repository = Repository.objects.get(pk=repository_pk).cast()
+    except Repository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"Repository matching pk={repository_pk} does not exist. It may have been "
+            "deleted after this task was dispatched."
+        ) from None
     latest_version = repository.latest_version()
 
     tags_to_remove = Tag.objects.filter(pk__in=latest_version.content.all(), name=tag).exclude(

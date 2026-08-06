@@ -6,6 +6,7 @@ from asgiref.sync import sync_to_async
 from pulpcore.plugin.stages import DeclarativeContent
 from pulpcore.plugin.tasking import add_and_remove
 
+from pulp_container.app.exceptions import TaskResourceNotFound
 from pulp_container.app.models import ContainerRemote, ContainerRepository, Tag
 from pulp_container.app.utils import determine_media_type_from_json
 from pulp_container.constants import MEDIA_TYPE
@@ -21,8 +22,20 @@ async def aadd_and_remove(*args, **kwargs):
 
 
 def download_image_data(repository_pk, remote_pk, raw_text_manifest_data, tag_name=None):
-    repository = ContainerRepository.objects.get(pk=repository_pk)
-    remote = ContainerRemote.objects.get(pk=remote_pk)
+    try:
+        repository = ContainerRepository.objects.get(pk=repository_pk)
+    except ContainerRepository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ContainerRepository matching pk={repository_pk} does not exist. It may "
+            "have been deleted after this task was dispatched."
+        ) from None
+    try:
+        remote = ContainerRemote.objects.get(pk=remote_pk)
+    except ContainerRemote.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ContainerRemote matching pk={remote_pk} does not exist. It may have been "
+            "deleted after this task was dispatched."
+        ) from None
     log.info("Pulling cache: repository={r} remote={p}".format(r=repository.name, p=remote.name))
     first_stage = ContainerPullThroughFirstStage(remote, raw_text_manifest_data, tag_name)
     dv = ContainerDeclarativeVersion(first_stage, repository)
