@@ -1135,7 +1135,7 @@ class ContainerPushRepositoryViewSet(
                 ],
             },
             {
-                "action": ["update", "partial_update", "set_label", "unset_label"],
+                "action": ["update", "partial_update", "set_label", "unset_label", "migrate"],
                 "principal": "authenticated",
                 "effect": "allow",
                 "condition_expression": [
@@ -1153,6 +1153,40 @@ class ContainerPushRepositoryViewSet(
         },
     }
     LOCKED_ROLES = {}
+
+    @extend_schema(
+        description=(
+            "Trigger an asynchronous task to convert this push repository into a "
+            "container repository in place. The repository primary key and version "
+            "history are preserved; only the repository type changes."
+        ),
+        summary="Migrate push repository to container repository",
+        request=serializers.MigratePushRepositorySerializer,
+        responses={202: AsyncOperationResponseSerializer},
+    )
+    @action(
+        detail=True, methods=["post"], serializer_class=serializers.MigratePushRepositorySerializer
+    )
+    def migrate(self, request, pk):
+        """
+        Create a task which converts a push repository into a container repository in place.
+        """
+        repository = self.get_object()
+
+        serializer = serializers.MigratePushRepositorySerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        distributions = models.ContainerDistribution.objects.filter(repository=repository)
+        exclusive_resources = [repository, *distributions]
+
+        result = dispatch(
+            tasks.migrate_push_repository,
+            exclusive_resources=exclusive_resources,
+            kwargs={"push_repository_pk": str(repository.pk)},
+        )
+        return OperationPostponedResponse(result, request)
 
     @extend_schema(
         description=(

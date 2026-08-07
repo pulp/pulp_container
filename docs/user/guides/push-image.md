@@ -46,13 +46,35 @@ X-Frame-Options: SAMEORIGIN
 
 !!! note
 
-    Content is pushed to a push repository type. A push repository does not support mirroring of the
+    New registry pushes create a regular `ContainerRepository`. Older deployments may still have
+    legacy `ContainerPushRepository` instances. A push repository does not support mirroring of
     remote content via the Pulp API. Trying to push content with the same name as an existing
     "regular" repository will fail.
 
 !!! note
 
     Rollback to the previous repository versions is not possible with a push repository. Its latest version will always be served.
+
+## Migrating legacy push repositories
+
+Legacy push repositories can be converted to regular container repositories with the `migrate`
+action. Migration changes the repository type in place: the repository primary key, name,
+metadata, content, version history, and distribution association are preserved. Registry paths
+and tags stay the same. The repository href path changes from `container-push` to `container`;
+the converted repository is returned in the task result.
+
+```bash
+http POST $BASE_ADDR/pulp/api/v3/repositories/container/container-push/$PUSH_REPO_PK/migrate/
+```
+
+After migration, the repository is listed under container repositories instead of push
+repositories. You can continue to push and pull through the same registry path, and you gain
+standard repository operations such as sync and version management.
+
+!!! warning
+
+    Do not push or upload content to a repository while it is being migrated. In-flight blob
+    uploads tied to the push repository can fail when the repository type changes.
 
 !!! warning
 

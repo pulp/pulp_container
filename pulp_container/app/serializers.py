@@ -290,6 +290,12 @@ class ContainerPushRepositorySerializer(RepositorySerializer, GetOrCreateSeriali
         model = models.ContainerPushRepository
 
 
+class MigratePushRepositorySerializer(ValidateFieldsMixin, serializers.Serializer):
+    """
+    Serializer for migrating a push repository to a container repository in place.
+    """
+
+
 class ContainerRemoteSerializer(RemoteSerializer):
     """
     A Serializer for ContainerRemote.
