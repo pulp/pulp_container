@@ -2,7 +2,6 @@ import json
 import os
 import re
 import tempfile
-import time
 from gettext import gettext as _
 from logging import getLogger
 
@@ -797,8 +796,7 @@ INCOMPLETE_EXT = ".part"
 
 def generate_filename(instance, filename):
     """Method for generating upload file name"""
-    filename = os.path.join(instance.upload_dir, str(instance.pk) + INCOMPLETE_EXT)
-    return time.strftime(filename)
+    return os.path.join(instance.upload_dir, str(instance.pk) + INCOMPLETE_EXT)
 
 
 class Upload(CoreUpload):
