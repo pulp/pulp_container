@@ -383,3 +383,38 @@ def filter_resources(element_list, include_patterns, exclude_patterns):
     if exclude_patterns:
         element_list = filter(partial(exclude, patterns=exclude_patterns), element_list)
     return list(element_list)
+
+
+def get_content_units_to_add(manifest, tag=None):
+    """Collect content PKs to add for a manifest (and optional tag).
+
+    Uses bulk queries for listed manifests and related blobs to avoid N+1
+    lookups when preparing units for ``add_and_remove`` on the push/pull-through
+    paths.
+    """
+    # Local import avoids circular imports with models.
+    from pulp_container.app.models import BlobManifest
+
+    add_content_units = [str(manifest.pk)]
+    if tag:
+        add_content_units.append(str(tag.pk))
+    if manifest.media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
+        # values_list avoids deferred-field loads that .only() can trigger on MasterModel.
+        listed = list(manifest.listed_manifests.values_list("pk", "config_blob_id"))
+        add_content_units.extend(str(pk) for pk, _ in listed)
+        add_content_units.extend(str(config_id) for _, config_id in listed if config_id)
+        listed_pks = [pk for pk, _ in listed]
+        if listed_pks:
+            add_content_units.extend(
+                str(pk)
+                for pk in BlobManifest.objects.filter(manifest__in=listed_pks)
+                .values_list("manifest_blob_id", flat=True)
+                .distinct()
+            )
+    elif manifest.media_type in (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_OCI):
+        if manifest.config_blob_id:
+            add_content_units.append(str(manifest.config_blob_id))
+        add_content_units.extend(str(pk) for pk in manifest.blobs.values_list("pk", flat=True))
+    else:
+        add_content_units.extend(str(pk) for pk in manifest.blobs.values_list("pk", flat=True))
+    return add_content_units
