@@ -13,6 +13,7 @@ from pulpcore.plugin.models import (
 )
 from pulpcore.plugin.util import get_domain
 
+from pulp_container.app.exceptions import ContainerBuildError
 from pulp_container.app.models import (
     Blob,
     BlobManifest,
@@ -179,7 +180,7 @@ def build_image(
             stderr=subprocess.PIPE,
         )
         if bud_cp.returncode != 0:
-            raise Exception(bud_cp.stderr)
+            raise ContainerBuildError(bud_cp.stderr.decode())
         image_dir = os.path.join(working_directory, "image")
         os.makedirs(image_dir, exist_ok=True)
         push_cp = subprocess.run(
@@ -188,7 +189,7 @@ def build_image(
             stderr=subprocess.PIPE,
         )
         if push_cp.returncode != 0:
-            raise Exception(push_cp.stderr)
+            raise ContainerBuildError(push_cp.stderr.decode())
         repository_version = add_image_from_directory_to_repository(image_dir, repository, tag)
         if isinstance(containerfile_artifact, PulpTemporaryFile):
             containerfile_artifact.delete()
@@ -265,7 +266,7 @@ def build_image_from_containerfile(
             stderr=subprocess.PIPE,
         )
         if bud_cp.returncode != 0:
-            raise Exception(bud_cp.stderr)
+            raise ContainerBuildError(bud_cp.stderr.decode())
         image_dir = os.path.join(working_directory, "image")
         os.makedirs(image_dir, exist_ok=True)
         push_cp = subprocess.run(
@@ -274,7 +275,7 @@ def build_image_from_containerfile(
             stderr=subprocess.PIPE,
         )
         if push_cp.returncode != 0:
-            raise Exception(push_cp.stderr)
+            raise ContainerBuildError(push_cp.stderr.decode())
         repository_version = add_image_from_directory_to_repository(image_dir, repository, tag)
 
     return repository_version

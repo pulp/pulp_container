@@ -76,8 +76,47 @@ class TestPullContent:
         content_response = requests.get(
             latest_image_url, auth=auth, headers={"Accept": MEDIA_TYPE.MANIFEST_V1}
         )
-        # I don't understand what this is testing
         assert 400 <= content_response.status_code < 500
+
+    def test_api_serves_tag_with_qualified_accept_header(self, bindings_cfg, full_path, setup):
+        """Verify a tag pull succeeds when the Accept header lists the tag's media type
+        alongside q-values, per https://github.com/pulp/pulp_container/issues/2417.
+
+        The tag pull path used to compare Accept header entries verbatim against the
+        manifest's media type, so an entry like ``<media-type>;q=0.9`` never matched even
+        though the client did list the media type. The digest pull path never performed
+        this comparison, so the very same manifest could always be fetched by digest.
+        """
+        _, distribution_with_repo, _ = setup
+        image_path = "/v2/{}/manifests/{}".format(full_path(distribution_with_repo), "latest")
+        latest_image_url = urljoin(bindings_cfg.host, image_path)
+        auth = get_auth_for_url(latest_image_url)
+
+        # Discover the tag's actual media type without constraining the Accept header.
+        unconstrained_response = requests.get(latest_image_url, auth=auth)
+        unconstrained_response.raise_for_status()
+        media_type = unconstrained_response.headers["Content-Type"]
+
+        qualified_accept = f"{media_type};q=0.9, */*;q=0.1"
+        content_response = requests.get(
+            latest_image_url, auth=auth, headers={"Accept": qualified_accept}
+        )
+        content_response.raise_for_status()
+
+        digest = content_response.headers["Docker-Content-Digest"]
+        digest_image_path = f"/v2/{full_path(distribution_with_repo)}/manifests/{digest}"
+        digest_image_url = urljoin(bindings_cfg.host, digest_image_path)
+        digest_response = requests.get(
+            digest_image_url, auth=auth, headers={"Accept": qualified_accept}
+        )
+        digest_response.raise_for_status()
+
+        assert content_response.headers["Content-Type"] == digest_response.headers["Content-Type"]
+        assert (
+            content_response.headers["Docker-Content-Digest"]
+            == digest_response.headers["Docker-Content-Digest"]
+        )
+        assert content_response.content == digest_response.content
 
     def test_create_empty_blob_on_the_fly(self, bindings_cfg, full_path, setup):
         """
