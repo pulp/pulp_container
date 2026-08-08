@@ -1,3 +1,4 @@
+from pulp_container.app.exceptions import TaskResourceNotFound
 from pulp_container.app.models import (
     MEDIA_TYPE,
     Blob,
@@ -22,7 +23,13 @@ def recursive_add_content(repository_pk, content_units):
             should be added to the previous Repository Version for this Repository.
 
     """
-    repository = ContainerRepository.objects.get(pk=repository_pk)
+    try:
+        repository = ContainerRepository.objects.get(pk=repository_pk)
+    except ContainerRepository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ContainerRepository matching pk={repository_pk} does not exist. It may "
+            "have been deleted after this task was dispatched."
+        ) from None
 
     tags_to_add = Tag.objects.filter(pk__in=content_units)
 

@@ -11,6 +11,7 @@ from pulpcore.plugin.stages import (
     ResolveContentFutures,
 )
 
+from pulp_container.app.exceptions import TaskResourceNotFound
 from pulp_container.app.models import ContainerRemote, ContainerRepository
 
 from .sync_stages import ContainerContentSaver, ContainerFirstStage
@@ -34,8 +35,20 @@ def synchronize(remote_pk, repository_pk, mirror, signed_only):
         ValueError: If the remote does not specify a URL to sync
 
     """
-    remote = ContainerRemote.objects.get(pk=remote_pk)
-    repository = ContainerRepository.objects.get(pk=repository_pk)
+    try:
+        remote = ContainerRemote.objects.get(pk=remote_pk)
+    except ContainerRemote.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ContainerRemote matching pk={remote_pk} does not exist. It may have been "
+            "deleted after this task was dispatched."
+        ) from None
+    try:
+        repository = ContainerRepository.objects.get(pk=repository_pk)
+    except ContainerRepository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"ContainerRepository matching pk={repository_pk} does not exist. It may "
+            "have been deleted after this task was dispatched."
+        ) from None
     log.info("Synchronizing: repository={r} remote={p}".format(r=repository.name, p=remote.name))
     first_stage = ContainerFirstStage(remote, signed_only)
     dv = ContainerDeclarativeVersion(first_stage, repository, mirror)

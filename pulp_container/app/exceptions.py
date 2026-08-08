@@ -1,5 +1,7 @@
 from rest_framework.exceptions import APIException, NotFound, ParseError
 
+from pulpcore.plugin.exceptions import PulpException
+
 
 class BadGateway(APIException):
     status_code = 502
@@ -160,6 +162,26 @@ class ManifestSignatureInvalid(ParseError):
                 ]
             }
         )
+
+
+class TaskResourceNotFound(PulpException):
+    """Exception to signal that a resource a task depends on no longer exists.
+
+    Tasks look up their arguments' referenced objects by pk. If that object was
+    deleted between dispatch and execution (e.g. by a racing delete), a bare Django
+    DoesNotExist is not a PulpException, which pulpcore's task executor logs as
+    deprecated and will sanitize away in a future release. Raise this instead so the
+    real reason is preserved on the task result.
+    """
+
+    error_code = "CON0001"
+
+    def __init__(self, message):
+        """Initialize the exception with a description of the missing resource."""
+        self.message = message
+
+    def __str__(self):
+        return self.message
 
 
 class InvalidRequest(ParseError):

@@ -2,6 +2,7 @@ from django.db.models import Q
 
 from pulpcore.plugin.models import Content, Repository
 
+from pulp_container.app.exceptions import TaskResourceNotFound
 from pulp_container.app.models import (
     MEDIA_TYPE,
     Blob,
@@ -36,7 +37,13 @@ def recursive_remove_content(repository_pk, content_units):
             should be removed from the Repository.
 
     """
-    repository = Repository.objects.get(pk=repository_pk).cast()
+    try:
+        repository = Repository.objects.get(pk=repository_pk).cast()
+    except Repository.DoesNotExist:
+        raise TaskResourceNotFound(
+            f"Repository matching pk={repository_pk} does not exist. It may have been "
+            "deleted after this task was dispatched."
+        ) from None
     latest_version = repository.latest_version()
     latest_content = latest_version.content.all() if latest_version else Content.objects.none()
     if "*" in content_units:

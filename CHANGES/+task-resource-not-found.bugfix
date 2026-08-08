@@ -1,0 +1,1 @@
+Raised a proper `PulpException` subclass instead of a bare Django `DoesNotExist` when a task's referenced object (repository, remote, manifest, signing service, etc.) no longer exists, so the error is not sanitized away by pulpcore in a future release.
