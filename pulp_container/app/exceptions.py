@@ -1,5 +1,7 @@
 from rest_framework.exceptions import APIException, NotFound, ParseError
 
+from pulpcore.plugin.exceptions import PulpException
+
 
 class BadGateway(APIException):
     status_code = 502
@@ -160,6 +162,19 @@ class ManifestSignatureInvalid(ParseError):
                 ]
             }
         )
+
+
+class ContainerBuildError(PulpException):
+    """Exception to signal that building or pushing an OCI image failed."""
+
+    error_code = "CON0001"
+
+    def __init__(self, message):
+        """Initialize the exception with the decoded stderr of the failed podman command."""
+        self.message = message
+
+    def __str__(self):
+        return self.message
 
 
 class InvalidRequest(ParseError):

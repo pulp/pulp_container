@@ -1,0 +1,1 @@
+Raised a proper `PulpException` subclass instead of a bare `Exception` when building or pushing an OCI image fails, so the error is not sanitized away by pulpcore in a future release.

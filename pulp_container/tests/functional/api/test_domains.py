@@ -1,4 +1,5 @@
 import uuid
+from contextlib import suppress
 from subprocess import CalledProcessError
 
 import pytest
@@ -11,7 +12,7 @@ from pulp_container.tests.functional.constants import (
 
 
 @pytest.fixture
-def cdomain_factory(domain_factory, pulpcore_bindings):
+def cdomain_factory(domain_factory, pulpcore_bindings, container_bindings, monitor_task):
     domains = []
 
     def _domain_factory(*args, **kwargs):
@@ -22,9 +23,23 @@ def cdomain_factory(domain_factory, pulpcore_bindings):
     yield _domain_factory
 
     for domain in domains:
+        # ContainerNamespace has a PROTECT FK to Domain, so it must be cleared before
+        # domain_factory's own teardown deletes the domain, or that delete raises
+        # ProtectedError. Some tests already clean their own namespace up via
+        # add_to_cleanup; re-querying here is a no-op for those and a safety net for
+        # any test (e.g. one that creates multiple distributions) that doesn't.
+        namespaces = container_bindings.PulpContainerNamespacesApi.list(
+            pulp_domain=domain.name
+        ).results
+        for namespace in namespaces:
+            with suppress(Exception):
+                response = container_bindings.PulpContainerNamespacesApi.delete(namespace.pulp_href)
+                monitor_task(response.task)
+
         guards = pulpcore_bindings.ContentguardsContentRedirectApi.list(pulp_domain=domain.name)
         for guard in guards.results:
-            pulpcore_bindings.ContentguardsContentRedirectApi.delete(guard.pulp_href)
+            with suppress(Exception):
+                pulpcore_bindings.ContentguardsContentRedirectApi.delete(guard.pulp_href)
 
 
 def test_push_in_domain(
