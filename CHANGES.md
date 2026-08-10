@@ -8,6 +8,36 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.29.0 (2026-08-10) {: #2.29.0 }
+
+#### Features {: #2.29.0-feature }
+
+- Enable DELETE on the Docker v2 manifest endpoint so users can delete manifests by digest.
+  [#480](https://github.com/pulp/pulp_container/issues/480)
+- Enable DELETE on the Docker v2 blob endpoint so users can delete blobs by digest.
+  [#481](https://github.com/pulp/pulp_container/issues/481)
+- Added support for retrieving blob upload status via `GET /v2/<name>/blobs/uploads/<uuid>`.
+  [#483](https://github.com/pulp/pulp_container/issues/483)
+- Added a `migrate` endpoint on push repositories that converts a legacy `ContainerPushRepository`
+  into a `ContainerRepository` in place. The repository primary key and version history are
+  preserved; only the repository type changes.
+- Added support for cancelling blob uploads via `DELETE /v2/<name>/blobs/uploads/<uuid>`.
+- Changed the default created repository on push to be a ContainerRepository instead of a ContainerPushRepository. ContainerPushRepository will eventually be phased out in future releases.
+
+#### Bugfixes {: #2.29.0-bugfix }
+
+- Fixed tag-based manifest pulls returning 404 when the client's `Accept` header listed the tagged manifest's media type together with parameters such as q-values, since the media type comparison did not strip them and had no support for the `*/*` wildcard.
+  [#2417](https://github.com/pulp/pulp_container/issues/2417)
+- Add transparent repair code during Manifest sync to redownload the raw data in case it was lost during an upgrade.
+- Added OCI manifest as an allowed media type in the Docker manifest list schema.
+- Raised a proper `PulpException` subclass instead of a bare `Exception` when building or pushing an OCI image fails, so the error is not sanitized away by pulpcore in a future release.
+
+#### Improved Documentation {: #2.29.0-doc }
+
+- Rewrote the RBAC documentation to be more comprehensive and detailed.
+
+---
+
 ## 2.28.1 (2026-07-22) {: #2.28.1 }
 
 #### Bugfixes {: #2.28.1-bugfix }
