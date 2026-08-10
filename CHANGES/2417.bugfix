@@ -1,1 +1,0 @@
-Fixed tag-based manifest pulls returning 404 when the client's `Accept` header listed the tagged manifest's media type together with parameters such as q-values, since the media type comparison did not strip them and had no support for the `*/*` wildcard.
