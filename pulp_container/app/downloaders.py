@@ -35,7 +35,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
 
         super().__init__(*args, **kwargs)
 
-    async def _run(self, handle_401=True, extra_data=None):
+    async def _run(self, token_refresh_retries=2, extra_data=None):
         """
         Download, validate, and compute digests on the `url`. This is a coroutine.
 
@@ -47,7 +47,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         :meth:`~pulpcore.plugin.download.BaseDownloader._run`.
 
         Args:
-            handle_401(bool): If true, catch 401, request a new token and retry.
+            token_refresh_retries(int): Number of times to retry the request
 
         """
         headers = {}
@@ -75,7 +75,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             except ClientResponseError as e:
                 response_auth_header = response.headers.get("www-authenticate")
                 # Need to retry request
-                if handle_401 and e.status == 401 and response_auth_header is not None:
+                if token_refresh_retries and e.status == 401 and response_auth_header is not None:
                     # check if bearer or basic
                     if "bearer" in response_auth_header.lower():
                         # Token has not been updated during request
@@ -85,12 +85,22 @@ class RegistryAuthHttpDownloader(HttpDownloader):
                         ):
                             self.registry_auth["bearer"] = None
                             await self.update_token(response_auth_header, this_token, repo_name)
-                        return await self._run(handle_401=False, extra_data=extra_data)
+                        return await self._run(
+                            token_refresh_retries=token_refresh_retries - 1, extra_data=extra_data
+                        )
                     elif "basic" in response_auth_header.lower():
                         if self.remote.username:
                             basic = aiohttp.BasicAuth(self.remote.username, self.remote.password)
                             self.registry_auth["basic"] = basic.encode()
-                        return await self._run(handle_401=False, extra_data=extra_data)
+                        return await self._run(
+                            token_refresh_retries=token_refresh_retries - 1, extra_data=extra_data
+                        )
+                elif token_refresh_retries and e.status == 403 and this_token is not None:
+                    # handle 403 with bearer token, this is a special case for ghcr registry
+                    self.registry_auth["bearer"] = None
+                    return await self._run(
+                        token_refresh_retries=token_refresh_retries - 1, extra_data=extra_data
+                    )
                 else:
                     raise
 
