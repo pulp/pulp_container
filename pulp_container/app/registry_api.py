@@ -1208,6 +1208,7 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         relative_url = "/v2/{name}/blobs/{pk}".format(name=remote.namespaced_upstream_name, pk=pk)
         blob_url = urljoin(remote.url, relative_url)
         downloader = remote.get_downloader(url=blob_url)
+        used_get_fallback = False
         try:
             try:
                 response = downloader.fetch(
@@ -1215,10 +1216,14 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 )
             except ClientResponseError as response_error:
                 if response_error.status in (401, 405):
-                    # some registries (e.g. ECR Public) reject HEAD on blob endpoints
+                    # Some registries (e.g. ECR Public) reject HEAD on blob endpoints
                     # regardless of authentication; verify existence via GET instead
+                    used_get_fallback = True
                     response = downloader.fetch(
-                        extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "get"}
+                        extra_data={
+                            "headers": {**V2_ACCEPT_HEADERS, "Range": "bytes=0-0"},
+                            "http_method": "get",
+                        }
                     )
                 else:
                     raise
@@ -1235,7 +1240,10 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
             # The remote server is not available at the moment
             raise GatewayTimeout()
         else:
-            if response.headers.get("docker-content-digest") != pk:
+            # Registries that reject HEAD answer the ranged GET with a redirect that
+            # carries no docker-content-digest; the digest is verified later when the
+            # artifact is actually downloaded.
+            if not used_get_fallback and response.headers.get("docker-content-digest") != pk:
                 raise BlobNotFound(digest=pk)
         return blob_url
 
