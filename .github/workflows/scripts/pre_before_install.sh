@@ -20,9 +20,26 @@ then
   echo "INFO:
   Updating registries configuration
   "
-  echo "[registries.insecure]
-  registries = ['pulp.example.com', 'pulp']
-  " | sudo tee -a /etc/containers/registries.conf
+  # registries.conf v1 and v2 formats cannot be mixed in the same file;
+  # detect which format the runner uses and append matching syntax.
+  if grep -q "unqualified-search-registries" /etc/containers/registries.conf; then
+    sudo tee -a /etc/containers/registries.conf <<'EOF'
+
+[[registry]]
+location = "pulp.example.com"
+insecure = true
+
+[[registry]]
+location = "pulp"
+insecure = true
+EOF
+  else
+    sudo tee -a /etc/containers/registries.conf <<'EOF'
+
+[registries.insecure]
+registries = ["pulp.example.com", "pulp"]
+EOF
+  fi
 fi
 
 # Configure the GHA host for buildah/skopeo running within the pulp container.
