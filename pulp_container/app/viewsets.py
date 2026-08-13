@@ -559,7 +559,7 @@ class TagOperationsMixin:
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.TagImageSerializer)
-    def tag(self, request, pk):
+    def tag(self, request, pk, **kwargs):
         """
         Create a task which is responsible for creating a new tag.
         """
@@ -590,7 +590,7 @@ class TagOperationsMixin:
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.UnTagImageSerializer)
-    def untag(self, request, pk):
+    def untag(self, request, pk, **kwargs):
         """
         Create a task which is responsible for untagging an image.
         """
@@ -620,7 +620,7 @@ class SignOperationsMixin:
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.RepositorySignSerializer)
-    def sign(self, request, pk):
+    def sign(self, request, pk, **kwargs):
         """
         Signs manifests by tag in the repository.
         """
@@ -825,7 +825,7 @@ class ContainerRepositoryViewSet(
         methods=["post"],
         serializer_class=serializers.ContainerRepositorySyncURLSerializer,
     )
-    def sync(self, request, pk):
+    def sync(self, request, pk, **kwargs):
         """
         Synchronizes a repository. The ``repository`` field has to be provided.
         """
@@ -859,7 +859,7 @@ class ContainerRepositoryViewSet(
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.RecursiveManageSerializer)
-    def add(self, request, pk):
+    def add(self, request, pk, **kwargs):
         """
         Queues a task that creates a new RepositoryVersion by adding content units.
         """
@@ -898,7 +898,7 @@ class ContainerRepositoryViewSet(
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.RecursiveManageSerializer)
-    def remove(self, request, pk):
+    def remove(self, request, pk, **kwargs):
         """
         Queues a task that creates a new RepositoryVersion by removing content units.
         """
@@ -933,7 +933,7 @@ class ContainerRepositoryViewSet(
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.TagCopySerializer)
-    def copy_tags(self, request, pk):
+    def copy_tags(self, request, pk, **kwargs):
         """
         Queues a task that creates a new RepositoryVersion by adding Tags.
         """
@@ -966,7 +966,7 @@ class ContainerRepositoryViewSet(
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.ManifestCopySerializer)
-    def copy_manifests(self, request, pk):
+    def copy_manifests(self, request, pk, **kwargs):
         """
         Queues a task that creates a new RepositoryVersion by adding Manifests.
         """
@@ -1006,7 +1006,7 @@ class ContainerRepositoryViewSet(
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.OCIBuildImageSerializer)
-    def build_image(self, request, pk):
+    def build_image(self, request, pk, **kwargs):
         """
         Create a task which is responsible for creating a new image and tag.
         """
@@ -1167,7 +1167,7 @@ class ContainerPushRepositoryViewSet(
     @action(
         detail=True, methods=["post"], serializer_class=serializers.MigratePushRepositorySerializer
     )
-    def migrate(self, request, pk):
+    def migrate(self, request, pk, **kwargs):
         """
         Create a task which converts a push repository into a container repository in place.
         """
@@ -1197,7 +1197,7 @@ class ContainerPushRepositoryViewSet(
         responses={202: AsyncOperationResponseSerializer},
     )
     @action(detail=True, methods=["post"], serializer_class=serializers.RemoveImageSerializer)
-    def remove_image(self, request, pk):
+    def remove_image(self, request, pk, **kwargs):
         """
         Create a task which deletes an image by the passed digest.
         """
@@ -1223,7 +1223,7 @@ class ContainerPushRepositoryViewSet(
         return OperationPostponedResponse(result, request)
 
     @action(detail=True, methods=["post"], serializer_class=serializers.RemoveSignaturesSerializer)
-    def remove_signatures(self, request, pk):
+    def remove_signatures(self, request, pk, **kwargs):
         """
         Create a task which deletes signatures by the passed key_id.
         """
