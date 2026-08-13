@@ -54,7 +54,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         headers = {}
         repo_name = None
         if extra_data is not None:
-            headers = extra_data.get("headers", headers)
+            headers = dict(extra_data.get("headers", headers))
             repo_name = extra_data.get("repo_name", None)
         http_method = extra_data.get("http_method", "get") if extra_data is not None else "get"
         this_token = self.registry_auth["bearer"]
