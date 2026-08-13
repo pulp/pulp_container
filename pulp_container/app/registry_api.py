@@ -1205,9 +1205,19 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         blob_url = urljoin(remote.url, relative_url)
         downloader = remote.get_downloader(url=blob_url)
         try:
-            response = downloader.fetch(
-                extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"}
-            )
+            try:
+                response = downloader.fetch(
+                    extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"}
+                )
+            except ClientResponseError as response_error:
+                if response_error.status in (401, 405):
+                    # some registries (e.g. ECR Public) reject HEAD on blob endpoints
+                    # regardless of authentication; verify existence via GET instead
+                    response = downloader.fetch(
+                        extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "get"}
+                    )
+                else:
+                    raise
         except ClientResponseError as response_error:
             if response_error.status == 429:
                 # the client could request the blob outside the docker hub pull limit;
