@@ -1,0 +1,1 @@
+Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
