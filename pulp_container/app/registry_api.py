@@ -229,7 +229,7 @@ class ContainerRegistryApiMixin:
         """
         List of authentication classes to check for this view.
         """
-        if settings.get("TOKEN_AUTH_DISABLED", False):
+        if getattr(settings, "TOKEN_AUTH_DISABLED", False):
             return [RegistryAuthentication]
         return [TokenAuthentication]
 
@@ -238,7 +238,7 @@ class ContainerRegistryApiMixin:
         """
         List of permission classes to check for this view.
         """
-        if settings.get("TOKEN_AUTH_DISABLED", False):
+        if getattr(settings, "TOKEN_AUTH_DISABLED", False):
             return [RegistryPermission]
         return [TokenPermission]
 
@@ -467,7 +467,7 @@ class VersionView(ContainerRegistryApiMixin, APIView):
         """
         List of permission classes to check for this view.
         """
-        if settings.get("TOKEN_AUTH_DISABLED", False):
+        if getattr(settings, "TOKEN_AUTH_DISABLED", False):
             return [IsAuthenticated]
         return [TokenPermission]
 
@@ -546,7 +546,7 @@ class CatalogView(ContainerRegistryApiMixin, ListAPIView):
         distribution_permission = "container.pull_containerdistribution"
         namespace_permission = "container.namespace_pull_containerdistribution"
 
-        if settings.get("TOKEN_AUTH_DISABLED", False):
+        if getattr(settings, "TOKEN_AUTH_DISABLED", False):
             return queryset
 
         public_repositories = queryset.filter(private=False)
