@@ -36,7 +36,7 @@ def synchronize(remote_pk, repository_pk, mirror, signed_only):
     remote = ContainerRemote.objects.get(pk=remote_pk)
     repository = ContainerRepository.objects.get(pk=repository_pk)
     log.info("Synchronizing: repository={r} remote={p}".format(r=repository.name, p=remote.name))
-    first_stage = ContainerFirstStage(remote, signed_only)
+    first_stage = ContainerFirstStage(remote, signed_only, mirror=mirror)
     dv = ContainerDeclarativeVersion(first_stage, repository, mirror)
     return dv.create()
 

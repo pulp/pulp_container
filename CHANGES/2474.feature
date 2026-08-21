@@ -1,0 +1,1 @@
+Optimize sync performance for repositories with specific tag lists by bypassing expensive /tags/list pagination when include_tags contains only non-wildcard references. Reduces sync time from minutes to seconds for deep repositories (50K+ tags) when syncing specific digests. Cosign companion tags are discovered via HEAD probing.
