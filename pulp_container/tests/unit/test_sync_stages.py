@@ -152,5 +152,125 @@ class TestCosignCompanionHelpers(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(await self.stage._has_cosign_signature(digest))
 
 
+class TestBypassTaglistOptimization(unittest.IsolatedAsyncioTestCase):
+    """Test bypass logic for skipping /tags/list enumeration."""
+
+    def setUp(self):
+        remote = MagicMock()
+        remote.policy = MagicMock()
+        remote.namespaced_upstream_name = "library/test"
+        remote.url = "https://registry.example/"
+        remote.get_downloader = MagicMock()
+        remote.include_tags = None
+        remote.exclude_tags = None
+        remote.auto_discover_cosign = True
+
+        self.stage = ContainerFirstStage(remote=remote, signed_only=False, mirror=False)
+
+    def test_can_bypass_with_specific_digests_only(self):
+        """Bypass activates when include_tags contains only sha256 digests."""
+        self.stage.remote.include_tags = [
+            "sha256:abc123",
+            "sha256:def456",
+        ]
+        self.stage.remote.exclude_tags = None
+        self.assertTrue(self.stage._can_bypass_taglist())
+
+    def test_cannot_bypass_without_includes(self):
+        """Bypass does not activate when include_tags is empty."""
+        self.stage.remote.include_tags = None
+        self.stage.remote.exclude_tags = None
+        self.assertFalse(self.stage._can_bypass_taglist())
+
+    def test_cannot_bypass_with_tag_names(self):
+        """Bypass does not activate when include_tags contains tag names (not digests)."""
+        self.stage.remote.include_tags = ["manifest_a", "latest"]
+        self.stage.remote.exclude_tags = None
+        self.assertFalse(self.stage._can_bypass_taglist())
+
+    def test_cannot_bypass_with_mixed_digests_and_tag_names(self):
+        """Bypass does not activate when include_tags mixes digests and tag names."""
+        self.stage.remote.include_tags = ["sha256:abc123", "manifest_a"]
+        self.stage.remote.exclude_tags = None
+        self.assertFalse(self.stage._can_bypass_taglist())
+
+    def test_cannot_bypass_with_wildcards(self):
+        """Bypass does not activate when include_tags contains wildcards."""
+        self.stage.remote.include_tags = ["v4.0*", "sha256:abc123"]
+        self.stage.remote.exclude_tags = None
+        self.assertFalse(self.stage._can_bypass_taglist())
+
+    def test_cannot_bypass_in_mirror_mode(self):
+        """Bypass does not activate in mirror mode."""
+        self.stage.mirror = True
+        self.stage.remote.include_tags = ["sha256:abc123"]
+        self.stage.remote.exclude_tags = None
+        self.assertFalse(self.stage._can_bypass_taglist())
+
+    def test_can_bypass_with_harmless_excludes(self):
+        """Bypass activates when excludes won't match sha256 includes."""
+        self.stage.remote.include_tags = ["sha256:abc123", "sha256:def456"]
+        self.stage.remote.exclude_tags = ["*-source"]
+        self.assertTrue(self.stage._can_bypass_taglist())
+
+    def test_cannot_bypass_with_harmful_excludes(self):
+        """Bypass does not activate when excludes could match digest includes."""
+        self.stage.remote.include_tags = ["sha256:abc123", "sha256:def456"]
+        self.stage.remote.exclude_tags = ["sha256:*"]
+        self.assertFalse(self.stage._can_bypass_taglist())
+
+    def test_cannot_bypass_with_overlapping_excludes(self):
+        """Bypass does not activate when exclude pattern matches an include."""
+        self.stage.remote.include_tags = ["sha256:abc123", "v4.0-source"]
+        self.stage.remote.exclude_tags = ["*-source"]
+        self.assertFalse(self.stage._can_bypass_taglist())
+
+    async def test_tag_exists_returns_true_on_200(self):
+        """_tag_exists returns True when HEAD request succeeds."""
+        downloader = MagicMock()
+        mock_result = AsyncMock()
+        mock_result.status_code = 200
+        downloader.run = AsyncMock(return_value=mock_result)
+        self.stage.remote.get_downloader.return_value = downloader
+
+        result = await self.stage._tag_exists("test-tag")
+        self.assertTrue(result)
+
+    async def test_tag_exists_returns_false_on_404(self):
+        """_tag_exists returns False when tag doesn't exist."""
+        downloader = MagicMock()
+        downloader.run = AsyncMock(side_effect=Exception("404"))
+        self.stage.remote.get_downloader.return_value = downloader
+
+        result = await self.stage._tag_exists("missing-tag")
+        self.assertFalse(result)
+
+    async def test_discover_cosign_companions_probes_variants(self):
+        """Discover cosign companions probes .sig, .att, .sbom variants."""
+        synced_digests = {"sha256:abc123"}
+        self.stage._synced_digests = synced_digests
+
+        # Mock _tag_exists to return True for .sig variant only
+        async def mock_tag_exists(tag):
+            return tag == "sha256-abc123.sig"
+
+        self.stage._tag_exists = AsyncMock(side_effect=mock_tag_exists)
+
+        companions = await self.stage._discover_cosign_companions_without_taglist(synced_digests)
+
+        self.assertEqual(len(companions), 1)
+        self.assertEqual(companions[0], "sha256-abc123.sig")
+
+    async def test_discover_cosign_companions_returns_empty_when_none_exist(self):
+        """Discover returns empty list when no companion tags exist."""
+        synced_digests = {"sha256:abc123"}
+        self.stage._synced_digests = synced_digests
+        self.stage._tag_exists = AsyncMock(return_value=False)
+
+        companions = await self.stage._discover_cosign_companions_without_taglist(synced_digests)
+
+        self.assertEqual(len(companions), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

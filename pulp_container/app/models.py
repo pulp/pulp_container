@@ -490,6 +490,7 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
     include_tags = fields.ArrayField(models.TextField(null=True), null=True)
     exclude_tags = fields.ArrayField(models.TextField(null=True), null=True)
     sigstore = models.TextField(null=True)
+    auto_discover_cosign = models.BooleanField(default=True)
 
     TYPE = "container"
 

@@ -52,12 +52,13 @@ class ContainerFirstStage(Stage):
 
     """
 
-    def __init__(self, remote, signed_only):
+    def __init__(self, remote, signed_only, mirror=False):
         """Initialize the stage."""
         super().__init__()
         self.remote = remote
         self.deferred_download = self.remote.policy != Remote.IMMEDIATE
         self.signed_only = signed_only
+        self.mirror = mirror
 
         self.tag_dcs = []
         self.manifest_list_dcs = []
@@ -111,11 +112,89 @@ class ContainerFirstStage(Stage):
 
         return content_data, raw_text_data, response
 
+    def _can_bypass_taglist(self):
+        """
+        Check if we can safely bypass /tags/list enumeration.
+
+        Returns True only if:
+        - include_tags contains ONLY sha256 digests (not tag names)
+        - exclude_tags is empty OR won't match any includes (harmless)
+        - No wildcards in include_tags (need exact refs, not patterns)
+        - Not in mirror mode (would need full list to detect removals)
+
+        IMPORTANT: We can only bypass when syncing digests, not tag names.
+        When syncing tag names (e.g., "manifest_a"), we need /tags/list to
+        get their digests for cosign companion discovery.
+        """
+        include_tags = self.remote.include_tags or []
+        exclude_tags = self.remote.exclude_tags or []
+
+        if not include_tags:
+            return False
+
+        # CRITICAL: Only bypass if ALL includes are sha256 digests
+        # Tag names need /tags/list to resolve their digests
+        if not all(tag.startswith("sha256:") for tag in include_tags):
+            return False
+
+        # If excludes exist, check if they're harmless (won't match our includes)
+        if exclude_tags:
+            # Satellite often adds '*-source' exclude which doesn't match sha256 digests
+            harmless_excludes = all(
+                exclude.endswith("-source")
+                or (
+                    exclude.startswith("*")
+                    and not any(tag.endswith(exclude.lstrip("*")) for tag in include_tags)
+                )
+                for exclude in exclude_tags
+            )
+            if not harmless_excludes:
+                return False
+
+        if self.mirror:
+            return False
+
+        wildcard_chars = ["*", "?", "["]
+        includes_str = "".join(include_tags)
+        if any(char in includes_str for char in wildcard_chars):
+            return False
+
+        return True
+
     async def run(self):
         """
         ContainerFirstStage.
         """
         signature_source = await self.get_signature_source()
+
+        # Optimization: if syncing specific refs (no wildcards, no excludes),
+        # skip expensive /tags/list enumeration and sync them directly
+        if self._can_bypass_taglist():
+            log.info(
+                "Bypassing /tags/list enumeration - syncing %d explicit references directly",
+                len(self.remote.include_tags),
+            )
+            await self._process_tags(
+                self.remote.include_tags, signature_source, msg="Processing Manifests"
+            )
+
+            # Auto-discover cosign companion tags if enabled
+            if getattr(self.remote, "auto_discover_cosign", True):
+                log.info("Auto-discovering cosign companion tags via HEAD probing")
+                companion_tags = await self._discover_cosign_companions_without_taglist(
+                    self._synced_digests
+                )
+                if companion_tags:
+                    log.info(
+                        "Found %d cosign companion tag(s) for synced manifests",
+                        len(companion_tags),
+                    )
+                    await self._process_tags(
+                        companion_tags,
+                        signature_source,
+                        msg="Processing Cosign Companion Tags",
+                    )
+            return
 
         async with ProgressReport(
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
@@ -149,6 +228,62 @@ class ContainerFirstStage(Stage):
                 await self._process_tags(
                     companion_tags, signature_source, msg="Processing Cosign Companion Tags"
                 )
+
+    async def _tag_exists(self, tag_name):
+        """Check if a tag exists via lightweight HEAD request."""
+        from urllib.parse import urljoin
+
+        relative_url = "/v2/{name}/manifests/{tag}".format(
+            name=self.remote.namespaced_upstream_name, tag=tag_name
+        )
+        manifest_url = urljoin(self.remote.url, relative_url)
+        downloader = self.remote.get_downloader(url=manifest_url)
+
+        try:
+            await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "HEAD"})
+            return True
+        except Exception:
+            return False
+
+    async def _discover_cosign_companions_without_taglist(self, synced_digests):
+        """
+        Discover cosign companion tags by probing expected patterns via HEAD requests.
+
+        Used when bypassing /tags/list to avoid expensive enumeration.
+        Probes for known cosign patterns:
+        - V2: sha256-<digest>.sig, sha256-<digest>.att, sha256-<digest>.sbom
+        - V3: sha256-<digest> (71 chars, verified via manifest check)
+        """
+        companion_tags = []
+        semaphore = asyncio.Semaphore(20)  # Limit concurrent probes
+
+        async def probe_tag(tag):
+            async with semaphore:
+                if await self._tag_exists(tag):
+                    return tag
+                return None
+
+        # Build list of potential cosign tags to probe
+        candidates = []
+        for digest in synced_digests:
+            # digest format: "sha256:abc123..."
+            if not digest.startswith("sha256:"):
+                continue
+            digest_hex = digest.split(":", 1)[1]
+
+            # V2 cosign patterns
+            candidates.append(f"sha256-{digest_hex}.sig")
+            candidates.append(f"sha256-{digest_hex}.att")
+            candidates.append(f"sha256-{digest_hex}.sbom")
+
+            # V3 cosign pattern (71 chars total)
+            candidates.append(f"sha256-{digest_hex}")
+
+        # Probe all candidates concurrently
+        results = await asyncio.gather(*[probe_tag(tag) for tag in candidates])
+        companion_tags = [tag for tag in results if tag]
+
+        return companion_tags
 
     def _find_cosign_companion_tags(self):
         """Find cosign companion tags for synced digests."""
