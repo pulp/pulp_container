@@ -1,0 +1,1 @@
+Fixed authentication state (bearer token and basic auth) leaking between remotes by storing it per downloader instance instead of on the downloader class.
