@@ -1,0 +1,1 @@
+Removed `description` field from models subclassing `Distribution` to fix field clash error when using pulpcore>=3.106.
