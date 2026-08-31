@@ -1,4 +1,4 @@
-from .download_image_data import aadd_and_remove, download_image_data  # noqa
+from .download_image_data import download_image_data  # noqa
 from .builder import build_image_from_containerfile, build_image  # noqa
 from .migrate_push_repository import migrate_push_repository  # noqa
 from .recursive_add import recursive_add_content  # noqa
