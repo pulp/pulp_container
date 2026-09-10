@@ -10,7 +10,6 @@ import jwt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from django.conf import settings
-from django.db.models import F, Value
 from django.http import HttpRequest
 from rest_framework.request import Request
 
@@ -21,8 +20,8 @@ from pulp_container.app.access_policy import RegistryAccessPolicy
 from pulp_container.app.models import (
     ContainerDistribution,
     ContainerNamespace,
-    ContainerPullThroughDistribution,
 )
+from pulp_container.app.pull_through import get_pull_through_distribution
 
 TOKEN_EXPIRATION_TIME = getattr(settings, "TOKEN_EXPIRATION_TIME", 300)
 
@@ -207,15 +206,6 @@ class AuthorizationService:
             "nbf": issued_at,
             "sub": subject,
         }
-
-
-def get_pull_through_distribution(path, domain):
-    return (
-        ContainerPullThroughDistribution.objects.annotate(path=Value(path))
-        .filter(pulp_domain=domain, path__startswith=F("base_path"))
-        .order_by("-base_path")
-        .first()
-    )
 
 
 class PermissionChecker:
