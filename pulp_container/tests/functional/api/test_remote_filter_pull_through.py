@@ -2,6 +2,8 @@ import subprocess
 
 import pytest
 
+from pulp_container.constants import PULL_THROUGH_DISTRIBUTION_LABEL
+
 from pulp_container.tests.functional.constants import (
     PULP_FIXTURE_1,
     PULP_HELLO_WORLD_REPO,
@@ -19,7 +21,8 @@ def pull_and_verify(
         distr = pull_through_distribution(includes, excludes)
         for image_path in images:
             remote_image_path = f"{REGISTRY_V2}/{image_path}"
-            local_image_path = f"{distr.base_path}/{image_path}"
+            pull_through_path = distr.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL]
+            local_image_path = f"{pull_through_path}/{image_path}"
 
             if image_path not in expected:
                 with pytest.raises(subprocess.CalledProcessError):
