@@ -1,5 +1,6 @@
 import re
 from gettext import gettext as _
+from uuid import uuid4
 
 from django.core.validators import URLValidator
 from pulp_file.app.models import FileContent
@@ -30,11 +31,26 @@ from pulpcore.plugin.serializers import (
 )
 
 from pulp_container.app import fields, models
-from pulp_container.constants import SIGNATURE_TYPE
+from pulp_container.constants import PULL_THROUGH_DISTRIBUTION_LABEL, SIGNATURE_TYPE
 
 VALID_SIGNATURE_NAME_REGEX = r"^sha256:[0-9a-f]{64}@[0-9a-f]{32}$"
 VALID_TAG_REGEX = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
 VALID_BASE_PATH_REGEX_COMPILED = re.compile(r"^[a-z0-9]+(?:(?:[._]|__|[-]*)[a-z0-9])*$")
+
+
+def validate_registry_path(value):
+    """Validate a path that will be exposed by the container registry."""
+    if len(value) > 255:
+        raise serializers.ValidationError(
+            _("The entered registry path cannot be longer than 255 characters.")
+        )
+
+    if not all(re.match(VALID_BASE_PATH_REGEX_COMPILED, part) for part in value.split("/")):
+        raise serializers.ValidationError(
+            _("The provided registry path contains forbidden characters.")
+        )
+
+    return value
 
 
 class TagSerializer(NoArtifactContentSerializer):
@@ -432,17 +448,9 @@ class ContainerDistributionSerializer(DistributionSerializer, GetOrCreateSeriali
 
     def validate_base_path(self, value):
         """Check whether the passed repository base path is valid or not."""
-        if len(value) > 255:
-            raise serializers.ValidationError(
-                _("The entered base path cannot be longer than 255 characters.")
-            )
-
-        if not all(re.match(VALID_BASE_PATH_REGEX_COMPILED, p) for p in value.split("/")):
-            raise serializers.ValidationError(
-                _("The provided base path contains forbidden characters.")
-            )
-
-        return value
+        validate_registry_path(value)
+        # Ensure we follow pulpcore's cross-distribution overlap validation in addition to the OCI rules.
+        return super().validate_base_path(value)
 
     class Meta:
         model = models.ContainerDistribution
@@ -489,18 +497,49 @@ class ContainerPullThroughDistributionSerializer(DistributionSerializer):
     description = serializers.CharField(
         help_text=_("An optional description."), required=False, allow_null=True
     )
+    base_path = serializers.CharField(
+        help_text=_("The registry path exposed by this pull-through distribution.")
+    )
+
+    def validate_base_path(self, value):
+        """Check whether the passed repository base path is valid or not."""
+        validate_registry_path(value)
+        # Ensure we follow pulpcore's cross-distribution overlap validation in addition to the OCI rules.
+        return super().validate_base_path(value)
 
     def validate(self, data):
         validated_data = super().validate(data)
+        registry_path = validated_data.get("base_path")
+
+        # This is the temporary fix for pull-through distros violating core's overlapping base-path rule
+        # Save the base_path in pulp_labels to avoid overlapping base-paths with this PT's child distros
+        # A permanent fix should have us move off this field or Distributions all together.
+        if self.instance is None:
+            base_path = validated_data.pop("base_path")
+            validated_data["base_path"] = str(uuid4())
+            validated_data.setdefault("pulp_labels", {})[PULL_THROUGH_DISTRIBUTION_LABEL] = (
+                base_path
+            )
+        elif (
+            "base_path" in validated_data and validated_data["base_path"] != self.instance.base_path
+        ):
+            is_marked = (self.instance.pulp_labels or {}).get(PULL_THROUGH_DISTRIBUTION_LABEL)
+            if is_marked:
+                message = _("This value cannot be updated.")
+            else:
+                message = _(
+                    "Run 'pulpcore-manager container-repair-pull-through-distributions' before "
+                    "updating this value."
+                )
+            raise serializers.ValidationError({"base_path": message})
 
         if "content_guard" not in validated_data:
             validated_data["content_guard"] = ContentRedirectContentGuardSerializer.get_or_create(
                 {"name": "content redirect"}
             )
 
-        base_path = validated_data.get("base_path")
-        if base_path:
-            namespace_name = base_path.split("/")[0]
+        if registry_path:
+            namespace_name = registry_path.split("/")[0]
             validated_data["namespace"] = ContainerNamespaceSerializer.get_or_create(
                 {"name": namespace_name}
             )
