@@ -1,6 +1,11 @@
 from django.conf import settings
 from django.core.checks import Error as CheckError
+from django.core.checks import Warning as CheckWarning
 from django.core.checks import register
+from django.db import OperationalError, ProgrammingError
+
+from pulp_container.app.models import ContainerPullThroughDistribution
+from pulp_container.constants import PULL_THROUGH_DISTRIBUTION_LABEL
 
 
 @register(deploy=True)
@@ -45,3 +50,28 @@ def container_settings_check(app_configs, **kwargs):
         )
 
     return errors
+
+
+@register()
+def pull_through_distribution_check(app_configs, **kwargs):
+    """Warn when legacy pull-through distributions need repair."""
+    try:
+        needs_repair = ContainerPullThroughDistribution.objects.exclude(
+            pulp_labels__has_key=PULL_THROUGH_DISTRIBUTION_LABEL
+        ).exists()
+    except (OperationalError, ProgrammingError):
+        return []
+
+    if not needs_repair:
+        return []
+
+    return [
+        CheckWarning(
+            "Pull-through distributions need base-path repair.",
+            hint=(
+                "Run 'pulpcore-manager container-repair-pull-through-distributions' and "
+                "resolve any distributions it reports."
+            ),
+            id="pulp_container.W001",
+        )
+    ]
