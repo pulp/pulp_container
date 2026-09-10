@@ -11,6 +11,7 @@ from django_filters import CharFilter, MultipleChoiceFilter
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 
 from pulpcore.plugin.models import Content, PulpTemporaryFile
 from pulpcore.plugin.serializers import AsyncOperationResponseSerializer
@@ -40,6 +41,7 @@ from pulpcore.plugin.viewsets import (
 )
 
 from pulp_container.app import models, serializers, tasks
+from pulp_container.constants import PULL_THROUGH_DISTRIBUTION_LABEL
 
 log = logging.getLogger(__name__)
 
@@ -1598,6 +1600,28 @@ class ContainerPullThroughDistributionViewSet(DistributionViewSet, RolesMixin):
             "container.pull_new_containerdistribution",
         ],
     }
+
+    @action(
+        detail=True,
+        methods=["post"],
+        serializer_class=DistributionViewSet.set_label.kwargs["serializer_class"],
+    )
+    def set_label(self, request, pk=None, **kwargs):
+        """Prevent clients from changing the internal pull-through marker."""
+        if request.data.get("key") == PULL_THROUGH_DISTRIBUTION_LABEL:
+            raise ValidationError("This label is managed by pulp_container.")
+        return super().set_label(request, pk, **kwargs)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        serializer_class=DistributionViewSet.unset_label.kwargs["serializer_class"],
+    )
+    def unset_label(self, request, pk=None, **kwargs):
+        """Prevent clients from removing the internal pull-through marker."""
+        if request.data.get("key") == PULL_THROUGH_DISTRIBUTION_LABEL:
+            raise ValidationError("This label is managed by pulp_container.")
+        return super().unset_label(request, pk, **kwargs)
 
 
 class ContainerNamespaceViewSet(
