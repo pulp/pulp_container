@@ -75,6 +75,8 @@ SIGNATURE_PAYLOAD_MAX_SIZE = 4 * MEGABYTE
 
 SIGNATURE_API_EXTENSION_VERSION = 2
 
+PULL_THROUGH_DISTRIBUTION_LABEL = "pulp_container.pull_through"
+
 MANIFEST_TYPE = SimpleNamespace(
     ARTIFACT="artifact",
     BOOTABLE="bootable",
