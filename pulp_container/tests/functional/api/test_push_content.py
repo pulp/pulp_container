@@ -1,6 +1,7 @@
 """Tests that verify that images can be pushed to Pulp."""
 
 import json
+import uuid
 from subprocess import CalledProcessError
 from urllib.parse import urljoin
 
@@ -122,20 +123,20 @@ def test_push_with_dist_perms(
             },
         )
 
-    assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+    assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_creator:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_dist_collaborator:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_dist_consumer:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_namespace_collaborator:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_reader:
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
     with user_helpless:
         # "{repo_name}" turns out to be a public repository
-        assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+        assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 1
 
 
 def test_push_with_view_perms(
@@ -404,23 +405,58 @@ def test_push_matching_username(
 
 
 def test_push_to_existing_regular_repository(
+    add_to_cleanup,
     container_repository_factory,
     local_registry,
     registry_client,
+    container_bindings,
     full_path,
 ):
-    """
-    Test the push to an existing non-push repository.
-
-    It should fail to create a new push repository.
-    """
-    container_repository_factory(name="foo")
+    """Test that push succeeds when a container repository already exists."""
+    repository = container_repository_factory(name="foo")
     image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
     local_url = full_path("foo:1.0")
 
     registry_client.pull(image_path)
-    with pytest.raises(CalledProcessError):
-        local_registry.tag_and_push(image_path, local_url)
+    local_registry.tag_and_push(image_path, local_url)
+
+    repository = container_bindings.RepositoriesContainerApi.read(repository.pulp_href)
+    tags = container_bindings.ContentTagsApi.list(repository_version=repository.latest_version_href)
+    assert tags.count == 1
+
+    distribution = container_bindings.DistributionsContainerApi.list(name="foo").results[0]
+    add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
+    namespace = container_bindings.PulpContainerNamespacesApi.read(distribution.namespace)
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
+
+
+def test_push_to_existing_push_repository(
+    add_to_cleanup,
+    container_push_repository_factory,
+    local_registry,
+    registry_client,
+    container_bindings,
+    full_path,
+):
+    """Test that push still works when a legacy ContainerPushRepository already exists."""
+    repo_name = "legacy/push"
+    container_push_repository_factory(name=repo_name)
+    image_path = f"{REGISTRY_V2_REPO_PULP}:manifest_a"
+    local_url = full_path(f"{repo_name}:1.0")
+
+    registry_client.pull(image_path)
+    local_registry.tag_and_push(image_path, local_url)
+
+    assert container_bindings.RepositoriesContainerPushApi.list(name=repo_name).count == 1
+    assert container_bindings.RepositoriesContainerApi.list(name=repo_name).count == 0
+
+    repository = container_bindings.RepositoriesContainerPushApi.list(name=repo_name).results[0]
+    tags = container_bindings.ContentTagsApi.list(repository_version=repository.latest_version_href)
+    assert tags.count == 1
+
+    distribution = container_bindings.DistributionsContainerApi.list(name=repo_name).results[0]
+    namespace = container_bindings.PulpContainerNamespacesApi.read(distribution.namespace)
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
 
 
 class TestPushManifestList:
@@ -492,7 +528,7 @@ class TestPushManifestList:
         distribution = container_bindings.DistributionsContainerApi.list(name="foo_v2s2").results[0]
         add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+        repo_version = container_bindings.RepositoriesContainerApi.read(
             distribution.repository
         ).latest_version_href
 
@@ -544,7 +580,7 @@ class TestPushManifestList:
         distribution = container_bindings.DistributionsContainerApi.list(name="foo_oci").results[0]
         add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+        repo_version = container_bindings.RepositoriesContainerApi.read(
             distribution.repository
         ).latest_version_href
 
@@ -592,7 +628,7 @@ class TestPushManifestList:
         ]
         add_to_cleanup(container_bindings.DistributionsContainerApi, distribution.pulp_href)
 
-        repo_version = container_bindings.RepositoriesContainerPushApi.read(
+        repo_version = container_bindings.RepositoriesContainerApi.read(
             distribution.repository
         ).latest_version_href
         latest_tag = container_bindings.ContentTagsApi.list(
@@ -605,3 +641,31 @@ class TestPushManifestList:
         assert manifest_list.media_type == MEDIA_TYPE.MANIFEST_LIST
         assert manifest_list.schema_version == 2
         assert manifest_list.listed_manifests == []
+
+
+def test_blob_upload_status(local_registry, container_bindings, full_path, add_to_cleanup):
+    """Test GET blob upload status returns current upload progress."""
+    namespace_name = str(uuid.uuid4())
+    repo_name = f"{namespace_name}/upload_status"
+    upload_path = f"/v2/{full_path(repo_name)}/blobs/uploads/"
+
+    response, auth = local_registry.get_response("POST", upload_path)
+    response.raise_for_status()
+    assert response.status_code == 202
+    upload_uuid = response.headers["Docker-Upload-UUID"]
+    location = response.headers["Location"]
+
+    namespace = container_bindings.PulpContainerNamespacesApi.list(name=namespace_name).results[0]
+    add_to_cleanup(container_bindings.PulpContainerNamespacesApi, namespace.pulp_href)
+
+    status_url = urljoin(container_bindings.client.configuration.host, location)
+    response = requests.get(status_url, auth=auth)
+    response.raise_for_status()
+    assert response.status_code == 204
+    assert response.headers["Docker-Upload-UUID"] == upload_uuid
+    assert response.headers["Range"] == "0-0"
+
+    response = requests.head(status_url, auth=auth)
+    response.raise_for_status()
+    assert response.status_code == 204
+    assert response.headers["Docker-Upload-UUID"] == upload_uuid
