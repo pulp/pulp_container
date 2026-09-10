@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+from pulp_container.constants import PULL_THROUGH_DISTRIBUTION_LABEL
 from pulp_container.tests.functional.constants import (
     PULP_FIXTURE_1,
     PULP_HELLO_WORLD_REPO,
@@ -44,7 +45,8 @@ def pull_and_verify(
         tags_to_verify = []
         for version, image_path in enumerate(images, start=1):
             remote_image_path = f"{REGISTRY_V2}/{image_path}"
-            local_image_path = f"{pull_through_distribution.base_path}/{image_path}"
+            pull_through_path = pull_through_distribution.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL]
+            local_image_path = f"{pull_through_path}/{image_path}"
 
             # 1. pull remote content through the pull-through distribution
             local_registry.pull(local_image_path)
@@ -113,7 +115,8 @@ def test_conflicting_names_and_paths(
     local_registry,
     monitor_task,
 ):
-    local_image_path = f"{pull_through_distribution.base_path}/{str(uuid4())}"
+    pull_through_path = pull_through_distribution.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL]
+    local_image_path = f"{pull_through_path}/{str(uuid4())}"
 
     remote = container_remote_factory(name=local_image_path)
     # a remote with the same name but a different URL already exists
