@@ -1,11 +1,14 @@
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F, Value
 
 from pulpcore.plugin.cache import AsyncContentCache, CacheKeys, SyncContentCache
 from pulpcore.plugin.util import cache_key, get_domain
 
 from pulp_container.app.exceptions import RepositoryNotFound
-from pulp_container.app.models import ContainerDistribution, ContainerPullThroughDistribution
+from pulp_container.app.models import ContainerDistribution
+from pulp_container.app.pull_through import (
+    get_pull_through_distribution,
+    get_pull_through_distribution_path,
+)
 
 ACCEPT_HEADER_KEY = "accept_header"
 QUERY_KEY = "query"
@@ -83,14 +86,11 @@ def find_base_path_cached(request, cached):
         try:
             distro = ContainerDistribution.objects.get(base_path=path, pulp_domain=domain)
         except ObjectDoesNotExist:
-            distro = (
-                ContainerPullThroughDistribution.objects.annotate(path=Value(path))
-                .filter(path__startswith=F("base_path"), pulp_domain=domain)
-                .order_by("-base_path")
-                .first()
-            )
+            distro = get_pull_through_distribution(path, domain)
             if not distro:
                 raise RepositoryNotFound(name=path)
+
+            return cache_key(get_pull_through_distribution_path(distro))
 
         return cache_key(distro.base_path)
 
