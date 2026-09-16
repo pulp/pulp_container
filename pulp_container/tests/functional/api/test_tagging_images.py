@@ -220,10 +220,9 @@ class TestPushRepositoryTagging:
         registry_client.pull(manifest_b)
         registry_client.tag(manifest_a, tagged_registry_manifest_a)
         registry_client.tag(manifest_b, tagged_registry_manifest_b)
-        registry_client.login("-u", cfg.username, "-p", cfg.password, registry_name)
-        registry_client.push(tagged_registry_manifest_a)
-        registry_client.push(tagged_registry_manifest_b)
-        registry_client.logout(registry_name)
+        with registry_client.authenticated(registry_name, cfg.username, cfg.password):
+            registry_client.push(tagged_registry_manifest_a)
+            registry_client.push(tagged_registry_manifest_b)
 
         repository = container_bindings.RepositoriesContainerPushApi.list(
             name=self.repository_name
