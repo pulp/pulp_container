@@ -2,7 +2,7 @@ import json
 import os
 import stat
 import subprocess
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
@@ -37,20 +37,48 @@ class RegistryClient:
 
     def __init__(self, tls_verify):
         self._name = None
+        self._tls_verify = tls_verify
 
-        self.pull = lambda *args: self._dispatch_command("pull", *args, tls_verify)
-        self.push = lambda *args: self._dispatch_command("push", *args, tls_verify)
-        self.manifest_push = lambda *args: self._dispatch_command(
-            "manifest", "push", *args, tls_verify
-        )
-        self.login = lambda *args: self._dispatch_command("login", *args, tls_verify)
+    def pull(self, *args):
+        return self._dispatch_command("pull", *args, self._tls_verify)
 
-        self.logout = lambda *args: self._dispatch_command("logout", *args)
-        self.inspect = lambda *args: self._dispatch_command("inspect", *args)
-        self.import_ = lambda *args: self._dispatch_command("import", *args)
-        self.images = lambda *args: self._dispatch_command("images", "--format", "json", *args)
-        self.rmi = lambda *args: self._dispatch_command("rmi", *args)
-        self.tag = lambda *args: self._dispatch_command("tag", *args)
+    def push(self, *args):
+        return self._dispatch_command("push", *args, self._tls_verify)
+
+    def manifest_push(self, *args):
+        return self._dispatch_command("manifest", "push", *args, self._tls_verify)
+
+    def login(self, *args):
+        return self._dispatch_command("login", *args, self._tls_verify)
+
+    def logout(self, *args):
+        return self._dispatch_command("logout", *args)
+
+    @contextmanager
+    def authenticated(self, registry, username, password):
+        """Temporarily authenticate the client against a registry."""
+        if username is not None:
+            self.login("-u", username, "-p", password, registry)
+        try:
+            yield
+        finally:
+            if username is not None:
+                self.logout(registry)
+
+    def inspect(self, *args):
+        return self._dispatch_command("inspect", *args)
+
+    def import_(self, *args):
+        return self._dispatch_command("import", *args)
+
+    def images(self, *args):
+        return self._dispatch_command("images", "--format", "json", *args)
+
+    def rmi(self, *args):
+        return self._dispatch_command("rmi", *args)
+
+    def tag(self, *args):
+        return self._dispatch_command("tag", *args)
 
     @property
     def name(self):
@@ -97,8 +125,12 @@ def tls_verify(bindings_cfg):
 
 
 @pytest.fixture(scope="session")
-def registry_client(tls_verify):
+def registry_client(tls_verify, tmp_path_factory, worker_id):
     """Fixture for a container registry client."""
+    # tmp_path_factory's counter is process-local, so include the xdist worker
+    # ID to prevent workers from selecting the same auth file.
+    auth_dir = tmp_path_factory.mktemp(f"podman-auth-{worker_id}")
+    os.environ["REGISTRY_AUTH_FILE"] = str(auth_dir / "auth.json")
     registry = RegistryClient(tls_verify)
     try:
         registry.raise_if_unsupported(ValueError, "Tests require podman/docker")
@@ -160,64 +192,38 @@ def _local_registry(bindings_cfg, registry_client, pulp_settings):
 
         @staticmethod
         def _dispatch_command(*args):
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-            else:
-                registry_client.logout(registry_name)
-            try:
-                registry_client._dispatch_command(*args)
-            finally:
-                registry_client.logout(registry_name)
+            with registry_client.authenticated(
+                registry_name, bindings_cfg.username, bindings_cfg.password
+            ):
+                return registry_client._dispatch_command(*args)
 
         @staticmethod
         def pull(image_path):
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-
-                try:
-                    registry_client.pull("/".join([registry_name, image_path]))
-                finally:
-                    registry_client.logout(registry_name)
-            else:
-                with suppress(subprocess.CalledProcessError):
-                    registry_client.logout(registry_name)
-
+            with registry_client.authenticated(
+                registry_name, bindings_cfg.username, bindings_cfg.password
+            ):
                 registry_client.pull("/".join([registry_name, image_path]))
 
         @staticmethod
         def tag_and_push(image_path, local_url, *args):
             local_image_path = "/".join([registry_name, local_url])
             registry_client.tag(image_path, local_image_path)
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-            else:
-                registry_client.logout(registry_name)
             try:
-                registry_client.push(local_image_path, *args)
+                with registry_client.authenticated(
+                    registry_name, bindings_cfg.username, bindings_cfg.password
+                ):
+                    registry_client.push(local_image_path, *args)
             finally:
                 # Untag local copy
                 registry_client.rmi(local_image_path)
-                registry_client.logout(registry_name)
 
         @staticmethod
         def manifest_push(tag, image_path, *args):
             local_image_path = "/".join([registry_name, image_path])
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-            else:
-                registry_client.logout(registry_name)
-            try:
+            with registry_client.authenticated(
+                registry_name, bindings_cfg.username, bindings_cfg.password
+            ):
                 registry_client.manifest_push(tag, local_image_path, *args)
-            finally:
-                registry_client.logout(registry_name)
 
         @staticmethod
         def inspect(local_url):
