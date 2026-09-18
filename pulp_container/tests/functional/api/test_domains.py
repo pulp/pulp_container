@@ -237,11 +237,12 @@ def test_cross_domain_pulp_apis(
         },
         pulp_domain=domain1.name,
     )
+    pt_distribution_name = str(uuid.uuid4())
     with pytest.raises(container_bindings.ApiException) as e:
         container_bindings.DistributionsPullThroughApi.create(
             {
-                "name": str(uuid.uuid4()),
-                "base_path": str(uuid.uuid4()),
+                "name": pt_distribution_name,
+                "base_path": pt_distribution_name,
                 "remote": pt_remote.pulp_href,
             },
             pulp_domain=domain2.name,
