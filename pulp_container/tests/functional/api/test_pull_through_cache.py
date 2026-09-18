@@ -262,7 +262,10 @@ def test_conflicting_names_and_paths(
     assert 0 == len(container_remote_api.list(name=local_image_path).results)
     assert 0 == len(container_distribution_api.list(name=local_image_path).results)
 
-    data = {"name": local_image_path, "base_path": local_image_path}
+    # Keep the conflicting distribution's base path separate.  pulpcore rejects
+    # overlapping base paths, while this test is specifically checking the
+    # conflict between a distribution's name and the pull-through path.
+    data = {"name": local_image_path, "base_path": str(uuid4())}
     distribution = gen_object_with_cleanup(container_distribution_api, data)
     # a distribution with the same name but different foreign keys already exists
     with pytest.raises(subprocess.CalledProcessError):

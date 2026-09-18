@@ -2,13 +2,19 @@ import json
 import os
 import stat
 import subprocess
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
+from types import SimpleNamespace
 from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
 import pytest
 import requests
 
+from pulpcore.pytest_plugin import (
+    KEY_V6_MLDSA65_ED25519_PRIVATE,
+    KEY_V6_MLDSA65_ED25519_PUBLIC,
+    import_signing_key,
+)
 from pulpcore.tests.functional.utils import BindingsNamespace
 
 from pulp_container.tests.functional.constants import PULP_HELLO_WORLD_REPO, REGISTRY_V2_FEED_URL
@@ -16,6 +22,103 @@ from pulp_container.tests.functional.utils import (
     AuthenticationHeaderQueries,
     BearerTokenAuth,
 )
+
+# A GPG-generated fixture key. Unlike the Sequoia-generated ML-DSA key (which signs with a
+# dedicated subkey), this key signs with its primary key. Whether a certificate signs with its
+# primary key or a subkey is a matter of key configuration, not tooling -- pulp_container must
+# record the actual signing (sub)key in both cases, which the parameterization below verifies.
+_GPG_FIXTURE_KEY_PRIVATE = (
+    "https://raw.githubusercontent.com/pulp/pulp-fixtures/master/common/"
+    "GPG-PRIVATE-KEY-fixture-signing"
+)
+_GPG_FIXTURE_KEY_PUBLIC = (
+    "https://raw.githubusercontent.com/pulp/pulp-fixtures/master/common/GPG-KEY-fixture-signing"
+)
+
+
+@pytest.fixture(scope="session", params=["primary", "subkey"])
+def signing_key_home(request, tmp_path_factory):
+    """Import a signing key into a Sequoia home, exercising primary- and subkey-signing.
+
+    Yields a namespace with the Sequoia `home`, the certificate `fingerprint` (primary), the
+    actual `signing_fingerprint`/`signing_keyid` used when signing, and the ascii-armored
+    `public_key`.
+    """
+    keys = {
+        # GPG-generated key -> signs with its primary key.
+        "primary": (_GPG_FIXTURE_KEY_PRIVATE, _GPG_FIXTURE_KEY_PUBLIC),
+        # Sequoia ML-DSA (post-quantum) key -> signs with a dedicated subkey.
+        "subkey": (KEY_V6_MLDSA65_ED25519_PRIVATE, KEY_V6_MLDSA65_ED25519_PUBLIC),
+    }
+    private_url, public_url = keys[request.param]
+
+    home = tmp_path_factory.mktemp(f"sq_home_{request.param}")
+    try:
+        _sq, fingerprint, _keyid = import_signing_key(private_url, home, backend="sq")
+    except TypeError:
+        pytest.skip("This pulpcore release does not support the Sequoia (sq) signing backend")
+
+    public_key = requests.get(public_url).content.decode("utf-8")
+    signing_fingerprint, signing_keyid = sq_signing_identity(home, fingerprint, public_key)
+
+    return SimpleNamespace(
+        home=home,
+        fingerprint=fingerprint,
+        signing_fingerprint=signing_fingerprint,
+        signing_keyid=signing_keyid,
+        public_key=public_key,
+    )
+
+
+def _keyid_from_fingerprint(fingerprint):
+    """Derive the key ID from an OpenPGP fingerprint, matching pulp_container's logic.
+
+    For v4 fingerprints (40 hex chars) the key ID is the last 16 chars; for v6 (64 hex
+    chars) it is the first 16 chars.
+    """
+    if len(fingerprint) == 40:
+        return fingerprint[-16:]
+    elif len(fingerprint) == 64:
+        return fingerprint[:16]
+    raise ValueError(f"Unexpected fingerprint length: {len(fingerprint)}")
+
+
+def _verified_signing_key(public_key, raw_signature):
+    """Verify an inline-signed OpenPGP message and return (signing_key_fpr, payload_bytes).
+
+    Works for both classic (RSA/ed25519) and post-quantum (ML-DSA) keys. Uses pysequoia
+    directly rather than pulpcore's gpg_verify because the latter pulls in Django models,
+    which aren't configured in the functional-test client process.
+    """
+    from pysequoia import Cert, verify
+
+    certs = Cert.split_bytes(public_key.encode("utf-8"))
+    result = verify(bytes=raw_signature, store=lambda key_ids: certs)
+    valid_sig = result.valid_sigs[0]
+    return valid_sig.signing_key.upper(), bytes(result.bytes)
+
+
+def verify_inline_signature(public_key, raw_signature):
+    """Verify a signature blob and return (fingerprint, key_id, payload_dict)."""
+    fingerprint, payload_bytes = _verified_signing_key(public_key, raw_signature)
+    return fingerprint, _keyid_from_fingerprint(fingerprint), json.loads(payload_bytes)
+
+
+def sq_signing_identity(sq_home, signer, public_key):
+    """Return the (fingerprint, key_id) actually used when signing with `signer`.
+
+    A certificate may sign with a dedicated subkey rather than its primary key, so the
+    fingerprint recorded on produced signatures can differ from the certificate's primary
+    fingerprint. This signs throwaway data to discover the real signing (sub)key.
+    """
+    completed = subprocess.run(
+        ("sq", "--home", str(sq_home), "sign", "--signer", signer, "--message", "--binary"),
+        input=b"probe",
+        capture_output=True,
+    )
+    completed.check_returncode()
+    fingerprint, _payload = _verified_signing_key(public_key, completed.stdout)
+    return fingerprint, _keyid_from_fingerprint(fingerprint)
 
 
 def gen_container_remote(url=REGISTRY_V2_FEED_URL, **kwargs):
@@ -37,20 +140,49 @@ class RegistryClient:
 
     def __init__(self, tls_verify):
         self._name = None
+        self._tls_verify = tls_verify
 
-        self.pull = lambda *args: self._dispatch_command("pull", *args, tls_verify)
-        self.push = lambda *args: self._dispatch_command("push", *args, tls_verify)
-        self.manifest_push = lambda *args: self._dispatch_command(
-            "manifest", "push", *args, tls_verify
-        )
-        self.login = lambda *args: self._dispatch_command("login", *args, tls_verify)
+    def pull(self, *args):
+        return self._dispatch_command("pull", *args, self._tls_verify)
 
-        self.logout = lambda *args: self._dispatch_command("logout", *args)
-        self.inspect = lambda *args: self._dispatch_command("inspect", *args)
-        self.import_ = lambda *args: self._dispatch_command("import", *args)
-        self.images = lambda *args: self._dispatch_command("images", "--format", "json", *args)
-        self.rmi = lambda *args: self._dispatch_command("rmi", *args)
-        self.tag = lambda *args: self._dispatch_command("tag", *args)
+    def push(self, *args):
+        return self._dispatch_command("push", *args, self._tls_verify)
+
+    def manifest_push(self, *args):
+        return self._dispatch_command("manifest", "push", *args, self._tls_verify)
+
+    def login(self, *args):
+        return self._dispatch_command("login", *args, self._tls_verify)
+
+    def logout(self, *args):
+        return self._dispatch_command("logout", *args)
+
+    @contextmanager
+    def authenticated(self, registry, username, password):
+        """Temporarily authenticate the client against a registry."""
+        if username is None:
+            self.logout(registry)
+        else:
+            self.login("-u", username, "-p", password, registry)
+        try:
+            yield
+        finally:
+            self.logout(registry)
+
+    def inspect(self, *args):
+        return self._dispatch_command("inspect", *args)
+
+    def import_(self, *args):
+        return self._dispatch_command("import", *args)
+
+    def images(self, *args):
+        return self._dispatch_command("images", "--format", "json", *args)
+
+    def rmi(self, *args):
+        return self._dispatch_command("rmi", *args)
+
+    def tag(self, *args):
+        return self._dispatch_command("tag", *args)
 
     @property
     def name(self):
@@ -97,8 +229,12 @@ def tls_verify(bindings_cfg):
 
 
 @pytest.fixture(scope="session")
-def registry_client(tls_verify):
+def registry_client(tls_verify, tmp_path_factory, worker_id):
     """Fixture for a container registry client."""
+    # tmp_path_factory's counter is process-local, so include the xdist worker
+    # ID to prevent workers from selecting the same auth file.
+    auth_dir = tmp_path_factory.mktemp(f"podman-auth-{worker_id}")
+    os.environ["REGISTRY_AUTH_FILE"] = str(auth_dir / "auth.json")
     registry = RegistryClient(tls_verify)
     try:
         registry.raise_if_unsupported(ValueError, "Tests require podman/docker")
@@ -160,64 +296,38 @@ def _local_registry(bindings_cfg, registry_client, pulp_settings):
 
         @staticmethod
         def _dispatch_command(*args):
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-            else:
-                registry_client.logout(registry_name)
-            try:
-                registry_client._dispatch_command(*args)
-            finally:
-                registry_client.logout(registry_name)
+            with registry_client.authenticated(
+                registry_name, bindings_cfg.username, bindings_cfg.password
+            ):
+                return registry_client._dispatch_command(*args)
 
         @staticmethod
         def pull(image_path):
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-
-                try:
-                    registry_client.pull("/".join([registry_name, image_path]))
-                finally:
-                    registry_client.logout(registry_name)
-            else:
-                with suppress(subprocess.CalledProcessError):
-                    registry_client.logout(registry_name)
-
+            with registry_client.authenticated(
+                registry_name, bindings_cfg.username, bindings_cfg.password
+            ):
                 registry_client.pull("/".join([registry_name, image_path]))
 
         @staticmethod
         def tag_and_push(image_path, local_url, *args):
             local_image_path = "/".join([registry_name, local_url])
             registry_client.tag(image_path, local_image_path)
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-            else:
-                registry_client.logout(registry_name)
             try:
-                registry_client.push(local_image_path, *args)
+                with registry_client.authenticated(
+                    registry_name, bindings_cfg.username, bindings_cfg.password
+                ):
+                    registry_client.push(local_image_path, *args)
             finally:
                 # Untag local copy
                 registry_client.rmi(local_image_path)
-                registry_client.logout(registry_name)
 
         @staticmethod
         def manifest_push(tag, image_path, *args):
             local_image_path = "/".join([registry_name, image_path])
-            if bindings_cfg.username is not None:
-                registry_client.login(
-                    "-u", bindings_cfg.username, "-p", bindings_cfg.password, registry_name
-                )
-            else:
-                registry_client.logout(registry_name)
-            try:
+            with registry_client.authenticated(
+                registry_name, bindings_cfg.username, bindings_cfg.password
+            ):
                 registry_client.manifest_push(tag, local_image_path, *args)
-            finally:
-                registry_client.logout(registry_name)
 
         @staticmethod
         def inspect(local_url):

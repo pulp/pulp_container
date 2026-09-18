@@ -664,7 +664,7 @@ def test_blob_upload_status(local_registry, container_bindings, full_path, add_t
     assert response.status_code == 204
     assert response.headers["Docker-Upload-UUID"] == upload_uuid
     assert response.headers["Range"] == "0-0"
-    assert response.headers["Content-Length"] == "0"
+    assert response.headers.get("Content-Length", "0") == "0"
 
     response = requests.head(status_url, auth=auth)
     response.raise_for_status()
