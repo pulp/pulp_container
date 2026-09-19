@@ -1,0 +1,1 @@
+Optimize registry push queries that prepare content for ``add_and_remove``: fix tag replacement filtering to use the tag name, avoid N+1 blob lookups for manifest lists, and use pulpcore's native async ``aadd_and_remove``.

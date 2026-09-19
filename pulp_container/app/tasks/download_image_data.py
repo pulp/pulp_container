@@ -1,10 +1,7 @@
 import json
 import logging
 
-from asgiref.sync import sync_to_async
-
 from pulpcore.plugin.stages import DeclarativeContent
-from pulpcore.plugin.tasking import add_and_remove
 
 from pulp_container.app.models import ContainerRemote, ContainerRepository, Tag
 from pulp_container.app.utils import determine_media_type_from_json
@@ -14,10 +11,6 @@ from .sync_stages import ContainerFirstStage
 from .synchronize import ContainerDeclarativeVersion
 
 log = logging.getLogger(__name__)
-
-
-async def aadd_and_remove(*args, **kwargs):
-    return await sync_to_async(add_and_remove)(*args, **kwargs)
 
 
 def download_image_data(repository_pk, remote_pk, raw_text_manifest_data, tag_name=None):
