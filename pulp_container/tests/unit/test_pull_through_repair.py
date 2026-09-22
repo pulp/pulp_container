@@ -59,7 +59,7 @@ class TestPullThroughDistributionRepair(TestCase):
 
     @override_settings(CACHE_ENABLED=True)
     def test_command_flushes_repaired_cache_keys(self):
-        distribution = ContainerPullThroughDistribution.objects.create(
+        ContainerPullThroughDistribution.objects.create(
             name="legacy", base_path="registry-cache"
         )
         command_module = import_module(
@@ -96,7 +96,7 @@ class TestPullThroughDistributionLookup(TestCase):
         self.assertEqual(get_pull_through_distribution_path(match), "legacy")
 
     def test_match_observes_path_segment_boundaries(self):
-        distribution = ContainerPullThroughDistribution.objects.create(
+        ContainerPullThroughDistribution.objects.create(
             name="pull-through distribution",
             base_path=str(uuid4()),
             pulp_labels={PULL_THROUGH_DISTRIBUTION_LABEL: "registry-cache"},
