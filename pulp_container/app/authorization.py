@@ -204,6 +204,7 @@ class AuthorizationService:
             "sub": subject,
         }
 
+
 class PermissionChecker:
     def __init__(self, user):
         self.user = user

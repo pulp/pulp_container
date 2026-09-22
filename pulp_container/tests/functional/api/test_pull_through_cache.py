@@ -52,7 +52,9 @@ def pull_and_verify(
         tags_to_verify = []
         for version, image_path in enumerate(images, start=1):
             remote_image_path = f"{REGISTRY_V2}/{image_path}"
-            pull_through_path = pull_through_distribution.pulp_labels[PULL_THROUGH_DISTRIBUTION_LABEL]
+            pull_through_path = pull_through_distribution.pulp_labels[
+                PULL_THROUGH_DISTRIBUTION_LABEL
+            ]
             local_image_path = f"{pull_through_path}/{image_path}"
 
             # 0. test if an anonymous user cannot pull new content through the pull-through cache
