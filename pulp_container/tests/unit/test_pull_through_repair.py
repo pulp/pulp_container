@@ -69,11 +69,9 @@ class TestPullThroughDistributionRepair(TestCase):
 
         self.assertEqual(pull_through_distribution_check(None), [])
 
-    @override_settings(CACHE_ENABLED=True, DOMAIN_ENABLED=True)
+    @override_settings(CACHE_ENABLED=True)
     def test_command_flushes_repaired_domain_cache_keys(self):
-        distribution = ContainerPullThroughDistribution.objects.create(
-            name="legacy", base_path="registry-cache"
-        )
+        ContainerPullThroughDistribution.objects.create(name="legacy", base_path="registry-cache")
         command_module = import_module(
             "pulp_container.app.management.commands.container-repair-pull-through-distributions"
         )
@@ -81,9 +79,7 @@ class TestPullThroughDistributionRepair(TestCase):
         with patch.object(command_module, "SyncContentCache") as cache:
             call_command("container-repair-pull-through-distributions", stdout=StringIO())
 
-        cache.return_value.delete.assert_called_once_with(
-            base_key=[f"{distribution.pulp_domain.name}:registry-cache"]
-        )
+        cache.return_value.delete.assert_called_once_with(base_key=["registry-cache"])
 
 
 class TestPullThroughDistributionLookup(TestCase):
@@ -94,9 +90,7 @@ class TestPullThroughDistributionLookup(TestCase):
             pulp_labels={PULL_THROUGH_DISTRIBUTION_LABEL: "registry-cache"},
         )
 
-        match = get_pull_through_distribution(
-            "registry-cache/library/busybox", distribution.pulp_domain
-        )
+        match = get_pull_through_distribution("registry-cache/library/busybox")
 
         self.assertEqual(match, distribution)
         self.assertEqual(get_pull_through_distribution_path(match), "registry-cache")
@@ -106,21 +100,19 @@ class TestPullThroughDistributionLookup(TestCase):
             name="legacy", base_path="legacy"
         )
 
-        match = get_pull_through_distribution("legacy/library/busybox", distribution.pulp_domain)
+        match = get_pull_through_distribution("legacy/library/busybox")
 
         self.assertEqual(match, distribution)
         self.assertEqual(get_pull_through_distribution_path(match), "legacy")
 
     def test_match_observes_path_segment_boundaries(self):
-        distribution = ContainerPullThroughDistribution.objects.create(
+        ContainerPullThroughDistribution.objects.create(
             name="pull-through distribution",
             base_path=str(uuid4()),
             pulp_labels={PULL_THROUGH_DISTRIBUTION_LABEL: "registry-cache"},
         )
 
-        match = get_pull_through_distribution(
-            "registry-cache-other/library/busybox", distribution.pulp_domain
-        )
+        match = get_pull_through_distribution("registry-cache-other/library/busybox")
 
         self.assertIsNone(match)
 
