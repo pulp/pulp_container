@@ -462,7 +462,9 @@ class ContainerPullThroughDistributionSerializer(DistributionSerializer):
             validated_data.setdefault("pulp_labels", {})[PULL_THROUGH_DISTRIBUTION_LABEL] = (
                 base_path
             )
-        elif "base_path" in validated_data and validated_data["base_path"] != self.instance.base_path:
+        elif (
+            "base_path" in validated_data and validated_data["base_path"] != self.instance.base_path
+        ):
             is_marked = (self.instance.pulp_labels or {}).get(PULL_THROUGH_DISTRIBUTION_LABEL)
             message = (
                 _("This value cannot be updated.")

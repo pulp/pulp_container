@@ -59,9 +59,7 @@ class TestPullThroughDistributionRepair(TestCase):
 
     @override_settings(CACHE_ENABLED=True)
     def test_command_flushes_repaired_cache_keys(self):
-        ContainerPullThroughDistribution.objects.create(
-            name="legacy", base_path="registry-cache"
-        )
+        ContainerPullThroughDistribution.objects.create(name="legacy", base_path="registry-cache")
         command_module = import_module(
             "pulp_container.app.management.commands.container-repair-pull-through-distributions"
         )
