@@ -3,7 +3,6 @@ import subprocess
 import pytest
 
 from pulp_container.constants import PULL_THROUGH_DISTRIBUTION_LABEL
-
 from pulp_container.tests.functional.constants import (
     PULP_FIXTURE_1,
     PULP_HELLO_WORLD_REPO,
