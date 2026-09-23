@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.29.1 (2026-09-23) {: #2.29.1 }
+
+#### Bugfixes {: #2.29.1-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
+
+---
+
 ## 2.29.0 (2026-08-10) {: #2.29.0 }
 
 #### Features {: #2.29.0-feature }
