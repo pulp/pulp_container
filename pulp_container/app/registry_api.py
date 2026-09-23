@@ -20,7 +20,6 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
-from django.db.models import F, Value
 from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import (
@@ -65,6 +64,10 @@ from pulp_container.app.exceptions import (
     ManifestSignatureInvalid,
     RepositoryInvalid,
     RepositoryNotFound,
+)
+from pulp_container.app.pull_through import (
+    get_pull_through_distribution,
+    get_pull_through_distribution_path,
 )
 from pulp_container.app.redirects import (
     AzureStorageRedirects,
@@ -306,18 +309,12 @@ class ContainerRegistryApiMixin:
         return distribution, repository, repository_version
 
     def get_pull_through_drv(self, path):
-        pull_through_cache_distribution = (
-            models.ContainerPullThroughDistribution.objects.annotate(path=Value(path))
-            .filter(path__startswith=F("base_path"))
-            .order_by("-base_path")
-            .first()
-        )
+        pull_through_cache_distribution = get_pull_through_distribution(path)
         if not pull_through_cache_distribution or not self.request.user.is_authenticated:
             raise RepositoryNotFound(name=path)
 
-        upstream_name = path.split(pull_through_cache_distribution.base_path, maxsplit=1)[1].strip(
-            "/"
-        )
+        pull_through_path = get_pull_through_distribution_path(pull_through_cache_distribution)
+        upstream_name = path.split(pull_through_path, maxsplit=1)[1].strip("/")
         try:
             pull_through_remote = models.ContainerPullThroughRemote.objects.get(
                 pk=pull_through_cache_distribution.remote_id
