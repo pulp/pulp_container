@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.29.1 (2026-09-23) {: #2.29.1 }
+
+#### Bugfixes {: #2.29.1-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
+
+---
+
 ## 2.29.0 (2026-08-10) {: #2.29.0 }
 
 #### Features {: #2.29.0-feature }
@@ -95,6 +104,15 @@
 #### Deprecations and Removals {: #2.28.0-removal }
 
 - Renamed `include_tags` and `exclude_tags` to `includes` and `excludes` on the remote.
+
+---
+
+## 2.27.12 (2026-09-23) {: #2.27.12 }
+
+#### Bugfixes {: #2.27.12-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
 
 ---
 
@@ -217,6 +235,15 @@ No significant changes.
 
 #### Misc {: #2.27.0-misc }
 
+
+---
+
+## 2.26.17 (2026-09-23) {: #2.26.17 }
+
+#### Bugfixes {: #2.26.17-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
 
 ---
 
@@ -426,6 +453,15 @@ No significant changes.
 
 ---
 
+## 2.24.13 (2026-09-23) {: #2.24.13 }
+
+#### Bugfixes {: #2.24.13-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
+
+---
+
 ## 2.24.12 (2026-07-21) {: #2.24.12 }
 
 #### Bugfixes {: #2.24.12-bugfix }
@@ -561,6 +597,15 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.11 (2026-09-23) {: #2.22.11 }
+
+#### Bugfixes {: #2.22.11-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
 
 ---
 
@@ -757,6 +802,15 @@ No significant changes.
 
 ---
 
+## 2.20.12 (2026-09-23) {: #2.20.12 }
+
+#### Bugfixes {: #2.20.12-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
+
+---
+
 ## 2.20.11 (2026-07-27) {: #2.20.11 }
 
 #### Bugfixes {: #2.20.11-bugfix }
@@ -895,6 +949,15 @@ No significant changes.
 ### Misc
 
 -
+
+---
+
+## 2.19.14 (2026-09-23) {: #2.19.14 }
+
+#### Bugfixes {: #2.19.14-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
 
 ---
 
