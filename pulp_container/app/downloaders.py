@@ -25,14 +25,13 @@ class RegistryAuthHttpDownloader(HttpDownloader):
     Additionally, use custom headers from DeclarativeArtifact.extra_data['headers']
     """
 
-    registry_auth = {"bearer": None, "basic": None}
-    token_lock = asyncio.Lock()
-
     def __init__(self, *args, **kwargs):
         """
         Initialize the downloader.
         """
         self.remote = kwargs.pop("remote")
+        self.registry_auth = {"bearer": None, "basic": None}
+        self.token_lock = asyncio.Lock()
 
         super().__init__(*args, **kwargs)
 
