@@ -32,15 +32,12 @@ class RegistryAuthHttpDownloader(HttpDownloader):
     Additionally, use custom headers from DeclarativeArtifact.extra_data['headers']
     """
 
-    registry_auth = {"bearer": None, "basic": None}
-    token_lock = asyncio.Lock()
-
     def __init__(self, *args, **kwargs):
         """
         Initialize the downloader.
         """
         self.remote = kwargs.pop("remote")
-
+        self.factory = kwargs.pop("factory")
         super().__init__(*args, **kwargs)
 
     async def _run(self, handle_401=True, extra_data=None):
@@ -68,8 +65,8 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             headers = extra_data.get("headers", headers)
             repo_name = extra_data.get("repo_name", None)
         http_method = extra_data.get("http_method", "get") if extra_data is not None else "get"
-        this_token = self.registry_auth["bearer"]
-        basic_auth = self.registry_auth["basic"]
+        this_token = self.factory.registry_auth["bearer"]
+        basic_auth = self.factory.registry_auth["basic"]
         auth_headers = self.auth_header(this_token, basic_auth)
         headers.update(auth_headers)
         # aiohttps does not allow to send auth argument and auth header together
@@ -92,16 +89,16 @@ class RegistryAuthHttpDownloader(HttpDownloader):
                     if "bearer" in response_auth_header.lower():
                         # Token has not been updated during request
                         if (
-                            self.registry_auth["bearer"] is None
-                            or self.registry_auth["bearer"] == this_token
+                            self.factory.registry_auth["bearer"] is None
+                            or self.factory.registry_auth["bearer"] == this_token
                         ):
-                            self.registry_auth["bearer"] = None
+                            self.factory.registry_auth["bearer"] = None
                             await self.update_token(response_auth_header, this_token, repo_name)
                         return await self._run(handle_401=False, extra_data=extra_data)
                     elif "basic" in response_auth_header.lower():
                         if self.remote.username:
                             basic = aiohttp.BasicAuth(self.remote.username, self.remote.password)
-                            self.registry_auth["basic"] = basic.encode()
+                            self.factory.registry_auth["basic"] = basic.encode()
                         return await self._run(handle_401=False, extra_data=extra_data)
                 else:
                     raise
@@ -122,10 +119,10 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         """
         Update the Bearer token to be used with all requests.
         """
-        async with self.token_lock:
+        async with self.factory.token_lock:
             if (
-                self.registry_auth["bearer"] is not None
-                and self.registry_auth["bearer"] == used_token
+                self.factory.registry_auth["bearer"] is not None
+                and self.factory.registry_auth["bearer"] == used_token
             ):
                 return
             log.info("Updating bearer token")
@@ -168,7 +165,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
 
             token_js = json.loads(token_data)
             token = token_js.get("token") or token_js.get("access_token")
-            self.registry_auth["bearer"] = token
+            self.factory.registry_auth["bearer"] = token
 
     @staticmethod
     def auth_header(token, basic_auth):
@@ -196,6 +193,21 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             url=self.url,
             headers=response.headers,
         )
+
+
+class RegistryAuthDownloaderFactory(DownloaderFactory):
+    """
+    A downloader factory for registry access that can also share the authentication tokens.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.registry_auth = {"bearer": None, "basic": None}
+        self.token_lock = asyncio.Lock()
+
+    def _http_or_https(self, download_class, url, **kwargs):
+        kwargs.setdefault("factory", self)
+        return super()._http_or_https(download_class, url, **kwargs)
 
 
 class NoAuthSignatureDownloader(HttpDownloader):
