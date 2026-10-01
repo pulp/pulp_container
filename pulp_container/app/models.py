@@ -12,7 +12,6 @@ from django.shortcuts import redirect
 from django_lifecycle import AFTER_CREATE, AFTER_DELETE, AFTER_UPDATE, hook
 
 from pulpcore.plugin.cache import SyncContentCache
-from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import (
     Artifact,
     AutoAddObjPermsMixin,
@@ -369,17 +368,17 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
         """
         Downloader Factory that maps to custom downloaders which support registry auth.
 
-        Upon first access, the DownloaderFactory is instantiated and saved internally.
+        Upon first access, the RegistryAuthDownloaderFactory is instantiated and saved internally.
 
         Returns:
-            DownloadFactory: The instantiated DownloaderFactory to be used by
+            DownloadFactory: The instantiated RegistryAuthDownloaderFactory to be used by
                 get_downloader()
 
         """
         try:
             return self._download_factory
         except AttributeError:
-            self._download_factory = DownloaderFactory(
+            self._download_factory = downloaders.RegistryAuthDownloaderFactory(
                 self,
                 downloader_overrides={
                     "http": downloaders.RegistryAuthHttpDownloader,
