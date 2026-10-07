@@ -7,6 +7,12 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.19.15 (2026-10-07) {: #2.19.15 }
+
+No significant changes.
+
+---
+
 ## 2.19.14 (2026-09-23) {: #2.19.14 }
 
 #### Bugfixes {: #2.19.14-bugfix }
