@@ -1,0 +1,1 @@
+Fixed registry content cache compatibility with pulpcore's request-aware response handling.
