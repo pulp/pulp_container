@@ -32,6 +32,7 @@ from rest_framework.exceptions import (
     Throttled,
 )
 from rest_framework.generics import ListAPIView
+from rest_framework.negotiation import DefaultContentNegotiation
 from rest_framework.pagination import BasePagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import BaseRenderer, JSONRenderer
@@ -140,6 +141,15 @@ class ContentRenderer(BaseRenderer):
     def render(self, data, accepted_media_type=None, renderer_context=None):
         """Encodes the response data."""
         return data
+
+
+class BlobContentNegotiation(DefaultContentNegotiation):
+    """Treat an explicitly empty Accept header like a missing header for blobs."""
+
+    def get_accept_list(self, request):
+        if request.headers.get("Accept") == "":
+            return ["*/*"]
+        return super().get_accept_list(request)
 
 
 class ManifestResponse(Response):
@@ -1139,6 +1149,7 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
     """
 
     renderer_classes = [ContentRenderer]
+    content_negotiation_class = BlobContentNegotiation
 
     def head(self, request, path, pk=None):
         """
