@@ -40,9 +40,9 @@ class RegistryContentCache(RegistryCache, AsyncContentCache):
         key = ":".join(all_keys[k] for k in self.keys)
         return key
 
-    async def make_response(self, key, base_key):
+    async def make_response(self, key, base_key, *args, **kwargs):
         """Fix the Content-Type header to remove the charset."""
-        response = await super().make_response(key, base_key)
+        response = await super().make_response(key, base_key, *args, **kwargs)
         if response is not None:
             if content_type := response.headers.get("Content-Type"):
                 response.headers["Content-Type"] = content_type.split(";")[0]
