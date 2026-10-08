@@ -24,7 +24,7 @@ class PulpContainerPluginAppConfig(PulpPluginAppConfig):
 
     name = "pulp_container.app"
     label = "container"
-    version = "2.22.13"
+    version = "2.22.14.dev"
     python_package_name = "pulp-container"
 
     @staticmethod
