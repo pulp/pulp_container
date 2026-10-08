@@ -1,1 +1,0 @@
-Pull-through manifest resolution now uses HEAD checks, reducing Docker Hub 429s for repeated tag resolutions.
