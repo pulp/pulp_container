@@ -8,6 +8,14 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.29.2 (2026-10-08) {: #2.29.2 }
+
+#### Bugfixes {: #2.29.2-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
+
+---
+
 ## 2.29.1 (2026-09-23) {: #2.29.1 }
 
 #### Bugfixes {: #2.29.1-bugfix }
