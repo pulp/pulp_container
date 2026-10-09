@@ -8,6 +8,28 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.30.0 (2026-10-08) {: #2.30.0 }
+
+#### Features {: #2.30.0-feature }
+
+- Pull-through manifest resolution now uses HEAD checks, reducing Docker Hub 429s for repeated tag resolutions.
+
+#### Bugfixes {: #2.30.0-bugfix }
+
+- Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
+  [#2494](https://github.com/pulp/pulp_container/issues/2494)
+- Fixed global auth token leakage. CVE-2026-103868
+
+---
+
+## 2.29.2 (2026-10-08) {: #2.29.2 }
+
+#### Bugfixes {: #2.29.2-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
+
+---
+
 ## 2.29.1 (2026-09-23) {: #2.29.1 }
 
 #### Bugfixes {: #2.29.1-bugfix }
@@ -104,6 +126,14 @@
 #### Deprecations and Removals {: #2.28.0-removal }
 
 - Renamed `include_tags` and `exclude_tags` to `includes` and `excludes` on the remote.
+
+---
+
+## 2.27.14 (2026-10-08) {: #2.27.14 }
+
+#### Bugfixes {: #2.27.14-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
 
 ---
 
@@ -241,6 +271,14 @@ No significant changes.
 
 #### Misc {: #2.27.0-misc }
 
+
+---
+
+## 2.26.19 (2026-10-08) {: #2.26.19 }
+
+#### Bugfixes {: #2.26.19-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
 
 ---
 
@@ -465,6 +503,14 @@ No significant changes.
 
 ---
 
+## 2.24.15 (2026-10-08) {: #2.24.15 }
+
+#### Bugfixes {: #2.24.15-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
+
+---
+
 ## 2.24.14 (2026-10-07) {: #2.24.14 }
 
 No significant changes.
@@ -615,6 +661,14 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.13 (2026-10-08) {: #2.22.13 }
+
+#### Bugfixes {: #2.22.13-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
 
 ---
 
@@ -826,6 +880,14 @@ No significant changes.
 
 ---
 
+## 2.20.14 (2026-10-08) {: #2.20.14 }
+
+#### Bugfixes {: #2.20.14-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
+
+---
+
 ## 2.20.13 (2026-10-07) {: #2.20.13 }
 
 No significant changes.
@@ -979,6 +1041,14 @@ No significant changes.
 ### Misc
 
 -
+
+---
+
+## 2.19.16 (2026-10-08) {: #2.19.16 }
+
+#### Bugfixes {: #2.19.16-bugfix }
+
+- Fixed global auth token leakage. CVE-2026-103868
 
 ---
 
