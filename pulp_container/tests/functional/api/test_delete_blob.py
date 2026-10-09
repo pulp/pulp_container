@@ -106,11 +106,16 @@ class TestDeleteBlob:
         assert response.status_code == 201
 
         delete_path = f"/v2/{full_path(self.dest_repo_name)}/blobs/{digest}"
+        response, _ = local_registry.get_response("HEAD", delete_path, allow_redirects=False)
+        assert response.status_code == 200
+        assert response.headers["Docker-Content-Digest"] == digest
+        assert "Location" not in response.headers
+
         response, _ = local_registry.get_response("DELETE", delete_path)
         assert response.status_code == 202
 
         head_path = f"/v2/{full_path(self.dest_repo_name)}/blobs/{digest}"
-        response, _ = local_registry.get_response("HEAD", head_path)
+        response, _ = local_registry.get_response("HEAD", head_path, allow_redirects=False)
         assert response.status_code == 404
 
     def test_05_delete_by_digest(self, setup, local_registry, container_bindings, full_path):

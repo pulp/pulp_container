@@ -22,6 +22,7 @@ from django.core.files.base import ContentFile, File
 from django.db import IntegrityError, transaction
 from django.db.models import F, Func, TextField, Value
 from django.forms.models import model_to_dict
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import (
     APIException,
@@ -104,6 +105,7 @@ from pulp_container.app.utils import (
     validate_manifest,
 )
 from pulp_container.constants import (
+    BLOB_CONTENT_TYPE,
     EMPTY_BLOB,
     MANIFEST_TYPE,
     MEDIA_TYPE,
@@ -1171,6 +1173,8 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         permission_checker = PermissionChecker(request.user)
         # pk is the digest of the blob: sha256:abc123...
         if pk == EMPTY_BLOB:
+            if request.method == "HEAD":
+                return self.blob_head_response(pk, 32)
             return redirects.redirect_to_content_app("blobs", pk)
 
         blob = models.Blob.objects.filter(digest=pk, pk__in=repository_version.content).first()
@@ -1191,7 +1195,22 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
                 else:
                     raise BlobNotFound(digest=pk)
             blob.touch()
+        if request.method == "HEAD":
+            ca = ContentArtifact.objects.select_related("artifact").get(content=blob)
+            if ca.artifact:
+                size = ca.artifact.size
+            else:
+                size = ca.remoteartifact_set.values_list("size", flat=True).first()
+            return self.blob_head_response(blob.digest, size)
         return redirects.issue_blob_redirect(blob)
+
+    @staticmethod
+    def blob_head_response(digest, size):
+        """Return blob metadata without redirecting to storage or downloading content."""
+        headers = {"Docker-Content-Digest": digest, "Content-Type": BLOB_CONTENT_TYPE}
+        if size is not None:
+            headers["Content-Length"] = size
+        return HttpResponse(status=200, headers=headers)
 
     def create_on_demand_blob(self, digest, remote, blob_url):
         """Create a blob on demand if it doesn't exist."""
