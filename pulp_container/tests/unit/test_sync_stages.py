@@ -156,9 +156,7 @@ class TestParseIncludeEntry(unittest.TestCase):
     """Test _parse_include_entry static method."""
 
     def test_plain_digest(self):
-        digest, alias = ContainerFirstStage._parse_include_entry(
-            "sha256:" + "a" * 64
-        )
+        digest, alias = ContainerFirstStage._parse_include_entry("sha256:" + "a" * 64)
         assert digest == "sha256:" + "a" * 64
         assert alias is None
 
@@ -202,9 +200,7 @@ class TestCanBypassTaglist(unittest.TestCase):
         return stage
 
     def test_all_digests_no_excludes(self):
-        stage = self._make_stage(
-            includes=["sha256:" + "a" * 64, "sha256:" + "b" * 64]
-        )
+        stage = self._make_stage(includes=["sha256:" + "a" * 64, "sha256:" + "b" * 64])
         assert stage._can_bypass_taglist() is True
 
     def test_mixed_digests_and_aliases(self):
@@ -229,9 +225,7 @@ class TestCanBypassTaglist(unittest.TestCase):
         assert stage._can_bypass_taglist() is False
 
     def test_mirror_mode_prevents_bypass(self):
-        stage = self._make_stage(
-            includes=["sha256:" + "a" * 64], mirror=True
-        )
+        stage = self._make_stage(includes=["sha256:" + "a" * 64], mirror=True)
         assert stage._can_bypass_taglist() is False
 
     def test_harmless_source_exclude(self):
@@ -296,9 +290,7 @@ class TestDiscoverCosignCompanionsWithoutTaglist(unittest.IsolatedAsyncioTestCas
 
     async def test_skips_non_sha256_digests(self):
         self.stage._tag_exists = AsyncMock(return_value=True)
-        companions = await self.stage._discover_cosign_companions_without_taglist(
-            ["not-a-digest"]
-        )
+        companions = await self.stage._discover_cosign_companions_without_taglist(["not-a-digest"])
         assert companions == []
         self.stage._tag_exists.assert_not_called()
 

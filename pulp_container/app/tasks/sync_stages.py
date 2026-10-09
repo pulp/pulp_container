@@ -167,9 +167,7 @@ class ContainerFirstStage(Stage):
                 exclude.endswith("-source")
                 or (
                     exclude.startswith("*")
-                    and not any(
-                        d.endswith(exclude.lstrip("*")) for d in digests
-                    )
+                    and not any(d.endswith(exclude.lstrip("*")) for d in digests)
                 )
                 for exclude in excludes
             )
@@ -253,9 +251,7 @@ class ContainerFirstStage(Stage):
                     "Bypassing /tags/list enumeration - syncing %d explicit references directly",
                     len(digest_list),
                 )
-            await self._process_manifests(
-                digest_list, signature_source, "Processing Manifests"
-            )
+            await self._process_manifests(digest_list, signature_source, "Processing Manifests")
 
             if getattr(self.remote, "auto_discover_cosign", True):
                 log.info("Auto-discovering cosign companion tags via HEAD probing")
