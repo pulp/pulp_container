@@ -1,8 +1,10 @@
 from pulp_container.app.models import (
     MEDIA_TYPE,
     Blob,
+    BlobManifest,
     ContainerRepository,
     Manifest,
+    ManifestListManifest,
     Tag,
 )
 
@@ -33,6 +35,11 @@ def recursive_add_content(repository_pk, content_units):
         media_type__in=[MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI],
     )
 
+    # Avoid values_list() on ManyToManyField; query the through model instead.
+    listed_manifest_pks = ManifestListManifest.objects.filter(
+        image_manifest__in=manifest_lists_to_add
+    ).values_list("manifest_list", flat=True)
+
     manifests_to_add = (
         Manifest.objects.filter(
             pk__in=content_units,
@@ -43,9 +50,7 @@ def recursive_add_content(repository_pk, content_units):
                 MEDIA_TYPE.MANIFEST_OCI,
             ],
         )
-        | Manifest.objects.filter(
-            pk__in=manifest_lists_to_add.values_list("listed_manifests", flat=True)
-        )
+        | Manifest.objects.filter(pk__in=listed_manifest_pks)
         | Manifest.objects.filter(
             pk__in=tags_to_add.values_list("tagged_manifest", flat=True),
             media_type__in=[
@@ -57,9 +62,12 @@ def recursive_add_content(repository_pk, content_units):
         )
     )
 
+    listed_blob_pks = BlobManifest.objects.filter(manifest__in=manifests_to_add).values_list(
+        "manifest_blob", flat=True
+    )
     blobs_to_add = (
         Blob.objects.filter(pk__in=content_units)
-        | Blob.objects.filter(pk__in=manifests_to_add.values_list("blobs", flat=True))
+        | Blob.objects.filter(pk__in=listed_blob_pks)
         | Blob.objects.filter(pk__in=manifests_to_add.values_list("config_blob", flat=True))
     )
 

@@ -5,7 +5,9 @@ from pulpcore.plugin.models import Content, Repository
 from pulp_container.app.models import (
     MEDIA_TYPE,
     Blob,
+    BlobManifest,
     Manifest,
+    ManifestListManifest,
     ManifestSignature,
     Tag,
 )
@@ -79,15 +81,20 @@ def recursive_remove_content(repository_pk, content_units):
             manifests_in_repo & type_manifest_list
         ).exclude(pk__in=manifest_lists_to_remove)
 
+        # Avoid values_list() on ManyToManyField; query the through model instead.
         listed_manifests_must_remain = Q(
-            pk__in=manifest_lists_to_remain.values_list("listed_manifests", flat=True)
+            pk__in=ManifestListManifest.objects.filter(
+                image_manifest__in=manifest_lists_to_remain
+            ).values_list("manifest_list", flat=True)
         )
         manifests_must_remain = Manifest.objects.filter(
             tagged_manifests_must_remain | listed_manifests_must_remain
         ).filter(type_manifest & manifests_in_repo)
 
         listed_manifests_to_remove = Q(
-            pk__in=manifest_lists_to_remove.values_list("listed_manifests", flat=True)
+            pk__in=ManifestListManifest.objects.filter(
+                image_manifest__in=manifest_lists_to_remove
+            ).values_list("manifest_list", flat=True)
         )
         manifests_to_remove = (
             Manifest.objects.filter(
@@ -102,11 +109,15 @@ def recursive_remove_content(repository_pk, content_units):
         )
 
         listed_blobs_must_remain = Q(
-            pk__in=manifests_to_remain.values_list("blobs", flat=True)
+            pk__in=BlobManifest.objects.filter(manifest__in=manifests_to_remain).values_list(
+                "manifest_blob", flat=True
+            )
         ) | Q(pk__in=manifests_to_remain.values_list("config_blob", flat=True))
-        listed_blobs_to_remove = Q(pk__in=manifests_to_remove.values_list("blobs", flat=True)) | Q(
-            pk__in=manifests_to_remove.values_list("config_blob", flat=True)
-        )
+        listed_blobs_to_remove = Q(
+            pk__in=BlobManifest.objects.filter(manifest__in=manifests_to_remove).values_list(
+                "manifest_blob", flat=True
+            )
+        ) | Q(pk__in=manifests_to_remove.values_list("config_blob", flat=True))
 
         blobs_to_remove = (
             Blob.objects.filter(user_provided_content | listed_blobs_to_remove)

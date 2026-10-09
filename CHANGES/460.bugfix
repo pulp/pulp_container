@@ -1,0 +1,1 @@
+Fix recursive add/remove to resolve many-to-many relations via through models instead of ``values_list()``.
