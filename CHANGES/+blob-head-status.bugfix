@@ -1,0 +1,1 @@
+Return 200 with blob metadata for registry HEAD requests instead of redirecting to storage.
