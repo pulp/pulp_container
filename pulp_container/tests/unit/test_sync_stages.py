@@ -1,4 +1,4 @@
-"""Unit tests for cosign companion tag helpers on ContainerFirstStage."""
+"""Unit tests for ContainerFirstStage: cosign companion tag helpers and tag list bypass."""
 
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -150,6 +150,189 @@ class TestCosignCompanionHelpers(unittest.IsolatedAsyncioTestCase):
         _, digest = _bare_cosign_digest()
         self.stage._cosign_tags = []
         self.assertFalse(await self.stage._has_cosign_signature(digest))
+
+
+class TestParseIncludeEntry(unittest.TestCase):
+    """Test _parse_include_entry static method."""
+
+    def test_plain_digest(self):
+        digest, alias = ContainerFirstStage._parse_include_entry(
+            "sha256:" + "a" * 64
+        )
+        assert digest == "sha256:" + "a" * 64
+        assert alias is None
+
+    def test_named_alias(self):
+        entry = "cli=sha256:" + "b" * 64
+        digest, alias = ContainerFirstStage._parse_include_entry(entry)
+        assert digest == "sha256:" + "b" * 64
+        assert alias == "cli"
+
+    def test_named_alias_with_hyphens(self):
+        entry = "cluster-dns-operator=sha256:" + "c" * 64
+        digest, alias = ContainerFirstStage._parse_include_entry(entry)
+        assert digest == "sha256:" + "c" * 64
+        assert alias == "cluster-dns-operator"
+
+    def test_non_digest_tag(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("latest")
+        assert digest is None
+        assert alias is None
+
+    def test_wildcard_pattern(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("v1.*")
+        assert digest is None
+        assert alias is None
+
+    def test_name_equals_non_digest(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("name=latest")
+        assert digest is None
+        assert alias is None
+
+
+class TestCanBypassTaglist(unittest.TestCase):
+    """Test _can_bypass_taglist decision logic."""
+
+    def _make_stage(self, includes=None, excludes=None, mirror=False):
+        remote = MagicMock()
+        remote.policy = MagicMock()
+        remote.includes = includes
+        remote.excludes = excludes
+        stage = ContainerFirstStage(remote=remote, signed_only=False, mirror=mirror)
+        return stage
+
+    def test_all_digests_no_excludes(self):
+        stage = self._make_stage(
+            includes=["sha256:" + "a" * 64, "sha256:" + "b" * 64]
+        )
+        assert stage._can_bypass_taglist() is True
+
+    def test_mixed_digests_and_aliases(self):
+        stage = self._make_stage(
+            includes=[
+                "sha256:" + "a" * 64,
+                "cli=sha256:" + "b" * 64,
+            ]
+        )
+        assert stage._can_bypass_taglist() is True
+
+    def test_non_digest_entry_prevents_bypass(self):
+        stage = self._make_stage(includes=["latest", "sha256:" + "a" * 64])
+        assert stage._can_bypass_taglist() is False
+
+    def test_empty_includes_prevents_bypass(self):
+        stage = self._make_stage(includes=[])
+        assert stage._can_bypass_taglist() is False
+
+    def test_none_includes_prevents_bypass(self):
+        stage = self._make_stage(includes=None)
+        assert stage._can_bypass_taglist() is False
+
+    def test_mirror_mode_prevents_bypass(self):
+        stage = self._make_stage(
+            includes=["sha256:" + "a" * 64], mirror=True
+        )
+        assert stage._can_bypass_taglist() is False
+
+    def test_harmless_source_exclude(self):
+        stage = self._make_stage(
+            includes=["sha256:" + "a" * 64],
+            excludes=["*-source"],
+        )
+        assert stage._can_bypass_taglist() is True
+
+    def test_non_harmless_exclude_prevents_bypass(self):
+        stage = self._make_stage(
+            includes=["sha256:" + "a" * 64],
+            excludes=["sha256:" + "a" * 64],
+        )
+        assert stage._can_bypass_taglist() is False
+
+    def test_wildcard_exclude_not_matching_digests(self):
+        stage = self._make_stage(
+            includes=["sha256:" + "a" * 64],
+            excludes=["*-beta"],
+        )
+        assert stage._can_bypass_taglist() is True
+
+
+class TestDiscoverCosignCompanionsWithoutTaglist(unittest.IsolatedAsyncioTestCase):
+    """Test _discover_cosign_companions_without_taglist HEAD-probe logic."""
+
+    def setUp(self):
+        remote = MagicMock()
+        remote.policy = MagicMock()
+        remote.namespaced_upstream_name = "library/test"
+        remote.url = "https://registry.example/"
+        remote.get_downloader = MagicMock()
+        self.stage = ContainerFirstStage(remote=remote, signed_only=False)
+
+    async def test_probes_all_cosign_patterns(self):
+        digest = "sha256:" + "a" * 64
+        hex_part = "a" * 64
+
+        self.stage._tag_exists = AsyncMock(return_value=True)
+        companions = await self.stage._discover_cosign_companions_without_taglist([digest])
+
+        expected_tags = {
+            f"sha256-{hex_part}.sig",
+            f"sha256-{hex_part}.att",
+            f"sha256-{hex_part}.sbom",
+            f"sha256-{hex_part}",
+        }
+        assert set(companions) == expected_tags
+
+    async def test_returns_only_existing_tags(self):
+        digest = "sha256:" + "a" * 64
+        hex_part = "a" * 64
+
+        async def selective_exists(tag):
+            return tag.endswith(".sig")
+
+        self.stage._tag_exists = selective_exists
+        companions = await self.stage._discover_cosign_companions_without_taglist([digest])
+
+        assert companions == [f"sha256-{hex_part}.sig"]
+
+    async def test_skips_non_sha256_digests(self):
+        self.stage._tag_exists = AsyncMock(return_value=True)
+        companions = await self.stage._discover_cosign_companions_without_taglist(
+            ["not-a-digest"]
+        )
+        assert companions == []
+        self.stage._tag_exists.assert_not_called()
+
+    async def test_empty_input(self):
+        self.stage._tag_exists = AsyncMock(return_value=True)
+        companions = await self.stage._discover_cosign_companions_without_taglist([])
+        assert companions == []
+
+
+class TestTagExistsHeadProbe(unittest.IsolatedAsyncioTestCase):
+    """Test _tag_exists HEAD request behavior."""
+
+    def setUp(self):
+        remote = MagicMock()
+        remote.policy = MagicMock()
+        remote.namespaced_upstream_name = "library/test"
+        remote.url = "https://registry.example/"
+        self.stage = ContainerFirstStage(remote=remote, signed_only=False)
+
+    async def test_returns_true_on_success(self):
+        mock_downloader = AsyncMock()
+        mock_downloader.run = AsyncMock(return_value=MagicMock())
+        self.stage.remote.get_downloader = MagicMock(return_value=mock_downloader)
+
+        result = await self.stage._tag_exists("sha256-aaa.sig")
+        assert result is True
+
+    async def test_returns_false_on_exception(self):
+        mock_downloader = AsyncMock()
+        mock_downloader.run = AsyncMock(side_effect=Exception("404 Not Found"))
+        self.stage.remote.get_downloader = MagicMock(return_value=mock_downloader)
+
+        result = await self.stage._tag_exists("sha256-nonexistent.sig")
+        assert result is False
 
 
 if __name__ == "__main__":

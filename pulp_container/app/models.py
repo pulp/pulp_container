@@ -490,6 +490,8 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
         excludes (fields.ArrayField): List of tag patterns to exclude from sync.
         sigstore (models.TextField): The URL to a sigstore where signatures of container images
             should be synced from.
+        auto_discover_cosign (models.BooleanField): When True, automatically discover and sync
+            cosign companion tags (signatures, attestations, SBOMs) for synced manifests.
     """
 
     upstream_name = models.TextField(db_index=True)
@@ -497,6 +499,7 @@ class ContainerRemote(Remote, AutoAddObjPermsMixin):
     includes = fields.ArrayField(models.TextField(null=True), null=True)
     excludes = fields.ArrayField(models.TextField(null=True), null=True)
     sigstore = models.TextField(null=True)
+    auto_discover_cosign = models.BooleanField(default=True)
 
     # Deprecated: kept for ZDT upgrades
     include_tags = fields.ArrayField(models.TextField(null=True), null=True)
