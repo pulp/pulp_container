@@ -371,7 +371,11 @@ class ContainerRegistryApiMixin:
     def get_pull_through_drv(self, path):
         domain = get_domain()
         pull_through_cache_distribution = get_pull_through_distribution(path, domain)
-        if not pull_through_cache_distribution or not self.request.user.is_authenticated:
+        # allow anonymous pull-through access for public distributions
+        if not pull_through_cache_distribution:
+            raise RepositoryNotFound(name=path)
+        # user must be authenticated when pull-through is private
+        if pull_through_cache_distribution.private and not self.request.user.is_authenticated:
             raise RepositoryNotFound(name=path)
 
         pull_through_path = get_pull_through_distribution_path(pull_through_cache_distribution)
