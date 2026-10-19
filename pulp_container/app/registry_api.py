@@ -1796,7 +1796,11 @@ class Signatures(ContainerRegistryApiMixin, ViewSet):
             response_headers = {}
             try:
                 ping_response = ping_downloader.fetch(
-                    extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "get"}
+                    extra_data={
+                        "headers": V2_ACCEPT_HEADERS,
+                        "http_method": "get",
+                        "repo_name": remote.namespaced_upstream_name,
+                    }
                 )
                 response_headers = ping_response.headers
             except ClientResponseError as e:
