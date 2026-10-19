@@ -121,14 +121,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             ):
                 return
             log.info("Updating bearer token")
-            bearer_info_string = response_auth_header[len("Bearer ") :]
-            bearer_info_list = re.split(",(?=[^=,]+=)", bearer_info_string)
-
-            # The remaining string consists of comma seperated key=value pairs
-            auth_query_dict = {}
-            for key, value in (item.split("=") for item in bearer_info_list):
-                # The value is a string within a string, ex: '"value"'
-                auth_query_dict[key] = json.loads(value)
+            auth_query_dict = self.parse_auth_challenge(response_auth_header)
             try:
                 token_base_url = auth_query_dict.pop("realm")
             except KeyError:
@@ -161,6 +154,24 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             token_js = json.loads(token_data)
             token = token_js.get("token") or token_js.get("access_token")
             self.factory.registry_auth["bearer"] = token
+
+    @staticmethod
+    def parse_auth_challenge(response_auth_header):
+        """
+        Parse the parameters of a Bearer auth challenge into a dictionary.
+
+        Values may be quoted strings or plain tokens (RFC 7235), e.g. gcr.io responds with
+        'Bearer realm="https://gcr.io/v2/token",service=gcr.io'.
+        """
+        bearer_info_string = response_auth_header[len("Bearer ") :]
+        auth_query_dict = {}
+        for match in re.finditer(r'([^=,\s]+)=(?:"((?:[^"\\]|\\.)*)"|([^,]*))', bearer_info_string):
+            key, quoted, plain = match.groups()
+            if quoted is not None:
+                auth_query_dict[key] = re.sub(r"\\(.)", r"\1", quoted)
+            else:
+                auth_query_dict[key] = plain.strip()
+        return auth_query_dict
 
     @staticmethod
     def auth_header(token, basic_auth):
