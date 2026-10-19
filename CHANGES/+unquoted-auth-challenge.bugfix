@@ -1,0 +1,1 @@
+Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
