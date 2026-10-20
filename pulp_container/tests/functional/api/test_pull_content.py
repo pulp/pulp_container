@@ -118,7 +118,7 @@ class TestPullContent:
         )
         assert content_response.content == digest_response.content
 
-    def test_create_empty_blob_on_the_fly(self, bindings_cfg, full_path, setup):
+    def test_create_empty_blob_on_the_fly(self, bindings_cfg, full_path, setup, local_registry):
         """
         Test if empty blob getscreated and served on the fly.
         """
@@ -134,6 +134,66 @@ class TestPullContent:
         # compare with the digest returned in the response header
         header_digest = content_response.headers["docker-content-digest"].split(":")[1]
         assert digest == header_digest
+
+        head, _ = local_registry.get_response("HEAD", blob_path)
+        assert head.status_code == 200
+        assert head.headers["Docker-Content-Digest"] == EMPTY_BLOB
+        assert int(head.headers["Content-Length"]) == len(content_response.content)
+        assert head.content == b""
+
+    @pytest.mark.parametrize("blob_type", ["config", "layer"])
+    @pytest.mark.parametrize("method", ["GET", "HEAD"])
+    @pytest.mark.parametrize("accept", [None, "", "*/*"])
+    def test_blob_accept_header(
+        self, blob_type, method, accept, bindings_cfg, full_path, setup, local_registry
+    ):
+        """Blob GET and HEAD redirect successfully for any supported Accept header."""
+        _, distribution, _ = setup
+        path = full_path(distribution)
+        tag = PULP_HELLO_WORLD_LINUX_TAG.lstrip(":")
+        manifest_headers = {
+            "Accept": f"{MEDIA_TYPE.MANIFEST_V2}, {MEDIA_TYPE.MANIFEST_OCI}, "
+            f"{MEDIA_TYPE.MANIFEST_LIST}, {MEDIA_TYPE.INDEX_OCI}"
+        }
+        manifest, _ = local_registry.get_response(
+            "GET", f"/v2/{path}/manifests/{tag}", headers=manifest_headers
+        )
+        manifest.raise_for_status()
+        manifest_data = manifest.json()
+        while "manifests" in manifest_data:
+            child_digest = manifest_data["manifests"][0]["digest"]
+            manifest, _ = local_registry.get_response(
+                "GET", f"/v2/{path}/manifests/{child_digest}", headers=manifest_headers
+            )
+            manifest.raise_for_status()
+            manifest_data = manifest.json()
+        descriptor = (
+            manifest_data["config"] if blob_type == "config" else manifest_data["layers"][0]
+        )
+        digest = descriptor["digest"]
+        blob_path = f"/v2/{path}/blobs/{digest}"
+        headers = {"Accept": accept}
+
+        response, auth = local_registry.get_response(
+            method, blob_path, headers=headers, allow_redirects=False
+        )
+        assert response.status_code == 302
+        assert response.headers["Location"]
+
+        if method == "HEAD":
+            head = requests.head(
+                urljoin(bindings_cfg.host, blob_path),
+                auth=auth,
+                headers=headers,
+                allow_redirects=True,
+            )
+            assert head.status_code == 200
+            assert int(head.headers["Content-Length"]) == descriptor["size"]
+            assert head.content == b""
+
+        download = requests.get(urljoin(bindings_cfg.host, blob_path), auth=auth, headers=headers)
+        download.raise_for_status()
+        assert f"sha256:{hashlib.sha256(download.content).hexdigest()}" == digest
 
     def test_pull_image_from_repository(self, local_registry, registry_client, full_path, setup):
         """Verify that a client can pull the image from Pulp.
