@@ -24,9 +24,9 @@ classifiers=[
 requires-python = ">=3.11"
 dependencies = [
   "jsonschema>=4.4,<4.27",
-  "pulpcore>=3.118.0,<3.130",
+  "pulpcore @ git+https://github.com/pulp/pulpcore.git@main", # "pulpcore>=3.125.0,<3.130",
   "pyjwt[crypto]>=2.4,<2.16",
-  "pysequoia>=0.1.35,<0.2.0"
+  "pysequoia>=0.1.36,<0.2.0"
 ]
 
 [project.urls]

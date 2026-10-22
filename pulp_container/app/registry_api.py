@@ -80,11 +80,7 @@ from pulp_container.app.pull_through import (
     get_pull_through_distribution,
     get_pull_through_distribution_path,
 )
-from pulp_container.app.redirects import (
-    AzureStorageRedirects,
-    FileStorageRedirects,
-    S3StorageRedirects,
-)
+from pulp_container.app.redirects import StorageRedirects
 from pulp_container.app.tasks import aadd_and_remove, download_image_data, recursive_remove_content
 from pulp_container.app.token_verification import (
     RegistryAuthentication,
@@ -1123,37 +1119,14 @@ class BlobUploads(ContainerRegistryApiMixin, ViewSet):
         return BlobResponse(blob, path, 201, request)
 
 
-class RedirectsMixin:
-    """
-    A mixin used for configuring how the redirects will work based on a storage type.
-    """
-
-    def __init__(self, *args, **kwargs):
-        """
-        Determine a storage type and initialize the redirect class according to that.
-        """
-        super().__init__(*args, **kwargs)
-        domain = get_domain()
-        if (
-            domain.storage_class == "pulpcore.app.models.storage.FileSystem"
-            or not domain.redirect_to_object_storage
-        ):
-            self.redirects_class = FileStorageRedirects
-        elif domain.storage_class == "storages.backends.s3boto3.S3Boto3Storage":
-            self.redirects_class = S3StorageRedirects
-        elif domain.storage_class == "storages.backends.azure_storage.AzureStorage":
-            self.redirects_class = AzureStorageRedirects
-        else:
-            raise NotImplementedError()
-
-
-class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
+class Blobs(ContainerRegistryApiMixin, ViewSet):
     """
     ViewSet for interacting with Blobs
     """
 
     renderer_classes = [ContentRenderer]
     content_negotiation_class = BlobContentNegotiation
+    redirects_class = StorageRedirects
 
     def head(self, request, path, pk=None):
         """
@@ -1287,7 +1260,7 @@ class Blobs(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
         return Response(status=202)
 
 
-class Manifests(RedirectsMixin, ContainerRegistryApiMixin, ViewSet):
+class Manifests(ContainerRegistryApiMixin, ViewSet):
     """
     ViewSet for interacting with Manifests
     """
