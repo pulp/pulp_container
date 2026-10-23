@@ -1,0 +1,1 @@
+Retried GHCR requests that fail with 403 using a bearer token, and fell back to GET when a registry (e.g. ECR Public) rejects HEAD on blob endpoints.
