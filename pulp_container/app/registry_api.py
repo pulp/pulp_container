@@ -1136,7 +1136,7 @@ class RedirectsMixin:
         domain = get_domain()
         if (
             domain.storage_class == "pulpcore.app.models.storage.FileSystem"
-            or not settings.REDIRECT_TO_OBJECT_STORAGE
+            or not domain.redirect_to_object_storage
         ):
             self.redirects_class = FileStorageRedirects
         elif domain.storage_class == "storages.backends.s3boto3.S3Boto3Storage":
