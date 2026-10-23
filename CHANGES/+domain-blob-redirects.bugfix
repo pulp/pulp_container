@@ -1,0 +1,1 @@
+Container blob downloads now respect each Domain's object storage redirect setting.
