@@ -1,9 +1,11 @@
 import uuid
 from contextlib import suppress
 from subprocess import CalledProcessError
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
+from pulp_container.constants import BLOB_CONTENT_TYPE
 from pulp_container.tests.functional.constants import (
     PULP_FIXTURE_1,
     PULP_HELLO_WORLD_REPO,
@@ -103,6 +105,53 @@ def test_pull_in_domain(
 
     local_path = f"{domain.name}/{distribution.base_path}"
     local_registry.pull(local_path)
+
+
+def test_blob_redirect_uses_domain_setting_with_rustfs(
+    cdomain_factory,
+    container_bindings,
+    container_repository_factory,
+    container_remote_factory,
+    container_sync,
+    container_distribution_factory,
+    full_path,
+    local_registry,
+    pulp_settings,
+):
+    """Blob URLs use S3 only for Domains with direct redirects enabled."""
+    endpoint = pulp_settings.STORAGES["default"].get("OPTIONS", {}).get("endpoint_url", "")
+    if urlparse(endpoint).hostname != "rustfs":
+        pytest.skip("Requires the RustFS S3 storage profile")
+
+    for redirect_to_object_storage in (True, False):
+        domain = cdomain_factory(redirect_to_object_storage=redirect_to_object_storage)
+        repo = container_repository_factory(pulp_domain=domain.name)
+        remote = container_remote_factory(pulp_domain=domain.name)
+        container_sync(repo, remote)
+        repo = container_bindings.RepositoriesContainerApi.read(repo.pulp_href)
+        distribution = container_distribution_factory(
+            repository=repo.pulp_href, pulp_domain=domain.name
+        )
+        blobs = container_bindings.ContentBlobsApi.list(
+            repository_version=repo.latest_version_href, pulp_domain=domain.name
+        )
+        digest = blobs.results[0].digest
+        response, _ = local_registry.get_response(
+            "GET",
+            f"/v2/{full_path(distribution)}/blobs/{digest}",
+            allow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        location = urlparse(response.headers["Location"])
+        if redirect_to_object_storage:
+            assert location.netloc == urlparse(endpoint).netloc
+            query = parse_qs(location.query)
+            assert query["X-Amz-Algorithm"] == ["AWS4-HMAC-SHA256"]
+            assert query["response-content-type"] == [BLOB_CONTENT_TYPE]
+            assert query["response-content-disposition"] == [f"attachment;filename={digest}"]
+        else:
+            assert location.path.startswith(f"/pulp/container/{domain.name}/")
 
 
 def test_domain_permissions(
