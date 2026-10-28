@@ -8,6 +8,20 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.29.3 (2026-10-28) {: #2.29.3 }
+
+#### Bugfixes {: #2.29.3-bugfix }
+
+- Allow anonymous pull-through for public distributions
+  [#1976](https://github.com/pulp/pulp_container/issues/1976)
+- Container blob downloads now respect each Domain's object storage redirect setting.
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+- Retried GHCR requests that fail with 403 using a bearer token, and fell back to GET when a registry (e.g. ECR Public) rejects HEAD on blob endpoints.
+- Treat an explicitly empty Accept header like a missing header when retrieving registry blobs.
+
+---
+
 ## 2.29.2 (2026-10-08) {: #2.29.2 }
 
 #### Bugfixes {: #2.29.2-bugfix }
