@@ -8,6 +8,20 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.22.14 (2026-10-28) {: #2.22.14 }
+
+#### Bugfixes {: #2.22.14-bugfix }
+
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+
+#### Deprecations and Removals {: #2.22.14-removal }
+
+- Deprecated the Manifest `is_flatpak` and `is_bootable` fields in favor of the new `type` field.
+  [#1751](https://github.com/pulp/pulp_container/issues/1751)
+
+---
+
 ## 2.22.13 (2026-10-08) {: #2.22.13 }
 
 #### Bugfixes {: #2.22.13-bugfix }
