@@ -392,6 +392,15 @@ class ContainerRemoteSerializer(RemoteSerializer):
         validators=[URLValidator(schemes=["http", "https"])],
     )
 
+    auto_discover_cosign = serializers.BooleanField(
+        required=False,
+        default=True,
+        help_text=_(
+            "When True, automatically discover and sync cosign companion tags "
+            "(signatures, attestations, SBOMs) for synced manifests."
+        ),
+    )
+
     class Meta:
         fields = RemoteSerializer.Meta.fields + (
             "upstream_name",
@@ -400,6 +409,7 @@ class ContainerRemoteSerializer(RemoteSerializer):
             "include_tags",
             "exclude_tags",
             "sigstore",
+            "auto_discover_cosign",
         )
         model = models.ContainerRemote
 
