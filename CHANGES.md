@@ -8,6 +8,19 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.30.1 (2026-10-28) {: #2.30.1 }
+
+#### Bugfixes {: #2.30.1-bugfix }
+
+- Allow anonymous pull-through for public distributions
+  [#1976](https://github.com/pulp/pulp_container/issues/1976)
+- Container blob downloads now respect each Domain's object storage redirect setting.
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Retried GHCR requests that fail with 403 using a bearer token, and fell back to GET when a registry (e.g. ECR Public) rejects HEAD on blob endpoints.
+- Treat an explicitly empty Accept header like a missing header when retrieving registry blobs.
+
+---
+
 ## 2.30.0 (2026-10-08) {: #2.30.0 }
 
 #### Features {: #2.30.0-feature }
@@ -19,6 +32,20 @@
 - Prevent container distributions from overlapping other distribution base paths. Pull-through distributions **NEED** to be fixed before upgrading pulpcore; run `pulpcore-manager container-repair-pull-through-distributions` to repair existing distributions.
   [#2494](https://github.com/pulp/pulp_container/issues/2494)
 - Fixed global auth token leakage. CVE-2026-103868
+
+---
+
+## 2.29.3 (2026-10-28) {: #2.29.3 }
+
+#### Bugfixes {: #2.29.3-bugfix }
+
+- Allow anonymous pull-through for public distributions
+  [#1976](https://github.com/pulp/pulp_container/issues/1976)
+- Container blob downloads now respect each Domain's object storage redirect setting.
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+- Retried GHCR requests that fail with 403 using a bearer token, and fell back to GET when a registry (e.g. ECR Public) rejects HEAD on blob endpoints.
+- Treat an explicitly empty Accept header like a missing header when retrieving registry blobs.
 
 ---
 
@@ -126,6 +153,16 @@
 #### Deprecations and Removals {: #2.28.0-removal }
 
 - Renamed `include_tags` and `exclude_tags` to `includes` and `excludes` on the remote.
+
+---
+
+## 2.27.15 (2026-10-28) {: #2.27.15 }
+
+#### Bugfixes {: #2.27.15-bugfix }
+
+- Container blob downloads now respect each Domain's object storage redirect setting.
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
 
 ---
 
@@ -271,6 +308,16 @@ No significant changes.
 
 #### Misc {: #2.27.0-misc }
 
+
+---
+
+## 2.26.20 (2026-10-28) {: #2.26.20 }
+
+#### Bugfixes {: #2.26.20-bugfix }
+
+- Container blob downloads now respect each Domain's object storage redirect setting.
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
 
 ---
 
@@ -503,6 +550,15 @@ No significant changes.
 
 ---
 
+## 2.24.16 (2026-10-28) {: #2.24.16 }
+
+#### Bugfixes {: #2.24.16-bugfix }
+
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+
+---
+
 ## 2.24.15 (2026-10-08) {: #2.24.15 }
 
 #### Bugfixes {: #2.24.15-bugfix }
@@ -661,6 +717,20 @@ No significant changes.
 #### Misc {: #2.23.0-misc }
 
 - [#1910](https://github.com/pulp/pulp_container/issues/1910)
+
+---
+
+## 2.22.14 (2026-10-28) {: #2.22.14 }
+
+#### Bugfixes {: #2.22.14-bugfix }
+
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+
+#### Deprecations and Removals {: #2.22.14-removal }
+
+- Deprecated the Manifest `is_flatpak` and `is_bootable` fields in favor of the new `type` field.
+  [#1751](https://github.com/pulp/pulp_container/issues/1751)
 
 ---
 
@@ -880,6 +950,15 @@ No significant changes.
 
 ---
 
+## 2.20.15 (2026-10-28) {: #2.20.15 }
+
+#### Bugfixes {: #2.20.15-bugfix }
+
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+
+---
+
 ## 2.20.14 (2026-10-08) {: #2.20.14 }
 
 #### Bugfixes {: #2.20.14-bugfix }
@@ -1041,6 +1120,20 @@ No significant changes.
 ### Misc
 
 -
+
+---
+
+## 2.19.17 (2026-10-28) {: #2.19.17 }
+
+#### Bugfixes {: #2.19.17-bugfix }
+
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+
+#### Deprecations and Removals {: #2.19.17-removal }
+
+- Deprecated `ADDITIONAL_OCI_ARTIFACT_TYPES` setting in favour of the relaxed validation.
+  [#1494](https://github.com/pulp/pulp_container/issues/1494)
 
 ---
 
