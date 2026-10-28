@@ -8,6 +8,16 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.26.20 (2026-10-28) {: #2.26.20 }
+
+#### Bugfixes {: #2.26.20-bugfix }
+
+- Container blob downloads now respect each Domain's object storage redirect setting.
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+
+---
+
 ## 2.26.19 (2026-10-08) {: #2.26.19 }
 
 #### Bugfixes {: #2.26.19-bugfix }
