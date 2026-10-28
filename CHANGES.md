@@ -8,6 +8,15 @@
 
 [//]: # (towncrier release notes start)
 
+## 2.20.15 (2026-10-28) {: #2.20.15 }
+
+#### Bugfixes {: #2.20.15-bugfix }
+
+- Fixed pull-through signature lookups failing with a 500 when the upstream registry (e.g. gcr.io) sends unquoted values in its bearer auth challenge.
+- Fixed the registry Authorization header leaking into a shared module-level headers dict, which could send one remote's credentials to another registry.
+
+---
+
 ## 2.20.14 (2026-10-08) {: #2.20.14 }
 
 #### Bugfixes {: #2.20.14-bugfix }
