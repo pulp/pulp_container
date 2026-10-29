@@ -8,9 +8,8 @@ This is the ``pulp_container`` Plugin for `Pulp Project
 3.0+ <https://pypi.python.org/pypi/pulpcore/>`__. This plugin provides Pulp with support for container
 images and OCI artifacts.
 
-For more information, please see the `documentation
-<https://docs.pulpproject.org/pulp_container/>`_ or the `Pulp project page
-<https://pulpproject.org>`_.
+For more information, please see the `Pulp Container documentation and project page
+<https://pulpproject.org/pulp_container/>`_.
 
 How to File an Issue
 --------------------
@@ -18,4 +17,4 @@ How to File an Issue
 `New pulp_container issue <https://github.com/pulp/pulp_container/issues/new>`_.
 
 .. warning::
-  Is this security related? If so, please follow the `Security Disclosures <https://docs.pulpproject.org/pulpcore/bugs-features.html#security-bugs>`_ procedure.
+  Is this security related? If so, please follow the `Security Disclosures <https://pulpproject.org/security/vulnerability-management/>`_ procedure.
