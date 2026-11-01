@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from multidict import MultiDict
 
 from pulpcore.plugin.content import ArtifactResponse, Handler, PathNotResolved
-from pulpcore.plugin.models import Content, ContentArtifact
+from pulpcore.plugin.models import ContentArtifact
 from pulpcore.plugin.util import get_domain
 
 from pulp_container.app.cache import RegistryContentCache
@@ -85,19 +85,31 @@ class Registry(Handler):
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
         distribution = await sync_to_async(self._match_distribution)(path, add_trailing_slash=False)
         await sync_to_async(self._permit)(request, distribution)
-        repository_version = await sync_to_async(distribution.get_repository_version)()
-        if not repository_version:
+        repository = await sync_to_async(self._get_repository)(distribution)
+        if repository is None:
             raise PathNotResolved(path)
         if digest == EMPTY_BLOB:
             return await Registry._empty_blob()
 
-        repository = await repository_version.repository.acast()
-        pending_blobs = repository.pending_blobs.values_list("pk")
-        content = repository_version.content | Content.objects.filter(pk__in=pending_blobs)
+        # A blob being added to the repository is always either pending or in the latest
+        # version, so look in the pending blobs first and in the latest version second.
+        blob_artifacts = ContentArtifact.objects.select_related("artifact", "content").filter(
+            relative_path=digest
+        )
+        ca = await blob_artifacts.filter(content__in=repository.pending_blobs.all()).afirst()
+
+        # Not pending: look in the latest version, read only now so that it is no older
+        # than the pending lookup.
+        if ca is None:
+            repository_version = await sync_to_async(distribution.get_repository_version)()
+            ca = await blob_artifacts.filter(content__in=repository_version.content).afirst()
+
+        # In neither place: the repository does not have this blob.
+        if ca is None:
+            raise PathNotResolved(path)
+
+        # Serve the blob, found either pending or in the latest version.
         try:
-            ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
-                content__in=content, relative_path=digest
-            )
             ca_content = await ca.content.acast()
             media_type = BLOB_CONTENT_TYPE
             headers = {
@@ -112,6 +124,21 @@ class Registry(Handler):
                 return await Registry._dispatch(artifact, headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
+
+    @staticmethod
+    def _get_repository(distribution):
+        """
+        Return the repository whose content the distribution serves.
+
+        Returns:
+            The repository, cast to its detail model, or None when the distribution serves
+            neither a repository nor a repository version.
+        """
+        if distribution.repository:
+            return distribution.repository.cast()
+        if distribution.repository_version:
+            return distribution.repository_version.repository.cast()
+        return None
 
     @staticmethod
     async def _empty_blob():
