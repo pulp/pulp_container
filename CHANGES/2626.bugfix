@@ -1,0 +1,1 @@
+Fixed the content app answering 404 for a pull-through blob while the task that adds it to the repository commits.
