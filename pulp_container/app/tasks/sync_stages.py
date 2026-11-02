@@ -52,12 +52,13 @@ class ContainerFirstStage(Stage):
 
     """
 
-    def __init__(self, remote, signed_only):
+    def __init__(self, remote, signed_only, mirror=False):
         """Initialize the stage."""
         super().__init__()
         self.remote = remote
         self.deferred_download = self.remote.policy != Remote.IMMEDIATE
         self.signed_only = signed_only
+        self.mirror = mirror
 
         self.tag_dcs = []
         self.manifest_list_dcs = []
@@ -116,11 +117,158 @@ class ContainerFirstStage(Stage):
 
         return content_data, raw_text_data, response, original_reference
 
+    @staticmethod
+    def _parse_include_entry(entry):
+        """
+        Parse an includes entry into (digest, alias_name).
+
+        Supports two formats:
+        - "sha256:abc123..." — plain digest, no alias
+        - "name=sha256:abc123..." — named alias for a digest
+
+        Returns (digest, alias) where alias is None for plain digests.
+        """
+        if "=" in entry and not entry.startswith("sha256:"):
+            name, _, digest = entry.partition("=")
+            if digest.startswith("sha256:"):
+                return digest, name
+        if entry.startswith("sha256:"):
+            return entry, None
+        return None, None
+
+    def _can_bypass_taglist(self):
+        """
+        Check if we can safely bypass /tags/list enumeration.
+
+        Returns True only if:
+        - includes is populated (specific refs to sync)
+        - All entries are sha256 digests or name=sha256:digest aliases
+        - excludes is empty OR contains only patterns that won't match any includes
+        - Not in mirror mode (would need full list to detect removals)
+        """
+        includes = self.remote.includes or []
+        excludes = self.remote.excludes or []
+
+        if not includes:
+            return False
+
+        if self.mirror:
+            return False
+
+        digests = []
+        for entry in includes:
+            digest, _ = self._parse_include_entry(entry)
+            if not digest:
+                return False
+            digests.append(digest)
+
+        if excludes:
+            harmless_excludes = all(
+                exclude.endswith("-source")
+                or (
+                    exclude.startswith("*")
+                    and not any(d.endswith(exclude.lstrip("*")) for d in digests)
+                )
+                for exclude in excludes
+            )
+            if not harmless_excludes:
+                return False
+
+        return True
+
+    async def _tag_exists(self, tag_name):
+        """Check if a tag exists upstream via lightweight HEAD request."""
+        relative_url = "/v2/{name}/manifests/{tag}".format(
+            name=self.remote.namespaced_upstream_name, tag=tag_name
+        )
+        manifest_url = urljoin(self.remote.url, relative_url)
+        downloader = self.remote.get_downloader(url=manifest_url)
+
+        try:
+            await downloader.run(extra_data={"headers": V2_ACCEPT_HEADERS, "http_method": "head"})
+            return True
+        except Exception:
+            return False
+
+    async def _discover_cosign_companions_without_taglist(self, synced_digests):
+        """
+        Discover cosign companion tags by probing expected patterns via HEAD requests.
+
+        Used when bypassing /tags/list to avoid expensive enumeration.
+        Probes for known cosign patterns:
+        - V2: sha256-<digest>.sig, sha256-<digest>.att, sha256-<digest>.sbom
+        - V3: sha256-<digest> (71 chars, verified via manifest check)
+        """
+        companion_tags = []
+        semaphore = asyncio.Semaphore(20)
+
+        async def probe_tag(tag):
+            async with semaphore:
+                if await self._tag_exists(tag):
+                    return tag
+                return None
+
+        candidates = []
+        for digest in synced_digests:
+            if not digest.startswith("sha256:"):
+                continue
+            digest_hex = digest.split(":", 1)[1]
+
+            candidates.append(f"sha256-{digest_hex}.sig")
+            candidates.append(f"sha256-{digest_hex}.att")
+            candidates.append(f"sha256-{digest_hex}.sbom")
+            candidates.append(f"sha256-{digest_hex}")
+
+        results = await asyncio.gather(*[probe_tag(tag) for tag in candidates])
+        companion_tags = [tag for tag in results if tag]
+
+        return companion_tags
+
     async def run(self):
         """
         ContainerFirstStage.
         """
         signature_source = await self.get_signature_source()
+
+        if self._can_bypass_taglist():
+            digest_list = []
+            self._tag_aliases = {}
+            for entry in self.remote.includes:
+                digest, alias = self._parse_include_entry(entry)
+                digest_list.append(digest)
+                if alias:
+                    self._tag_aliases[digest] = alias
+
+            if self._tag_aliases:
+                log.info(
+                    "Bypassing /tags/list enumeration - syncing %d explicit references "
+                    "directly (%d with named aliases)",
+                    len(digest_list),
+                    len(self._tag_aliases),
+                )
+            else:
+                log.info(
+                    "Bypassing /tags/list enumeration - syncing %d explicit references directly",
+                    len(digest_list),
+                )
+            await self._process_manifests(digest_list, signature_source, "Processing Manifests")
+
+            if getattr(self.remote, "auto_discover_cosign", True):
+                log.info("Auto-discovering cosign companion tags via HEAD probing")
+                companion_tags = await self._discover_cosign_companions_without_taglist(
+                    self._synced_digests
+                )
+                if companion_tags:
+                    log.info(
+                        "Found %d cosign companion tag(s) for synced manifests",
+                        len(companion_tags),
+                    )
+                    await self._process_manifests(
+                        companion_tags,
+                        signature_source,
+                        "Processing Cosign Companion Tags",
+                    )
+            return
 
         async with ProgressReport(
             message="Downloading tag list", code="sync.downloading.tag_list", total=1
@@ -216,6 +364,11 @@ class ContainerFirstStage(Stage):
                 if is_tag:
                     tag_dc = DeclarativeContent(Tag(name=manifest_ref))
 
+                alias_name = getattr(self, "_tag_aliases", {}).get(manifest_ref)
+                alias_dc = None
+                if alias_name:
+                    alias_dc = DeclarativeContent(Tag(name=alias_name))
+
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
                     list_dc = self.create_manifest_list(
                         content_data, raw_text_data, media_type, digest=digest
@@ -264,6 +417,9 @@ class ContainerFirstStage(Stage):
                         if is_tag:
                             tag_dc.extra_data["tagged_manifest_dc"] = list_dc
                             self.tag_dcs.append(tag_dc)
+                        if alias_dc:
+                            alias_dc.extra_data["tagged_manifest_dc"] = list_dc
+                            self.tag_dcs.append(alias_dc)
 
                 else:
                     # Simple tagged manifest
@@ -280,6 +436,9 @@ class ContainerFirstStage(Stage):
                     if is_tag:
                         tag_dc.extra_data["tagged_manifest_dc"] = man_dc
                         self.tag_dcs.append(tag_dc)
+                    if alias_dc:
+                        alias_dc.extra_data["tagged_manifest_dc"] = man_dc
+                        self.tag_dcs.append(alias_dc)
                     self.manifest_dcs.append(man_dc)
 
                 # Count the skipped tasks as parsed too.
