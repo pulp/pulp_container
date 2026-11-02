@@ -176,6 +176,11 @@ class ManifestListManifestResource(QueryModelResource):
 
     class Meta:
         model = ManifestListManifest
+        # Rows are matched by the digests of the manifest list and the listed manifest. The local
+        # integer id of the exporting instance is not portable: using it can overwrite an unrelated
+        # row or violate the unique (image_manifest, manifest_list) constraint on import.
+        exclude = ("id",)
+        import_id_fields = ("manifest_list", "image_manifest")
 
 
 class ManifestSignatureResource(ContainerContentResource):

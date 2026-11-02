@@ -1,0 +1,1 @@
+Fixed the import of manifest list contents from a Pulp export. Links between a manifest list and its listed manifests are now matched by digest instead of the id of the exporting instance, which could overwrite the links of an unrelated manifest list or fail with a unique constraint violation.
