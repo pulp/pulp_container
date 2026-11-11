@@ -4,6 +4,7 @@ import os
 from aiohttp import web
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import connection, transaction
 from multidict import MultiDict
 
 from pulpcore.plugin.content import ArtifactResponse, Handler, PathNotResolved
@@ -85,19 +86,19 @@ class Registry(Handler):
         digest = "sha256:{digest}".format(digest=request.match_info["digest"])
         distribution = await sync_to_async(self._match_distribution)(path, add_trailing_slash=False)
         await sync_to_async(self._permit)(request, distribution)
-        repository_version = await sync_to_async(distribution.get_repository_version)()
+        # Read the repository version and look up the blob in one database snapshot. 'ca' is
+        # None when the blob was not found, and also for the empty blob, which needs no lookup.
+        repository_version, ca = await sync_to_async(
+            self._get_repository_version_and_blob_artifact
+        )(distribution, digest)
         if not repository_version:
             raise PathNotResolved(path)
         if digest == EMPTY_BLOB:
             return await Registry._empty_blob()
 
-        repository = await repository_version.repository.acast()
-        pending_blobs = repository.pending_blobs.values_list("pk")
-        content = repository_version.content | Content.objects.filter(pk__in=pending_blobs)
+        if ca is None:
+            raise PathNotResolved(path)
         try:
-            ca = await ContentArtifact.objects.select_related("artifact", "content").aget(
-                content__in=content, relative_path=digest
-            )
             ca_content = await ca.content.acast()
             media_type = BLOB_CONTENT_TYPE
             headers = {
@@ -112,6 +113,52 @@ class Registry(Handler):
                 return await Registry._dispatch(artifact, headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
+
+    @staticmethod
+    def _get_repository_version_and_blob_artifact(distribution, digest):
+        """
+        Read the distribution's repository version and find the blob's ContentArtifact.
+
+        The blob is looked up in the version's content and in the repository's pending blobs.
+        Both reads run in one REPEATABLE READ transaction, so they see the same snapshot of the
+        database. Since pulp runs only on PostgreSQL using this PostgreSQL specific feature was
+        alright.
+
+        Returns:
+            tuple: (repository_version, content_artifact).
+                repository_version is the RepositoryVersion the distribution serves, or None if it
+                serves none; content_artifact is then None too.
+                content_artifact is None when the blob is in neither place, and when the digest is
+                the empty blob, which the caller serves without a lookup.
+        """
+        with transaction.atomic():
+            # SET TRANSACTION has to come before the transaction's first query. Under the default
+            # READ COMMITTED, each query would see the database as of its own start instead.
+            with connection.cursor() as cursor:
+                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            repository_version = distribution.get_repository_version()
+
+            # No repository version: there is nothing to look the blob up in.
+            if repository_version is None:
+                return None, None
+
+            # The empty blob is served by the caller without a ContentArtifact, but only when the
+            # distribution serves a version, so the version is still returned.
+            if digest == EMPTY_BLOB:
+                return repository_version, None
+
+            # The blob may be in the version's content or still pending on the repository. "|"
+            # joins the two querysets with SQL OR, so the get() below is a single query over both.
+            repository = repository_version.repository.cast()
+            pending_blobs = repository.pending_blobs.values_list("pk")
+            content = repository_version.content | Content.objects.filter(pk__in=pending_blobs)
+            try:
+                ca = ContentArtifact.objects.select_related("artifact", "content").get(
+                    content__in=content, relative_path=digest
+                )
+            except ObjectDoesNotExist:
+                ca = None
+            return repository_version, ca
 
     @staticmethod
     async def _empty_blob():
