@@ -121,12 +121,33 @@ class ContainerFirstStage(Stage):
 
         return content_data, raw_text_data, response, original_reference
 
+    @staticmethod
+    def _parse_include_entry(entry):
+        """
+        Parse an includes entry into (digest, alias_name).
+
+        Supports two formats:
+        - "sha256:abc123..." — plain digest, no alias
+        - "name=sha256:abc123..." — named alias that creates a local tag
+
+        Returns (digest, alias) where alias is None for plain digests,
+        or (None, None) if the entry is not a valid digest reference.
+        """
+        if "=" in entry and not entry.startswith("sha256:"):
+            name, _, digest = entry.partition("=")
+            if re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+                return digest, name
+            return None, None
+        if re.fullmatch(r"sha256:[0-9a-f]{64}", entry):
+            return entry, None
+        return None, None
+
     def _can_bypass_taglist(self):
         """
         Check if we can safely bypass /tags/list enumeration.
 
         Returns True only if all includes are explicit sha256 digests
-        and we are not in mirror mode (which needs the full list to detect removals).
+        (or name=sha256:digest aliases) and we are not in mirror mode.
         """
         includes = self.remote.includes or []
 
@@ -136,7 +157,7 @@ class ContainerFirstStage(Stage):
         if self.mirror:
             return False
 
-        return all(re.fullmatch(r"sha256:[0-9a-f]{64}", entry) for entry in includes)
+        return all(self._parse_include_entry(entry)[0] is not None for entry in includes)
 
     async def _tag_exists(self, tag_name):
         """Check if a tag exists upstream via lightweight HEAD request."""
@@ -193,7 +214,14 @@ class ContainerFirstStage(Stage):
 
         self._bypass_taglist = self._can_bypass_taglist()
         if self._bypass_taglist:
-            digest_list = list(self.remote.includes)
+            digest_list = []
+            self._tag_aliases = {}
+            for entry in self.remote.includes:
+                digest, alias = self._parse_include_entry(entry)
+                digest_list.append(digest)
+                if alias:
+                    self._tag_aliases[digest] = alias
+
             log.info(
                 "Bypassing /tags/list enumeration - syncing %d explicit digests directly",
                 len(digest_list),
@@ -308,6 +336,11 @@ class ContainerFirstStage(Stage):
                 if is_tag:
                     tag_dc = DeclarativeContent(Tag(name=manifest_ref))
 
+                alias_name = getattr(self, "_tag_aliases", {}).get(manifest_ref)
+                alias_dc = None
+                if alias_name:
+                    alias_dc = DeclarativeContent(Tag(name=alias_name))
+
                 if media_type in (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.INDEX_OCI):
                     list_dc = self.create_manifest_list(
                         content_data, raw_text_data, media_type, digest=digest
@@ -356,6 +389,9 @@ class ContainerFirstStage(Stage):
                         if is_tag:
                             tag_dc.extra_data["tagged_manifest_dc"] = list_dc
                             self.tag_dcs.append(tag_dc)
+                        if alias_dc:
+                            alias_dc.extra_data["tagged_manifest_dc"] = list_dc
+                            self.tag_dcs.append(alias_dc)
 
                 else:
                     # Simple tagged manifest
@@ -372,6 +408,9 @@ class ContainerFirstStage(Stage):
                     if is_tag:
                         tag_dc.extra_data["tagged_manifest_dc"] = man_dc
                         self.tag_dcs.append(tag_dc)
+                    if alias_dc:
+                        alias_dc.extra_data["tagged_manifest_dc"] = man_dc
+                        self.tag_dcs.append(alias_dc)
                     self.manifest_dcs.append(man_dc)
 
                 # Count the skipped tasks as parsed too.

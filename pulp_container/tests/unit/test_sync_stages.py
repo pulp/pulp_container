@@ -165,6 +165,52 @@ class TestCosignCompanionHelpers(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(await self.stage._has_cosign_signature(digest))
 
 
+class TestParseIncludeEntry(unittest.TestCase):
+    """Test _parse_include_entry static method."""
+
+    def test_plain_digest(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("sha256:" + "a" * 64)
+        assert digest == "sha256:" + "a" * 64
+        assert alias is None
+
+    def test_named_alias(self):
+        entry = "cli=sha256:" + "b" * 64
+        digest, alias = ContainerFirstStage._parse_include_entry(entry)
+        assert digest == "sha256:" + "b" * 64
+        assert alias == "cli"
+
+    def test_named_alias_with_hyphens(self):
+        entry = "cluster-dns-operator=sha256:" + "c" * 64
+        digest, alias = ContainerFirstStage._parse_include_entry(entry)
+        assert digest == "sha256:" + "c" * 64
+        assert alias == "cluster-dns-operator"
+
+    def test_non_digest_tag(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("latest")
+        assert digest is None
+        assert alias is None
+
+    def test_wildcard_pattern(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("v1.*")
+        assert digest is None
+        assert alias is None
+
+    def test_name_equals_non_digest(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("name=latest")
+        assert digest is None
+        assert alias is None
+
+    def test_short_hex_rejected(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("sha256:" + "a" * 63)
+        assert digest is None
+        assert alias is None
+
+    def test_uppercase_hex_rejected(self):
+        digest, alias = ContainerFirstStage._parse_include_entry("sha256:" + "A" * 64)
+        assert digest is None
+        assert alias is None
+
+
 class TestCanBypassTaglist(unittest.TestCase):
     """Test _can_bypass_taglist decision logic."""
 
@@ -184,9 +230,13 @@ class TestCanBypassTaglist(unittest.TestCase):
         stage = self._make_stage(includes=["latest", "sha256:" + "a" * 64])
         assert stage._can_bypass_taglist() is False
 
-    def test_alias_entry_prevents_bypass(self):
+    def test_alias_entry_allows_bypass(self):
         stage = self._make_stage(includes=["cli=sha256:" + "a" * 64])
-        assert stage._can_bypass_taglist() is False
+        assert stage._can_bypass_taglist() is True
+
+    def test_mixed_digests_and_aliases(self):
+        stage = self._make_stage(includes=["sha256:" + "a" * 64, "cli=sha256:" + "b" * 64])
+        assert stage._can_bypass_taglist() is True
 
     def test_wildcard_entry_prevents_bypass(self):
         stage = self._make_stage(includes=["v1.*"])

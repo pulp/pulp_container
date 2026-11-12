@@ -1,0 +1,1 @@
+Added named alias support for digest-based sync. Entries in `includes` using the format `name=sha256:digest` create human-readable tags alongside the digest, enabling friendly image references in disconnected environments.
