@@ -755,7 +755,18 @@ class ContainerRepository(
         """
         remove_duplicates(new_version)
         validate_repo_version(new_version)
-        self.remove_pending_content(new_version)
+
+    def on_new_version(self, version):
+        """
+        Remove the content the new version added from the pending blobs and manifests.
+
+        pulpcore calls this once the version is complete and committed, so the content is always
+        either pending or in the latest complete version, never neither, for the content app.
+        Args:
+            version (pulpcore.app.models.RepositoryVersion): The new, complete RepositoryVersion.
+        """
+        super().on_new_version(version)
+        self.remove_pending_content(version)
 
     def remove_pending_content(self, repository_version):
         """Remove pending blobs and manifests when committing the content to the repository."""
@@ -809,7 +820,18 @@ class ContainerPushRepository(Repository, AutoAddObjPermsMixin):
         """
         remove_duplicates(new_version)
         validate_repo_version(new_version)
-        self.remove_pending_content(new_version)
+
+    def on_new_version(self, version):
+        """
+        Remove the content the new version added from the pending blobs and manifests.
+
+        pulpcore calls this once the version is complete and committed, so the content is always
+        either pending or in the latest complete version, never neither, for the content app.
+        Args:
+            version (pulpcore.app.models.RepositoryVersion): The new, complete RepositoryVersion.
+        """
+        super().on_new_version(version)
+        self.remove_pending_content(version)
 
     def remove_pending_content(self, repository_version):
         """Remove pending blobs and manifests when committing the content to the repository."""
