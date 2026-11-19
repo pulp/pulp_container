@@ -8,7 +8,7 @@ from multidict import MultiDict
 
 from pulpcore.plugin.content import ArtifactResponse, Handler, PathNotResolved
 from pulpcore.plugin.models import Content, ContentArtifact
-from pulpcore.plugin.util import get_domain
+from pulpcore.plugin.util import get_domain, get_local_storage_path
 
 from pulp_container.app.cache import RegistryContentCache
 from pulp_container.app.models import ContainerDistribution
@@ -64,14 +64,12 @@ class Registry(Handler):
         full_headers["Docker-Content-Digest"] = headers["Docker-Content-Digest"]
         full_headers["Docker-Distribution-API-Version"] = "registry/2.0"
 
-        if domain.storage_class == "pulpcore.app.models.storage.FileSystem":
-            file = artifact.file
-            path = os.path.join(domain.get_storage().location, file.name)
+        path = get_local_storage_path(artifact.file, domain=domain)
+        if path is not None:
             if not os.path.exists(path):
                 raise Exception("Expected path '{}' is not found".format(path))
             return web.FileResponse(path, headers=full_headers)
-        else:
-            return ArtifactResponse(artifact=artifact, headers=headers)
+        return ArtifactResponse(artifact=artifact, headers=headers)
 
     @RegistryContentCache(
         base_key=lambda req, cac: Registry.find_base_path_cached(req, cac),
