@@ -4,6 +4,8 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 
+from pulpcore.plugin.util import get_direct_storage_url
+
 from pulp_container.constants import BLOB_CONTENT_TYPE
 
 
@@ -38,21 +40,9 @@ class CommonRedirects:
         )
 
 
-class FileStorageRedirects(CommonRedirects):
+class StorageRedirects(CommonRedirects):
     """
-    A class which contains methods used for redirecting to the default django's file storage.
-    """
-
-    def issue_blob_redirect(self, blob):
-        """
-        Issue a redirect for the passed blob.
-        """
-        return self.redirect_to_content_app("blobs", blob.digest)
-
-
-class S3StorageRedirects(CommonRedirects):
-    """
-    A class that implements methods for the direct retrieval of manifest objects.
+    Redirect blobs to storage when the Domain supports direct URLs.
     """
 
     def issue_blob_redirect(self, blob):
@@ -64,36 +54,14 @@ class S3StorageRedirects(CommonRedirects):
         except ObjectDoesNotExist:
             return self.redirect_to_content_app("blobs", blob.digest)
 
-        return self.redirect_to_object_storage(artifact, BLOB_CONTENT_TYPE)
-
-    def redirect_to_object_storage(self, artifact, return_media_type):
-        """
-        Redirect to the passed artifact's file stored in the S3 storage.
-        """
-        filename = f"sha256:{artifact.sha256}"
-        parameters = {
-            "ResponseContentType": return_media_type,
-            "ResponseContentDisposition": f"attachment;filename={filename}",
-        }
-        content_url = artifact.file.storage.url(
-            artifact.file.name, parameters=parameters, http_method=self.request.method
+        content_url = get_direct_storage_url(
+            artifact.file,
+            headers={
+                "Content-Type": BLOB_CONTENT_TYPE,
+                "Content-Disposition": f"attachment;filename=sha256:{artifact.sha256}",
+            },
+            http_method=self.request.method,
         )
-        return redirect(content_url)
-
-
-class AzureStorageRedirects(S3StorageRedirects):
-    """
-    A class that implements methods for the direct retrieval of manifest objects.
-    """
-
-    def redirect_to_object_storage(self, artifact, return_media_type):
-        """
-        Redirect to the passed artifact's file stored in the Azure storage.
-        """
-        filename = f"sha256:{artifact.sha256}"
-        parameters = {
-            "content_type": return_media_type,
-            "content_disposition": f"attachment;filename={filename}",
-        }
-        content_url = artifact.file.storage.url(artifact.file.name, parameters=parameters)
+        if content_url is None:
+            return self.redirect_to_content_app("blobs", blob.digest)
         return redirect(content_url)
