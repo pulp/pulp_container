@@ -1,0 +1,1 @@
+Added tag list bypass optimization for digest-based sync. When all entries in a remote's `includes` field are sha256 digests, the sync pipeline skips the expensive `/tags/list` enumeration and fetches manifests directly by digest.
