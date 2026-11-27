@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-from pulp_container.tests.functional.constants import REGISTRY_V2_REPO_PULP
+from pulp_container.tests.functional.constants import PULP_LABELED_FIXTURE, REGISTRY_V2_REPO_PULP
 
 
 def test_import_export_standard(
@@ -190,3 +190,89 @@ def test_import_export_create_repositories(
 
     monitor_task(container_bindings.RepositoriesContainerApi.delete(repositories[0].pulp_href).task)
     monitor_task(pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 0}).task)
+
+
+def test_import_manifest_list_that_exists_under_another_link_id(
+    container_bindings,
+    container_repository_factory,
+    container_remote_factory,
+    container_sync,
+    pulpcore_bindings,
+    gen_object_with_cleanup,
+    has_pulp_plugin,
+    monitor_task,
+    monitor_task_group,
+    pulp_settings,
+):
+    """Test importing a manifest list whose links already exist under different ids.
+
+    The export names the links between a manifest list and its listed manifests by digest. The
+    ids of these rows are local to the exporting instance and must not be used to find a row.
+    """
+    if pulp_settings.DOMAIN_ENABLED and not has_pulp_plugin("core", min="3.90.0"):
+        pytest.skip("Pulp Import/Export only supported under domains in core>=3.90")
+
+    remote = container_remote_factory(upstream_name=PULP_LABELED_FIXTURE)
+    repository = container_repository_factory()
+    container_sync(repository, remote)
+
+    body = {
+        "name": str(uuid.uuid4()),
+        "path": f"/tmp/{uuid.uuid4()}/",
+        "repositories": [repository.pulp_href],
+    }
+    exporter = gen_object_with_cleanup(pulpcore_bindings.ExportersPulpApi, body)
+    export_response = pulpcore_bindings.ExportersPulpExportsApi.create(exporter.pulp_href, {})
+    export_href = monitor_task(export_response.task).created_resources[0]
+    export = pulpcore_bindings.ExportersPulpExportsApi.read(export_href)
+
+    # Remove the exported content, so that the ids of its list links are free
+    repository = container_bindings.RepositoriesContainerApi.read(repository.pulp_href)
+    monitor_task(
+        container_bindings.RepositoriesContainerVersionsApi.delete(
+            repository.latest_version_href
+        ).task
+    )
+    monitor_task(pulpcore_bindings.OrphansCleanupApi.cleanup({"orphan_protection_time": 0}).task)
+
+    # Sync the same content again. Its list links are created with ids that differ from the export
+    existing_repository = container_repository_factory()
+    container_sync(existing_repository, remote)
+    existing_repository = container_bindings.RepositoriesContainerApi.read(
+        existing_repository.pulp_href
+    )
+    existing_lists = [
+        manifest
+        for manifest in container_bindings.ContentManifestsApi.list(
+            repository_version=existing_repository.latest_version_href
+        ).results
+        if manifest.listed_manifests
+    ]
+    assert existing_lists
+
+    import_repository = container_repository_factory()
+    body = {
+        "name": str(uuid.uuid4()),
+        "repo_mapping": {repository.name: import_repository.name},
+    }
+    importer = gen_object_with_cleanup(pulpcore_bindings.ImportersPulpApi, body)
+
+    filenames = [f for f in list(export.output_file_info.keys()) if f.endswith(".tar")]
+    import_response = pulpcore_bindings.ImportersPulpImportsApi.create(
+        importer.pulp_href, {"path": filenames[0]}
+    )
+    monitor_task_group(import_response.task_group)
+
+    import_repository = container_bindings.RepositoriesContainerApi.read(
+        import_repository.pulp_href
+    )
+    imported_lists = [
+        manifest
+        for manifest in container_bindings.ContentManifestsApi.list(
+            repository_version=import_repository.latest_version_href
+        ).results
+        if manifest.listed_manifests
+    ]
+    assert {m.digest: sorted(m.listed_manifests) for m in imported_lists} == {
+        m.digest: sorted(m.listed_manifests) for m in existing_lists
+    }
